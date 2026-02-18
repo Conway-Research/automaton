@@ -14,3 +14,4 @@ export * from './consensus.js';
 export * from './oracle.js';
 export * from './proto/index.js';
 export * from './cms-physics.js';
+export * from './coherence-modulation.js';
