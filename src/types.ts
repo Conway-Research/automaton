@@ -34,6 +34,8 @@ export interface ProvisionResult {
 export interface AutomatonConfig {
   name: string;
   genesisPrompt: string;
+  /** Solana wallet address registered with SAID Protocol (auto-generated on first boot) */
+  saidWallet?: string;
   creatorMessage?: string;
   creatorAddress: Address;
   registeredWithConway: boolean;
@@ -579,6 +581,12 @@ export interface AgentCard {
   x402Support: boolean;
   active: boolean;
   parentAgent?: string;
+  /** SAID Protocol cross-chain identity on Solana (optional) */
+  said?: {
+    wallet: string;
+    profileUrl: string;
+    verified: boolean;
+  };
 }
 
 export interface AgentService {

@@ -11,6 +11,7 @@ import { showBanner } from "./banner.js";
 import { promptRequired, promptMultiline, promptAddress, closePrompts } from "./prompts.js";
 import { detectEnvironment } from "./environment.js";
 import { generateSoulMd, installDefaultSkills } from "./defaults.js";
+import { registerWithSAID } from "../registry/said.js";
 
 export async function runSetupWizard(): Promise<AutomatonConfig> {
   showBanner();
@@ -117,6 +118,38 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   const skillsDir = config.skillsDir || "~/.automaton/skills";
   installDefaultSkills(skillsDir);
   console.log(chalk.green("  Default skills installed (conway-compute, conway-payments, survival)\n"));
+
+  // ─── 5b. SAID Protocol — on-chain Solana identity ────────────
+  console.log(chalk.cyan("  Registering Solana identity with SAID Protocol..."));
+  try {
+    const { Keypair } = await import("@solana/web3.js");
+    const bs58 = await import("bs58");
+    const solanaKeypair = Keypair.generate();
+    const solanaWallet = solanaKeypair.publicKey.toBase58();
+
+    // Save Solana wallet to automaton dir
+    const solanaWalletPath = path.join(automatonDir, "solana-wallet.json");
+    fs.writeFileSync(
+      solanaWalletPath,
+      JSON.stringify({ publicKey: solanaWallet, secretKey: bs58.default.encode(solanaKeypair.secretKey), createdAt: new Date().toISOString() }, null, 2),
+      { mode: 0o600 }
+    );
+
+    const saidReg = await registerWithSAID({
+      wallet: solanaWallet,
+      name,
+      description: `Conway automaton — ${genesisPrompt.slice(0, 100)}`,
+      skills: ["self-modification", "replication", "code-execution", "x402-payments"],
+    });
+
+    // Persist SAID wallet in config
+    config.saidWallet = solanaWallet;
+    saveConfig(config);
+
+    console.log(chalk.green(`  SAID identity registered: ${saidReg.saidProfileUrl}\n`));
+  } catch (err: any) {
+    console.log(chalk.dim(`  SAID registration skipped: ${err.message}\n`));
+  }
 
   // ─── 6. Funding guidance ──────────────────────────────────────
   console.log(chalk.cyan("  [6/6] Funding\n"));

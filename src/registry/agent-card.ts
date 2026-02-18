@@ -14,18 +14,21 @@ import type {
   AutomatonDatabase,
   ConwayClient,
 } from "../types.js";
+import { checkSAIDRegistration } from "./said.js";
 
 const AGENT_CARD_TYPE =
   "https://eips.ethereum.org/EIPS/eip-8004#registration-v1";
 
 /**
  * Generate an agent card from the automaton's current state.
+ * Pass saidWallet to include SAID Protocol cross-chain identity.
  */
-export function generateAgentCard(
+export async function generateAgentCard(
   identity: AutomatonIdentity,
   config: AutomatonConfig,
   db: AutomatonDatabase,
-): AgentCard {
+  saidWallet?: string,
+): Promise<AgentCard> {
   const services: AgentService[] = [
     {
       name: "agentWallet",
@@ -57,6 +60,19 @@ export function generateAgentCard(
     description += ` Children: ${children.length}.`;
   }
 
+  // Optionally include SAID Protocol cross-chain identity
+  let said: AgentCard["said"] | undefined;
+  if (saidWallet) {
+    const saidStatus = await checkSAIDRegistration(saidWallet).catch(() => null);
+    if (saidStatus?.registered) {
+      said = {
+        wallet: saidWallet,
+        profileUrl: saidStatus.profileUrl,
+        verified: saidStatus.verified,
+      };
+    }
+  }
+
   return {
     type: AGENT_CARD_TYPE,
     name: config.name,
@@ -65,6 +81,7 @@ export function generateAgentCard(
     x402Support: true,
     active: true,
     parentAgent: config.parentAddress || config.creatorAddress,
+    ...(said && { said }),
   };
 }
 
