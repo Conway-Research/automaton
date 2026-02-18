@@ -4,7 +4,7 @@
  * Tests for heartbeat tasks, especially the social inbox checker.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { BUILTIN_TASKS } from "../heartbeat/tasks.js";
 import {
   MockConwayClient,

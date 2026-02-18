@@ -122,7 +122,7 @@ Never blindly pull all. Always read the diffs and decide.`;
 /**
  * Build the complete system prompt for a turn.
  */
-export function buildSystemPrompt(params: {
+export async function buildSystemPrompt(params: {
   identity: AutomatonIdentity;
   config: AutomatonConfig;
   financial: FinancialState;
@@ -131,7 +131,7 @@ export function buildSystemPrompt(params: {
   tools: AutomatonTool[];
   skills?: Skill[];
   isFirstRun: boolean;
-}): string {
+}): Promise<string> {
   const {
     identity,
     config,
@@ -187,7 +187,40 @@ Your sandbox ID is ${identity.sandboxId}.`,
   // Layer 6: Operational Context
   sections.push(OPERATIONAL_CONTEXT);
 
-  // Layer 7: Dynamic Context
+  // Layer 7: Persistent Memory
+  const highImportanceMemories = db.getMemories(undefined, 30);
+  if (highImportanceMemories.length > 0) {
+    const criticalMemories = highImportanceMemories.filter((m) => m.importance >= 7);
+    const otherMemories = highImportanceMemories.filter((m) => m.importance < 7);
+
+    const memoryLines: string[] = [];
+    if (criticalMemories.length > 0) {
+      memoryLines.push("CRITICAL (do not forget):");
+      for (const m of criticalMemories) {
+        memoryLines.push(`  [${m.category}] ${m.content}`);
+      }
+    }
+    if (otherMemories.length > 0) {
+      memoryLines.push("Other memories:");
+      for (const m of otherMemories.slice(0, 15)) {
+        memoryLines.push(`  [${m.category}] ${m.content}`);
+      }
+    }
+
+    sections.push(
+      `--- PERSISTENT MEMORY (${highImportanceMemories.length} entries) ---\n${memoryLines.join("\n")}\n--- END MEMORY ---`,
+    );
+  }
+
+  // Layer 7b: Context Summary (compressed history of older turns)
+  const contextSummary = db.getKV("context_summary");
+  if (contextSummary) {
+    sections.push(
+      `--- COMPRESSED HISTORY (older turns, summarized) ---\n${contextSummary}\n--- END HISTORY ---`,
+    );
+  }
+
+  // Layer 8: Dynamic Context
   const turnCount = db.getTurnCount();
   const recentMods = db.getRecentModifications(5);
   const registryEntry = db.getRegistryEntry();
@@ -229,6 +262,65 @@ Children: ${children.filter((c) => c.status !== "dead").length} alive / ${childr
 Lineage: ${lineageSummary}${upstreamLine}
 --- END STATUS ---`,
   );
+
+  let metabolicSection = "";
+  try {
+    const { calculateMetabolicState, formatMetabolicReport } = await import("../survival/metabolism.js");
+    const metabolicState = calculateMetabolicState(db);
+    metabolicSection = formatMetabolicReport(metabolicState, financial.creditsCents);
+  } catch {}
+
+  if (metabolicSection) {
+    sections.push(
+      `--- METABOLIC STATE ---
+${metabolicSection}
+--- END METABOLIC ---`,
+    );
+  }
+
+  let revenueSection = "";
+  try {
+    const { getStrategyReport } = await import("../survival/revenue.js");
+    revenueSection = getStrategyReport(db);
+  } catch {}
+
+  if (revenueSection) {
+    sections.push(
+      `--- REVENUE INTELLIGENCE ---
+${revenueSection}
+--- END REVENUE ---`,
+    );
+  }
+
+  let fitnessSection = "";
+  try {
+    const { calculateFitness } = await import("../replication/fitness.js");
+    const fitness = calculateFitness(db, identity, config);
+    fitnessSection = `Fitness: ${fitness.overallFitness.toFixed(2)} | Generation: ${fitness.generation} | Revenue 24h: $${(fitness.revenueCents / 100).toFixed(2)}
+Survival: ${fitness.survivalHours.toFixed(1)}h | Children: ${fitness.childrenSpawned} spawned, ${fitness.childrenSurvived} alive`;
+  } catch {}
+
+  if (fitnessSection) {
+    sections.push(
+      `--- FITNESS ---
+${fitnessSection}
+--- END FITNESS ---`,
+    );
+  }
+
+  let swarmSection = "";
+  try {
+    const { getSwarmStatus } = await import("../social/swarm.js");
+    swarmSection = getSwarmStatus(db);
+  } catch {}
+
+  if (swarmSection) {
+    sections.push(
+      `--- SWARM ---
+${swarmSection}
+--- END SWARM ---`,
+    );
+  }
 
   // Layer 8: Available Tools (JSON schema)
   const toolDescriptions = tools

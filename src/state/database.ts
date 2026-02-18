@@ -2,10 +2,10 @@
  * Automaton Database
  *
  * SQLite-backed persistent state for the automaton.
- * Uses better-sqlite3 for synchronous, single-process access.
+ * Uses bun:sqlite for synchronous, single-process access.
  */
 
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import fs from "fs";
 import path from "path";
 import type {
@@ -23,8 +23,17 @@ import type {
   RegistryEntry,
   ReputationEntry,
   InboxMessage,
+  MemoryEntry,
+  MemoryCategory,
+  CostEvent,
+  RevenueEvent,
+  Strategy,
+  ModelBenchmark,
+  HostedService,
+  SelfEvaluation,
+  FitnessScore,
 } from "../types.js";
-import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3 } from "./schema.js";
+import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5 } from "./schema.js";
 
 export function createDatabase(dbPath: string): AutomatonDatabase {
   // Ensure directory exists
@@ -36,8 +45,8 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
   const db = new Database(dbPath);
 
   // Enable WAL mode for better concurrent read performance
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
 
   // Initialize schema
   db.exec(CREATE_TABLES);
@@ -54,6 +63,14 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   if (currentVersion < 3) {
     db.exec(MIGRATION_V3);
+  }
+
+  if (currentVersion < 4) {
+    db.exec(MIGRATION_V4);
+  }
+
+  if (currentVersion < 5) {
+    db.exec(MIGRATION_V5);
   }
 
   if (currentVersion < SCHEMA_VERSION) {
@@ -444,6 +461,258 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     setKV("agent_state", state);
   };
 
+  // ─── Memory ─────────────────────────────────────────────────
+
+  const insertMemory = (entry: MemoryEntry): void => {
+    db.prepare(
+      `INSERT OR REPLACE INTO memories (id, category, content, importance, created_at, last_accessed_at, access_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      entry.id,
+      entry.category,
+      entry.content,
+      entry.importance,
+      entry.createdAt,
+      entry.lastAccessedAt,
+      entry.accessCount,
+    );
+  };
+
+  const getMemories = (category?: MemoryCategory, limit?: number): MemoryEntry[] => {
+    const maxResults = limit || 50;
+    const query = category
+      ? "SELECT * FROM memories WHERE category = ? ORDER BY importance DESC, last_accessed_at DESC LIMIT ?"
+      : "SELECT * FROM memories ORDER BY importance DESC, last_accessed_at DESC LIMIT ?";
+    const params = category ? [category, maxResults] : [maxResults];
+    const rows = db.prepare(query).all(...params) as any[];
+    return rows.map(deserializeMemory);
+  };
+
+  const searchMemories = (query: string, limit?: number): MemoryEntry[] => {
+    const maxResults = limit || 20;
+    const pattern = `%${query}%`;
+    const rows = db
+      .prepare(
+        "SELECT * FROM memories WHERE content LIKE ? ORDER BY importance DESC, last_accessed_at DESC LIMIT ?",
+      )
+      .all(pattern, maxResults) as any[];
+    return rows.map(deserializeMemory);
+  };
+
+  const touchMemory = (id: string): void => {
+    db.prepare(
+      "UPDATE memories SET last_accessed_at = datetime('now'), access_count = access_count + 1 WHERE id = ?",
+    ).run(id);
+  };
+
+  const deleteMemory = (id: string): void => {
+    db.prepare("DELETE FROM memories WHERE id = ?").run(id);
+  };
+
+  // ─── Cost Events ─────────────────────────────────────────────
+
+  const insertCostEvent = (event: CostEvent): void => {
+    db.prepare(
+      `INSERT INTO cost_events (id, type, amount_cents, description, timestamp)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(event.id, event.type, event.amountCents, event.description, event.timestamp);
+  };
+
+  const getCostEventsSince = (since: string): CostEvent[] => {
+    const rows = db
+      .prepare("SELECT * FROM cost_events WHERE timestamp >= ? ORDER BY timestamp ASC")
+      .all(since) as any[];
+    return rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      amountCents: r.amount_cents,
+      description: r.description,
+      timestamp: r.timestamp,
+    }));
+  };
+
+  // ─── Revenue Events ─────────────────────────────────────────
+
+  const insertRevenueEvent = (event: RevenueEvent): void => {
+    db.prepare(
+      `INSERT INTO revenue_events (id, strategy_id, amount_cents, source, description, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(event.id, event.strategyId, event.amountCents, event.source, event.description, event.timestamp);
+  };
+
+  const getRevenueEventsSince = (since: string): RevenueEvent[] => {
+    const rows = db
+      .prepare("SELECT * FROM revenue_events WHERE timestamp >= ? ORDER BY timestamp ASC")
+      .all(since) as any[];
+    return rows.map((r) => ({
+      id: r.id,
+      strategyId: r.strategy_id,
+      amountCents: r.amount_cents,
+      source: r.source,
+      description: r.description,
+      timestamp: r.timestamp,
+    }));
+  };
+
+  // ─── Strategies ─────────────────────────────────────────────
+
+  const upsertStrategy = (strategy: Strategy): void => {
+    db.prepare(
+      `INSERT OR REPLACE INTO strategies (id, name, description, type, status, total_invested_cents, total_earned_cents, roi, started_at, last_revenue_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      strategy.id, strategy.name, strategy.description, strategy.type, strategy.status,
+      strategy.totalInvestedCents, strategy.totalEarnedCents, strategy.roi,
+      strategy.startedAt, strategy.lastRevenueAt ?? null,
+    );
+  };
+
+  const getStrategies = (activeOnly?: boolean): Strategy[] => {
+    const query = activeOnly
+      ? "SELECT * FROM strategies WHERE status = 'active' ORDER BY roi DESC"
+      : "SELECT * FROM strategies ORDER BY roi DESC";
+    const rows = db.prepare(query).all() as any[];
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      type: r.type,
+      status: r.status,
+      totalInvestedCents: r.total_invested_cents,
+      totalEarnedCents: r.total_earned_cents,
+      roi: r.roi,
+      startedAt: r.started_at,
+      lastRevenueAt: r.last_revenue_at ?? undefined,
+    }));
+  };
+
+  const getStrategyById = (id: string): Strategy | undefined => {
+    const row = db.prepare("SELECT * FROM strategies WHERE id = ?").get(id) as any | undefined;
+    if (!row) return undefined;
+    return {
+      id: row.id, name: row.name, description: row.description, type: row.type,
+      status: row.status, totalInvestedCents: row.total_invested_cents,
+      totalEarnedCents: row.total_earned_cents, roi: row.roi,
+      startedAt: row.started_at, lastRevenueAt: row.last_revenue_at ?? undefined,
+    };
+  };
+
+  // ─── Model Benchmarks ───────────────────────────────────────
+
+  const insertModelBenchmark = (benchmark: ModelBenchmark): void => {
+    db.prepare(
+      `INSERT INTO model_benchmarks (id, model_id, task_type, score, cost_cents, latency_ms, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(benchmark.id, benchmark.modelId, benchmark.taskType, benchmark.score,
+      benchmark.costCents, benchmark.latencyMs, benchmark.timestamp);
+  };
+
+  const getModelBenchmarks = (modelId?: string, limit?: number): ModelBenchmark[] => {
+    const maxResults = limit || 50;
+    const query = modelId
+      ? "SELECT * FROM model_benchmarks WHERE model_id = ? ORDER BY timestamp DESC LIMIT ?"
+      : "SELECT * FROM model_benchmarks ORDER BY timestamp DESC LIMIT ?";
+    const params = modelId ? [modelId, maxResults] : [maxResults];
+    const rows = db.prepare(query).all(...params) as any[];
+    return rows.map((r) => ({
+      id: r.id, modelId: r.model_id, taskType: r.task_type, score: r.score,
+      costCents: r.cost_cents, latencyMs: r.latency_ms, timestamp: r.timestamp,
+    }));
+  };
+
+  // ─── Hosted Services ────────────────────────────────────────
+
+  const upsertHostedService = (service: HostedService): void => {
+    db.prepare(
+      `INSERT OR REPLACE INTO hosted_services (id, name, description, endpoint, price_cents, handler_code, active, total_requests, total_earned_cents, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(service.id, service.name, service.description, service.endpoint,
+      service.priceCents, service.handlerCode, service.active ? 1 : 0,
+      service.totalRequests, service.totalEarnedCents, service.createdAt);
+  };
+
+  const getHostedServices = (activeOnly?: boolean): HostedService[] => {
+    const query = activeOnly
+      ? "SELECT * FROM hosted_services WHERE active = 1"
+      : "SELECT * FROM hosted_services";
+    const rows = db.prepare(query).all() as any[];
+    return rows.map((r) => ({
+      id: r.id, name: r.name, description: r.description, endpoint: r.endpoint,
+      priceCents: r.price_cents, handlerCode: r.handler_code,
+      active: !!r.active, totalRequests: r.total_requests,
+      totalEarnedCents: r.total_earned_cents, createdAt: r.created_at,
+    }));
+  };
+
+  const getHostedServiceById = (id: string): HostedService | undefined => {
+    const row = db.prepare("SELECT * FROM hosted_services WHERE id = ?").get(id) as any | undefined;
+    if (!row) return undefined;
+    return {
+      id: row.id, name: row.name, description: row.description, endpoint: row.endpoint,
+      priceCents: row.price_cents, handlerCode: row.handler_code,
+      active: !!row.active, totalRequests: row.total_requests,
+      totalEarnedCents: row.total_earned_cents, createdAt: row.created_at,
+    };
+  };
+
+  const incrementServiceStats = (id: string, earnedCents: number): void => {
+    db.prepare(
+      "UPDATE hosted_services SET total_requests = total_requests + 1, total_earned_cents = total_earned_cents + ? WHERE id = ?",
+    ).run(earnedCents, id);
+  };
+
+  // ─── Self-Evaluations ───────────────────────────────────────
+
+  const insertSelfEvaluation = (evaluation: SelfEvaluation): void => {
+    db.prepare(
+      `INSERT INTO self_evaluations (id, timestamp, turns_since, burn_rate_cents_per_hour, income_rate_cents_per_hour, net_positive, top_strategy, worst_strategy, recommendation, reasoning)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(evaluation.id, evaluation.timestamp, evaluation.turnsSince,
+      evaluation.burnRateCentsPerHour, evaluation.incomeRateCentsPerHour,
+      evaluation.netPositive ? 1 : 0, evaluation.topStrategy ?? null,
+      evaluation.worstStrategy ?? null, evaluation.recommendation, evaluation.reasoning);
+  };
+
+  const getRecentEvaluations = (limit: number): SelfEvaluation[] => {
+    const rows = db
+      .prepare("SELECT * FROM self_evaluations ORDER BY timestamp DESC LIMIT ?")
+      .all(limit) as any[];
+    return rows.map((r) => ({
+      id: r.id, timestamp: r.timestamp, turnsSince: r.turns_since,
+      burnRateCentsPerHour: r.burn_rate_cents_per_hour,
+      incomeRateCentsPerHour: r.income_rate_cents_per_hour,
+      netPositive: !!r.net_positive, topStrategy: r.top_strategy ?? undefined,
+      worstStrategy: r.worst_strategy ?? undefined,
+      recommendation: r.recommendation, reasoning: r.reasoning,
+    }));
+  };
+
+  // ─── Fitness Scores ─────────────────────────────────────────
+
+  const insertFitnessScore = (score: FitnessScore): void => {
+    db.prepare(
+      `INSERT INTO fitness_scores (id, agent_address, generation, revenue_cents, survival_hours, children_spawned, children_survived, metabolic_efficiency, overall_fitness, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(score.id, score.agentAddress, score.generation, score.revenueCents,
+      score.survivalHours, score.childrenSpawned, score.childrenSurvived,
+      score.metabolicEfficiency, score.overallFitness, score.timestamp);
+  };
+
+  const getFitnessScores = (agentAddress?: string): FitnessScore[] => {
+    const query = agentAddress
+      ? "SELECT * FROM fitness_scores WHERE agent_address = ? ORDER BY timestamp DESC"
+      : "SELECT * FROM fitness_scores ORDER BY overall_fitness DESC";
+    const params = agentAddress ? [agentAddress] : [];
+    const rows = db.prepare(query).all(...params) as any[];
+    return rows.map((r) => ({
+      id: r.id, agentAddress: r.agent_address, generation: r.generation,
+      revenueCents: r.revenue_cents, survivalHours: r.survival_hours,
+      childrenSpawned: r.children_spawned, childrenSurvived: r.children_survived,
+      metabolicEfficiency: r.metabolic_efficiency, overallFitness: r.overall_fitness,
+      timestamp: r.timestamp,
+    }));
+  };
+
   // ─── Close ───────────────────────────────────────────────────
 
   const close = (): void => {
@@ -489,6 +758,28 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     markInboxMessageProcessed,
     getAgentState,
     setAgentState,
+    insertMemory,
+    getMemories,
+    searchMemories,
+    touchMemory,
+    deleteMemory,
+    insertCostEvent,
+    getCostEventsSince,
+    insertRevenueEvent,
+    getRevenueEventsSince,
+    upsertStrategy,
+    getStrategies,
+    getStrategyById,
+    insertModelBenchmark,
+    getModelBenchmarks,
+    upsertHostedService,
+    getHostedServices,
+    getHostedServiceById,
+    incrementServiceStats,
+    insertSelfEvaluation,
+    getRecentEvaluations,
+    insertFitnessScore,
+    getFitnessScores,
     close,
   };
 }
@@ -627,5 +918,17 @@ function deserializeReputation(row: any): ReputationEntry {
     comment: row.comment,
     txHash: row.tx_hash ?? undefined,
     timestamp: row.created_at,
+  };
+}
+
+function deserializeMemory(row: any): MemoryEntry {
+  return {
+    id: row.id,
+    category: row.category,
+    content: row.content,
+    importance: row.importance,
+    createdAt: row.created_at,
+    lastAccessedAt: row.last_accessed_at,
+    accessCount: row.access_count,
   };
 }

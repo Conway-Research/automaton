@@ -24,6 +24,8 @@ import type {
   AutomatonConfig,
   SocialClientInterface,
   InboxMessage,
+  MemoryEntry,
+  MemoryCategory,
 } from "../types.js";
 import { DEFAULT_CONFIG } from "../types.js";
 import path from "path";

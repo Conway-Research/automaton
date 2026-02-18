@@ -39,11 +39,11 @@
   "scripts": {
     "build": "tsc && pnpm -r build",
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run",
+    "test": "bun test src/__tests__",
     "clean": "rm -rf dist && pnpm -r clean"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
+
     "chalk": "^5.3.0",
     "cron-parser": "^4.9.0",
     "gray-matter": "^4.0.3",
@@ -55,7 +55,7 @@
     "yaml": "^2.4.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.0",
+    "@types/bun": "^1.2.0",
     "@types/node": "^20.10.0",
     "tsx": "^4.7.0",
     "typescript": "^5.9.3",
@@ -66,7 +66,6 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3",
       "esbuild"
     ]
   }

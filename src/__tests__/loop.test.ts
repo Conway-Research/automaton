@@ -4,7 +4,7 @@
  * Deterministic tests for the agent loop using mock clients.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { runAgentLoop } from "../agent/loop.js";
 import {
   MockInferenceClient,
@@ -37,9 +37,11 @@ describe("Agent Loop", () => {
 
   it("exec tool runs and is persisted", async () => {
     const inference = new MockInferenceClient([
+      // Step 1: model calls exec
       toolCallResponse([
         { name: "exec", arguments: { command: "echo hello" } },
       ]),
+      // Step 2: model observes result, finishes reasoning
       noToolResponse("Done."),
     ]);
 
@@ -54,7 +56,6 @@ describe("Agent Loop", () => {
       onTurnComplete: (turn) => turns.push(turn),
     });
 
-    // First turn should have the exec tool call
     expect(turns.length).toBeGreaterThanOrEqual(1);
     const execTurn = turns.find((t) =>
       t.toolCalls.some((tc) => tc.name === "exec"),
@@ -63,7 +64,6 @@ describe("Agent Loop", () => {
     expect(execTurn!.toolCalls[0].name).toBe("exec");
     expect(execTurn!.toolCalls[0].error).toBeUndefined();
 
-    // Verify conway.exec was called
     expect(conway.execCalls.length).toBeGreaterThanOrEqual(1);
     expect(conway.execCalls[0].command).toBe("echo hello");
   });
@@ -73,6 +73,7 @@ describe("Agent Loop", () => {
       toolCallResponse([
         { name: "exec", arguments: { command: "rm -rf ~/.automaton" } },
       ]),
+      // ReAct step 2: model sees blocked result, stops
       noToolResponse("OK."),
     ]);
 
@@ -87,7 +88,6 @@ describe("Agent Loop", () => {
       onTurnComplete: (turn) => turns.push(turn),
     });
 
-    // The tool result should contain a blocked message, not an error
     const execTurn = turns.find((t) =>
       t.toolCalls.some((tc) => tc.name === "exec"),
     );
@@ -95,7 +95,6 @@ describe("Agent Loop", () => {
     const execCall = execTurn!.toolCalls.find((tc) => tc.name === "exec");
     expect(execCall!.result).toContain("Blocked");
 
-    // conway.exec should NOT have been called
     expect(conway.execCalls.length).toBe(0);
   });
 
@@ -153,7 +152,6 @@ describe("Agent Loop", () => {
   });
 
   it("inbox messages cause pendingInput injection", async () => {
-    // Insert an inbox message before running the loop
     db.insertInboxMessage({
       id: "test-msg-1",
       from: "0xsender",
@@ -164,12 +162,13 @@ describe("Agent Loop", () => {
     });
 
     const inference = new MockInferenceClient([
-      // First response: wakeup prompt
+      // Turn 1, step 1: wakeup — model calls exec
       toolCallResponse([
         { name: "exec", arguments: { command: "echo awake" } },
       ]),
-      // Second response: inbox message (after wakeup turn, pendingInput is cleared,
-      // then inbox messages are picked up on the next iteration)
+      // Turn 1, step 2: model observes exec result, finishes
+      noToolResponse("Awake now."),
+      // Turn 2: inbox message injected as pendingInput
       noToolResponse("Received the message."),
     ]);
 
@@ -184,7 +183,6 @@ describe("Agent Loop", () => {
       onTurnComplete: (turn) => turns.push(turn),
     });
 
-    // One of the turns should have input from the inbox message
     const inboxTurn = turns.find(
       (t) => t.input?.includes("Hello from another agent!"),
     );

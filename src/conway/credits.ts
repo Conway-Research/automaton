@@ -66,7 +66,7 @@ export function logCreditCheck(
 
 // Lazy ulid import helper
 function await_ulid() {
-  // Dynamic import would be async; for synchronous usage in better-sqlite3
+  // Dynamic import would be async; for synchronous usage in bun:sqlite
   // we use a simple counter-based ID as fallback
   let counter = 0;
   return {

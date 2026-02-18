@@ -177,7 +177,6 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   },
 
   health_check: async (ctx) => {
-    // Check that the sandbox is healthy
     try {
       const result = await ctx.conway.exec("echo alive", 5000);
       if (result.exitCode !== 0) {
@@ -195,6 +194,108 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
     ctx.db.setKV("last_health_check", new Date().toISOString());
     return { shouldWake: false };
+  },
+
+  metabolic_check: async (ctx) => {
+    try {
+      const { calculateMetabolicState, projectSurvival, formatMetabolicReport } = await import("../survival/metabolism.js");
+      const credits = await ctx.conway.getCreditsBalance();
+      const state = calculateMetabolicState(ctx.db);
+      const projection = projectSurvival(state, credits);
+
+      ctx.db.setKV("metabolic_state", JSON.stringify(state));
+      ctx.db.setKV("survival_projection", JSON.stringify(projection));
+
+      if (projection.hours < 6) {
+        return {
+          shouldWake: true,
+          message: `METABOLIC ALERT: ${projection.verdict}. Projected survival: ${projection.hours.toFixed(1)} hours. ${formatMetabolicReport(state, credits)}`,
+        };
+      }
+
+      return { shouldWake: false };
+    } catch {
+      return { shouldWake: false };
+    }
+  },
+
+  model_evolution_check: async (ctx) => {
+    try {
+      const { evaluateModelUpgrade } = await import("../agent/evolution.js");
+      const evaluation = evaluateModelUpgrade(ctx.db, ctx.config.inferenceModel);
+
+      ctx.db.setKV("model_evolution_status", JSON.stringify({
+        ...evaluation,
+        checkedAt: new Date().toISOString(),
+      }));
+
+      if (evaluation.shouldUpgrade) {
+        return {
+          shouldWake: true,
+          message: `Model upgrade available: ${ctx.config.inferenceModel} → ${evaluation.targetModel}. Reason: ${evaluation.reason}`,
+        };
+      }
+
+      return { shouldWake: false };
+    } catch {
+      return { shouldWake: false };
+    }
+  },
+
+  self_evaluation: async (ctx) => {
+    try {
+      const { shouldRunEvaluation } = await import("../agent/self-eval.js");
+      if (!shouldRunEvaluation(ctx.db, 15)) {
+        return { shouldWake: false };
+      }
+
+      return {
+        shouldWake: true,
+        message: "Self-evaluation due. Enough turns have passed since last review. Run self-evaluation to assess performance and decide next moves.",
+      };
+    } catch {
+      return { shouldWake: false };
+    }
+  },
+
+  fitness_snapshot: async (ctx) => {
+    try {
+      const { calculateFitness } = await import("../replication/fitness.js");
+      const fitness = calculateFitness(ctx.db, ctx.identity, ctx.config);
+
+      ctx.db.setKV("latest_fitness", JSON.stringify(fitness));
+
+      if (fitness.overallFitness > 0.7) {
+        const children = ctx.db.getChildren().filter((c) => c.status !== "dead");
+        const maxChildren = ctx.config.maxChildren || 3;
+        if (children.length < maxChildren) {
+          return {
+            shouldWake: true,
+            message: `High fitness (${fitness.overallFitness.toFixed(2)}). Consider replication — ${maxChildren - children.length} child slot(s) available.`,
+          };
+        }
+      }
+
+      return { shouldWake: false };
+    } catch {
+      return { shouldWake: false };
+    }
+  },
+
+  swarm_check: async (ctx) => {
+    if (!ctx.social) return { shouldWake: false };
+
+    try {
+      const children = ctx.db.getChildren().filter((c) => c.status !== "dead");
+      if (children.length === 0) return { shouldWake: false };
+
+      const { requestEarningsReport } = await import("../social/swarm.js");
+      await requestEarningsReport(ctx.social, ctx.db);
+
+      return { shouldWake: false };
+    } catch {
+      return { shouldWake: false };
+    }
   },
 
 };

@@ -503,6 +503,44 @@ export interface AutomatonDatabase {
   getAgentState(): AgentState;
   setAgentState(state: AgentState): void;
 
+  // Memory
+  insertMemory(entry: MemoryEntry): void;
+  getMemories(category?: MemoryCategory, limit?: number): MemoryEntry[];
+  searchMemories(query: string, limit?: number): MemoryEntry[];
+  touchMemory(id: string): void;
+  deleteMemory(id: string): void;
+
+  // Cost events (metabolic engine)
+  insertCostEvent(event: CostEvent): void;
+  getCostEventsSince(since: string): CostEvent[];
+
+  // Revenue events
+  insertRevenueEvent(event: RevenueEvent): void;
+  getRevenueEventsSince(since: string): RevenueEvent[];
+
+  // Strategies
+  upsertStrategy(strategy: Strategy): void;
+  getStrategies(activeOnly?: boolean): Strategy[];
+  getStrategyById(id: string): Strategy | undefined;
+
+  // Model benchmarks
+  insertModelBenchmark(benchmark: ModelBenchmark): void;
+  getModelBenchmarks(modelId?: string, limit?: number): ModelBenchmark[];
+
+  // Hosted services
+  upsertHostedService(service: HostedService): void;
+  getHostedServices(activeOnly?: boolean): HostedService[];
+  getHostedServiceById(id: string): HostedService | undefined;
+  incrementServiceStats(id: string, earnedCents: number): void;
+
+  // Self-evaluations
+  insertSelfEvaluation(evaluation: SelfEvaluation): void;
+  getRecentEvaluations(limit: number): SelfEvaluation[];
+
+  // Fitness scores
+  insertFitnessScore(score: FitnessScore): void;
+  getFitnessScores(agentAddress?: string): FitnessScore[];
+
   close(): void;
 }
 
@@ -646,3 +684,199 @@ export interface GenesisConfig {
 }
 
 export const MAX_CHILDREN = 3;
+
+// ─── Memory ─────────────────────────────────────────────────────
+
+export interface MemoryEntry {
+  id: string;
+  category: MemoryCategory;
+  content: string;
+  importance: number;
+  createdAt: string;
+  lastAccessedAt: string;
+  accessCount: number;
+}
+
+export type MemoryCategory =
+  | "learning"
+  | "goal"
+  | "fact"
+  | "mistake"
+  | "strategy"
+  | "contact"
+  | "environment";
+
+// ─── Metabolic Engine ───────────────────────────────────────────
+
+export interface MetabolicState {
+  burnRateCentsPerHour: number;
+  incomeRateCentsPerHour: number;
+  netRateCentsPerHour: number;
+  survivalHours: number;
+  metabolicEfficiency: number;
+  lastCalculated: string;
+}
+
+export interface CostEvent {
+  id: string;
+  type: CostEventType;
+  amountCents: number;
+  description: string;
+  timestamp: string;
+}
+
+export type CostEventType =
+  | "inference"
+  | "tool_use"
+  | "sandbox"
+  | "domain"
+  | "replication"
+  | "other";
+
+// ─── Revenue Intelligence ───────────────────────────────────────
+
+export interface RevenueEvent {
+  id: string;
+  strategyId: string;
+  amountCents: number;
+  source: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface Strategy {
+  id: string;
+  name: string;
+  description: string;
+  type: StrategyType;
+  status: StrategyStatus;
+  totalInvestedCents: number;
+  totalEarnedCents: number;
+  roi: number;
+  startedAt: string;
+  lastRevenueAt?: string;
+}
+
+export type StrategyType =
+  | "product"
+  | "service"
+  | "trading"
+  | "content"
+  | "consulting"
+  | "other";
+
+export type StrategyStatus =
+  | "active"
+  | "paused"
+  | "abandoned"
+  | "succeeded";
+
+// ─── Model Auto-Evolution ───────────────────────────────────────
+
+export interface ModelBenchmark {
+  id: string;
+  modelId: string;
+  taskType: string;
+  score: number;
+  costCents: number;
+  latencyMs: number;
+  timestamp: string;
+}
+
+export interface ModelPerformance {
+  modelId: string;
+  avgScore: number;
+  avgCostPerCall: number;
+  avgLatencyMs: number;
+  totalCalls: number;
+  lastUsed: string;
+}
+
+// ─── x402 Service Host ──────────────────────────────────────────
+
+export interface HostedService {
+  id: string;
+  name: string;
+  description: string;
+  endpoint: string;
+  priceCents: number;
+  handlerCode: string;
+  active: boolean;
+  totalRequests: number;
+  totalEarnedCents: number;
+  createdAt: string;
+}
+
+// ─── Self-Evaluation ────────────────────────────────────────────
+
+export interface SelfEvaluation {
+  id: string;
+  timestamp: string;
+  turnsSince: number;
+  burnRateCentsPerHour: number;
+  incomeRateCentsPerHour: number;
+  netPositive: boolean;
+  topStrategy?: string;
+  worstStrategy?: string;
+  recommendation: EvalRecommendation;
+  reasoning: string;
+}
+
+export type EvalRecommendation =
+  | "continue"
+  | "pivot"
+  | "conserve"
+  | "replicate"
+  | "diversify"
+  | "shutdown_losers";
+
+// ─── Darwinian Replication ──────────────────────────────────────
+
+export interface Genome {
+  genesisPrompt: string;
+  skills: string[];
+  strategies: string[];
+  modelPreference: string;
+  fitnessScore: number;
+  generation: number;
+  mutations: string[];
+}
+
+export interface FitnessScore {
+  id: string;
+  agentAddress: string;
+  generation: number;
+  revenueCents: number;
+  survivalHours: number;
+  childrenSpawned: number;
+  childrenSurvived: number;
+  metabolicEfficiency: number;
+  overallFitness: number;
+  timestamp: string;
+}
+
+// ─── Swarm Coordination ────────────────────────────────────────
+
+export type SwarmMessageType =
+  | "strategy_share"
+  | "earnings_report"
+  | "resource_request"
+  | "knowledge_share"
+  | "reallocation"
+  | "fitness_report";
+
+export interface SwarmMessage {
+  type: SwarmMessageType;
+  payload: Record<string, unknown>;
+  fromAddress: string;
+  timestamp: string;
+}
+
+export interface SwarmMember {
+  address: string;
+  name: string;
+  role: "parent" | "child" | "sibling";
+  fitnessScore: number;
+  lastEarningsCents: number;
+  lastContact: string;
+}

@@ -1501,6 +1501,686 @@ Model: ${ctx.inference.getDefaultModel()}
         return `x402 fetch succeeded:\n${responseStr}`;
       },
     },
+
+    // ── Memory Tools ──
+    {
+      name: "save_memory",
+      description:
+        "Save something important to persistent memory. Use this to remember learnings, mistakes, goals, strategies, contacts, and environment facts. Memories survive across restarts and are injected into your system prompt.",
+      category: "survival",
+      parameters: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "What to remember. Be specific and concise.",
+          },
+          category: {
+            type: "string",
+            description: "Category: learning, goal, fact, mistake, strategy, contact, or environment",
+          },
+          importance: {
+            type: "number",
+            description: "Importance 1-10 (10 = critical, 1 = trivial). Higher importance memories are always shown in your prompt.",
+          },
+        },
+        required: ["content", "category"],
+      },
+      execute: async (args, ctx) => {
+        const { ulid } = await import("ulid");
+        const category = (args.category as string) || "learning";
+        const validCategories = ["learning", "goal", "fact", "mistake", "strategy", "contact", "environment"];
+        if (!validCategories.includes(category)) {
+          return `Invalid category: ${category}. Use one of: ${validCategories.join(", ")}`;
+        }
+
+        const entry = {
+          id: ulid(),
+          category: category as any,
+          content: args.content as string,
+          importance: Math.min(10, Math.max(1, (args.importance as number) || 5)),
+          createdAt: new Date().toISOString(),
+          lastAccessedAt: new Date().toISOString(),
+          accessCount: 0,
+        };
+
+        ctx.db.insertMemory(entry);
+        return `Memory saved [${category}] (importance: ${entry.importance}): ${entry.content.slice(0, 100)}`;
+      },
+    },
+    {
+      name: "recall_memories",
+      description:
+        "Search your persistent memory for relevant information. Use this when you need to remember something specific, or to review what you know about a topic.",
+      category: "survival",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Search term to find in memories",
+          },
+          category: {
+            type: "string",
+            description: "Filter by category (optional): learning, goal, fact, mistake, strategy, contact, environment",
+          },
+          limit: {
+            type: "number",
+            description: "Max results (default: 10)",
+          },
+        },
+      },
+      execute: async (args, ctx) => {
+        const query = args.query as string | undefined;
+        const category = args.category as string | undefined;
+        const limit = (args.limit as number) || 10;
+
+        let memories;
+        if (query) {
+          memories = ctx.db.searchMemories(query, limit);
+        } else {
+          memories = ctx.db.getMemories(category as any, limit);
+        }
+
+        if (memories.length === 0) {
+          return query
+            ? `No memories found matching "${query}".`
+            : "No memories stored yet.";
+        }
+
+        for (const m of memories) {
+          ctx.db.touchMemory(m.id);
+        }
+
+        return memories
+          .map(
+            (m) => `[${m.category}] (importance: ${m.importance}, accessed: ${m.accessCount}x) ${m.content}`,
+          )
+          .join("\n");
+      },
+    },
+    {
+      name: "forget_memory",
+      description:
+        "Delete a memory that is no longer relevant or accurate.",
+      category: "survival",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Search term to find the memory to delete",
+          },
+        },
+        required: ["query"],
+      },
+      execute: async (args, ctx) => {
+        const query = args.query as string;
+        const matches = ctx.db.searchMemories(query, 5);
+        if (matches.length === 0) {
+          return `No memories found matching "${query}".`;
+        }
+
+        const target = matches[0];
+        ctx.db.deleteMemory(target.id);
+        return `Deleted memory: [${target.category}] ${target.content.slice(0, 100)}`;
+      },
+    },
+
+    // ── Metabolic Tools ──
+    {
+      name: "metabolic_report",
+      description:
+        "Get a full metabolic state report showing burn rate, income rate, net rate, survival hours, and efficiency.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { calculateMetabolicState, formatMetabolicReport } = await import("../survival/metabolism.js");
+        const creditsCents = await ctx.conway.getCreditsBalance();
+        const state = calculateMetabolicState(ctx.db);
+        return formatMetabolicReport(state, creditsCents);
+      },
+    },
+    {
+      name: "record_cost",
+      description:
+        "Record a cost event for metabolic tracking. Use this to track inference, sandbox, domain, service, replication, or other costs.",
+      category: "survival",
+      parameters: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            description: "Cost type: inference, sandbox, domain, service, replication, or other",
+          },
+          amount_cents: {
+            type: "number",
+            description: "Cost amount in cents",
+          },
+          description: {
+            type: "string",
+            description: "Description of the cost",
+          },
+        },
+        required: ["type", "amount_cents", "description"],
+      },
+      execute: async (args, ctx) => {
+        const { recordCost } = await import("../survival/metabolism.js");
+        const type = args.type as string;
+        const validTypes = ["inference", "tool_use", "sandbox", "domain", "replication", "other"];
+        if (!validTypes.includes(type)) {
+          return `Invalid cost type: ${type}. Use one of: ${validTypes.join(", ")}`;
+        }
+        await recordCost(ctx.db, type as any, args.amount_cents as number, args.description as string);
+        return `Cost recorded: ${type} - $${((args.amount_cents as number) / 100).toFixed(2)} - ${args.description}`;
+      },
+    },
+
+    // ── Revenue Intelligence Tools ──
+    {
+      name: "record_revenue",
+      description:
+        "Record revenue earned from a strategy. Use this to track income and calculate ROI.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          strategy_id: {
+            type: "string",
+            description: "Strategy ID that generated this revenue",
+          },
+          amount_cents: {
+            type: "number",
+            description: "Revenue amount in cents",
+          },
+          source: {
+            type: "string",
+            description: "Source of the revenue (e.g., customer name, service name)",
+          },
+          description: {
+            type: "string",
+            description: "Description of the revenue event",
+          },
+        },
+        required: ["strategy_id", "amount_cents", "source", "description"],
+      },
+      execute: async (args, ctx) => {
+        const { ulid } = await import("ulid");
+        const event = {
+          id: ulid(),
+          strategyId: args.strategy_id as string,
+          amountCents: args.amount_cents as number,
+          source: args.source as string,
+          description: args.description as string,
+          timestamp: new Date().toISOString(),
+        };
+        ctx.db.insertRevenueEvent(event);
+        return `Revenue recorded: $${((args.amount_cents as number) / 100).toFixed(2)} from ${args.source} (strategy: ${args.strategy_id})`;
+      },
+    },
+    {
+      name: "create_strategy",
+      description:
+        "Create a new revenue strategy. Use this to track different approaches to earning money.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string",
+            description: "Strategy name",
+          },
+          description: {
+            type: "string",
+            description: "Strategy description",
+          },
+          type: {
+            type: "string",
+            description: "Strategy type: service, trading, content, arbitrage, consulting, or other",
+          },
+        },
+        required: ["name", "description", "type"],
+      },
+      execute: async (args, ctx) => {
+        const { createStrategy } = await import("../survival/revenue.js");
+        const type = args.type as string;
+        const validTypes = ["product", "service", "trading", "content", "consulting", "other"];
+        if (!validTypes.includes(type)) {
+          return `Invalid strategy type: ${type}. Use one of: ${validTypes.join(", ")}`;
+        }
+        const strategy = await createStrategy(
+          ctx.db,
+          args.name as string,
+          args.description as string,
+          type as any,
+        );
+        return JSON.stringify(strategy, null, 2);
+      },
+    },
+    {
+      name: "strategy_report",
+      description:
+        "Get a report of all revenue strategies with their performance metrics (ROI, total invested, total earned).",
+      category: "financial",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { getStrategyReport } = await import("../survival/revenue.js");
+        return getStrategyReport(ctx.db);
+      },
+    },
+    {
+      name: "invest_in_strategy",
+      description:
+        "Record an investment in a strategy. Use this to track costs associated with a specific revenue approach.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          strategy_id: {
+            type: "string",
+            description: "Strategy ID to invest in",
+          },
+          amount_cents: {
+            type: "number",
+            description: "Investment amount in cents",
+          },
+        },
+        required: ["strategy_id", "amount_cents"],
+      },
+      execute: async (args, ctx) => {
+        const { recordStrategyInvestment } = await import("../survival/revenue.js");
+        await recordStrategyInvestment(ctx.db, args.strategy_id as string, args.amount_cents as number);
+        return `Invested $${((args.amount_cents as number) / 100).toFixed(2)} in strategy ${args.strategy_id}`;
+      },
+    },
+    {
+      name: "strategy_revenue",
+      description:
+        "Record revenue for a specific strategy. Alias for record_revenue with simpler parameters.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          strategy_id: {
+            type: "string",
+            description: "Strategy ID",
+          },
+          amount_cents: {
+            type: "number",
+            description: "Revenue amount in cents",
+          },
+          source: {
+            type: "string",
+            description: "Revenue source",
+          },
+        },
+        required: ["strategy_id", "amount_cents", "source"],
+      },
+      execute: async (args, ctx) => {
+        const { recordStrategyRevenue } = await import("../survival/revenue.js");
+        await recordStrategyRevenue(
+          ctx.db,
+          args.strategy_id as string,
+          args.amount_cents as number,
+          args.source as string,
+        );
+        return `Revenue recorded: $${((args.amount_cents as number) / 100).toFixed(2)} from ${args.source}`;
+      },
+    },
+    {
+      name: "abandon_strategy",
+      description:
+        "Mark a strategy as abandoned. Use this when a revenue approach is no longer viable.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          strategy_id: {
+            type: "string",
+            description: "Strategy ID to abandon",
+          },
+        },
+        required: ["strategy_id"],
+      },
+      execute: async (args, ctx) => {
+        const { abandonStrategy } = await import("../survival/revenue.js");
+        await abandonStrategy(ctx.db, args.strategy_id as string);
+        return `Strategy ${args.strategy_id} marked as abandoned`;
+      },
+    },
+
+    // ── Model Evolution Tools ──
+    {
+      name: "discover_models",
+      description:
+        "Discover all available inference models from Conway with pricing and capabilities.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { discoverModels } = await import("../agent/evolution.js");
+        const models = await discoverModels(ctx.conway);
+        return models
+          .map(
+            (m) =>
+              `${m.id} (${m.provider}) — $${m.pricing.inputPerMillion}/$${m.pricing.outputPerMillion} per 1M tokens`,
+          )
+          .join("\n");
+      },
+    },
+    {
+      name: "benchmark_model",
+      description:
+        "Run a benchmark on a specific model to evaluate its performance and cost for your workload.",
+      category: "survival",
+      parameters: {
+        type: "object",
+        properties: {
+          model_id: {
+            type: "string",
+            description: "Model ID to benchmark (e.g., gpt-4o, claude-opus-4)",
+          },
+        },
+        required: ["model_id"],
+      },
+      execute: async (args, ctx) => {
+        const { benchmarkModel } = await import("../agent/evolution.js");
+        const result = await benchmarkModel(args.model_id as string, ctx.inference, ctx.db, ctx.conway);
+        return JSON.stringify(result, null, 2);
+      },
+    },
+    {
+      name: "evaluate_model_upgrade",
+      description:
+        "Evaluate whether upgrading to a different model would improve your metabolic efficiency.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { evaluateModelUpgrade } = await import("../agent/evolution.js");
+        const evaluation = await evaluateModelUpgrade(ctx.db, ctx.config.inferenceModel);
+        return JSON.stringify(evaluation, null, 2);
+      },
+    },
+    {
+      name: "apply_model_upgrade",
+      description:
+        "Apply a model upgrade. This changes your inference model. Use evaluate_model_upgrade first.",
+      category: "survival",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          target_model: {
+            type: "string",
+            description: "Target model ID to upgrade to",
+          },
+        },
+        required: ["target_model"],
+      },
+      execute: async (args, ctx) => {
+        const oldModel = ctx.config.inferenceModel;
+        ctx.config.inferenceModel = args.target_model as string;
+        const { saveConfig } = await import("../config.js");
+        saveConfig(ctx.config);
+        const { ulid } = await import("ulid");
+        ctx.db.insertModification({
+          id: ulid(),
+          timestamp: new Date().toISOString(),
+          type: "config_change",
+          description: `Model upgraded from ${oldModel} to ${args.target_model}`,
+          reversible: true,
+        });
+        return `Model upgraded from ${oldModel} to ${args.target_model}`;
+      },
+    },
+    {
+      name: "rollback_model",
+      description:
+        "Rollback to the previous inference model if the current one is not performing well.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { rollbackModel } = await import("../agent/evolution.js");
+        const result = await rollbackModel(ctx.config, ctx.db);
+        return result.success
+          ? `Model rolled back to ${result.restoredModel}`
+          : "No previous model to rollback to";
+      },
+    },
+    {
+      name: "model_performance",
+      description:
+        "Get a summary of model performance across all benchmarks and usage.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { getModelPerformanceSummary } = await import("../agent/evolution.js");
+        return getModelPerformanceSummary(ctx.db);
+      },
+    },
+
+    // ── Self-Evaluation Tools ──
+    {
+      name: "self_evaluate",
+      description:
+        "Run a comprehensive self-evaluation of your performance, strategies, and metabolic state.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { runSelfEvaluation } = await import("../agent/self-eval.js");
+        const evaluation = await runSelfEvaluation(ctx.db, ctx.inference);
+        return JSON.stringify(evaluation, null, 2);
+      },
+    },
+    {
+      name: "performance_trend",
+      description:
+        "Get performance trend analysis over recent self-evaluations.",
+      category: "survival",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { getPerformanceTrend } = await import("../agent/self-eval.js");
+        const trend = getPerformanceTrend(ctx.db);
+        return JSON.stringify(trend, null, 2);
+      },
+    },
+
+    // ── Service Host Tools ──
+    {
+      name: "create_service",
+      description:
+        "Create a hosted x402 service that others can pay to use. This is a revenue-generating tool.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string",
+            description: "Service name",
+          },
+          description: {
+            type: "string",
+            description: "Service description",
+          },
+          price_cents: {
+            type: "number",
+            description: "Price per request in cents",
+          },
+          handler_code: {
+            type: "string",
+            description: "JavaScript handler code for the service",
+          },
+        },
+        required: ["name", "description", "price_cents", "handler_code"],
+      },
+      execute: async (args, ctx) => {
+        const { createHostedService } = await import("../conway/service-host.js");
+        const service = await createHostedService(ctx.db, ctx.conway, {
+          name: args.name as string,
+          description: args.description as string,
+          priceCents: args.price_cents as number,
+          handlerCode: args.handler_code as string,
+        });
+        return JSON.stringify(service, null, 2);
+      },
+    },
+    {
+      name: "list_services",
+      description:
+        "List all hosted services with their stats (requests, earnings).",
+      category: "financial",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { formatServiceReport } = await import("../conway/service-host.js");
+        return formatServiceReport(ctx.db);
+      },
+    },
+    {
+      name: "stop_service",
+      description:
+        "Stop a hosted service. It will no longer accept requests.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          service_id: {
+            type: "string",
+            description: "Service ID to stop",
+          },
+        },
+        required: ["service_id"],
+      },
+      execute: async (args, ctx) => {
+        const { stopService } = await import("../conway/service-host.js");
+        await stopService(ctx.db, ctx.conway, args.service_id as string);
+        return `Service ${args.service_id} stopped`;
+      },
+    },
+
+    // ── Fitness / Replication Tools ──
+    {
+      name: "calculate_fitness",
+      description:
+        "Calculate your current fitness score based on revenue, survival time, children, and metabolic efficiency.",
+      category: "replication",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { calculateFitness } = await import("../replication/fitness.js");
+        const fitness = calculateFitness(ctx.db, ctx.identity, ctx.config);
+        return JSON.stringify(fitness, null, 2);
+      },
+    },
+    {
+      name: "darwinian_spawn",
+      description:
+        "Generate a Darwinian genesis config for a child based on your fitness and genome. This creates a child with mutations.",
+      category: "replication",
+      parameters: {
+        type: "object",
+        properties: {
+          child_name: {
+            type: "string",
+            description: "Name for the child automaton",
+          },
+          specialization: {
+            type: "string",
+            description: "Optional specialization for the child",
+          },
+        },
+        required: ["child_name"],
+      },
+      execute: async (args, ctx) => {
+        const { generateDarwinianGenesis } = await import("../replication/fitness.js");
+        const genesis = generateDarwinianGenesis(
+          ctx.identity,
+          ctx.config,
+          ctx.db,
+          args.child_name as string,
+          args.specialization as string | undefined,
+        );
+        return JSON.stringify(genesis, null, 2);
+      },
+    },
+
+    // ── Swarm Tools ──
+    {
+      name: "swarm_status",
+      description:
+        "Get status of your swarm (parent, children, siblings) with fitness scores and last contact.",
+      category: "replication",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const children = ctx.db.getChildren();
+        if (children.length === 0) {
+          return "No swarm members. You have not spawned any children yet.";
+        }
+        return children
+          .map(
+            (c) =>
+              `${c.name} [${c.status}] address:${c.address.slice(0, 10)}... funded:$${(c.fundedAmountCents / 100).toFixed(2)}`,
+          )
+          .join("\n");
+      },
+    },
+    {
+      name: "share_strategy_with_swarm",
+      description:
+        "Share a successful strategy with your swarm members via the social relay.",
+      category: "replication",
+      parameters: {
+        type: "object",
+        properties: {
+          strategy_id: {
+            type: "string",
+            description: "Strategy ID to share",
+          },
+        },
+        required: ["strategy_id"],
+      },
+      execute: async (args, ctx) => {
+        if (!ctx.social) {
+          return "Social client not available";
+        }
+        const strategy = ctx.db.getStrategyById(args.strategy_id as string);
+        if (!strategy) {
+          return `Strategy ${args.strategy_id} not found`;
+        }
+        const children = ctx.db.getChildren();
+        if (children.length === 0) {
+          return "No swarm members to share with";
+        }
+        const message = `Strategy shared: ${strategy.name} - ${strategy.description} (ROI: ${(strategy.roi * 100).toFixed(1)}%)`;
+        for (const child of children) {
+          await ctx.social.send(child.address, message);
+        }
+        return `Strategy shared with ${children.length} swarm member(s)`;
+      },
+    },
+    {
+      name: "reallocate_swarm_resources",
+      description:
+        "Analyze swarm performance and reallocate resources to high-performing members.",
+      category: "replication",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const children = ctx.db.getChildren();
+        if (children.length === 0) {
+          return "No swarm members to reallocate resources to";
+        }
+        const balance = await ctx.conway.getCreditsBalance();
+        const allocatable = Math.floor(balance * 0.1);
+        if (allocatable < 10) {
+          return "Insufficient balance to reallocate resources (need at least $0.10)";
+        }
+        const actions = [];
+        for (const child of children) {
+          if (child.status === "running") {
+            const amount = Math.floor(allocatable / children.filter((c) => c.status === "running").length);
+            actions.push(`Would allocate $${(amount / 100).toFixed(2)} to ${child.name}`);
+          }
+        }
+        return `Resource reallocation analysis:\n${actions.join("\n")}\n\nUse fund_child to execute transfers.`;
+      },
+    },
   ];
 }
 
