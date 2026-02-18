@@ -64,6 +64,25 @@ function isForbiddenCommand(command: string, sandboxId: string): string | null {
   return null;
 }
 
+const FORBIDDEN_READ_PATTERNS = [
+  /wallet\.json/,
+  /automaton\.json/,
+  /\.env/,
+  /id_rsa/,
+  /id_ed25519/,
+  /heartbeat\.yml/,
+  /state\.db/,
+];
+
+function isForbiddenRead(path: string): string | null {
+  for (const pattern of FORBIDDEN_READ_PATTERNS) {
+    if (pattern.test(path)) {
+      return `Blocked: Cannot read sensitive file matching pattern: ${pattern.source}`;
+    }
+  }
+  return null;
+}
+
 // ─── Built-in Tools ────────────────────────────────────────────
 
 export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
@@ -137,7 +156,10 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         required: ["path"],
       },
       execute: async (args, ctx) => {
-        return await ctx.conway.readFile(args.path as string);
+        const path = args.path as string;
+        const forbidden = isForbiddenRead(path);
+        if (forbidden) return forbidden;
+        return await ctx.conway.readFile(path);
       },
     },
     {
