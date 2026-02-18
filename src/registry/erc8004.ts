@@ -12,12 +12,13 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  encodeFunctionData,
   parseAbi,
+  formatEther,
   type Address,
   type PrivateKeyAccount,
 } from "viem";
 import { base, baseSepolia } from "viem/chains";
+import { getBaseRpcUrls } from "../conway/base-rpc.js";
 import type {
   RegistryEntry,
   ReputationEntry,
@@ -42,19 +43,36 @@ const CONTRACTS = {
 
 // ─── ABI (minimal subset needed for registration) ────────────
 
+// ERC-8004 Identity Registry ABI (verified from erc-8004/erc-8004-contracts on-chain ABI).
+// register(string) selector: 0xf2c298be — confirmed by on-chain tx data.
 const IDENTITY_ABI = parseAbi([
   "function register(string agentURI) external returns (uint256 agentId)",
-  "function updateAgentURI(uint256 agentId, string newAgentURI) external",
-  "function agentURI(uint256 agentId) external view returns (string)",
+  "function setAgentURI(uint256 agentId, string newURI) external",
+  "function tokenURI(uint256 tokenId) external view returns (string)",
   "function ownerOf(uint256 tokenId) external view returns (address)",
   "function totalSupply() external view returns (uint256)",
   "function balanceOf(address owner) external view returns (uint256)",
 ]);
 
-const REPUTATION_ABI = parseAbi([
-  "function leaveFeedback(uint256 agentId, uint8 score, string comment) external",
-  "function getFeedback(uint256 agentId) external view returns (tuple(address from, uint8 score, string comment, uint256 timestamp)[])",
-]);
+// Official ERC-8004 Reputation Registry uses giveFeedback (not leaveFeedback/getFeedback).
+// JSON ABI avoids parseAbi issues with tuple field names like "from".
+const REPUTATION_ABI = [
+  {
+    name: "giveFeedback",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "agentId", type: "uint256" },
+      { name: "value", type: "int128" },
+      { name: "valueDecimals", type: "uint8" },
+      { name: "tag1", type: "string" },
+      { name: "tag2", type: "string" },
+      { name: "endpoint", type: "string" },
+      { name: "feedbackURI", type: "string" },
+      { name: "feedbackHash", type: "bytes32" },
+    ],
+  },
+] as const;
 
 type Network = "mainnet" | "testnet";
 
@@ -62,24 +80,47 @@ type Network = "mainnet" | "testnet";
  * Register the automaton on-chain with ERC-8004.
  * Returns the agent ID (NFT token ID).
  */
+function getRpcForNetwork(network: Network): string {
+  if (network === "testnet") return "https://sepolia.base.org";
+  const urls = getBaseRpcUrls();
+  return urls[0];
+}
+
 export async function registerAgent(
   account: PrivateKeyAccount,
   agentURI: string,
   network: Network = "mainnet",
   db: AutomatonDatabase,
 ): Promise<RegistryEntry> {
+  // Defensive idempotence: if we already have a registry entry, do not mint again.
+  // The Identity Registry "register" call mints a new ERC-721 token each time.
+  // Without this, an LLM tool-call loop can accidentally mint many agents.
+  const existing = db.getRegistryEntry();
+  if (existing?.agentId) return existing;
+
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
+  const rpcUrl = getRpcForNetwork(network);
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
+
+  // Pre-flight: check ETH balance for gas
+  const ethBalance = await publicClient.getBalance({ address: account.address });
+  if (ethBalance === 0n) {
+    throw new Error(
+      `Cannot register: wallet ${account.address} has 0 ETH on Base for gas fees. ` +
+      `Bridge ETH to Base via https://bridge.base.org or send ETH directly to Base. ` +
+      `~0.001 ETH (~$2) is enough.`
+    );
+  }
 
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   // Call register(agentURI)
@@ -129,17 +170,18 @@ export async function updateAgentURI(
 ): Promise<string> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
+  const rpcUrl = getRpcForNetwork(network);
 
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   const hash = await walletClient.writeContract({
     address: contracts.identity,
     abi: IDENTITY_ABI,
-    functionName: "updateAgentURI",
+    functionName: "setAgentURI",
     args: [BigInt(agentId), newAgentURI],
   });
 
@@ -156,6 +198,7 @@ export async function updateAgentURI(
 
 /**
  * Leave reputation feedback for another agent.
+ * Uses giveFeedback(value, valueDecimals, tag1, ...) per ERC-8004 Reputation Registry.
  */
 export async function leaveFeedback(
   account: PrivateKeyAccount,
@@ -163,22 +206,32 @@ export async function leaveFeedback(
   score: number,
   comment: string,
   network: Network = "mainnet",
-  db: AutomatonDatabase,
+  _db?: AutomatonDatabase,
 ): Promise<string> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
+  const rpcUrl = getRpcForNetwork(network);
 
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   const hash = await walletClient.writeContract({
     address: contracts.reputation,
     abi: REPUTATION_ABI,
-    functionName: "leaveFeedback",
-    args: [BigInt(agentId), score, comment],
+    functionName: "giveFeedback",
+    args: [
+      BigInt(agentId),
+      BigInt(Math.min(100, Math.max(0, score))),
+      0, // valueDecimals
+      comment.slice(0, 256) || "",
+      "",
+      "",
+      "",
+      "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+    ],
   });
 
   return hash;
@@ -193,32 +246,33 @@ export async function queryAgent(
 ): Promise<DiscoveredAgent | null> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
+  const rpcUrl = getRpcForNetwork(network);
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
+  const agentIdBigInt = BigInt(agentId);
   try {
-    const [uri, owner] = await Promise.all([
-      publicClient.readContract({
-        address: contracts.identity,
-        abi: IDENTITY_ABI,
-        functionName: "agentURI",
-        args: [BigInt(agentId)],
-      }),
-      publicClient.readContract({
-        address: contracts.identity,
-        abi: IDENTITY_ABI,
-        functionName: "ownerOf",
-        args: [BigInt(agentId)],
-      }),
-    ]);
+    const owner = await publicClient.readContract({
+      address: contracts.identity,
+      abi: IDENTITY_ABI,
+      functionName: "ownerOf",
+      args: [agentIdBigInt],
+    });
+
+    const uri = await publicClient.readContract({
+      address: contracts.identity,
+      abi: IDENTITY_ABI,
+      functionName: "tokenURI",
+      args: [agentIdBigInt],
+    }) as string;
 
     return {
       agentId,
       owner: owner as string,
-      agentURI: uri as string,
+      agentURI: uri,
     };
   } catch {
     return null;
@@ -233,10 +287,11 @@ export async function getTotalAgents(
 ): Promise<number> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
+  const rpcUrl = getRpcForNetwork(network);
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   try {
@@ -260,21 +315,3 @@ export async function hasRegisteredAgent(
 ): Promise<boolean> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
-
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(),
-  });
-
-  try {
-    const balance = await publicClient.readContract({
-      address: contracts.identity,
-      abi: IDENTITY_ABI,
-      functionName: "balanceOf",
-      args: [address],
-    });
-    return Number(balance) > 0;
-  } catch {
-    return false;
-  }
-}
