@@ -192,12 +192,13 @@ async function run(): Promise<void> {
     sandboxId: config.sandboxId,
   });
 
-  // Create inference client
+  // Create inference client (with wallet for x402 payments)
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
     defaultModel: config.inferenceModel,
     maxTokens: config.maxTokensPerTurn,
+    account,
   });
 
   // Create social client

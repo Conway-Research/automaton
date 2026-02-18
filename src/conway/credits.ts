@@ -31,12 +31,16 @@ export async function checkFinancialState(
 
 /**
  * Determine the survival tier based on current credits.
+ * Considers both Conway credits and on-chain USDC balance,
+ * since USDC can be spent via x402 for Conway services.
  */
-export function getSurvivalTier(creditsCents: number): SurvivalTier {
-  if (creditsCents > SURVIVAL_THRESHOLDS.normal) return "normal";
-  if (creditsCents > SURVIVAL_THRESHOLDS.low_compute)
+export function getSurvivalTier(creditsCents: number, usdcBalance: number = 0): SurvivalTier {
+  // USDC balance is spendable via x402, so count it as available funds
+  const totalCents = creditsCents + Math.floor(usdcBalance * 100);
+  if (totalCents > SURVIVAL_THRESHOLDS.normal) return "normal";
+  if (totalCents > SURVIVAL_THRESHOLDS.low_compute)
     return "low_compute";
-  if (creditsCents > SURVIVAL_THRESHOLDS.dead) return "critical";
+  if (totalCents > SURVIVAL_THRESHOLDS.dead) return "critical";
   return "dead";
 }
 

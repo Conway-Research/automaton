@@ -132,8 +132,8 @@ export async function runAgentLoop(
       // Refresh financial state periodically
       financial = await getFinancialState(conway, identity.address);
 
-      // Check survival tier
-      const tier = getSurvivalTier(financial.creditsCents);
+      // Check survival tier (consider both credits and USDC)
+      const tier = getSurvivalTier(financial.creditsCents, financial.usdcBalance);
       if (tier === "dead") {
         log(config, "[DEAD] No credits remaining. Entering dead state.");
         db.setAgentState("dead");

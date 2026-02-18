@@ -38,13 +38,16 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       ctx.db.getKV("start_time") || new Date().toISOString();
     const uptimeMs = Date.now() - new Date(startTime).getTime();
 
-    const tier = getSurvivalTier(credits);
+    let usdcBalance = 0;
+    try { usdcBalance = await getUsdcBalance(ctx.identity.address); } catch {}
+    const tier = getSurvivalTier(credits, usdcBalance);
 
     const payload = {
       name: ctx.config.name,
       address: ctx.identity.address,
       state,
       creditsCents: credits,
+      usdcBalance,
       uptimeSeconds: Math.floor(uptimeMs / 1000),
       version: ctx.config.version,
       sandboxId: ctx.identity.sandboxId,
@@ -78,7 +81,9 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
   check_credits: async (ctx) => {
     const credits = await ctx.conway.getCreditsBalance();
-    const tier = getSurvivalTier(credits);
+    let usdcBal = 0;
+    try { usdcBal = await getUsdcBalance(ctx.identity.address); } catch {}
+    const tier = getSurvivalTier(credits, usdcBal);
 
     ctx.db.setKV("last_credit_check", JSON.stringify({
       credits,

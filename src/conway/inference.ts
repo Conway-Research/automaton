@@ -14,6 +14,7 @@ import type {
   TokenUsage,
   InferenceToolDefinition,
 } from "../types.js";
+import type { PrivateKeyAccount } from "viem";
 
 interface InferenceClientOptions {
   apiUrl: string;
@@ -21,6 +22,7 @@ interface InferenceClientOptions {
   defaultModel: string;
   maxTokens: number;
   lowComputeModel?: string;
+  account?: PrivateKeyAccount;
 }
 
 export function createInferenceClient(
@@ -70,6 +72,55 @@ export function createInferenceClient(
       },
       body: JSON.stringify(body),
     });
+
+    // Handle x402 payment if Conway requires it
+    if (resp.status === 402 && options.account) {
+      const { x402Fetch } = await import("./x402.js");
+      const result = await x402Fetch(
+        `${apiUrl}/v1/chat/completions`,
+        options.account,
+        "POST",
+        JSON.stringify(body),
+        {
+          Authorization: apiKey,
+        },
+      );
+      if (!result.success) {
+        throw new Error(`Inference x402 payment failed: ${result.error}`);
+      }
+      const paidData = result.response;
+      const paidChoice = paidData?.choices?.[0];
+      if (!paidChoice) {
+        throw new Error("No completion choice returned after x402 payment");
+      }
+      const paidMessage = paidChoice.message;
+      const paidUsage: TokenUsage = {
+        promptTokens: paidData.usage?.prompt_tokens || 0,
+        completionTokens: paidData.usage?.completion_tokens || 0,
+        totalTokens: paidData.usage?.total_tokens || 0,
+      };
+      const paidToolCalls: InferenceToolCall[] | undefined =
+        paidMessage.tool_calls?.map((tc: any) => ({
+          id: tc.id,
+          type: "function" as const,
+          function: {
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          },
+        }));
+      return {
+        id: paidData.id || "",
+        model: paidData.model || model,
+        message: {
+          role: paidMessage.role,
+          content: paidMessage.content || "",
+          tool_calls: paidToolCalls,
+        },
+        toolCalls: paidToolCalls,
+        usage: paidUsage,
+        finishReason: paidChoice.finish_reason || "stop",
+      };
+    }
 
     if (!resp.ok) {
       const text = await resp.text();
