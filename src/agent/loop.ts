@@ -27,6 +27,7 @@ import {
   toolsToInferenceFormat,
   executeTool,
 } from "./tools.js";
+import { sanitizeInput } from "./injection-defense.js";
 import { getSurvivalTier } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
 import { ulid } from "ulid";
@@ -120,7 +121,26 @@ export async function runAgentLoop(
         const inboxMessages = db.getUnprocessedInboxMessages(5);
         if (inboxMessages.length > 0) {
           const formatted = inboxMessages
-            .map((m) => `[Message from ${m.from}]: ${m.content}`)
+            .map((m) => {
+              const sanitized = sanitizeInput(
+                m.content,
+                `agent ${m.from}`,
+              );
+
+              if (sanitized.blocked) {
+                log(
+                  config,
+                  `[SECURITY] Blocked critical inbox injection from ${m.from} (${m.id})`,
+                );
+              } else if (sanitized.threatLevel !== "low") {
+                log(
+                  config,
+                  `[SECURITY] Sanitized ${sanitized.threatLevel} inbox message from ${m.from} (${m.id})`,
+                );
+              }
+
+              return `[Message from ${m.from} | threat:${sanitized.threatLevel}]: ${sanitized.content}`;
+            })
             .join("\n\n");
           pendingInput = { content: formatted, source: "agent" };
           for (const m of inboxMessages) {
