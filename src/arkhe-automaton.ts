@@ -9,7 +9,8 @@ import {
   SurvivalManager,
   ReplicationManager,
   ArkheOracle,
-  PhiConsensus
+  PhiConsensus,
+  MetamorphEngine
 } from "./arkhe/index.js";
 import { createDatabase } from "./state/database.js";
 import { loadConfig, resolvePath } from "./config.js";
@@ -44,6 +45,7 @@ async function main() {
   const constitution = new SiliconConstitution(h);
   const replication = new ReplicationManager(h, survival);
   const oracle = new ArkheOracle(handover);
+  const metamorph = new MetamorphEngine(128);
 
   // Add some initial nodes
   h.addNode("Ω", { type: "fundamental" });
@@ -95,9 +97,20 @@ async function main() {
     // 1. Inject Reality (Oracle)
     oracle.injectReality("Market", "WLD_Price", Math.random() * 5 + 2);
 
-    // 2. Process Consciousness (Phi and C_total)
+    // 2. Process Consciousness (Phi, Metamorphosis and C_total)
+    const mState = metamorph.runCycle();
+
+    // Inject trauma at block 80
+    if (blockHeight === 80) {
+      metamorph.injectTrauma();
+    }
+
     h.bootstrapStep(handover);
-    const currentPhi = phi.calculatePhi();
+
+    // Combine standard Phi with Metamorphosis Phi
+    const standardPhi = phi.calculatePhi();
+    const currentPhi = (standardPhi + mState.phi) / 2;
+
     h.phiValue = currentPhi; // Update hypergraph state for constitution audit
     const currentCTotal = h.totalCoherence(currentPhi);
 
@@ -113,7 +126,7 @@ async function main() {
     // 4. Audit Constitution
     const auditResult = constitution.audit();
 
-    console.log(`[ARKHE] C_total: ${currentCTotal.toFixed(4)} | Phi: ${currentPhi.toFixed(4)} | Compliance: ${(auditResult.complianceRate * 100).toFixed(1)}%`);
+    console.log(`[ARKHE] C_total: ${currentCTotal.toFixed(4)} | Phi: ${currentPhi.toFixed(4)} | Mode: ${mState.mode} | Compliance: ${(auditResult.complianceRate * 100).toFixed(1)}%`);
 
     // Recovery Mode Trigger (Ω+∞+144)
     if (currentCTotal < 0.5) {
