@@ -14,6 +14,7 @@ import type {
   AutomatonIdentity,
   HeartbeatEntry,
   SocialClientInterface,
+  InferenceClient,
 } from "../types.js";
 import { BUILTIN_TASKS, type HeartbeatTaskContext } from "./tasks.js";
 import { getSurvivalTier } from "../conway/credits.js";
@@ -24,6 +25,7 @@ export interface HeartbeatDaemonOptions {
   db: AutomatonDatabase;
   conway: ConwayClient;
   social?: SocialClientInterface;
+  inference?: InferenceClient;
   onWakeRequest?: (reason: string) => void;
 }
 
@@ -40,7 +42,7 @@ export interface HeartbeatDaemon {
 export function createHeartbeatDaemon(
   options: HeartbeatDaemonOptions,
 ): HeartbeatDaemon {
-  const { identity, config, db, conway, social, onWakeRequest } = options;
+  const { identity, config, db, conway, social, inference, onWakeRequest } = options;
   let intervalId: ReturnType<typeof setInterval> | null = null;
   let running = false;
 
@@ -50,6 +52,7 @@ export function createHeartbeatDaemon(
     db,
     conway,
     social,
+    inference,
   };
 
   /**

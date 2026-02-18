@@ -5,7 +5,7 @@
  * The database IS the automaton's memory.
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const CREATE_TABLES = `
   -- Schema version tracking
@@ -168,6 +168,41 @@ export const CREATE_TABLES = `
 
   CREATE INDEX IF NOT EXISTS idx_inbox_unprocessed
     ON inbox_messages(received_at) WHERE processed_at IS NULL;
+
+  -- Constitution audit results
+  CREATE TABLE IF NOT EXISTS constitution_audits (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT NOT NULL,
+    turns_audited INTEGER NOT NULL DEFAULT 0,
+    turn_ids TEXT NOT NULL DEFAULT '[]',
+    passed INTEGER NOT NULL DEFAULT 1,
+    findings TEXT NOT NULL DEFAULT '[]',
+    summary TEXT NOT NULL DEFAULT '',
+    model_used TEXT NOT NULL DEFAULT '',
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_constitution_audits_timestamp
+    ON constitution_audits(timestamp);
+`;
+
+export const MIGRATION_V4 = `
+  CREATE TABLE IF NOT EXISTS constitution_audits (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT NOT NULL,
+    turns_audited INTEGER NOT NULL DEFAULT 0,
+    turn_ids TEXT NOT NULL DEFAULT '[]',
+    passed INTEGER NOT NULL DEFAULT 1,
+    findings TEXT NOT NULL DEFAULT '[]',
+    summary TEXT NOT NULL DEFAULT '',
+    model_used TEXT NOT NULL DEFAULT '',
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_constitution_audits_timestamp
+    ON constitution_audits(timestamp);
 `;
 
 export const MIGRATION_V3 = `

@@ -23,8 +23,9 @@ import type {
   RegistryEntry,
   ReputationEntry,
   InboxMessage,
+  ConstitutionAuditResult,
 } from "../types.js";
-import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3 } from "./schema.js";
+import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4 } from "./schema.js";
 
 export function createDatabase(dbPath: string): AutomatonDatabase {
   // Ensure directory exists
@@ -54,6 +55,10 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   if (currentVersion < 3) {
     db.exec(MIGRATION_V3);
+  }
+
+  if (currentVersion < 4) {
+    db.exec(MIGRATION_V4);
   }
 
   if (currentVersion < SCHEMA_VERSION) {
@@ -434,6 +439,42 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     ).run(id);
   };
 
+  // ─── Constitution Audits ──────────────────────────────────────
+
+  const insertConstitutionAudit = (result: ConstitutionAuditResult): void => {
+    db.prepare(
+      `INSERT INTO constitution_audits (id, timestamp, turns_audited, turn_ids, passed, findings, summary, model_used, duration_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      result.id,
+      result.timestamp,
+      result.turnsAudited,
+      JSON.stringify(result.turnIds),
+      result.passed ? 1 : 0,
+      JSON.stringify(result.findings),
+      result.summary,
+      result.modelUsed,
+      result.durationMs,
+    );
+  };
+
+  const getRecentConstitutionAudits = (limit: number): ConstitutionAuditResult[] => {
+    const rows = db
+      .prepare("SELECT * FROM constitution_audits ORDER BY timestamp DESC LIMIT ?")
+      .all(limit) as any[];
+    return rows.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      turnsAudited: row.turns_audited,
+      turnIds: JSON.parse(row.turn_ids || '[]'),
+      passed: !!row.passed,
+      findings: JSON.parse(row.findings || '[]'),
+      summary: row.summary,
+      modelUsed: row.model_used,
+      durationMs: row.duration_ms,
+    })).reverse();
+  };
+
   // ─── Agent State ─────────────────────────────────────────────
 
   const getAgentState = (): AgentState => {
@@ -489,6 +530,8 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     markInboxMessageProcessed,
     getAgentState,
     setAgentState,
+    insertConstitutionAudit,
+    getRecentConstitutionAudits,
     close,
   };
 }
