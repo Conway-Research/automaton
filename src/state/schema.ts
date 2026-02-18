@@ -5,7 +5,7 @@
  * The database IS the automaton's memory.
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 5;
 
 export const CREATE_TABLES = `
   -- Schema version tracking
@@ -122,7 +122,8 @@ export const CREATE_TABLES = `
     funded_amount_cents INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'spawning',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    last_checked TEXT
+    last_checked TEXT,
+    role TEXT NOT NULL DEFAULT 'generalist'
   );
 
   -- ERC-8004 registration state
@@ -170,6 +171,12 @@ export const CREATE_TABLES = `
     ON inbox_messages(received_at) WHERE processed_at IS NULL;
 `;
 
+export const MIGRATION_V5 = `
+  ALTER TABLE children ADD COLUMN role TEXT NOT NULL DEFAULT 'generalist';
+`;
+
+export const MIGRATION_V4 = MIGRATION_V5;
+
 export const MIGRATION_V3 = `
   CREATE TABLE IF NOT EXISTS inbox_messages (
     id TEXT PRIMARY KEY,
@@ -207,7 +214,8 @@ export const MIGRATION_V2 = `
     funded_amount_cents INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'spawning',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    last_checked TEXT
+    last_checked TEXT,
+    role TEXT NOT NULL DEFAULT 'generalist'
   );
 
   CREATE TABLE IF NOT EXISTS registry (

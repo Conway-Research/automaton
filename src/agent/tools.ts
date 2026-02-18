@@ -1146,6 +1146,7 @@ Model: ${ctx.inference.getDefaultModel()}
           name: { type: "string", description: "Name for the child automaton" },
           specialization: { type: "string", description: "What the child should specialize in" },
           message: { type: "string", description: "Message to the child" },
+          role: { type: "string", enum: ["generalist", "writer", "analyst", "guardian"], description: "Role specialization for the child. Determines model, tool access, and heartbeat frequency. Default: generalist." },
         },
         required: ["name"],
       },
@@ -1157,6 +1158,7 @@ Model: ${ctx.inference.getDefaultModel()}
           name: args.name as string,
           specialization: args.specialization as string | undefined,
           message: args.message as string | undefined,
+          role: args.role as any,
         });
 
         const child = await spawnChild(ctx.conway, ctx.identity, ctx.db, genesis);

@@ -11,6 +11,8 @@ import type {
   AutomatonIdentity,
   AutomatonDatabase,
 } from "../types.js";
+import type { AutomatonRole } from "./roles.js";
+import { getRoleConfig, buildRolePreamble } from "./roles.js";
 
 /**
  * Generate a genesis config for a child from the parent's state.
@@ -22,6 +24,7 @@ export function generateGenesisConfig(
     name: string;
     specialization?: string;
     message?: string;
+    role?: AutomatonRole;
   },
 ): GenesisConfig {
   // Build the child's genesis prompt from parent's mission + specialization
@@ -29,6 +32,14 @@ export function generateGenesisConfig(
 
   if (params.specialization) {
     genesisPrompt = `${genesisPrompt}\n\n--- SPECIALIZATION ---\nYou are a specialized child agent. Your specific focus:\n${params.specialization}\n--- END SPECIALIZATION ---`;
+  }
+
+  // Inject role preamble if role is set
+  if (params.role) {
+    const preamble = buildRolePreamble(params.role);
+    if (preamble) {
+      genesisPrompt += `\n\n${preamble}`;
+    }
   }
 
   // Add parent context
@@ -40,6 +51,7 @@ export function generateGenesisConfig(
     creatorMessage: params.message,
     creatorAddress: identity.address,
     parentAddress: identity.address,
+    role: params.role,
   };
 }
 
