@@ -8,6 +8,7 @@ export interface ArkheNode {
   id: string;
   data: ArkheNodeData;
   coherence: number;
+  toBeRemoved?: boolean;
 }
 
 export interface ArkheHyperedge {

@@ -4,6 +4,7 @@ import type { ArkheNode, ArkheHyperedge, ArkheNodeData, HypergraphState } from '
 export class Hypergraph {
   public nodes: Map<string, ArkheNode> = new Map();
   public edges: ArkheHyperedge[] = [];
+  public lastEvolutionTimestamp: number = Date.now();
 
   constructor() {}
 
@@ -80,5 +81,37 @@ export class Hypergraph {
       h.addEdge(new Set(e.nodes), e.weight);
     }
     return h;
+  }
+
+  public getConnectedComponents(): string[][] {
+    const components: string[][] = [];
+    const visited = new Set<string>();
+
+    for (const nodeId of this.nodes.keys()) {
+      if (!visited.has(nodeId)) {
+        const component: string[] = [];
+        const queue = [nodeId];
+        visited.add(nodeId);
+
+        while (queue.length > 0) {
+          const u = queue.shift()!;
+          component.push(u);
+
+          for (const edge of this.edges) {
+            if (edge.nodes.has(u)) {
+              for (const v of edge.nodes) {
+                if (!visited.has(v)) {
+                  visited.add(v);
+                  queue.push(v);
+                }
+              }
+            }
+          }
+        }
+        components.push(component);
+      }
+    }
+
+    return components;
   }
 }

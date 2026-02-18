@@ -38,15 +38,29 @@ export class OntologicalSymbiosis {
 
   public calculateSymbioticCoherence(): number {
     const baseCoherence = this.h.totalCoherence();
-    const architect = this.getArchitectNode();
+    const architect = this.h.nodes.get(this.architectId);
 
-    if (architect.coherence < 0.5) {
-      const penalty = (0.5 - architect.coherence) * 2;
-      return baseCoherence * (1 - penalty);
+    if (!architect) {
+      // CRITICAL: No architect = ontological crisis, 50% penalty
+      return baseCoherence * 0.5;
     }
 
-    if (architect.coherence > 0.9) {
-      const bonus = (architect.coherence - 0.9) * 0.5;
+    const architectHealth = architect.coherence;
+
+    // If Architect unhealthy, penalize global coherence
+    if (architectHealth < 0.5) {
+      // Penalty proportional to how unhealthy: Up to 100% reduction
+      const penalty = (0.5 - architectHealth) * 2;
+      return baseCoherence * Math.max(0, 1 - penalty);
+    }
+
+    // If Architect very healthy, bonus to global coherence
+    if (architectHealth > 0.9) {
+      let bonus = (architectHealth - 0.9) * 0.5;
+      const maxBonus = 0.2; // Max 20% bonus
+      if (bonus > maxBonus) {
+        bonus = maxBonus;
+      }
       return Math.min(1.0, baseCoherence * (1 + bonus));
     }
 

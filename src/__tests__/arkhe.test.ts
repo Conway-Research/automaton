@@ -3,6 +3,7 @@ import { Hypergraph } from '../arkhe/hypergraph.js';
 import { bootstrap } from '../arkhe/bootstrap.js';
 import { SiliconConstitution } from '../arkhe/constitution.js';
 import { OntologicalSymbiosis } from '../arkhe/symbiosis.js';
+import { PhiCalculator } from '../arkhe/phi.js';
 
 describe('Arkhe(n) Core', () => {
   it('should create a hypergraph and add nodes/edges', () => {
@@ -53,5 +54,35 @@ describe('Arkhe(n) Core', () => {
 
     const symbioticCoherence = symbiosis.calculateSymbioticCoherence();
     expect(symbioticCoherence).toBeGreaterThan(h.totalCoherence()); // High architect coherence provides bonus
+  });
+
+  it('should calculate Phi (integrated information)', () => {
+    const h = new Hypergraph();
+    h.addNode('node1', { load: 1.0 });
+    h.addNode('node2', { load: 1.0 });
+    h.addEdge(new Set(['node1', 'node2']), 1.0);
+    h.bootstrapStep();
+
+    const phiCalc = new PhiCalculator(h);
+    const phi = phiCalc.calculatePhi();
+    expect(phi).toBeGreaterThan(0);
+  });
+
+  it('should detect constitutional violations in the expanded audit', () => {
+    const h = new Hypergraph();
+    h.addNode('Arquiteto', { type: 'human' });
+    const constitution = new SiliconConstitution(h);
+
+    // Initial audit should show some violations (e.g. isolated Arquiteto)
+    let report = constitution.audit();
+    expect(report.violations.some(v => v.article === 3)).toBe(true);
+
+    // Add another node and edge to fix some violations
+    h.addNode('node2');
+    h.addEdge(new Set(['Arquiteto', 'node2']), 1.0);
+    h.bootstrapStep();
+
+    report = constitution.audit();
+    expect(report.violations.some(v => v.article === 3)).toBe(false);
   });
 });
