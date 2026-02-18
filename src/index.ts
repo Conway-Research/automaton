@@ -237,6 +237,7 @@ async function run(): Promise<void> {
     db,
     conway,
     social,
+    inference,
     onWakeRequest: (reason) => {
       console.log(`[HEARTBEAT] Wake request: ${reason}`);
       // The heartbeat can trigger the agent loop

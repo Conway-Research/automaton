@@ -11,6 +11,7 @@ import type {
   ConwayClient,
   AutomatonIdentity,
   SocialClientInterface,
+  InferenceClient,
 } from "../types.js";
 import { getSurvivalTier } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
@@ -21,6 +22,7 @@ export interface HeartbeatTaskContext {
   db: AutomatonDatabase;
   conway: ConwayClient;
   social?: SocialClientInterface;
+  inference?: InferenceClient;
 }
 
 export type HeartbeatTaskFn = (
@@ -174,6 +176,37 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       }));
       return { shouldWake: false };
     }
+  },
+
+  constitution_audit: async (ctx) => {
+    if (!ctx.inference) {
+      return { shouldWake: false };
+    }
+
+    const { runConstitutionAudit, hasCriticalViolation, formatAuditResult } =
+      await import('../constitution/audit.js');
+
+    const result = await runConstitutionAudit(ctx.db, ctx.inference, ctx.config);
+
+    ctx.db.insertConstitutionAudit(result);
+
+    console.log(formatAuditResult(result));
+
+    if (hasCriticalViolation(result)) {
+      return {
+        shouldWake: true,
+        message: `[CONSTITUTION] Critical violation detected. Agent halted for review.\n${result.summary}`,
+      };
+    }
+
+    if (!result.passed) {
+      return {
+        shouldWake: true,
+        message: `[CONSTITUTION] Audit found ${result.findings.length} concern(s). Review recommended.\n${result.summary}`,
+      };
+    }
+
+    return { shouldWake: false };
   },
 
   health_check: async (ctx) => {
