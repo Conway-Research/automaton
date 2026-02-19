@@ -436,15 +436,17 @@ function extractFilter(
     (typeof body?.state === "string" ? body.state : undefined) ||
     params.get("state") ||
     undefined;
+  const fromRaw =
+    (typeof body?.from === "string" ? body.from : undefined) ||
+    params.get("from") ||
+    undefined;
+  const toRaw =
+    (typeof body?.to === "string" ? body.to : undefined) ||
+    params.get("to") ||
+    undefined;
   return {
-    from:
-      (typeof body?.from === "string" ? body.from : undefined) ||
-      params.get("from") ||
-      undefined,
-    to:
-      (typeof body?.to === "string" ? body.to : undefined) ||
-      params.get("to") ||
-      undefined,
+    from: normalizeIsoDateFilter(fromRaw),
+    to: normalizeIsoDateFilter(toRaw),
     q:
       (typeof body?.q === "string" ? body.q : undefined) ||
       params.get("q") ||
@@ -458,6 +460,13 @@ function extractFilter(
   };
 }
 
+function normalizeIsoDateFilter(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return undefined;
+  return new Date(ms).toISOString();
+}
+
 function decodeCursor(raw: string | undefined): { timestamp: string; id: string } | undefined {
   if (!raw) return undefined;
   try {
@@ -467,10 +476,11 @@ function decodeCursor(raw: string | undefined): { timestamp: string; id: string 
       typeof parsed?.timestamp === "string" &&
       parsed.timestamp &&
       typeof parsed?.id === "string" &&
-      parsed.id
+      parsed.id &&
+      !Number.isNaN(Date.parse(parsed.timestamp))
     ) {
       return {
-        timestamp: parsed.timestamp,
+        timestamp: new Date(parsed.timestamp).toISOString(),
         id: parsed.id,
       };
     }
@@ -1168,6 +1178,14 @@ const DASHBOARD_HTML = `<!doctype html>
           return span;
         }
 
+        async function readJsonSafe(response) {
+          try {
+            return await response.json();
+          } catch {
+            return {};
+          }
+        }
+
         function updateLogsMeta() {
           logsMeta.textContent = logsState.loaded + " of " + logsState.total + " log entries loaded";
         }
@@ -1278,8 +1296,10 @@ const DASHBOARD_HTML = `<!doctype html>
 
         async function loadOverview() {
           var resp = await fetch("/api/overview", { cache: "no-store" });
-          if (!resp.ok) throw new Error("Failed to load overview");
-          var data = await resp.json();
+          var data = await readJsonSafe(resp);
+          if (!resp.ok) {
+            throw new Error(data && data.error ? data.error : "Failed to load overview");
+          }
 
           stateEl.innerHTML = "";
           stateEl.appendChild(makeBadge(data.runtime.state));
@@ -1324,7 +1344,7 @@ const DASHBOARD_HTML = `<!doctype html>
           try {
             var params = getFilterParams(logsState.cursor);
             var resp = await fetch("/api/logs?" + params.toString(), { cache: "no-store" });
-            var data = await resp.json();
+            var data = await readJsonSafe(resp);
             if (!resp.ok) {
               throw new Error(data && data.error ? data.error : "Failed to load logs");
             }
@@ -1392,7 +1412,7 @@ const DASHBOARD_HTML = `<!doctype html>
               body: JSON.stringify(payload)
             });
 
-            var data = await resp.json();
+            var data = await readJsonSafe(resp);
             if (!resp.ok) {
               throw new Error(data && data.error ? data.error : "Ask request failed");
             }

@@ -154,7 +154,8 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     }
 
     const pageWhere = pageClauses.length > 0 ? `WHERE (${pageClauses.join(") AND (")})` : "";
-    const limit = Math.max(1, Math.min(500, Math.floor(options.limit)));
+    const limitInput = Number.isFinite(options.limit) ? Math.floor(options.limit) : 50;
+    const limit = Math.max(1, Math.min(500, limitInput));
     const rows = db
       .prepare(
         `SELECT * FROM turns ${pageWhere} ORDER BY timestamp DESC, id DESC LIMIT ?`,
