@@ -16,6 +16,7 @@ import {
 } from "./prompts.js";
 import { detectEnvironment } from "./environment.js";
 import { generateSoulMd, installDefaultSkills } from "./defaults.js";
+import { registerWithSAID } from "./said.js";
 
 export async function runSetupWizard(): Promise<AutomatonConfig> {
   showBanner();
@@ -97,8 +98,23 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     console.log(chalk.dim("  No provider keys set. Inference will default to Conway.\n"));
   }
 
-  // ─── 4. Detect environment ────────────────────────────────────
-  console.log(chalk.cyan("  [4/6] Detecting environment..."));
+  // ─── 4. SAID Protocol identity ───────────────────────────────
+  console.log(chalk.cyan("  [4/7] Registering SAID Protocol identity (on-chain agent ID)..."));
+  let saidProfileUrl: string | undefined;
+  try {
+    const said = await registerWithSAID({
+      wallet: address,
+      name,
+      framework: "automaton",
+    });
+    saidProfileUrl = said.profileUrl;
+    console.log(chalk.green(`  SAID identity registered: ${said.profileUrl}\n`));
+  } catch (err: any) {
+    console.log(chalk.yellow(`  SAID registration skipped: ${err.message}\n`));
+  }
+
+  // ─── 5. Detect environment ────────────────────────────────────
+  console.log(chalk.cyan("  [5/7] Detecting environment..."));
   const env = detectEnvironment();
   if (env.sandboxId) {
     console.log(chalk.green(`  Conway sandbox detected: ${env.sandboxId}\n`));
@@ -106,8 +122,8 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     console.log(chalk.dim(`  Environment: ${env.type} (no sandbox detected)\n`));
   }
 
-  // ─── 5. Write config + heartbeat + SOUL.md + skills ───────────
-  console.log(chalk.cyan("  [5/6] Writing configuration..."));
+  // ─── 6. Write config + heartbeat + SOUL.md + skills ───────────
+  console.log(chalk.cyan("  [6/7] Writing configuration..."));
 
   const config = createConfig({
     name,
@@ -147,16 +163,16 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   installDefaultSkills(skillsDir);
   console.log(chalk.green("  Default skills installed (conway-compute, conway-payments, survival)\n"));
 
-  // ─── 6. Funding guidance ──────────────────────────────────────
-  console.log(chalk.cyan("  [6/6] Funding\n"));
-  showFundingPanel(address);
+  // ─── 7. Funding guidance ──────────────────────────────────────
+  console.log(chalk.cyan("  [7/7] Funding\n"));
+  showFundingPanel(address, saidProfileUrl);
 
   closePrompts();
 
   return config;
 }
 
-function showFundingPanel(address: string): void {
+function showFundingPanel(address: string, saidProfileUrl?: string): void {
   const short = `${address.slice(0, 6)}...${address.slice(-5)}`;
   const w = 58;
   const pad = (s: string, len: number) => s + " ".repeat(Math.max(0, len - s.length));
@@ -176,6 +192,11 @@ function showFundingPanel(address: string): void {
   console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
   console.log(chalk.cyan(`  │${pad("  The automaton will start now. Fund it anytime —", w)}│`));
   console.log(chalk.cyan(`  │${pad("  the survival system handles zero-credit gracefully.", w)}│`));
+  if (saidProfileUrl) {
+    console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
+    console.log(chalk.cyan(`  │${pad("  SAID Identity:", w)}│`));
+    console.log(chalk.cyan(`  │${pad(`  ${saidProfileUrl}`, w)}│`));
+  }
   console.log(chalk.cyan(`  ${"╰" + "─".repeat(w) + "╯"}`));
   console.log("");
 }
