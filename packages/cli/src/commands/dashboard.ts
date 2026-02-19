@@ -113,14 +113,99 @@ async function routeRequest(
       page.hasMore && page.turns.length > 0
         ? encodeCursor(page.turns[page.turns.length - 1])
         : null;
+    const headCursor =
+      page.turns.length > 0 ? encodeCursor(page.turns[0]) : null;
 
     sendJson(res, 200, {
       total: page.totalMatched,
       returned: page.turns.length,
       limit: filter.limit,
       nextCursor,
+      headCursor,
       logs: page.turns.map((turn) => serializeTurn(turn)),
     });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/logs/stream") {
+    const filter = extractFilter(url.searchParams);
+    const cursorParam = url.searchParams.get("cursor") || undefined;
+    const decodedCursor = decodeCursor(cursorParam);
+    if (cursorParam && !decodedCursor) {
+      sendJson(res, 400, { error: "Invalid cursor" });
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-store",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders?.();
+    res.write(": stream-open\n\n");
+
+    let streamCursor = decodedCursor;
+    if (!streamCursor) {
+      const latestPage = db.queryTurns({
+        from: filter.from,
+        to: filter.to,
+        q: filter.q,
+        state: filter.state,
+        limit: 1,
+      });
+      const latest = latestPage.turns[0];
+      streamCursor = latest
+        ? {
+            timestamp: latest.timestamp,
+            id: latest.id,
+          }
+        : undefined;
+    }
+
+    const sendEvent = (name: string, payload: Record<string, unknown>): void => {
+      res.write(`event: ${name}\n`);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    sendEvent("ready", {
+      cursor: streamCursor ? encodeCursor(streamCursor) : null,
+      pollMs: 2000,
+    });
+
+    const pollTimer = setInterval(() => {
+      if (!streamCursor) return;
+      const fresh = collectTurnsAfterCursor(filter, streamCursor, 800, 120);
+      if (fresh.length === 0) return;
+
+      const newest = fresh[0];
+      streamCursor = {
+        timestamp: newest.timestamp,
+        id: newest.id,
+      };
+
+      sendEvent("logs", {
+        cursor: encodeCursor(streamCursor),
+        count: fresh.length,
+        logs: fresh.map((turn) => serializeTurn(turn)),
+      });
+    }, 2000);
+
+    const keepAliveTimer = setInterval(() => {
+      res.write(": keep-alive\n\n");
+    }, 15000);
+
+    let closed = false;
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      clearInterval(pollTimer);
+      clearInterval(keepAliveTimer);
+      res.end();
+    };
+
+    req.on("close", cleanup);
+    req.on("aborted", cleanup);
     return;
   }
 
@@ -487,7 +572,7 @@ function decodeCursor(raw: string | undefined): { timestamp: string; id: string 
   return undefined;
 }
 
-function encodeCursor(turn: AgentTurnRecord): string {
+function encodeCursor(turn: { timestamp: string; id: string }): string {
   return Buffer.from(
     JSON.stringify({
       timestamp: turn.timestamp,
@@ -495,6 +580,64 @@ function encodeCursor(turn: AgentTurnRecord): string {
     }),
     "utf-8",
   ).toString("base64url");
+}
+
+function collectTurnsAfterCursor(
+  filter: {
+    from?: string;
+    to?: string;
+    q?: string;
+    state?: AgentStateName;
+  },
+  cursor: { timestamp: string; id: string },
+  maxScan: number,
+  pageSize: number,
+): AgentTurnRecord[] {
+  const collected: AgentTurnRecord[] = [];
+  let scanned = 0;
+  let pageCursor: { timestamp: string; id: string } | undefined;
+  let stop = false;
+
+  while (!stop && scanned < maxScan) {
+    const page = db.queryTurns({
+      from: filter.from,
+      to: filter.to,
+      q: filter.q,
+      state: filter.state,
+      limit: pageSize,
+      cursor: pageCursor,
+    });
+    if (page.turns.length === 0) {
+      break;
+    }
+    scanned += page.turns.length;
+
+    for (const turn of page.turns) {
+      if (isTurnAfterCursor(turn, cursor)) {
+        collected.push(turn);
+      } else {
+        stop = true;
+        break;
+      }
+    }
+
+    if (stop || !page.hasMore) {
+      break;
+    }
+    const last = page.turns[page.turns.length - 1];
+    pageCursor = { timestamp: last.timestamp, id: last.id };
+  }
+
+  return collected;
+}
+
+function isTurnAfterCursor(
+  turn: { timestamp: string; id: string },
+  cursor: { timestamp: string; id: string },
+): boolean {
+  if (turn.timestamp > cursor.timestamp) return true;
+  if (turn.timestamp < cursor.timestamp) return false;
+  return turn.id > cursor.id;
 }
 
 function serializeTurn(turn: AgentTurnRecord): Record<string, unknown> {
@@ -1029,6 +1172,9 @@ const DASHBOARD_HTML = `<!doctype html>
       .muted {
         color: var(--color-ink-muted);
       }
+      .live-status {
+        margin: 0.15rem 0 0.4rem;
+      }
       .small {
         font-size: 0.9rem;
       }
@@ -1131,6 +1277,7 @@ const DASHBOARD_HTML = `<!doctype html>
           <button id="refreshBtn" class="primary" type="button">Refresh</button>
         </div>
         <p id="logsMeta" class="muted small"></p>
+        <p id="logsLive" class="live-status muted small"></p>
         <div id="turnList" class="turn-list"></div>
         <p id="logsSentinel" class="scroll-sentinel muted small"></p>
       </section>
@@ -1156,6 +1303,7 @@ const DASHBOARD_HTML = `<!doctype html>
         var toInput = document.getElementById("toInput");
         var refreshBtn = document.getElementById("refreshBtn");
         var logsMeta = document.getElementById("logsMeta");
+        var logsLive = document.getElementById("logsLive");
         var turnList = document.getElementById("turnList");
         var logsSentinel = document.getElementById("logsSentinel");
 
@@ -1171,6 +1319,13 @@ const DASHBOARD_HTML = `<!doctype html>
           hasMore: true,
           loading: false,
           requestId: 0
+        };
+        var logIndex = Object.create(null);
+        var streamState = {
+          source: null,
+          reconnectTimer: null,
+          cursor: null,
+          connecting: false
         };
         var logsObserver = null;
 
@@ -1355,6 +1510,21 @@ const DASHBOARD_HTML = `<!doctype html>
           return html.join("");
         }
 
+        function setLiveStatus(text) {
+          if (!logsLive) return;
+          logsLive.textContent = text || "";
+        }
+
+        function clearEmptyLogNotice() {
+          if (logsState.loaded !== 0) return;
+          if (turnList.childElementCount !== 1) return;
+          var only = turnList.firstElementChild;
+          if (!only || only.tagName !== "P") return;
+          if (only.classList.contains("muted")) {
+            turnList.innerHTML = "";
+          }
+        }
+
         function updateLogsMeta() {
           logsMeta.textContent = logsState.loaded + " of " + logsState.total + " log entries loaded";
         }
@@ -1377,18 +1547,22 @@ const DASHBOARD_HTML = `<!doctype html>
         }
 
         function resetLogsState() {
+          stopLogStream();
           logsState.requestId += 1;
           logsState.cursor = null;
           logsState.total = 0;
           logsState.loaded = 0;
           logsState.hasMore = true;
           logsState.loading = false;
+          logIndex = Object.create(null);
+          streamState.cursor = null;
           turnList.innerHTML = "";
           logsMeta.textContent = "Loading logs...";
+          setLiveStatus("");
           updateSentinel();
         }
 
-        function getFilterParams(cursor) {
+        function getFilterBaseParams() {
           var params = new URLSearchParams();
           var q = searchInput.value.trim();
           var fromIso = toIso(fromInput.value);
@@ -1398,12 +1572,29 @@ const DASHBOARD_HTML = `<!doctype html>
           if (fromIso) params.set("from", fromIso);
           if (toIsoValue) params.set("to", toIsoValue);
           if (stateValue) params.set("state", stateValue);
+          return params;
+        }
+
+        function getFilterParams(cursor) {
+          var params = getFilterBaseParams();
           params.set("limit", String(LOG_PAGE_SIZE));
           if (cursor) params.set("cursor", cursor);
           return params;
         }
 
-        function appendLogCard(log) {
+        function getStreamParams(cursor) {
+          var params = getFilterBaseParams();
+          params.set("limit", "120");
+          if (cursor) params.set("cursor", cursor);
+          return params;
+        }
+
+        function appendLogCard(log, prepend) {
+          if (!log || !log.id) return false;
+          if (logIndex[log.id]) return false;
+          logIndex[log.id] = 1;
+          clearEmptyLogNotice();
+
           var article = document.createElement("article");
           article.className = "turn" + (log.hasError ? " error" : "");
 
@@ -1460,7 +1651,14 @@ const DASHBOARD_HTML = `<!doctype html>
           }
 
           article.appendChild(details);
-          turnList.appendChild(article);
+          if (prepend && turnList.firstChild) {
+            turnList.insertBefore(article, turnList.firstChild);
+          } else if (prepend) {
+            turnList.appendChild(article);
+          } else {
+            turnList.appendChild(article);
+          }
+          return true;
         }
 
         async function loadOverview() {
@@ -1533,16 +1731,26 @@ const DASHBOARD_HTML = `<!doctype html>
               logsState.loaded = 0;
               logsState.total = 0;
               logsMeta.textContent = "No logs matched the current filters.";
+              startLogStream(null);
               return;
             }
 
+            var inserted = 0;
             logs.forEach(function (log) {
-              appendLogCard(log);
+              if (appendLogCard(log, false)) {
+                inserted += 1;
+              }
             });
-            logsState.loaded += logs.length;
+            logsState.loaded += inserted;
             logsState.cursor = typeof data.nextCursor === "string" && data.nextCursor
               ? data.nextCursor
               : null;
+            if (reset) {
+              streamState.cursor = typeof data.headCursor === "string" && data.headCursor
+                ? data.headCursor
+                : null;
+              startLogStream(streamState.cursor);
+            }
             logsState.hasMore = !!logsState.cursor;
             updateLogsMeta();
           } catch (err) {
@@ -1555,6 +1763,95 @@ const DASHBOARD_HTML = `<!doctype html>
               updateSentinel();
             }
           }
+        }
+
+        function parseEventPayload(raw) {
+          if (!raw) return {};
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return {};
+          }
+        }
+
+        function stopLogStream() {
+          if (streamState.reconnectTimer) {
+            clearTimeout(streamState.reconnectTimer);
+            streamState.reconnectTimer = null;
+          }
+          if (streamState.source) {
+            streamState.source.close();
+            streamState.source = null;
+          }
+          streamState.connecting = false;
+        }
+
+        function scheduleLogStreamReconnect() {
+          if (streamState.reconnectTimer) return;
+          streamState.reconnectTimer = setTimeout(function () {
+            streamState.reconnectTimer = null;
+            startLogStream(streamState.cursor);
+          }, 3000);
+        }
+
+        function ingestLiveLogs(payload) {
+          var logs = Array.isArray(payload.logs) ? payload.logs : [];
+          if (logs.length === 0) return;
+
+          var inserted = 0;
+          for (var i = logs.length - 1; i >= 0; i -= 1) {
+            if (appendLogCard(logs[i], true)) {
+              inserted += 1;
+            }
+          }
+          if (inserted > 0) {
+            logsState.loaded += inserted;
+            logsState.total += inserted;
+            updateLogsMeta();
+          }
+
+          if (typeof payload.cursor === "string" && payload.cursor) {
+            streamState.cursor = payload.cursor;
+          }
+        }
+
+        function startLogStream(cursor) {
+          if (!("EventSource" in window)) {
+            setLiveStatus("Live updates unavailable in this browser.");
+            return;
+          }
+
+          stopLogStream();
+          streamState.cursor = cursor || null;
+          streamState.connecting = true;
+          setLiveStatus("Live: connecting...");
+
+          var params = getStreamParams(streamState.cursor);
+          var source = new EventSource("/api/logs/stream?" + params.toString());
+          streamState.source = source;
+
+          source.addEventListener("ready", function (event) {
+            var payload = parseEventPayload(event.data);
+            if (typeof payload.cursor === "string" && payload.cursor) {
+              streamState.cursor = payload.cursor;
+            }
+            streamState.connecting = false;
+            setLiveStatus("Live: connected");
+          });
+
+          source.addEventListener("logs", function (event) {
+            var payload = parseEventPayload(event.data);
+            ingestLiveLogs(payload);
+          });
+
+          source.onerror = function () {
+            if (streamState.source !== source) return;
+            source.close();
+            streamState.source = null;
+            streamState.connecting = false;
+            setLiveStatus("Live: reconnecting...");
+            scheduleLogStreamReconnect();
+          };
         }
 
         async function askLogs() {
@@ -1789,6 +2086,10 @@ const DASHBOARD_HTML = `<!doctype html>
 
         askBtn.addEventListener("click", function () {
           askLogs().catch(function () {});
+        });
+
+        window.addEventListener("beforeunload", function () {
+          stopLogStream();
         });
 
         startLifeBackground();
