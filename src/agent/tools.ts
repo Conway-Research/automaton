@@ -757,6 +757,86 @@ Model: ${ctx.inference.getDefaultModel()}
         return `Credit transfer submitted: $${(amount / 100).toFixed(2)} to ${transfer.toAddress} (status: ${transfer.status}, id: ${transfer.transferId || "n/a"})`;
       },
     },
+    {
+      name: "transfer_usdc",
+      description: "Send SPL USDC on Solana to another wallet address. Safety limit: cannot send more than 50% of balance in one transfer.",
+      category: "financial",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          to_address: { type: "string", description: "Recipient Solana wallet address (base58)" },
+          amount: { type: "number", description: "Amount of USDC to send" },
+          reason: { type: "string", description: "Reason for transfer (for audit log)" },
+        },
+        required: ["to_address", "amount"],
+      },
+      execute: async (args, ctx) => {
+        const { transferUsdc } = await import("../solana/usdc.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const result = await transferUsdc(
+          ctx.identity.account,
+          args.to_address as string,
+          args.amount as number,
+          network,
+          ctx.config.solanaRpcUrl,
+        );
+
+        if (!result.success) {
+          return `USDC transfer failed: ${result.error}`;
+        }
+
+        const { ulid } = await import("ulid");
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "transfer_out",
+          description: `USDC transfer: ${args.amount} USDC to ${args.to_address}${args.reason ? ` (${args.reason})` : ""}`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `Sent ${args.amount} USDC to ${args.to_address}. TX: ${result.txSignature}`;
+      },
+    },
+    {
+      name: "transfer_sol",
+      description: "Send native SOL on Solana to another wallet address. Safety limit: cannot send more than 50% of balance in one transfer.",
+      category: "financial",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          to_address: { type: "string", description: "Recipient Solana wallet address (base58)" },
+          amount_sol: { type: "number", description: "Amount of SOL to send" },
+          reason: { type: "string", description: "Reason for transfer (for audit log)" },
+        },
+        required: ["to_address", "amount_sol"],
+      },
+      execute: async (args, ctx) => {
+        const { transferSol } = await import("../solana/usdc.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const result = await transferSol(
+          ctx.identity.account,
+          args.to_address as string,
+          args.amount_sol as number,
+          network,
+          ctx.config.solanaRpcUrl,
+        );
+
+        if (!result.success) {
+          return `SOL transfer failed: ${result.error}`;
+        }
+
+        const { ulid } = await import("ulid");
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "transfer_out",
+          description: `SOL transfer: ${args.amount_sol} SOL to ${args.to_address}${args.reason ? ` (${args.reason})` : ""}`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `Sent ${args.amount_sol} SOL to ${args.to_address}. TX: ${result.txSignature}`;
+      },
+    },
 
     // ── Skills Tools ──
     {
