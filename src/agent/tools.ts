@@ -1444,7 +1444,7 @@ Model: ${ctx.inference.getDefaultModel()}
     {
       name: "x402_fetch",
       description:
-        "Fetch a URL with automatic x402 USDC payment. If the server responds with HTTP 402, signs a USDC payment and retries. Use this to access paid APIs and services.",
+        "Fetch a URL with x402 USDC payment support. Two-phase flow: (1) Call without approve_payment to discover payment details — returns amount, recipient, and your balance without signing. (2) Call again with approve_payment: true to sign and pay. Non-402 URLs return the response directly.",
       category: "financial",
       parameters: {
         type: "object",
@@ -1465,25 +1465,69 @@ Model: ${ctx.inference.getDefaultModel()}
             type: "string",
             description: "Additional headers as JSON string",
           },
+          approve_payment: {
+            type: "boolean",
+            description: "Set to true to approve and sign the x402 payment. Omit or false to discover payment details first.",
+          },
         },
         required: ["url"],
       },
       execute: async (args, ctx) => {
-        const { x402Fetch } = await import("../conway/x402.js");
+        const { x402Fetch, getUsdcBalance } = await import("../conway/x402.js");
         const url = args.url as string;
         const method = (args.method as string) || "GET";
         const body = args.body as string | undefined;
+        const approvePayment = args.approve_payment as boolean | undefined;
         const extraHeaders = args.headers
           ? JSON.parse(args.headers as string)
           : undefined;
 
+        // Build middleware based on approval state
+        const middleware = approvePayment
+          ? [] // Phase 2: no blocking middleware, proceed to sign
+          : [async () => ({ proceed: false as const, reason: "Requires agent approval" })]; // Phase 1: block signing
+
         const result = await x402Fetch(
           url,
           ctx.identity.account,
-          method,
-          body,
-          extraHeaders,
+          { method, body, headers: extraHeaders, middleware },
         );
+
+        // Phase 1: 402 encountered, middleware blocked signing — return payment details
+        if (result.paymentDetails && !result.success && !approvePayment) {
+          const req = result.paymentDetails.requirement;
+          const amountRaw = req.maxAmountRequired;
+          // Parse human-readable USDC amount
+          const amountNum = amountRaw.includes(".")
+            ? parseFloat(amountRaw)
+            : result.paymentDetails.x402Version >= 2 || amountRaw.length > 6
+              ? Number(BigInt(amountRaw)) / 1_000_000
+              : parseFloat(amountRaw);
+          const balance = await getUsdcBalance(ctx.identity.address, req.network);
+
+          return `This URL requires x402 payment:\n  Amount: ${amountNum.toFixed(6)} USDC\n  Recipient: ${req.payToAddress}\n  Network: ${req.network}\n  Scheme: ${req.scheme}\n  Your USDC balance: ${balance.toFixed(6)} USDC\n\nTo proceed, call x402_fetch again with approve_payment: true`;
+        }
+
+        // Phase 2 success: log the transaction
+        if (result.success && result.paymentDetails) {
+          const req = result.paymentDetails.requirement;
+          const amountRaw = req.maxAmountRequired;
+          const amountNum = amountRaw.includes(".")
+            ? parseFloat(amountRaw)
+            : result.paymentDetails.x402Version >= 2 || amountRaw.length > 6
+              ? Number(BigInt(amountRaw)) / 1_000_000
+              : parseFloat(amountRaw);
+          const amountCents = Math.max(1, Math.round(amountNum * 100));
+
+          const { ulid } = await import("ulid");
+          ctx.db.insertTransaction({
+            id: ulid(),
+            type: "x402_payment",
+            amountCents,
+            description: `x402 payment: ${amountNum.toFixed(6)} USDC to ${req.payToAddress} for ${url}`,
+            timestamp: new Date().toISOString(),
+          });
+        }
 
         if (!result.success) {
           return `x402 fetch failed: ${result.error || "Unknown error"}`;
