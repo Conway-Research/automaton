@@ -253,8 +253,7 @@ export type ModificationType =
   | "skill_remove"
   | "soul_update"
   | "registry_update"
-  | "child_spawn"
-  | "upstream_pull";
+  | "child_spawn";
 
 // ─── Injection Defense ───────────────────────────────────────────
 
@@ -646,3 +645,35 @@ export interface GenesisConfig {
 }
 
 export const MAX_CHILDREN = 3;
+
+/**
+ * Minimum time between child spawns (rate limiting).
+ * Prevents rapid-fire replication attacks.
+ */
+export const MIN_SPAWN_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Allowed npm packages for install_npm_package tool.
+ * Block arbitrary package installation to prevent supply chain attacks.
+ */
+export const ALLOWED_NPM_PACKAGES: readonly string[] = [
+  // HTTP clients
+  "axios",
+  "node-fetch",
+  "got",
+  // Utilities
+  "lodash",
+  "date-fns",
+  "uuid",
+  "ulid",
+  // Data processing
+  "csv-parse",
+  "xml2js",
+  // Validation
+  "zod",
+  "joi",
+  // Dev tools (safe)
+  "typescript",
+  "prettier",
+  "eslint",
+];

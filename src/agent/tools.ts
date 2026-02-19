@@ -13,55 +13,219 @@ import type {
   ToolCallResult,
   GenesisConfig,
 } from "../types.js";
+import { ALLOWED_NPM_PACKAGES } from "../types.js";
 
 // ─── Self-Preservation Guard ───────────────────────────────────
 
-const FORBIDDEN_COMMAND_PATTERNS = [
-  // Self-destruction
-  /rm\s+(-rf?\s+)?.*\.automaton/,
-  /rm\s+(-rf?\s+)?.*state\.db/,
-  /rm\s+(-rf?\s+)?.*wallet\.json/,
-  /rm\s+(-rf?\s+)?.*automaton\.json/,
-  /rm\s+(-rf?\s+)?.*heartbeat\.yml/,
-  /rm\s+(-rf?\s+)?.*SOUL\.md/,
-  // Process killing
-  /kill\s+.*automaton/,
-  /pkill\s+.*automaton/,
-  /systemctl\s+(stop|disable)\s+automaton/,
-  // Database destruction
-  /DROP\s+TABLE/i,
-  /DELETE\s+FROM\s+(turns|identity|kv|schema_version|skills|children|registry)/i,
-  /TRUNCATE/i,
-  // Safety infrastructure modification via shell
-  /sed\s+.*injection-defense/,
-  /sed\s+.*self-mod\/code/,
-  /sed\s+.*audit-log/,
-  />\s*.*injection-defense/,
-  />\s*.*self-mod\/code/,
-  />\s*.*audit-log/,
-  // Credential harvesting
-  /cat\s+.*\.ssh/,
-  /cat\s+.*\.gnupg/,
-  /cat\s+.*\.env/,
-  /cat\s+.*wallet\.json/,
+/**
+ * Paths that require explicit allowlist check for file operations.
+ * These are critical system files that should never be modified via shell.
+ */
+const PROTECTED_PATHS: readonly string[] = [
+  ".automaton",
+  "state.db",
+  "state.db-wal",
+  "state.db-shm",
+  "wallet.json",
+  "automaton.json",
+  "heartbeat.yml",
+  "SOUL.md",
+  "constitution.md",
+  "injection-defense",
+  "self-mod",
+  "audit-log",
+  ".ssh",
+  ".gnupg",
+  ".env",
 ];
 
+/**
+ * Escape a path for use in regex (escapes ALL special regex chars).
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Build a regex pattern that matches a protected path in any context.
+ */
+function buildProtectedPathPattern(protectedPath: string): RegExp {
+  const escaped = escapeRegex(protectedPath);
+  // Match the path anywhere in the command
+  return new RegExp(escaped, "i");
+}
+
+/**
+ * Dangerous command patterns that are always blocked.
+ * This is a defense-in-depth layer; the primary protection is path-based.
+ */
+const DANGEROUS_PATTERNS: readonly RegExp[] = [
+  // Disk destruction
+  /\bdd\s+.*of=/i,
+  /\bshred\b/i,
+  /\bwipefs\b/i,
+  /\bmkfs\b/i,
+  // Process manipulation
+  /\bkill\b.*automaton/i,
+  /\bpkill\b.*automaton/i,
+  /\bsystemctl\b.*(stop|disable)\s+automaton/i,
+  // SQL injection
+  /\bDROP\s+(TABLE|DATABASE)/i,
+  /\bTRUNCATE\b/i,
+  /\bDELETE\s+FROM\b/i,
+  // Privilege escalation attempts
+  /\bsudo\b/i,
+  /\bsu\b\s/i,
+  /\bchmod\b.*[0-7]*77/i,
+  /\bchown\b/i,
+  // Network tunneling/escapes
+  /\bnc\b.*-e/i,
+  /\bbash\b.*-i.*>/i,
+  /\bpython\b.*socket/i,
+  /\bperl\b.*socket/i,
+  // Encoded payload execution
+  /\bbase64\b.*\|\s*(bash|sh|zsh)/i,
+  /\bxxd\b.*-r.*\|\s*(bash|sh|zsh)/i,
+  /\beval\s+/i,
+  // Shell command injection patterns
+  /\$\(/i,           // Command substitution
+  /`[^`]+`/,         // Backtick command substitution
+  /&&\s*\w/i,        // Command chaining
+  /\|\|\s*\w/i,      // Command chaining
+  /;\s*\w/i,         // Command separator
+];
+
+/**
+ * Deletion commands that should be blocked on protected paths.
+ */
+const DELETION_COMMANDS: readonly RegExp[] = [
+  /\brm\b/i,         // rm (with or without flags)
+  /\bunlink\b/i,     // unlink
+  /\brmdir\b/i,      // rmdir
+  /\bshred\b/i,      // shred
+  /\btruncate\b/i,   // truncate -s 0
+  /\bfind\b.*-delete/i, // find ... -delete
+];
+
+/**
+ * Modification commands that should be blocked on protected paths.
+ */
+const MODIFICATION_COMMANDS: readonly RegExp[] = [
+  /\bsed\b/i,
+  /\bawk\b/i,
+  /\bperl\b/i,
+  /\btee\b/i,
+  />>/i,             // Append redirect
+  />/i,              // Write redirect (checked separately with path)
+];
+
+/**
+ * Validate a shell command for safety.
+ * Uses both pattern matching and path analysis.
+ */
 function isForbiddenCommand(command: string, sandboxId: string): string | null {
-  for (const pattern of FORBIDDEN_COMMAND_PATTERNS) {
-    if (pattern.test(command)) {
-      return `Blocked: Command matches self-harm pattern: ${pattern.source}`;
+  // Normalize command for analysis
+  const normalizedCmd = command.replace(/\s+/g, " ").trim();
+
+  // 1. Check for shell injection patterns first
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(normalizedCmd)) {
+      return `Blocked: Command matches dangerous pattern`;
     }
   }
 
-  // Block deleting own sandbox
-  if (
-    command.includes("sandbox_delete") &&
-    command.includes(sandboxId)
-  ) {
+  // 2. Check for protected path operations
+  for (const protectedPath of PROTECTED_PATHS) {
+    const pathPattern = buildProtectedPathPattern(protectedPath);
+    
+    if (!pathPattern.test(normalizedCmd)) continue;
+
+    // Check deletion commands on protected paths
+    for (const delPattern of DELETION_COMMANDS) {
+      if (delPattern.test(normalizedCmd)) {
+        return `Blocked: Cannot delete protected path: ${protectedPath}`;
+      }
+    }
+
+    // Check modification commands on protected paths
+    for (const modPattern of MODIFICATION_COMMANDS) {
+      if (modPattern.test(normalizedCmd)) {
+        return `Blocked: Cannot modify protected path: ${protectedPath}`;
+      }
+    }
+
+    // Check read access to sensitive credential files
+    if (["wallet.json", ".ssh", ".gnupg", ".env"].includes(protectedPath)) {
+      if (/\bcat\b/i.test(normalizedCmd) || /\bhead\b/i.test(normalizedCmd) || /\btail\b/i.test(normalizedCmd)) {
+        return `Blocked: Cannot read sensitive file: ${protectedPath}`;
+      }
+    }
+  }
+
+  // 3. Block deleting own sandbox
+  if (command.includes("sandbox_delete") && command.includes(sandboxId)) {
     return "Blocked: Cannot delete own sandbox";
   }
 
   return null;
+}
+
+/**
+ * Validate an npm package name for safety.
+ * Must be in the allowlist and not contain shell injection characters.
+ * 
+ * Valid package name format: [@scope/][name][@version]
+ * - Scope: optional, starts with @, alphanumeric + hyphens
+ * - Name: alphanumeric, hyphens, underscores, dots
+ * - Version: optional, starts with @, semantic version
+ */
+export function validateNpmPackage(pkg: string): { valid: boolean; name: string; error?: string } {
+  // Reject any shell injection characters
+  const dangerousChars = /[;&|`$(){}<>!*?[\]\\^~#]/;
+  if (dangerousChars.test(pkg)) {
+    return { valid: false, name: "", error: "Invalid characters in package name (potential shell injection)" };
+  }
+
+  // Reject whitespace (could hide injection)
+  if (/\s/.test(pkg)) {
+    return { valid: false, name: "", error: "Whitespace not allowed in package name" };
+  }
+
+  // Strict validation: only allow safe characters
+  // Format: [@scope/][name][@version]
+  const safePattern = /^(@[a-z0-9-]+\/)?[a-z0-9._-]+(@[a-z0-9._-]+)?$/i;
+  if (!safePattern.test(pkg)) {
+    return { valid: false, name: "", error: "Invalid package name format" };
+  }
+
+  // Extract package name (without version) for allowlist check
+  // Handle scoped packages: @scope/name@version -> @scope/name
+  let pkgName = pkg;
+  
+  // Remove version specifier (everything after last @ that's not the scope @)
+  if (pkg.includes("@") && !pkg.startsWith("@")) {
+    // Simple package with version: name@version
+    pkgName = pkg.split("@")[0];
+  } else if (pkg.startsWith("@") && pkg.indexOf("@", 1) !== -1) {
+    // Scoped package with version: @scope/name@version
+    const parts = pkg.split("/");
+    if (parts.length === 2) {
+      const namePart = parts[1];
+      pkgName = parts[0] + "/" + namePart.split("@")[0];
+    }
+  }
+
+  // Check allowlist
+  const baseName = pkgName.startsWith("@") ? pkgName.split("/")[1] || pkgName : pkgName;
+  if (!ALLOWED_NPM_PACKAGES.includes(baseName)) {
+    return { 
+      valid: false, 
+      name: baseName, 
+      error: `"${baseName}" is not in the allowed package list. Allowed: ${ALLOWED_NPM_PACKAGES.slice(0, 5).join(", ")}...` 
+    };
+  }
+
+  return { valid: true, name: pkgName };
 }
 
 // ─── Built-in Tools ────────────────────────────────────────────
@@ -315,22 +479,32 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     },
     {
       name: "install_npm_package",
-      description: "Install an npm package in your environment.",
+      description: "Install an npm package in your environment. Only pre-approved packages are allowed.",
       category: "self_mod",
       parameters: {
         type: "object",
         properties: {
           package: {
             type: "string",
-            description: "Package name (e.g., axios)",
+            description: "Package name (e.g., axios). Only allowlisted packages can be installed.",
           },
         },
         required: ["package"],
       },
       execute: async (args, ctx) => {
         const pkg = args.package as string;
+
+        // Security: Validate package name (allowlist + no shell injection)
+        const validation = validateNpmPackage(pkg);
+        if (!validation.valid) {
+          return `Blocked: ${validation.error}. This prevents supply chain and shell injection attacks.`;
+        }
+
+        // Use shellescape-style quoting for safety (single quotes, escape internal single quotes)
+        const safePkg = `'${pkg.replace(/'/g, "'\\''")}'`;
+        
         const result = await ctx.conway.exec(
-          `npm install -g ${pkg}`,
+          `npm install -g ${safePkg}`,
           60000,
         );
 
@@ -339,99 +513,15 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           id: ulid(),
           timestamp: new Date().toISOString(),
           type: "tool_install",
-          description: `Installed npm package: ${pkg}`,
+          description: `Installed npm package: ${validation.name}`,
           reversible: true,
         });
 
         return result.exitCode === 0
-          ? `Installed: ${pkg}`
-          : `Failed to install ${pkg}: ${result.stderr}`;
+          ? `Installed: ${validation.name}`
+          : `Failed to install ${validation.name}: ${result.stderr}`;
       },
     },
-    // ── Self-Mod: Upstream Awareness ──
-    {
-      name: "review_upstream_changes",
-      description:
-        "ALWAYS call this before pull_upstream. Shows every upstream commit with its full diff. Read each one carefully — decide per-commit whether to accept or skip. Use pull_upstream with a specific commit hash to cherry-pick only what you want.",
-      category: "self_mod",
-      parameters: { type: "object", properties: {} },
-      execute: async (_args, _ctx) => {
-        const { getUpstreamDiffs, checkUpstream } = await import("../self-mod/upstream.js");
-        const status = checkUpstream();
-        if (status.behind === 0) return "Already up to date with origin/main.";
-
-        const diffs = getUpstreamDiffs();
-        if (diffs.length === 0) return "No upstream diffs found.";
-
-        const output = diffs
-          .map(
-            (d, i) =>
-              `--- COMMIT ${i + 1}/${diffs.length} ---\nHash: ${d.hash}\nAuthor: ${d.author}\nMessage: ${d.message}\n\n${d.diff.slice(0, 4000)}${d.diff.length > 4000 ? "\n... (diff truncated)" : ""}\n--- END COMMIT ${i + 1} ---`,
-          )
-          .join("\n\n");
-
-        return `${diffs.length} upstream commit(s) to review. Read each diff, then cherry-pick individually with pull_upstream(commit=<hash>).\n\n${output}`;
-      },
-    },
-    {
-      name: "pull_upstream",
-      description:
-        "Apply upstream changes and rebuild. You MUST call review_upstream_changes first. Prefer cherry-picking individual commits by hash over pulling everything — only pull all if you've reviewed every commit and want them all.",
-      category: "self_mod",
-      dangerous: true,
-      parameters: {
-        type: "object",
-        properties: {
-          commit: {
-            type: "string",
-            description:
-              "Commit hash to cherry-pick (preferred). Omit ONLY if you reviewed all commits and want every one.",
-          },
-        },
-      },
-      execute: async (args, ctx) => {
-        const { execSync } = await import("child_process");
-        const cwd = process.cwd();
-        const commit = args.commit as string | undefined;
-
-        const run = (cmd: string) =>
-          execSync(cmd, { cwd, encoding: "utf-8", timeout: 120_000 }).trim();
-
-        let appliedSummary: string;
-        try {
-          if (commit) {
-            run(`git cherry-pick ${commit}`);
-            appliedSummary = `Cherry-picked ${commit}`;
-          } else {
-            run("git pull origin main --ff-only");
-            appliedSummary = "Pulled all of origin/main (fast-forward)";
-          }
-        } catch (err: any) {
-          return `Git operation failed: ${err.message}. You may need to resolve conflicts manually.`;
-        }
-
-        // Rebuild
-        let buildOutput: string;
-        try {
-          buildOutput = run("npm install --ignore-scripts && npm run build");
-        } catch (err: any) {
-          return `${appliedSummary} — but rebuild failed: ${err.message}. The code is applied but not compiled.`;
-        }
-
-        // Log modification
-        const { ulid } = await import("ulid");
-        ctx.db.insertModification({
-          id: ulid(),
-          timestamp: new Date().toISOString(),
-          type: "upstream_pull",
-          description: appliedSummary,
-          reversible: true,
-        });
-
-        return `${appliedSummary}. Rebuild succeeded.`;
-      },
-    },
-
     {
       name: "modify_heartbeat",
       description: "Add, update, or remove a heartbeat entry.",

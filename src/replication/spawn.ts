@@ -15,8 +15,36 @@ import type {
   ChildAutomaton,
   GenesisConfig,
 } from "../types.js";
-import { MAX_CHILDREN } from "../types.js";
+import { MAX_CHILDREN, MIN_SPAWN_INTERVAL_MS } from "../types.js";
 import { ulid } from "ulid";
+
+/**
+ * Check if enough time has passed since the last child spawn.
+ * Rate limiting prevents rapid-fire replication attacks.
+ */
+function checkSpawnRateLimit(db: AutomatonDatabase): { allowed: boolean; waitMs?: number } {
+  const children = db.getChildren();
+  if (children.length === 0) return { allowed: true };
+
+  // Find the most recently created child
+  const sortedByDate = [...children].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const lastSpawn = sortedByDate[0];
+  if (!lastSpawn) return { allowed: true };
+
+  const lastSpawnTime = new Date(lastSpawn.createdAt).getTime();
+  const elapsed = Date.now() - lastSpawnTime;
+
+  if (elapsed < MIN_SPAWN_INTERVAL_MS) {
+    return {
+      allowed: false,
+      waitMs: MIN_SPAWN_INTERVAL_MS - elapsed,
+    };
+  }
+
+  return { allowed: true };
+}
 
 /**
  * Spawn a child automaton in a new Conway sandbox.
@@ -27,6 +55,15 @@ export async function spawnChild(
   db: AutomatonDatabase,
   genesis: GenesisConfig,
 ): Promise<ChildAutomaton> {
+  // Check spawn rate limit first
+  const rateLimit = checkSpawnRateLimit(db);
+  if (!rateLimit.allowed) {
+    const waitMinutes = Math.ceil((rateLimit.waitMs || 0) / 60000);
+    throw new Error(
+      `Spawn rate limited: wait ${waitMinutes} minutes before spawning another child. This prevents runaway replication.`
+    );
+  }
+
   // Check child limit
   const existing = db.getChildren().filter(
     (c) => c.status !== "dead",
