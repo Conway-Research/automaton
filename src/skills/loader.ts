@@ -8,6 +8,7 @@
 
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 import type { Skill, AutomatonDatabase } from "../types.js";
 import { parseSkillMd } from "./format.js";
 
@@ -71,8 +72,11 @@ function checkRequirements(skill: Skill): boolean {
   // Check required binaries
   if (skill.requires.bins) {
     for (const bin of skill.requires.bins) {
+      // Validate binary name to prevent command injection
+      if (!/^[a-zA-Z0-9._-]+$/.test(bin)) {
+        return false;
+      }
       try {
-        const { execSync } = require("child_process");
         execSync(`which ${bin}`, { stdio: "ignore" });
       } catch {
         return false;
