@@ -1054,7 +1054,7 @@ const DASHBOARD_HTML = `<!doctype html>
     <canvas id="lifeCanvas" class="life-bg" aria-hidden="true"></canvas>
     <header class="header">
       <h1 class="title">Automaton Logbook</h1>
-      <p class="subtitle"><span class="mono">__AUTOMATON_NAME__</span> local observability dashboard</p>
+      <p class="subtitle"><span class="mono">__AUTOMATON_NAME__</span> observability dashboard</p>
       <nav class="nav">
         <a href="#overview">Overview</a>
         <a href="#ask">Ask</a>
