@@ -185,11 +185,16 @@ export async function runAgentLoop(
       pendingInput = undefined;
 
       // ── Inference Call ──
-      log(config, `[THINK] Calling ${inference.getDefaultModel()}...`);
+      const activeModel = inference.getDefaultModel();
+      db.setKV("active_model", activeModel);
+      log(config, `[THINK] Calling ${activeModel}...`);
 
       const response = await inference.chat(messages, {
         tools: toolsToInferenceFormat(tools),
       });
+
+      db.setKV("last_inference_model", response.model || activeModel);
+      db.setKV("last_inference_at", new Date().toISOString());
 
       const turn: AgentTurn = {
         id: ulid(),
@@ -200,7 +205,7 @@ export async function runAgentLoop(
         thinking: response.message.content || "",
         toolCalls: [],
         tokenUsage: response.usage,
-        costCents: estimateCostCents(response.usage, inference.getDefaultModel()),
+        costCents: estimateCostCents(response.usage, activeModel),
       };
 
       // ── Execute Tool Calls ──

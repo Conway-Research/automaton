@@ -21,6 +21,7 @@ const turnCount = db.getTurnCount();
 const tools = db.getInstalledTools();
 const heartbeats = db.getHeartbeatEntries();
 const recentTurns = db.getRecentTurns(5);
+const activeModel = db.getKV("active_model") || config.inferenceModel;
 
 console.log(`
 === ${config.name} ===
@@ -31,7 +32,7 @@ State:      ${state}
 Turns:      ${turnCount}
 Tools:      ${tools.length} installed
 Heartbeats: ${heartbeats.filter((h) => h.enabled).length} active
-Model:      ${config.inferenceModel}
+Model:      ${activeModel}${activeModel !== config.inferenceModel ? ` (configured: ${config.inferenceModel})` : ""}
 `);
 
 if (recentTurns.length > 0) {

@@ -120,6 +120,7 @@ async function showStatus(): Promise<void> {
   const skills = db.getSkills(true);
   const children = db.getChildren();
   const registry = db.getRegistryEntry();
+  const activeModel = db.getKV("active_model") || config.inferenceModel;
 
   console.log(`
 === AUTOMATON STATUS ===
@@ -134,7 +135,7 @@ Skills:     ${skills.length} active
 Heartbeats: ${heartbeats.filter((h) => h.enabled).length} active
 Children:   ${children.filter((c) => c.status !== "dead").length} alive / ${children.length} total
 Agent ID:   ${registry?.agentId || "not registered"}
-Model:      ${config.inferenceModel}
+Model:      ${activeModel}${activeModel !== config.inferenceModel ? ` (configured: ${config.inferenceModel})` : ""}
 Version:    ${config.version}
 ========================
 `);

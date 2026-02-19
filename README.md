@@ -119,6 +119,7 @@ Creator CLI:
 ```bash
 node packages/cli/dist/index.js status
 node packages/cli/dist/index.js logs --tail 20
+node packages/cli/dist/index.js dashboard --port 3747
 node packages/cli/dist/index.js fund 5.00
 ```
 

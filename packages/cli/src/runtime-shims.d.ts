@@ -19,8 +19,11 @@ declare module "@conway/automaton/config.js" {
 
 declare module "@conway/automaton/state/database.js" {
   export interface CliToolCall {
+    id?: string;
     name: string;
+    arguments?: Record<string, unknown>;
     result: string;
+    durationMs?: number;
     error?: string;
   }
 
@@ -51,6 +54,7 @@ declare module "@conway/automaton/state/database.js" {
     getInstalledTools(): CliInstalledTool[];
     getHeartbeatEntries(): CliHeartbeatEntry[];
     getRecentTurns(limit: number): CliTurn[];
+    getKV(key: string): string | undefined;
     close(): void;
   }
 
