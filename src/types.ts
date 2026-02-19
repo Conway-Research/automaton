@@ -226,7 +226,8 @@ export type TransactionType =
   | "tool_use"
   | "transfer_in"
   | "transfer_out"
-  | "funding_request";
+  | "funding_request"
+  | "x402_payment";
 
 // ─── Self-Modification ───────────────────────────────────────────
 

@@ -36,7 +36,7 @@ const BALANCE_OF_ABI = [
   },
 ] as const;
 
-interface PaymentRequirement {
+export interface PaymentRequirement {
   scheme: string;
   network: NetworkId;
   maxAmountRequired: string;
@@ -55,11 +55,15 @@ interface ParsedPaymentRequirement {
   requirement: PaymentRequirement;
 }
 
-interface X402PaymentResult {
+export interface X402PaymentResult {
   success: boolean;
   response?: any;
   error?: string;
   status?: number;
+  paymentDetails?: {
+    requirement: PaymentRequirement;
+    x402Version: number;
+  };
 }
 
 export interface UsdcBalanceResult {
@@ -67,6 +71,25 @@ export interface UsdcBalanceResult {
   network: string;
   ok: boolean;
   error?: string;
+}
+
+export interface PaymentContext {
+  url: string;
+  method: string;
+  requirement: PaymentRequirement;
+  x402Version: number;
+  signerAddress: string;
+}
+
+export type PaymentMiddleware = (
+  ctx: PaymentContext,
+) => Promise<{ proceed: true } | { proceed: false; reason: string }>;
+
+export interface X402FetchOptions {
+  method?: string;
+  body?: string;
+  headers?: Record<string, string>;
+  middleware?: PaymentMiddleware[];
 }
 
 function safeJsonParse(value: string): unknown | null {
@@ -257,22 +280,35 @@ export async function checkX402(
 }
 
 /**
- * Fetch a URL with automatic x402 payment.
- * If the endpoint returns 402, sign and pay, then retry.
+ * Fetch a URL with x402 payment support and middleware pipeline.
+ * If the endpoint returns 402, runs middleware before signing.
+ * Accepts either positional args (backward compat) or an options object.
  */
 export async function x402Fetch(
   url: string,
   account: PrivateKeyAccount,
-  method: string = "GET",
+  optionsOrMethod?: X402FetchOptions | string,
   body?: string,
   headers?: Record<string, string>,
 ): Promise<X402PaymentResult> {
+  // Backward compat: positional args → options object
+  const options: X402FetchOptions =
+    typeof optionsOrMethod === "object" && optionsOrMethod !== null
+      ? optionsOrMethod
+      : {
+          method: (optionsOrMethod as string) || "GET",
+          body,
+          headers,
+        };
+
+  const method = options.method || "GET";
+
   try {
     // Initial request
     const initialResp = await fetch(url, {
       method,
-      headers: { ...headers, "Content-Type": "application/json" },
-      body,
+      headers: { ...options.headers, "Content-Type": "application/json" },
+      body: options.body,
     });
 
     if (initialResp.status !== 402) {
@@ -292,6 +328,34 @@ export async function x402Fetch(
       };
     }
 
+    const paymentDetails = {
+      requirement: parsed.requirement,
+      x402Version: parsed.x402Version,
+    };
+
+    // Run middleware pipeline
+    if (options.middleware && options.middleware.length > 0) {
+      const ctx: PaymentContext = {
+        url,
+        method,
+        requirement: parsed.requirement,
+        x402Version: parsed.x402Version,
+        signerAddress: account.address,
+      };
+
+      for (const mw of options.middleware) {
+        const result = await mw(ctx);
+        if (!result.proceed) {
+          return {
+            success: false,
+            error: result.reason,
+            status: 402,
+            paymentDetails,
+          };
+        }
+      }
+    }
+
     // Sign payment
     let payment: any;
     try {
@@ -305,6 +369,7 @@ export async function x402Fetch(
         success: false,
         error: `Failed to sign payment: ${err?.message || String(err)}`,
         status: initialResp.status,
+        paymentDetails,
       };
     }
 
@@ -316,15 +381,15 @@ export async function x402Fetch(
     const paidResp = await fetch(url, {
       method,
       headers: {
-        ...headers,
+        ...options.headers,
         "Content-Type": "application/json",
         "X-Payment": paymentHeader,
       },
-      body,
+      body: options.body,
     });
 
     const data = await paidResp.json().catch(() => paidResp.text());
-    return { success: paidResp.ok, response: data, status: paidResp.status };
+    return { success: paidResp.ok, response: data, status: paidResp.status, paymentDetails };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
