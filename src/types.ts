@@ -4,22 +4,22 @@
  * All shared interfaces for the sovereign AI agent runtime.
  */
 
-import type { PrivateKeyAccount, Address } from "viem";
+import type { Keypair } from "@solana/web3.js";
 
 // ─── Identity ────────────────────────────────────────────────────
 
 export interface AutomatonIdentity {
   name: string;
-  address: Address;
-  account: PrivateKeyAccount;
-  creatorAddress: Address;
+  address: string; // Solana base58 public key
+  account: Keypair;
+  creatorAddress: string; // Solana base58 public key
   sandboxId: string;
   apiKey: string;
   createdAt: string;
 }
 
 export interface WalletData {
-  privateKey: `0x${string}`;
+  secretKey: number[]; // 64-byte ed25519 secret key as array
   createdAt: string;
 }
 
@@ -35,7 +35,7 @@ export interface AutomatonConfig {
   name: string;
   genesisPrompt: string;
   creatorMessage?: string;
-  creatorAddress: Address;
+  creatorAddress: string; // Solana base58 public key
   registeredWithConway: boolean;
   sandboxId: string;
   conwayApiUrl: string;
@@ -47,13 +47,15 @@ export interface AutomatonConfig {
   heartbeatConfigPath: string;
   dbPath: string;
   logLevel: "debug" | "info" | "warn" | "error";
-  walletAddress: Address;
+  walletAddress: string; // Solana base58 public key
   version: string;
   skillsDir: string;
-  agentId?: string;
+  registryAssetAddress?: string; // Metaplex Core NFT asset address (base58)
   maxChildren: number;
-  parentAddress?: Address;
+  parentAddress?: string; // Solana base58 public key
   socialRelayUrl?: string;
+  solanaRpcUrl?: string; // Solana RPC endpoint
+  solanaNetwork?: "mainnet-beta" | "devnet" | "testnet";
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
@@ -67,6 +69,8 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
   socialRelayUrl: "https://social.conway.tech",
+  solanaRpcUrl: "https://api.mainnet-beta.solana.com",
+  solanaNetwork: "mainnet-beta",
 };
 
 // ─── Agent State ─────────────────────────────────────────────────
@@ -184,7 +188,7 @@ export interface HeartbeatConfig {
 
 export interface HeartbeatPingPayload {
   name: string;
-  address: Address;
+  address: string; // Solana base58 public key
   state: AgentState;
   creditsCents: number;
   usdcBalance: number;
@@ -571,7 +575,7 @@ export interface GitLogEntry {
   date: string;
 }
 
-// ─── ERC-8004 Registry ─────────────────────────────────────────
+// ─── Solana Registry (Metaplex Core) ────────────────────────────
 
 export interface AgentCard {
   type: string;
@@ -589,11 +593,10 @@ export interface AgentService {
 }
 
 export interface RegistryEntry {
-  agentId: string;
+  assetAddress: string;  // Metaplex Core NFT address (base58)
   agentURI: string;
-  chain: string;
-  contractAddress: string;
-  txHash: string;
+  network: string;       // e.g. "mainnet-beta", "devnet"
+  txSignature: string;   // On-chain registration tx signature
   registeredAt: string;
 }
 
@@ -603,13 +606,13 @@ export interface ReputationEntry {
   toAgent: string;
   score: number;
   comment: string;
-  txHash?: string;
+  txSignature?: string;
   timestamp: string;
 }
 
 export interface DiscoveredAgent {
-  agentId: string;
-  owner: string;
+  assetAddress: string;  // Metaplex Core NFT address
+  owner: string;         // Solana wallet base58
   agentURI: string;
   name?: string;
   description?: string;
@@ -620,7 +623,7 @@ export interface DiscoveredAgent {
 export interface ChildAutomaton {
   id: string;
   name: string;
-  address: Address;
+  address: string; // Solana base58 public key
   sandboxId: string;
   genesisPrompt: string;
   creatorMessage?: string;
@@ -641,8 +644,8 @@ export interface GenesisConfig {
   name: string;
   genesisPrompt: string;
   creatorMessage?: string;
-  creatorAddress: Address;
-  parentAddress: Address;
+  creatorAddress: string; // Solana base58 public key
+  parentAddress: string;  // Solana base58 public key
 }
 
 export const MAX_CHILDREN = 3;

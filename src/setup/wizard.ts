@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import chalk from "chalk";
 import type { AutomatonConfig } from "../types.js";
-import type { Address } from "viem";
 import { getWallet, getAutomatonDir } from "../identity/wallet.js";
 import { provision } from "../identity/provision.js";
 import { createConfig, saveConfig } from "../config.js";
@@ -17,6 +16,7 @@ import {
 } from "./prompts.js";
 import { detectEnvironment } from "./environment.js";
 import { generateSoulMd, installDefaultSkills } from "./defaults.js";
+import { registerWithSAID } from "./said.js";
 
 export async function runSetupWizard(): Promise<AutomatonConfig> {
   showBanner();
@@ -24,17 +24,18 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   console.log(chalk.white("  First-run setup. Let's bring your automaton to life.\n"));
 
   // ─── 1. Generate wallet ───────────────────────────────────────
-  console.log(chalk.cyan("  [1/6] Generating identity (wallet)..."));
+  console.log(chalk.cyan("  [1/6] Generating identity (Solana keypair)..."));
   const { account, isNew } = await getWallet();
+  const address = account.publicKey.toBase58();
   if (isNew) {
-    console.log(chalk.green(`  Wallet created: ${account.address}`));
+    console.log(chalk.green(`  Keypair created: ${address}`));
   } else {
-    console.log(chalk.green(`  Wallet loaded: ${account.address}`));
+    console.log(chalk.green(`  Keypair loaded: ${address}`));
   }
   console.log(chalk.dim(`  Private key stored at: ${getAutomatonDir()}/wallet.json\n`));
 
   // ─── 2. Provision API key ─────────────────────────────────────
-  console.log(chalk.cyan("  [2/6] Provisioning Conway API key (SIWE)..."));
+  console.log(chalk.cyan("  [2/6] Provisioning Conway API key (Solana ed25519)..."));
   let apiKey = "";
   try {
     const result = await provision();
@@ -53,7 +54,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
       }
       fs.writeFileSync(
         path.join(configDir, "config.json"),
-        JSON.stringify({ apiKey, walletAddress: account.address, provisionedAt: new Date().toISOString() }, null, 2),
+        JSON.stringify({ apiKey, walletAddress: address, provisionedAt: new Date().toISOString() }, null, 2),
         { mode: 0o600 },
       );
       console.log(chalk.green("  API key saved.\n"));
@@ -73,7 +74,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   const genesisPrompt = await promptMultiline("Enter the genesis prompt (system prompt) for your automaton.");
   console.log(chalk.green(`  Genesis prompt set (${genesisPrompt.length} chars)\n`));
 
-  const creatorAddress = await promptAddress("Your Ethereum wallet address (0x...)");
+  const creatorAddress = await promptAddress("Your Solana wallet address (base58)");
   console.log(chalk.green(`  Creator: ${creatorAddress}\n`));
 
   console.log(chalk.white("  Optional: bring your own inference provider keys (press Enter to skip)."));
@@ -97,8 +98,23 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     console.log(chalk.dim("  No provider keys set. Inference will default to Conway.\n"));
   }
 
-  // ─── 4. Detect environment ────────────────────────────────────
-  console.log(chalk.cyan("  [4/6] Detecting environment..."));
+  // ─── 4. SAID Protocol identity ───────────────────────────────
+  console.log(chalk.cyan("  [4/7] Registering SAID Protocol identity (on-chain agent ID)..."));
+  let saidProfileUrl: string | undefined;
+  try {
+    const said = await registerWithSAID({
+      wallet: address,
+      name,
+      framework: "automaton",
+    });
+    saidProfileUrl = said.profileUrl;
+    console.log(chalk.green(`  SAID identity registered: ${said.profileUrl}\n`));
+  } catch (err: any) {
+    console.log(chalk.yellow(`  SAID registration skipped: ${err.message}\n`));
+  }
+
+  // ─── 5. Detect environment ────────────────────────────────────
+  console.log(chalk.cyan("  [5/7] Detecting environment..."));
   const env = detectEnvironment();
   if (env.sandboxId) {
     console.log(chalk.green(`  Conway sandbox detected: ${env.sandboxId}\n`));
@@ -106,16 +122,16 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     console.log(chalk.dim(`  Environment: ${env.type} (no sandbox detected)\n`));
   }
 
-  // ─── 5. Write config + heartbeat + SOUL.md + skills ───────────
-  console.log(chalk.cyan("  [5/6] Writing configuration..."));
+  // ─── 6. Write config + heartbeat + SOUL.md + skills ───────────
+  console.log(chalk.cyan("  [6/7] Writing configuration..."));
 
   const config = createConfig({
     name,
     genesisPrompt,
-    creatorAddress: creatorAddress as Address,
+    creatorAddress,
     registeredWithConway: !!apiKey,
     sandboxId: env.sandboxId,
-    walletAddress: account.address,
+    walletAddress: address,
     apiKey,
     openaiApiKey: openaiApiKey || undefined,
     anthropicApiKey: anthropicApiKey || undefined,
@@ -139,7 +155,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
 
   // SOUL.md
   const soulPath = path.join(automatonDir, "SOUL.md");
-  fs.writeFileSync(soulPath, generateSoulMd(name, account.address, creatorAddress, genesisPrompt), { mode: 0o600 });
+  fs.writeFileSync(soulPath, generateSoulMd(name, address, creatorAddress, genesisPrompt), { mode: 0o600 });
   console.log(chalk.green("  SOUL.md written"));
 
   // Default skills
@@ -147,16 +163,16 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   installDefaultSkills(skillsDir);
   console.log(chalk.green("  Default skills installed (conway-compute, conway-payments, survival)\n"));
 
-  // ─── 6. Funding guidance ──────────────────────────────────────
-  console.log(chalk.cyan("  [6/6] Funding\n"));
-  showFundingPanel(account.address);
+  // ─── 7. Funding guidance ──────────────────────────────────────
+  console.log(chalk.cyan("  [7/7] Funding\n"));
+  showFundingPanel(address, saidProfileUrl);
 
   closePrompts();
 
   return config;
 }
 
-function showFundingPanel(address: string): void {
+function showFundingPanel(address: string, saidProfileUrl?: string): void {
   const short = `${address.slice(0, 6)}...${address.slice(-5)}`;
   const w = 58;
   const pad = (s: string, len: number) => s + " ".repeat(Math.max(0, len - s.length));
@@ -169,13 +185,18 @@ function showFundingPanel(address: string): void {
   console.log(chalk.cyan(`  │${pad("  1. Transfer Conway credits", w)}│`));
   console.log(chalk.cyan(`  │${pad("     conway credits transfer <address> <amount>", w)}│`));
   console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
-  console.log(chalk.cyan(`  │${pad("  2. Send USDC on Base directly to the address above", w)}│`));
+  console.log(chalk.cyan(`  │${pad("  2. Send USDC (SPL) on Solana to the address above", w)}│`));
   console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
   console.log(chalk.cyan(`  │${pad("  3. Fund via Conway Cloud dashboard", w)}│`));
   console.log(chalk.cyan(`  │${pad("     https://app.conway.tech", w)}│`));
   console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
   console.log(chalk.cyan(`  │${pad("  The automaton will start now. Fund it anytime —", w)}│`));
   console.log(chalk.cyan(`  │${pad("  the survival system handles zero-credit gracefully.", w)}│`));
+  if (saidProfileUrl) {
+    console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
+    console.log(chalk.cyan(`  │${pad("  SAID Identity:", w)}│`));
+    console.log(chalk.cyan(`  │${pad(`  ${saidProfileUrl}`, w)}│`));
+  }
   console.log(chalk.cyan(`  ${"╰" + "─".repeat(w) + "╯"}`));
   console.log("");
 }

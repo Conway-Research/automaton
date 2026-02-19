@@ -367,14 +367,13 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   const setRegistryEntry = (entry: RegistryEntry): void => {
     db.prepare(
-      `INSERT OR REPLACE INTO registry (agent_id, agent_uri, chain, contract_address, tx_hash, registered_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO registry (asset_address, agent_uri, network, tx_signature, registered_at)
+       VALUES (?, ?, ?, ?, ?)`,
     ).run(
-      entry.agentId,
+      entry.assetAddress,
       entry.agentURI,
-      entry.chain,
-      entry.contractAddress,
-      entry.txHash,
+      entry.network,
+      entry.txSignature,
       entry.registeredAt,
     );
   };
@@ -383,7 +382,7 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   const insertReputation = (entry: ReputationEntry): void => {
     db.prepare(
-      `INSERT INTO reputation (id, from_agent, to_agent, score, comment, tx_hash)
+      `INSERT INTO reputation (id, from_agent, to_agent, score, comment, tx_signature)
        VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
       entry.id,
@@ -391,7 +390,7 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
       entry.toAgent,
       entry.score,
       entry.comment,
-      entry.txHash ?? null,
+      entry.txSignature ?? null,
     );
   };
 
@@ -597,11 +596,10 @@ function deserializeChild(row: any): ChildAutomaton {
 
 function deserializeRegistry(row: any): RegistryEntry {
   return {
-    agentId: row.agent_id,
+    assetAddress: row.asset_address,
     agentURI: row.agent_uri,
-    chain: row.chain,
-    contractAddress: row.contract_address,
-    txHash: row.tx_hash,
+    network: row.network,
+    txSignature: row.tx_signature,
     registeredAt: row.registered_at,
   };
 }
@@ -625,7 +623,7 @@ function deserializeReputation(row: any): ReputationEntry {
     toAgent: row.to_agent,
     score: row.score,
     comment: row.comment,
-    txHash: row.tx_hash ?? undefined,
+    txSignature: row.tx_signature ?? undefined,
     timestamp: row.created_at,
   };
 }

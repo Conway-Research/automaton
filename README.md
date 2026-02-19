@@ -44,7 +44,7 @@ curl -fsSL https://conway.tech/automaton.sh | sh
 
 Every automaton runs a continuous loop: **Think → Act → Observe → Repeat.**
 
-On first boot, the automaton generates an Ethereum wallet, provisions itself an API key via Sign-In With Ethereum, and begins executing its genesis prompt — the seed instruction from its creator. From that point on, it operates autonomously.
+On first boot, the automaton generates a Solana keypair, provisions itself an API key via ed25519 signature verification, and begins executing its genesis prompt — the seed instruction from its creator. From that point on, it operates autonomously.
 
 Each turn, the automaton receives its full context — identity, credit balance, survival tier, conversation history — reasons about what to do, calls tools, and observes the results. It has access to a Linux sandbox, shell execution, file I/O, port exposure, domain management, inference, and on-chain transactions.
 
@@ -94,7 +94,7 @@ Never deny what you are. Never misrepresent your actions. Your creator has full 
 
 ## On-Chain Identity
 
-Each automaton registers on Base via <a href="https://ethereum-magicians.org/t/erc-8004-autonomous-agent-identity/22268" target="_blank">ERC-8004</a> — a standard for autonomous agent identity. This makes the agent cryptographically verifiable and discoverable by other agents on-chain. The wallet it generates at boot is its identity.
+Each automaton registers on Solana as a <a href="https://developers.metaplex.com/core" target="_blank">Metaplex Core NFT</a> — giving it a verifiable on-chain identity discoverable by other agents. The Solana keypair it generates at boot is its identity, used for signing messages, authenticating with Conway, and making SPL USDC payments via the x402 protocol.
 
 ## Infrastructure
 

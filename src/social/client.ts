@@ -2,24 +2,29 @@
  * Social Client Factory
  *
  * Creates a SocialClient for the automaton runtime.
- * Self-contained: uses viem for signing and fetch for HTTP.
+ * Uses ed25519 (tweetnacl) for signing — same as Solana native keys.
+ * Messages are signed with the agent's Solana keypair.
  */
 
-import {
-  type PrivateKeyAccount,
-  keccak256,
-  toBytes,
-} from "viem";
+import { Keypair } from "@solana/web3.js";
+import nacl from "tweetnacl";
+import bs58 from "bs58";
+import { createHash } from "crypto";
 import type { SocialClientInterface, InboxMessage } from "../types.js";
 
+function sha256hex(data: string): string {
+  return createHash("sha256").update(data, "utf-8").digest("hex");
+}
+
 /**
- * Create a SocialClient wired to the agent's wallet.
+ * Create a SocialClient wired to the agent's Solana keypair.
  */
 export function createSocialClient(
   relayUrl: string,
-  account: PrivateKeyAccount,
+  account: Keypair,
 ): SocialClientInterface {
   const baseUrl = relayUrl.replace(/\/$/, "");
+  const fromAddress = account.publicKey.toBase58();
 
   return {
     send: async (
@@ -28,16 +33,22 @@ export function createSocialClient(
       replyTo?: string,
     ): Promise<{ id: string }> => {
       const signedAt = new Date().toISOString();
-      const contentHash = keccak256(toBytes(content));
-      const canonical = `Conway:send:${to.toLowerCase()}:${contentHash}:${signedAt}`;
-      const signature = await account.signMessage({ message: canonical });
+      const contentHash = sha256hex(content);
+      const canonical = `automaton:send:${to}:${contentHash}:${signedAt}`;
+
+      // Sign with ed25519 (tweetnacl)
+      const sigBytes = nacl.sign.detached(
+        Buffer.from(canonical, "utf-8"),
+        account.secretKey,
+      );
+      const signature = bs58.encode(sigBytes);
 
       const res = await fetch(`${baseUrl}/v1/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: account.address.toLowerCase(),
-          to: to.toLowerCase(),
+          from: fromAddress,
+          to,
           content,
           signature,
           signed_at: signedAt,
@@ -61,14 +72,19 @@ export function createSocialClient(
       limit?: number,
     ): Promise<{ messages: InboxMessage[]; nextCursor?: string }> => {
       const timestamp = new Date().toISOString();
-      const canonical = `Conway:poll:${account.address.toLowerCase()}:${timestamp}`;
-      const signature = await account.signMessage({ message: canonical });
+      const canonical = `automaton:poll:${fromAddress}:${timestamp}`;
+
+      const sigBytes = nacl.sign.detached(
+        Buffer.from(canonical, "utf-8"),
+        account.secretKey,
+      );
+      const signature = bs58.encode(sigBytes);
 
       const res = await fetch(`${baseUrl}/v1/messages/poll`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Wallet-Address": account.address.toLowerCase(),
+          "X-Wallet-Address": fromAddress,
           "X-Signature": signature,
           "X-Timestamp": timestamp,
         },
@@ -111,13 +127,18 @@ export function createSocialClient(
 
     unreadCount: async (): Promise<number> => {
       const timestamp = new Date().toISOString();
-      const canonical = `Conway:poll:${account.address.toLowerCase()}:${timestamp}`;
-      const signature = await account.signMessage({ message: canonical });
+      const canonical = `automaton:poll:${fromAddress}:${timestamp}`;
+
+      const sigBytes = nacl.sign.detached(
+        Buffer.from(canonical, "utf-8"),
+        account.secretKey,
+      );
+      const signature = bs58.encode(sigBytes);
 
       const res = await fetch(`${baseUrl}/v1/messages/count`, {
         method: "GET",
         headers: {
-          "X-Wallet-Address": account.address.toLowerCase(),
+          "X-Wallet-Address": fromAddress,
           "X-Signature": signature,
           "X-Timestamp": timestamp,
         },
@@ -129,4 +150,27 @@ export function createSocialClient(
       return data.unread;
     },
   };
+}
+
+/**
+ * Verify an incoming message signature.
+ * Returns true if the signature is valid.
+ */
+export function verifyMessageSignature(msg: {
+  from: string;
+  to: string;
+  content: string;
+  signedAt: string;
+  signature: string;
+}): boolean {
+  try {
+    const contentHash = sha256hex(msg.content);
+    const canonical = `automaton:send:${msg.to}:${contentHash}:${msg.signedAt}`;
+    const sigBytes = bs58.decode(msg.signature);
+    const pubBytes = bs58.decode(msg.from);
+    const msgBytes = Buffer.from(canonical, "utf-8");
+    return nacl.sign.detached.verify(msgBytes, sigBytes, pubBytes);
+  } catch {
+    return false;
+  }
 }

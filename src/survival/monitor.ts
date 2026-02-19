@@ -14,7 +14,7 @@ import type {
   SurvivalTier,
 } from "../types.js";
 import { getSurvivalTier, formatCredits } from "../conway/credits.js";
-import { getUsdcBalance } from "../conway/x402.js";
+import { getUsdcBalance } from "../solana/usdc.js";
 
 export interface ResourceStatus {
   financial: FinancialState;

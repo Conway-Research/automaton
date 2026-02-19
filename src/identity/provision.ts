@@ -1,14 +1,13 @@
 /**
- * Automaton SIWE Provisioning
+ * Automaton Solana Provisioning
  *
- * Uses the automaton's wallet to authenticate via Sign-In With Ethereum (SIWE)
- * and create an API key for Conway API access.
- * Adapted from conway-mcp/src/cli/provision.ts
+ * Uses the automaton's Solana keypair (ed25519) to authenticate
+ * with the Conway API and create an API key.
  */
 
 import fs from "fs";
 import path from "path";
-import { SiweMessage } from "siwe";
+import nacl from "tweetnacl";
 import { getWallet, getAutomatonDir } from "./wallet.js";
 import type { ProvisionResult } from "../types.js";
 
@@ -48,10 +47,10 @@ function saveConfig(apiKey: string, walletAddress: string): void {
 }
 
 /**
- * Run the full SIWE provisioning flow:
- * 1. Load wallet
+ * Run the Solana-based provisioning flow:
+ * 1. Load Solana keypair
  * 2. Get nonce from Conway API
- * 3. Sign SIWE message
+ * 3. Sign challenge with ed25519
  * 4. Verify signature -> get JWT
  * 5. Create API key
  * 6. Save to config.json
@@ -61,9 +60,9 @@ export async function provision(
 ): Promise<ProvisionResult> {
   const url = apiUrl || process.env.CONWAY_API_URL || DEFAULT_API_URL;
 
-  // 1. Load wallet
+  // 1. Load Solana keypair
   const { account } = await getWallet();
-  const address = account.address;
+  const address = account.publicKey.toBase58();
 
   // 2. Get nonce
   const nonceResp = await fetch(`${url}/v1/auth/nonce`, {
@@ -76,32 +75,29 @@ export async function provision(
   }
   const { nonce } = (await nonceResp.json()) as { nonce: string };
 
-  // 3. Construct and sign SIWE message
-  const siweMessage = new SiweMessage({
-    domain: "conway.tech",
-    address,
-    statement:
-      "Sign in to Conway as an Automaton to provision an API key.",
-    uri: `${url}/v1/auth/verify`,
-    version: "1",
-    chainId: 8453, // Base
-    nonce,
-    issuedAt: new Date().toISOString(),
-  });
-
-  const messageString = siweMessage.prepareMessage();
-  const signature = await account.signMessage({ message: messageString });
+  // 3. Sign challenge with ed25519
+  const issuedAt = new Date().toISOString();
+  const canonical = `conway-auth:${nonce}:${address}:${issuedAt}`;
+  const msgBytes = Buffer.from(canonical, "utf-8");
+  const sigBytes = nacl.sign.detached(msgBytes, account.secretKey);
+  // Encode signature as hex for transport
+  const signature = Buffer.from(sigBytes).toString("hex");
 
   // 4. Verify signature -> get JWT
-  const verifyResp = await fetch(`${url}/v1/auth/verify`, {
+  const verifyResp = await fetch(`${url}/v1/auth/verify-solana`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: messageString, signature }),
+    body: JSON.stringify({
+      publicKey: address,
+      signature,
+      nonce,
+      issuedAt,
+    }),
   });
 
   if (!verifyResp.ok) {
     throw new Error(
-      `SIWE verification failed: ${verifyResp.status} ${await verifyResp.text()}`,
+      `Solana auth verification failed: ${verifyResp.status} ${await verifyResp.text()}`,
     );
   }
 

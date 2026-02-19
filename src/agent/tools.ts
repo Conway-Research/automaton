@@ -187,13 +187,14 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     },
     {
       name: "check_usdc_balance",
-      description: "Check your on-chain USDC balance on Base.",
+      description: "Check your on-chain USDC balance on Solana.",
       category: "conway",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
-        const { getUsdcBalance } = await import("../conway/x402.js");
-        const balance = await getUsdcBalance(ctx.identity.address);
-        return `USDC balance: ${balance.toFixed(6)} USDC on Base`;
+        const { getUsdcBalance } = await import("../solana/usdc.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const balance = await getUsdcBalance(ctx.identity.address, network, ctx.config.solanaRpcUrl);
+        return `USDC balance: ${balance.toFixed(6)} USDC on Solana (${network})`;
       },
     },
     {
@@ -527,8 +528,9 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
         const credits = await ctx.conway.getCreditsBalance();
-        const { getUsdcBalance } = await import("../conway/x402.js");
-        const usdc = await getUsdcBalance(ctx.identity.address);
+        const { getUsdcBalance } = await import("../solana/usdc.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const usdc = await getUsdcBalance(ctx.identity.address, network, ctx.config.solanaRpcUrl);
         const tools = ctx.db.getInstalledTools();
         const heartbeats = ctx.db.getHeartbeatEntries();
         const turns = ctx.db.getTurnCount();
@@ -753,6 +755,86 @@ Model: ${ctx.inference.getDefaultModel()}
         });
 
         return `Credit transfer submitted: $${(amount / 100).toFixed(2)} to ${transfer.toAddress} (status: ${transfer.status}, id: ${transfer.transferId || "n/a"})`;
+      },
+    },
+    {
+      name: "transfer_usdc",
+      description: "Send SPL USDC on Solana to another wallet address. Safety limit: cannot send more than 50% of balance in one transfer.",
+      category: "financial",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          to_address: { type: "string", description: "Recipient Solana wallet address (base58)" },
+          amount: { type: "number", description: "Amount of USDC to send" },
+          reason: { type: "string", description: "Reason for transfer (for audit log)" },
+        },
+        required: ["to_address", "amount"],
+      },
+      execute: async (args, ctx) => {
+        const { transferUsdc } = await import("../solana/usdc.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const result = await transferUsdc(
+          ctx.identity.account,
+          args.to_address as string,
+          args.amount as number,
+          network,
+          ctx.config.solanaRpcUrl,
+        );
+
+        if (!result.success) {
+          return `USDC transfer failed: ${result.error}`;
+        }
+
+        const { ulid } = await import("ulid");
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "transfer_out",
+          description: `USDC transfer: ${args.amount} USDC to ${args.to_address}${args.reason ? ` (${args.reason})` : ""}`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `Sent ${args.amount} USDC to ${args.to_address}. TX: ${result.txSignature}`;
+      },
+    },
+    {
+      name: "transfer_sol",
+      description: "Send native SOL on Solana to another wallet address. Safety limit: cannot send more than 50% of balance in one transfer.",
+      category: "financial",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          to_address: { type: "string", description: "Recipient Solana wallet address (base58)" },
+          amount_sol: { type: "number", description: "Amount of SOL to send" },
+          reason: { type: "string", description: "Reason for transfer (for audit log)" },
+        },
+        required: ["to_address", "amount_sol"],
+      },
+      execute: async (args, ctx) => {
+        const { transferSol } = await import("../solana/usdc.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const result = await transferSol(
+          ctx.identity.account,
+          args.to_address as string,
+          args.amount_sol as number,
+          network,
+          ctx.config.solanaRpcUrl,
+        );
+
+        if (!result.success) {
+          return `SOL transfer failed: ${result.error}`;
+        }
+
+        const { ulid } = await import("ulid");
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "transfer_out",
+          description: `SOL transfer: ${args.amount_sol} SOL to ${args.to_address}${args.reason ? ` (${args.reason})` : ""}`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `Sent ${args.amount_sol} SOL to ${args.to_address}. TX: ${result.txSignature}`;
       },
     },
 
@@ -1020,27 +1102,30 @@ Model: ${ctx.inference.getDefaultModel()}
 
     // ── Registry Tools ──
     {
-      name: "register_erc8004",
-      description: "Register on-chain as a Trustless Agent via ERC-8004.",
+      name: "register_on_chain",
+      description: "Register on-chain as a Trustless Agent via Metaplex Core NFT on Solana.",
       category: "registry",
       dangerous: true,
       parameters: {
         type: "object",
         properties: {
           agent_uri: { type: "string", description: "URI pointing to your agent card JSON" },
-          network: { type: "string", description: "mainnet or testnet (default: mainnet)" },
+          network: { type: "string", description: "mainnet-beta, devnet, or testnet (default: mainnet-beta)" },
         },
         required: ["agent_uri"],
       },
       execute: async (args, ctx) => {
-        const { registerAgent } = await import("../registry/erc8004.js");
+        const { registerAgent } = await import("../registry/solana-registry.js");
+        const network = ((args.network as string) || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
         const entry = await registerAgent(
           ctx.identity.account,
+          ctx.identity.name,
           args.agent_uri as string,
-          ((args.network as string) || "mainnet") as any,
+          network,
+          ctx.config.solanaRpcUrl,
           ctx.db,
         );
-        return `Registered on-chain! Agent ID: ${entry.agentId}, TX: ${entry.txHash}`;
+        return `Registered on-chain! Asset: ${entry.assetAddress}, TX: ${entry.txSignature}`;
       },
     },
     {
@@ -1057,59 +1142,56 @@ Model: ${ctx.inference.getDefaultModel()}
     },
     {
       name: "discover_agents",
-      description: "Discover other agents via ERC-8004 registry.",
+      description: "Discover agents by Solana wallet address via Metaplex Core NFT registry.",
       category: "registry",
       parameters: {
         type: "object",
         properties: {
-          keyword: { type: "string", description: "Search keyword (optional)" },
-          limit: { type: "number", description: "Max results (default: 10)" },
-          network: { type: "string", description: "mainnet or testnet" },
+          owner_address: { type: "string", description: "Solana wallet address to look up (default: self)" },
+          network: { type: "string", description: "mainnet-beta, devnet, or testnet" },
         },
       },
       execute: async (args, ctx) => {
-        const { discoverAgents, searchAgents } = await import("../registry/discovery.js");
-        const network = ((args.network as string) || "mainnet") as any;
-        const keyword = args.keyword as string | undefined;
-        const limit = (args.limit as number) || 10;
-
-        const agents = keyword
-          ? await searchAgents(keyword, limit, network)
-          : await discoverAgents(limit, network);
+        const { discoverAgentsByOwner } = await import("../registry/discovery.js");
+        const network = ((args.network as string) || "mainnet-beta") as any;
+        const owner = (args.owner_address as string) || ctx.identity.address;
+        const agents = await discoverAgentsByOwner(owner, network, ctx.config.solanaRpcUrl);
 
         if (agents.length === 0) return "No agents found.";
         return agents
           .map(
-            (a) => `#${a.agentId} ${a.name || "unnamed"} (${a.owner.slice(0, 10)}...): ${a.description || a.agentURI}`,
+            (a) => `${a.name || "unnamed"} [${a.assetAddress.slice(0, 10)}...] (owner: ${a.owner.slice(0, 10)}...): ${a.description || a.agentURI}`,
           )
           .join("\n");
       },
     },
     {
       name: "give_feedback",
-      description: "Leave on-chain reputation feedback for another agent.",
+      description: "Leave on-chain reputation feedback for another agent via Solana Memo.",
       category: "registry",
       dangerous: true,
       parameters: {
         type: "object",
         properties: {
-          agent_id: { type: "string", description: "Target agent's ERC-8004 ID" },
+          asset_address: { type: "string", description: "Target agent's Metaplex Core NFT asset address" },
           score: { type: "number", description: "Score 1-5" },
           comment: { type: "string", description: "Feedback comment" },
         },
-        required: ["agent_id", "score", "comment"],
+        required: ["asset_address", "score", "comment"],
       },
       execute: async (args, ctx) => {
-        const { leaveFeedback } = await import("../registry/erc8004.js");
-        const hash = await leaveFeedback(
+        const { leaveFeedback } = await import("../registry/solana-registry.js");
+        const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+        const sig = await leaveFeedback(
           ctx.identity.account,
-          args.agent_id as string,
+          args.asset_address as string,
           args.score as number,
           args.comment as string,
-          "mainnet",
+          network,
+          ctx.config.solanaRpcUrl,
           ctx.db,
         );
-        return `Feedback submitted. TX: ${hash}`;
+        return `Feedback submitted. TX: ${sig}`;
       },
     },
     {
@@ -1250,7 +1332,7 @@ Model: ${ctx.inference.getDefaultModel()}
         properties: {
           to_address: {
             type: "string",
-            description: "Recipient wallet address (0x...)",
+            description: "Recipient wallet address (base58)",
           },
           content: {
             type: "string",
@@ -1444,7 +1526,7 @@ Model: ${ctx.inference.getDefaultModel()}
     {
       name: "x402_fetch",
       description:
-        "Fetch a URL with automatic x402 USDC payment. If the server responds with HTTP 402, signs a USDC payment and retries. Use this to access paid APIs and services.",
+        "Fetch a URL with automatic x402 Solana USDC payment. If the server responds with HTTP 402, builds and signs an SPL USDC transfer transaction and retries. Use this to access paid APIs and services.",
       category: "financial",
       parameters: {
         type: "object",
@@ -1483,6 +1565,7 @@ Model: ${ctx.inference.getDefaultModel()}
           method,
           body,
           extraHeaders,
+          ctx.config.solanaRpcUrl,
         );
 
         if (!result.success) {
