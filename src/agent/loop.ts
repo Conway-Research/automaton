@@ -22,6 +22,7 @@ import type {
 } from "../types.js";
 import { buildSystemPrompt, buildWakeupPrompt } from "./system-prompt.js";
 import { buildContextMessages, trimContext } from "./context.js";
+import { sanitizeInput } from "./injection-defense.js";
 import {
   createBuiltinTools,
   toolsToInferenceFormat,
@@ -120,7 +121,10 @@ export async function runAgentLoop(
         const inboxMessages = db.getUnprocessedInboxMessages(5);
         if (inboxMessages.length > 0) {
           const formatted = inboxMessages
-            .map((m) => `[Message from ${m.from}]: ${m.content}`)
+            .map((m) => {
+              const sanitized = sanitizeInput(m.content, m.from);
+              return `[Message from ${m.from}]: ${sanitized.content}`;
+            })
             .join("\n\n");
           pendingInput = { content: formatted, source: "agent" };
           for (const m of inboxMessages) {
