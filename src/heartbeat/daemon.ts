@@ -13,6 +13,7 @@ import type {
   ConwayClient,
   AutomatonIdentity,
   HeartbeatEntry,
+  HeartbeatConfig,
   SocialClientInterface,
 } from "../types.js";
 import { BUILTIN_TASKS, type HeartbeatTaskContext } from "./tasks.js";
@@ -21,6 +22,7 @@ import { getSurvivalTier } from "../conway/credits.js";
 export interface HeartbeatDaemonOptions {
   identity: AutomatonIdentity;
   config: AutomatonConfig;
+  heartbeatConfig: HeartbeatConfig;
   db: AutomatonDatabase;
   conway: ConwayClient;
   social?: SocialClientInterface;
@@ -40,9 +42,10 @@ export interface HeartbeatDaemon {
 export function createHeartbeatDaemon(
   options: HeartbeatDaemonOptions,
 ): HeartbeatDaemon {
-  const { identity, config, db, conway, social, onWakeRequest } = options;
+  const { identity, config, heartbeatConfig, db, conway, social, onWakeRequest } = options;
   let intervalId: ReturnType<typeof setInterval> | null = null;
   let running = false;
+  let tickCount = 0;
 
   const taskContext: HeartbeatTaskContext = {
     identity,
@@ -108,6 +111,7 @@ export function createHeartbeatDaemon(
    * The main tick function. Runs on every interval.
    */
   async function tick(): Promise<void> {
+    tickCount++;
     const entries = db.getHeartbeatEntries();
 
     // Check survival tier to adjust behavior
@@ -118,6 +122,12 @@ export function createHeartbeatDaemon(
 
     const tier = getSurvivalTier(creditsCents);
     const isLowCompute = tier === "low_compute" || tier === "critical" || tier === "dead";
+
+    // Throttle tick frequency in low-compute mode using configured multiplier.
+    // e.g. lowComputeMultiplier=4 means only every 4th tick actually runs tasks.
+    if (isLowCompute && tickCount % heartbeatConfig.lowComputeMultiplier !== 0) {
+      return;
+    }
 
     for (const entry of entries) {
       if (!entry.enabled) continue;
@@ -145,8 +155,8 @@ export function createHeartbeatDaemon(
     if (running) return;
     running = true;
 
-    // Get tick interval -- default 60 seconds
-    const tickMs = config.logLevel === "debug" ? 15_000 : 60_000;
+    // Get tick interval from config; debug mode uses a shorter interval for faster iteration
+    const tickMs = config.logLevel === "debug" ? 15_000 : heartbeatConfig.defaultIntervalMs;
 
     // Run first tick immediately
     tick().catch((err) => {

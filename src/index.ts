@@ -236,6 +236,7 @@ async function run(): Promise<void> {
   const heartbeat = createHeartbeatDaemon({
     identity,
     config,
+    heartbeatConfig,
     db,
     conway,
     social,
