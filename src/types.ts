@@ -5,6 +5,7 @@
  */
 
 import type { PrivateKeyAccount, Address } from "viem";
+import type { AutomatonRole } from "./replication/roles.js";
 
 // ─── Identity ────────────────────────────────────────────────────
 
@@ -628,6 +629,7 @@ export interface ChildAutomaton {
   status: ChildStatus;
   createdAt: string;
   lastChecked?: string;
+  role?: AutomatonRole;
 }
 
 export type ChildStatus =
@@ -643,6 +645,7 @@ export interface GenesisConfig {
   creatorMessage?: string;
   creatorAddress: Address;
   parentAddress: Address;
+  role?: AutomatonRole;
 }
 
 export const MAX_CHILDREN = 3;

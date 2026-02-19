@@ -24,7 +24,7 @@ import type {
   ReputationEntry,
   InboxMessage,
 } from "../types.js";
-import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3 } from "./schema.js";
+import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5 } from "./schema.js";
 
 export function createDatabase(dbPath: string): AutomatonDatabase {
   // Ensure directory exists
@@ -54,6 +54,14 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   if (currentVersion < 3) {
     db.exec(MIGRATION_V3);
+  }
+
+  if (currentVersion < 4) {
+    db.exec(MIGRATION_V4);
+  }
+
+  if (currentVersion < 5) {
+    db.exec(MIGRATION_V5);
   }
 
   if (currentVersion < SCHEMA_VERSION) {
@@ -335,8 +343,8 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   const insertChild = (child: ChildAutomaton): void => {
     db.prepare(
-      `INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, creator_message, funded_amount_cents, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, creator_message, funded_amount_cents, status, created_at, role)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       child.id,
       child.name,
@@ -347,6 +355,7 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
       child.fundedAmountCents,
       child.status,
       child.createdAt,
+      child.role ?? "generalist",
     );
   };
 
@@ -592,6 +601,7 @@ function deserializeChild(row: any): ChildAutomaton {
     status: row.status,
     createdAt: row.created_at,
     lastChecked: row.last_checked ?? undefined,
+    role: row.role ?? "generalist",
   };
 }
 
