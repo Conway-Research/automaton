@@ -137,7 +137,8 @@ export type ToolCategory =
   | "skills"
   | "git"
   | "registry"
-  | "replication";
+  | "replication"
+  | "trading";
 
 export interface ToolContext {
   identity: AutomatonIdentity;
