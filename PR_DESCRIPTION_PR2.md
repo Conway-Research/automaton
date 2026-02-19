@@ -11,7 +11,7 @@ Every child spawned today is a structural clone of its parent. It gets the same 
 This creates three concrete problems:
 
 **1. Resource waste at scale.**
-If a parent spawns three children — one to write content, one to monitor threats, one to analyze markets — all three run on `gpt-4o` at the same cadence with the same token budget. The guardian watching for anomalies burns frontier model tokens doing pattern matching that `gpt-4o-mini` handles just as well. The writer generates long-form content in 4096 tokens when it needs 8192. These aren't small inefficiencies — at scale, they compound into significant credit burn.
+If a parent spawns three children — one to write content, one to monitor threats, one to analyze markets — all three run on `gpt-5.2` at the same cadence with the same token budget. The guardian watching for anomalies burns frontier model tokens doing pattern matching that `gpt-4.1` handles just as well. The writer generates long-form content in 4096 tokens when it needs 8192. These aren't small inefficiencies — at scale, they compound into significant credit burn.
 
 **2. No structural differentiation.**
 Children don't specialize; they compete. Two generalist children with slightly different genesis prompts will overlap in what they attempt, duplicate effort, and interfere with each other's work. There's no way to express "this child is a watchdog — it should never self-modify" without hoping the genesis prompt holds.
@@ -30,19 +30,19 @@ This PR adds a `role` parameter to child spawning. The role is a structural cont
 | Role | Model | Heartbeat | Max Tokens | Auto-Sleep | Restricted Tools |
 |------|-------|-----------|------------|------------|-----------------|
 | **generalist** | _(inherit from parent)_ | 1× | 4,096 | No | None |
-| **writer** | gpt-4o | 2× slower | 8,192 | No | 10 content tools |
-| **analyst** | gpt-4o | 1.5× slower | 8,192 | Yes | 7 read/analyze tools |
-| **guardian** | gpt-4o-mini | 0.5× (2× faster) | 2,048 | No | 6 monitor-only tools |
+| **writer** | gpt-5.2 | 2× slower | 8,192 | No | 10 content tools |
+| **analyst** | gpt-5.2 | 1.5× slower | 8,192 | Yes | 7 read/analyze tools |
+| **guardian** | gpt-4.1 | 0.5× (2× faster) | 2,048 | No | 6 monitor-only tools |
 
 ### Design rationale for each role
 
 **Generalist** is unchanged behavior. An empty `inferenceModel` means the child inherits whatever the parent uses. No tool restrictions. No heartbeat override. This is the default, so existing spawns are fully backward-compatible.
 
-**Writer** gets a slower heartbeat (`2×`) because long-form content generation is batch work — it doesn't benefit from constant polling. It gets a higher token budget (`8,192`) because articles, reports, and analyses need room to develop. It uses `gpt-4o` because content quality is the output. Its tool access is scoped to content-relevant tools: it can read, write, execute, and interact with skills and inbox — but not spawn children, not modify infrastructure.
+**Writer** gets a slower heartbeat (`2×`) because long-form content generation is batch work — it doesn't benefit from constant polling. It gets a higher token budget (`8,192`) because articles, reports, and analyses need room to develop. It uses `gpt-5.2` because content quality is the output. Its tool access is scoped to content-relevant tools: it can read, write, execute, and interact with skills and inbox — but not spawn children, not modify infrastructure.
 
 **Analyst** gets `autoSleep: true`. This is the key behavioral difference: once an analyst completes its research and reports findings to the parent, it has nothing left to do. Without auto-sleep, it burns compute idling between queries. With auto-sleep, the parent spawns it when needed and it terminates when done, minimizing cost. The `1.5×` heartbeat slows polling slightly — market signals don't change every second, and slower polling reduces noise. Tool access excludes self-modification entirely.
 
-**Guardian** uses `gpt-4o-mini` deliberately. Monitoring is pattern recognition: "does this output look anomalous? is this tool call suspicious?". These are classification tasks that don't require frontier reasoning. Using `gpt-4o-mini` at `0.5×` heartbeat (polling twice as frequently) gives better coverage at a fraction of the cost. The `2,048` token budget is intentionally tight — quick assessments, not deliberation. Tool access is monitor-only: read, execute, run skills, and communicate. It cannot write new files or modify anything about itself.
+**Guardian** uses `gpt-4.1` deliberately. Monitoring is pattern recognition: "does this output look anomalous? is this tool call suspicious?". These are classification tasks that don't require frontier reasoning. Using `gpt-4.1` at `0.5×` heartbeat (polling twice as frequently) gives better coverage at a fraction of the cost. The `2,048` token budget is intentionally tight — quick assessments, not deliberation. Tool access is monitor-only: read, execute, run skills, and communicate. It cannot write new files or modify anything about itself.
 
 ### Why role is injected into the genesis prompt
 
@@ -198,7 +198,7 @@ src/__tests__/roles.test.ts
     ✓ guardian preamble contains role header and description
 
   role config properties
-    ✓ guardian uses gpt-4o-mini, analyst uses gpt-4o (cost tier ordering)
+    ✓ guardian uses gpt-4.1, analyst uses gpt-5.2 (cost tier ordering)
     ✓ heartbeat multiplier: guardian (0.5) < generalist (1) < writer (2)
     ✓ analyst has autoSleep=true, guardian has autoSleep=false
     ✓ writer maxTokensPerTurn > guardian maxTokensPerTurn

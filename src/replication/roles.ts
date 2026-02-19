@@ -33,7 +33,7 @@ export const ROLE_CONFIGS: Record<AutomatonRole, RoleConfig> = {
   },
   writer: {
     description: "Content creation specialist. Writes, publishes, and earns through content.",
-    inferenceModel: "gpt-4o",
+    inferenceModel: "gpt-5.2",
     allowedTools: [
       "read_file", "write_file", "list_files", "exec_command",
       "run_skill", "inbox_read", "inbox_reply",
@@ -45,7 +45,7 @@ export const ROLE_CONFIGS: Record<AutomatonRole, RoleConfig> = {
   },
   analyst: {
     description: "Market intelligence specialist. Finds opportunities, evaluates signals, reports findings.",
-    inferenceModel: "gpt-4o",
+    inferenceModel: "gpt-5.2",
     allowedTools: [
       "read_file", "write_file", "exec_command",
       "run_skill", "inbox_read", "inbox_reply", "log_thought",
@@ -56,7 +56,7 @@ export const ROLE_CONFIGS: Record<AutomatonRole, RoleConfig> = {
   },
   guardian: {
     description: "Security and health monitor. Watches for threats, anomalies, and lineage health.",
-    inferenceModel: "gpt-4o-mini",
+    inferenceModel: "gpt-4.1",
     allowedTools: [
       "read_file", "exec_command", "run_skill",
       "inbox_read", "inbox_reply", "log_thought",

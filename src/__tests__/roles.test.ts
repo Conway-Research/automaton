@@ -49,9 +49,9 @@ describe("buildRolePreamble", () => {
 });
 
 describe("role config properties", () => {
-  it("guardian model is cheaper than analyst (gpt-4o-mini vs gpt-4o)", () => {
-    expect(ROLE_CONFIGS.guardian.inferenceModel).toBe("gpt-4o-mini");
-    expect(ROLE_CONFIGS.analyst.inferenceModel).toBe("gpt-4o");
+  it("guardian uses low-compute model, analyst uses frontier model (gpt-4.1 vs gpt-5.2)", () => {
+    expect(ROLE_CONFIGS.guardian.inferenceModel).toBe("gpt-4.1");
+    expect(ROLE_CONFIGS.analyst.inferenceModel).toBe("gpt-5.2");
   });
 
   it("guardian heartbeatMultiplier < generalist < writer", () => {
