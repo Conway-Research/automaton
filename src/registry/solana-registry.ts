@@ -7,6 +7,7 @@
  * Uses Metaplex Core (mpl-core) — not Token Metadata.
  */
 
+import { createHash } from "crypto";
 import {
   Keypair,
   PublicKey,
@@ -15,6 +16,7 @@ import {
   TransactionInstruction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import bs58 from "bs58";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
   mplCore,
@@ -25,7 +27,6 @@ import {
 } from "@metaplex-foundation/mpl-core";
 import {
   createSignerFromKeypair,
-  generateSigner,
   keypairIdentity,
   publicKey as umiPublicKey,
   type Umi,
@@ -91,8 +92,19 @@ export async function registerAgent(
     return existing;
   }
 
-  // Generate a deterministic asset signer for idempotency
-  const assetSigner = generateSigner(umi);
+  // Derive a deterministic asset keypair from owner + name so retries always
+  // resolve to the same NFT address (true idempotency).
+  const seed = createHash("sha256")
+    .update("automaton-registry-v1")
+    .update(keypair.publicKey.toBase58())
+    .update(agentName)
+    .digest();
+  const assetKeypair = Keypair.fromSeed(seed);
+  const umiAssetKp = {
+    publicKey: umiPublicKey(assetKeypair.publicKey.toBase58()),
+    secretKey: assetKeypair.secretKey,
+  };
+  const assetSigner = createSignerFromKeypair(umi, umiAssetKp);
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -103,7 +115,7 @@ export async function registerAgent(
         uri: agentCardUri,
       }).sendAndConfirm(umi);
 
-      const txSignature = Buffer.from(signature).toString("base64");
+      const txSignature = bs58.encode(signature);
       const assetAddress = assetSigner.publicKey.toString();
 
       const entry: RegistryEntry = {
@@ -163,7 +175,7 @@ export async function updateAgentURI(
     newUri: newAgentURI,
   }).sendAndConfirm(umi);
 
-  const txSig = Buffer.from(signature).toString("base64");
+  const txSig = bs58.encode(signature);
 
   const entry = db.getRegistryEntry();
   if (entry) {
