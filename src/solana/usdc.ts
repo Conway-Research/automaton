@@ -17,7 +17,6 @@ import {
   getOrCreateAssociatedTokenAccount,
   transfer,
   getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 
 // USDC mint addresses on Solana

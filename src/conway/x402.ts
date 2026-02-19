@@ -32,24 +32,10 @@ const X402_NETWORK: Record<string, string> = {
   testnet: "solana-testnet",
 };
 
-// Reverse map: x402 network string → Solana cluster
-const CLUSTER_FROM_X402: Record<string, string> = {
-  "solana-mainnet": "mainnet-beta",
-  "solana-devnet": "devnet",
-  "solana-testnet": "testnet",
-};
-
 const RPC_URLS: Record<string, string> = {
   "mainnet-beta": "https://api.mainnet-beta.solana.com",
   devnet: "https://api.devnet.solana.com",
   testnet: "https://api.testnet.solana.com",
-};
-
-// USDC mint addresses per cluster
-const USDC_MINT: Record<string, string> = {
-  "mainnet-beta": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  devnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-  testnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 };
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -180,7 +166,7 @@ async function buildPaymentTransaction(
       senderTokenAccount.address,   // source ATA
       recipientTokenAccount,         // destination ATA (provided by server)
       keypair.publicKey,             // owner
-      BigInt(requirements.amount),   // amount in smallest units
+      BigInt(Math.round(requirements.amount)),   // amount in smallest units (round defensively)
     ),
   );
 

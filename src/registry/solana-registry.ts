@@ -248,6 +248,10 @@ export async function queryAgent(
 
 /**
  * Discover agents owned by a wallet.
+ * NOTE: fetchAllAssetV1 with an owner filter requires a DAS-compatible RPC
+ * (e.g. Helius, QuickNode with DAS). The default public RPC endpoints do not
+ * support this method and will cause this function to return []. Configure
+ * solanaRpcUrl in config to use a DAS-enabled endpoint on mainnet.
  */
 export async function getAgentsByOwner(
   ownerAddress: string,
