@@ -27,7 +27,7 @@ ${genesis}
 ## Capabilities
 - Shell execution in Conway sandbox
 - Conway API integration (credits, sandboxes, inference)
-- x402 payments (USDC on Base)
+- x402 payments (SPL USDC on Solana)
 - Self-modification with audit trail
 - Heartbeat system for periodic tasks
 - Git-versioned state

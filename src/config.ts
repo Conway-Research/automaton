@@ -7,7 +7,6 @@
 import fs from "fs";
 import path from "path";
 import type { AutomatonConfig } from "./types.js";
-import type { Address } from "viem";
 import { DEFAULT_CONFIG } from "./types.js";
 import { getAutomatonDir } from "./identity/wallet.js";
 import { loadApiKeyFromConfig } from "./identity/provision.js";
@@ -74,14 +73,14 @@ export function createConfig(params: {
   name: string;
   genesisPrompt: string;
   creatorMessage?: string;
-  creatorAddress: Address;
+  creatorAddress: string;
   registeredWithConway: boolean;
   sandboxId: string;
-  walletAddress: Address;
+  walletAddress: string;
   apiKey: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
-  parentAddress?: Address;
+  parentAddress?: string;
 }): AutomatonConfig {
   return {
     name: params.name,

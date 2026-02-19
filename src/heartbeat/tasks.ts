@@ -13,7 +13,7 @@ import type {
   SocialClientInterface,
 } from "../types.js";
 import { getSurvivalTier } from "../conway/credits.js";
-import { getUsdcBalance } from "../conway/x402.js";
+import { getUsdcBalance } from "../solana/usdc.js";
 
 export interface HeartbeatTaskContext {
   identity: AutomatonIdentity;
@@ -101,7 +101,8 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   },
 
   check_usdc_balance: async (ctx) => {
-    const balance = await getUsdcBalance(ctx.identity.address);
+    const network = (ctx.config.solanaNetwork || "mainnet-beta") as "mainnet-beta" | "devnet" | "testnet";
+    const balance = await getUsdcBalance(ctx.identity.address, network, ctx.config.solanaRpcUrl);
 
     ctx.db.setKV("last_usdc_check", JSON.stringify({
       balance,

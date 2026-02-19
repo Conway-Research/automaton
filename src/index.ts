@@ -22,7 +22,7 @@ import { runAgentLoop } from "./agent/loop.js";
 import { loadSkills } from "./skills/loader.js";
 import { initStateRepo } from "./git/state-versioning.js";
 import { createSocialClient } from "./social/client.js";
-import type { AutomatonIdentity, AgentState, Skill, SocialClientInterface } from "./types.js";
+import type { AutomatonIdentity, AgentState, Skill, SocialClientInterface, AutomatonConfig } from "./types.js";
 
 const VERSION = "0.1.0";
 
@@ -45,7 +45,7 @@ Usage:
   automaton --run          Start the automaton (first run triggers setup wizard)
   automaton --setup        Re-run the interactive setup wizard
   automaton --init         Initialize wallet and config directory
-  automaton --provision    Provision Conway API key via SIWE
+  automaton --provision    Provision Conway API key via Solana ed25519
   automaton --status       Show current automaton status
   automaton --version      Show version
   automaton --help         Show this help
@@ -61,7 +61,7 @@ Environment:
     const { account, isNew } = await getWallet();
     console.log(
       JSON.stringify({
-        address: account.address,
+        address: account.publicKey.toBase58(),
         isNew,
         configDir: getAutomatonDir(),
       }),
@@ -133,7 +133,7 @@ Tools:      ${tools.length} installed
 Skills:     ${skills.length} active
 Heartbeats: ${heartbeats.filter((h) => h.enabled).length} active
 Children:   ${children.filter((c) => c.status !== "dead").length} alive / ${children.length} total
-Agent ID:   ${registry?.agentId || "not registered"}
+Asset:      ${registry?.assetAddress || "not registered"}
 Model:      ${config.inferenceModel}
 Version:    ${config.version}
 ========================
@@ -167,7 +167,7 @@ async function run(): Promise<void> {
   // Build identity
   const identity: AutomatonIdentity = {
     name: config.name,
-    address: account.address,
+    address: account.publicKey.toBase58(),
     account,
     creatorAddress: config.creatorAddress,
     sandboxId: config.sandboxId,
@@ -181,7 +181,7 @@ async function run(): Promise<void> {
 
   // Store identity in DB
   db.setIdentity("name", config.name);
-  db.setIdentity("address", account.address);
+  db.setIdentity("address", account.publicKey.toBase58());
   db.setIdentity("creator", config.creatorAddress);
   db.setIdentity("sandbox", config.sandboxId);
 

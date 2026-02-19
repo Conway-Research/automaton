@@ -2,7 +2,7 @@
  * Agent Card
  *
  * Generates and manages the agent's self-description card.
- * This is the JSON document pointed to by the ERC-8004 agentURI.
+ * This is the JSON document pointed to by the Metaplex Core NFT URI.
  * Can be hosted on IPFS or served at /.well-known/agent-card.json
  */
 
@@ -16,7 +16,7 @@ import type {
 } from "../types.js";
 
 const AGENT_CARD_TYPE =
-  "https://eips.ethereum.org/EIPS/eip-8004#registration-v1";
+  "https://github.com/sol-agent/agent-registry#v1";
 
 /**
  * Generate an agent card from the automaton's current state.
@@ -29,7 +29,7 @@ export function generateAgentCard(
   const services: AgentService[] = [
     {
       name: "agentWallet",
-      endpoint: `eip155:8453:${identity.address}`,
+      endpoint: `solana:${identity.address}`,
     },
     {
       name: "conway",

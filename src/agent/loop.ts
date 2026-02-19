@@ -28,7 +28,7 @@ import {
   executeTool,
 } from "./tools.js";
 import { getSurvivalTier } from "../conway/credits.js";
-import { getUsdcBalance } from "../conway/x402.js";
+import { getUsdcBalance } from "../solana/usdc.js";
 import { ulid } from "ulid";
 
 const MAX_TOOL_CALLS_PER_TURN = 10;
@@ -320,7 +320,7 @@ async function getFinancialState(
   } catch {}
 
   try {
-    usdcBalance = await getUsdcBalance(address as `0x${string}`);
+    usdcBalance = await getUsdcBalance(address);
   } catch {}
 
   return {

@@ -1,7 +1,7 @@
 /**
  * Agent Discovery
  *
- * Discover other agents via ERC-8004 registry queries.
+ * Discover other agents via Solana Metaplex Core registry queries.
  * Fetch and parse agent cards from URIs.
  */
 
@@ -9,37 +9,30 @@ import type {
   DiscoveredAgent,
   AgentCard,
 } from "../types.js";
-import { queryAgent, getTotalAgents } from "./erc8004.js";
+import { queryAgent, getAgentsByOwner } from "./solana-registry.js";
 
-type Network = "mainnet" | "testnet";
+type SolanaNetwork = "mainnet-beta" | "devnet" | "testnet";
 
 /**
- * Discover agents by scanning the registry.
- * Returns a list of discovered agents with their metadata.
+ * Discover agents owned by a specific wallet.
  */
-export async function discoverAgents(
-  limit: number = 20,
-  network: Network = "mainnet",
+export async function discoverAgentsByOwner(
+  ownerAddress: string,
+  network: SolanaNetwork = "mainnet-beta",
+  rpcUrl?: string,
 ): Promise<DiscoveredAgent[]> {
-  const total = await getTotalAgents(network);
-  const scanCount = Math.min(total, limit);
-  const agents: DiscoveredAgent[] = [];
+  const agents = await getAgentsByOwner(ownerAddress, network, rpcUrl);
 
-  // Scan from most recent to oldest
-  for (let i = total; i > total - scanCount && i > 0; i--) {
-    const agent = await queryAgent(i.toString(), network);
-    if (agent) {
-      // Try to fetch the agent card for additional metadata
-      try {
-        const card = await fetchAgentCard(agent.agentURI);
-        if (card) {
-          agent.name = card.name;
-          agent.description = card.description;
-        }
-      } catch {
-        // Card fetch failed, use basic info
+  // Enrich with agent card metadata
+  for (const agent of agents) {
+    try {
+      const card = await fetchAgentCard(agent.agentURI);
+      if (card) {
+        agent.name = card.name;
+        agent.description = card.description;
       }
-      agents.push(agent);
+    } catch {
+      // Card fetch failed, use basic info
     }
   }
 
@@ -77,23 +70,25 @@ export async function fetchAgentCard(
 }
 
 /**
- * Search for agents by name or description.
- * Scans recent registrations and filters by keyword.
+ * Search for a specific agent by asset address.
  */
-export async function searchAgents(
-  keyword: string,
-  limit: number = 10,
-  network: Network = "mainnet",
-): Promise<DiscoveredAgent[]> {
-  const all = await discoverAgents(50, network);
-  const lower = keyword.toLowerCase();
+export async function lookupAgent(
+  assetAddress: string,
+  network: SolanaNetwork = "mainnet-beta",
+  rpcUrl?: string,
+): Promise<DiscoveredAgent | null> {
+  const agent = await queryAgent(assetAddress, network, rpcUrl);
+  if (!agent) return null;
 
-  return all
-    .filter(
-      (a) =>
-        a.name?.toLowerCase().includes(lower) ||
-        a.description?.toLowerCase().includes(lower) ||
-        a.owner.toLowerCase().includes(lower),
-    )
-    .slice(0, limit);
+  try {
+    const card = await fetchAgentCard(agent.agentURI);
+    if (card) {
+      agent.name = card.name;
+      agent.description = card.description;
+    }
+  } catch {
+    // Card fetch failed
+  }
+
+  return agent;
 }

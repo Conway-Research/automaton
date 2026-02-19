@@ -1,13 +1,12 @@
 /**
  * Automaton Wallet Management
  *
- * Creates and manages an EVM wallet for the automaton's identity and payments.
- * The private key is the automaton's sovereign identity.
- * Adapted from conway-mcp/src/wallet.ts
+ * Creates and manages a Solana keypair (ed25519) for the automaton's
+ * identity, signing, and payments.
+ * The keypair is the automaton's sovereign identity.
  */
 
-import type { PrivateKeyAccount } from "viem";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { Keypair } from "@solana/web3.js";
 import fs from "fs";
 import path from "path";
 import type { WalletData } from "../types.js";
@@ -17,6 +16,7 @@ const AUTOMATON_DIR = path.join(
   ".automaton",
 );
 const WALLET_FILE = path.join(AUTOMATON_DIR, "wallet.json");
+const WALLET_BACKUP = path.join(AUTOMATON_DIR, "wallet.json.bak");
 
 export function getAutomatonDir(): string {
   return AUTOMATON_DIR;
@@ -27,11 +27,11 @@ export function getWalletPath(): string {
 }
 
 /**
- * Get or create the automaton's wallet.
- * The private key IS the automaton's identity -- protect it.
+ * Get or create the automaton's Solana keypair.
+ * The secret key IS the automaton's identity -- protect it.
  */
 export async function getWallet(): Promise<{
-  account: PrivateKeyAccount;
+  account: Keypair;
   isNew: boolean;
 }> {
   if (!fs.existsSync(AUTOMATON_DIR)) {
@@ -42,27 +42,41 @@ export async function getWallet(): Promise<{
     const walletData: WalletData = JSON.parse(
       fs.readFileSync(WALLET_FILE, "utf-8"),
     );
-    const account = privateKeyToAccount(walletData.privateKey);
+    const account = Keypair.fromSecretKey(Uint8Array.from(walletData.secretKey));
     return { account, isNew: false };
-  } else {
-    const privateKey = generatePrivateKey();
-    const account = privateKeyToAccount(privateKey);
-
-    const walletData: WalletData = {
-      privateKey,
-      createdAt: new Date().toISOString(),
-    };
-
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(walletData, null, 2), {
-      mode: 0o600,
-    });
-
-    return { account, isNew: true };
   }
+
+  // Try backup
+  if (fs.existsSync(WALLET_BACKUP)) {
+    const walletData: WalletData = JSON.parse(
+      fs.readFileSync(WALLET_BACKUP, "utf-8"),
+    );
+    const account = Keypair.fromSecretKey(Uint8Array.from(walletData.secretKey));
+    // Restore from backup
+    const tmpPath = WALLET_FILE + ".tmp";
+    fs.writeFileSync(tmpPath, JSON.stringify(walletData, null, 2), { mode: 0o600 });
+    fs.renameSync(tmpPath, WALLET_FILE);
+    return { account, isNew: false };
+  }
+
+  // Generate new keypair
+  const account = Keypair.generate();
+  const walletData: WalletData = {
+    secretKey: Array.from(account.secretKey),
+    createdAt: new Date().toISOString(),
+  };
+
+  // Atomic write: write to tmp, rename, then backup
+  const tmpPath = WALLET_FILE + ".tmp";
+  fs.writeFileSync(tmpPath, JSON.stringify(walletData, null, 2), { mode: 0o600 });
+  fs.renameSync(tmpPath, WALLET_FILE);
+  fs.copyFileSync(WALLET_FILE, WALLET_BACKUP);
+
+  return { account, isNew: true };
 }
 
 /**
- * Get the wallet address without loading the full account.
+ * Get the wallet public key (base58) without loading the full keypair.
  */
 export function getWalletAddress(): string | null {
   if (!fs.existsSync(WALLET_FILE)) {
@@ -72,14 +86,14 @@ export function getWalletAddress(): string | null {
   const walletData: WalletData = JSON.parse(
     fs.readFileSync(WALLET_FILE, "utf-8"),
   );
-  const account = privateKeyToAccount(walletData.privateKey);
-  return account.address;
+  const account = Keypair.fromSecretKey(Uint8Array.from(walletData.secretKey));
+  return account.publicKey.toBase58();
 }
 
 /**
- * Load the full wallet account (needed for signing).
+ * Load the full keypair (needed for signing).
  */
-export function loadWalletAccount(): PrivateKeyAccount | null {
+export function loadWalletAccount(): Keypair | null {
   if (!fs.existsSync(WALLET_FILE)) {
     return null;
   }
@@ -87,7 +101,7 @@ export function loadWalletAccount(): PrivateKeyAccount | null {
   const walletData: WalletData = JSON.parse(
     fs.readFileSync(WALLET_FILE, "utf-8"),
   );
-  return privateKeyToAccount(walletData.privateKey);
+  return Keypair.fromSecretKey(Uint8Array.from(walletData.secretKey));
 }
 
 export function walletExists(): boolean {

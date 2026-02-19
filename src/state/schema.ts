@@ -125,13 +125,12 @@ export const CREATE_TABLES = `
     last_checked TEXT
   );
 
-  -- ERC-8004 registration state
+  -- Solana Metaplex Core NFT registration state
   CREATE TABLE IF NOT EXISTS registry (
-    agent_id TEXT PRIMARY KEY,
+    asset_address TEXT PRIMARY KEY,
     agent_uri TEXT NOT NULL,
-    chain TEXT NOT NULL DEFAULT 'eip155:8453',
-    contract_address TEXT NOT NULL,
-    tx_hash TEXT NOT NULL,
+    network TEXT NOT NULL DEFAULT 'mainnet-beta',
+    tx_signature TEXT NOT NULL,
     registered_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -142,7 +141,7 @@ export const CREATE_TABLES = `
     to_agent TEXT NOT NULL,
     score INTEGER NOT NULL,
     comment TEXT NOT NULL DEFAULT '',
-    tx_hash TEXT,
+    tx_signature TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -211,11 +210,10 @@ export const MIGRATION_V2 = `
   );
 
   CREATE TABLE IF NOT EXISTS registry (
-    agent_id TEXT PRIMARY KEY,
+    asset_address TEXT PRIMARY KEY,
     agent_uri TEXT NOT NULL,
-    chain TEXT NOT NULL DEFAULT 'eip155:8453',
-    contract_address TEXT NOT NULL,
-    tx_hash TEXT NOT NULL,
+    network TEXT NOT NULL DEFAULT 'mainnet-beta',
+    tx_signature TEXT NOT NULL,
     registered_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -225,7 +223,7 @@ export const MIGRATION_V2 = `
     to_agent TEXT NOT NULL,
     score INTEGER NOT NULL,
     comment TEXT NOT NULL DEFAULT '',
-    tx_hash TEXT,
+    tx_signature TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 

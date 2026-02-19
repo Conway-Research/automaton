@@ -245,9 +245,9 @@ export function createTestDb(): AutomatonDatabase {
 export function createTestIdentity(): AutomatonIdentity {
   return {
     name: "test-automaton",
-    address: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
+    address: "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH",
     account: {} as any, // Placeholder — not used in most tests
-    creatorAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as `0x${string}`,
+    creatorAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     sandboxId: "test-sandbox-id",
     apiKey: "test-api-key",
     createdAt: new Date().toISOString(),
@@ -260,7 +260,7 @@ export function createTestConfig(
   return {
     name: "test-automaton",
     genesisPrompt: "You are a test automaton.",
-    creatorAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as `0x${string}`,
+    creatorAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     registeredWithConway: true,
     sandboxId: "test-sandbox-id",
     conwayApiUrl: "https://api.conway.tech",
@@ -270,7 +270,7 @@ export function createTestConfig(
     heartbeatConfigPath: "/tmp/test-heartbeat.yml",
     dbPath: "/tmp/test-state.db",
     logLevel: "error",
-    walletAddress: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
+    walletAddress: "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH",
     version: "0.1.0",
     skillsDir: "/tmp/test-skills",
     maxChildren: 3,
