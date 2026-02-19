@@ -145,8 +145,10 @@ async function routeRequest(
     res.flushHeaders?.();
     res.write(": stream-open\n\n");
 
-    let streamCursor = decodedCursor;
-    if (!streamCursor) {
+    let streamCursor: { timestamp: string; id: string };
+    if (decodedCursor) {
+      streamCursor = decodedCursor;
+    } else {
       const latestPage = db.queryTurns({
         from: filter.from,
         to: filter.to,
@@ -160,7 +162,11 @@ async function routeRequest(
             timestamp: latest.timestamp,
             id: latest.id,
           }
-        : undefined;
+        : {
+            // If there are no matching turns yet, keep the stream alive starting "now".
+            timestamp: new Date().toISOString(),
+            id: "",
+          };
     }
 
     const sendEvent = (name: string, payload: Record<string, unknown>): void => {
@@ -169,12 +175,11 @@ async function routeRequest(
     };
 
     sendEvent("ready", {
-      cursor: streamCursor ? encodeCursor(streamCursor) : null,
+      cursor: encodeCursor(streamCursor),
       pollMs: 2000,
     });
 
     const pollTimer = setInterval(() => {
-      if (!streamCursor) return;
       const fresh = collectTurnsAfterCursor(filter, streamCursor, 800, 120);
       if (fresh.length === 0) return;
 
@@ -1023,9 +1028,49 @@ const DASHBOARD_HTML = `<!doctype html>
       }
       .controls {
         display: grid;
-        grid-template-columns: 1.4fr 1fr 1fr 1fr auto;
-        gap: 0.65rem;
+        grid-template-columns: minmax(13rem, 1.5fr) minmax(9rem, 1fr) auto;
+        gap: 0.75rem;
         margin-bottom: 1rem;
+        align-items: end;
+      }
+      .control-field {
+        display: grid;
+        gap: 0.35rem;
+      }
+      .control-label {
+        margin: 0;
+        font-size: 0.72rem;
+        color: var(--color-ink-muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+      .control-range-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+      }
+      .to-live-hint {
+        display: none;
+        width: 100%;
+        border: 1px dashed var(--color-border);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.42);
+        color: var(--color-ink-muted);
+        font: inherit;
+        padding: 0.55rem 0.65rem;
+        align-items: center;
+      }
+      .control-range {
+        grid-column: 1 / -1;
+      }
+      .control-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-self: end;
+      }
+      .control-actions button {
+        min-width: 7.75rem;
       }
       input,
       select,
@@ -1050,6 +1095,9 @@ const DASHBOARD_HTML = `<!doctype html>
       button.primary {
         border-color: rgba(22, 163, 74, 0.35);
         background: rgba(22, 163, 74, 0.12);
+      }
+      button.live-btn {
+        white-space: nowrap;
       }
       button:hover {
         border-color: rgba(22, 163, 74, 0.5);
@@ -1189,12 +1237,17 @@ const DASHBOARD_HTML = `<!doctype html>
       .small {
         font-size: 0.9rem;
       }
-      @media (max-width: 940px) {
+      @media (max-width: 1080px) {
         .stat-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+      }
+      @media (max-width: 820px) {
         .controls {
           grid-template-columns: 1fr 1fr;
+        }
+        .control-actions {
+          grid-column: 1 / -1;
         }
       }
       @media (max-width: 640px) {
@@ -1203,6 +1256,16 @@ const DASHBOARD_HTML = `<!doctype html>
         }
         .controls {
           grid-template-columns: 1fr;
+        }
+        .control-range-inputs {
+          grid-template-columns: 1fr;
+        }
+        .control-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+        .control-actions button {
+          min-width: 0;
         }
       }
     </style>
@@ -1272,20 +1335,35 @@ const DASHBOARD_HTML = `<!doctype html>
       <section id="logs" class="section">
         <h2>Logs</h2>
         <div class="controls">
-          <input id="searchInput" type="text" placeholder="Search thoughts, tools, and input..." />
-          <select id="stateInput">
-            <option value="">All states</option>
-            <option value="running">running</option>
-            <option value="sleeping">sleeping</option>
-            <option value="low_compute">low_compute</option>
-            <option value="critical">critical</option>
-            <option value="dead">dead</option>
-            <option value="waking">waking</option>
-            <option value="setup">setup</option>
-          </select>
-          <input id="fromInput" type="datetime-local" />
-          <input id="toInput" type="datetime-local" />
-          <button id="refreshBtn" class="primary" type="button">Refresh</button>
+          <label class="control-field" for="searchInput">
+            <span class="control-label">Search</span>
+            <input id="searchInput" type="text" placeholder="Search thoughts, tools, and input..." />
+          </label>
+          <label class="control-field" for="stateInput">
+            <span class="control-label">State</span>
+            <select id="stateInput">
+              <option value="">All states</option>
+              <option value="running">running</option>
+              <option value="sleeping">sleeping</option>
+              <option value="low_compute">low_compute</option>
+              <option value="critical">critical</option>
+              <option value="dead">dead</option>
+              <option value="waking">waking</option>
+              <option value="setup">setup</option>
+            </select>
+          </label>
+          <div class="control-actions">
+            <button id="liveModeBtn" class="primary live-btn" type="button" aria-pressed="true">Live: On</button>
+            <button id="refreshBtn" class="primary" type="button">Refresh</button>
+          </div>
+          <div class="control-field control-range">
+            <p class="control-label">Date Range</p>
+            <div class="control-range-inputs">
+              <input id="fromInput" type="datetime-local" aria-label="From date and time" />
+              <input id="toInput" type="datetime-local" aria-label="To date and time" />
+              <div id="toLiveHint" class="to-live-hint">Open-ended while live mode is on</div>
+            </div>
+          </div>
         </div>
         <p id="logsMeta" class="muted small"></p>
         <p id="logsLive" class="live-status muted small"></p>
@@ -1312,6 +1390,8 @@ const DASHBOARD_HTML = `<!doctype html>
         var stateInput = document.getElementById("stateInput");
         var fromInput = document.getElementById("fromInput");
         var toInput = document.getElementById("toInput");
+        var toLiveHint = document.getElementById("toLiveHint");
+        var liveModeBtn = document.getElementById("liveModeBtn");
         var refreshBtn = document.getElementById("refreshBtn");
         var logsMeta = document.getElementById("logsMeta");
         var logsLive = document.getElementById("logsLive");
@@ -1339,12 +1419,35 @@ const DASHBOARD_HTML = `<!doctype html>
           connecting: false
         };
         var logsObserver = null;
+        var liveModeEnabled = true;
 
         function setDefaultRange() {
-          var now = new Date();
           var dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-          toInput.value = toLocalDateTimeInput(now);
           fromInput.value = toLocalDateTimeInput(dayAgo);
+          toInput.value = "";
+        }
+
+        function isLiveModeEnabled() {
+          return !!liveModeEnabled;
+        }
+
+        function syncLiveModeUi() {
+          var live = isLiveModeEnabled();
+          if (toInput) {
+            toInput.disabled = live;
+            toInput.style.display = live ? "none" : "";
+            if (live) {
+              toInput.value = "";
+            }
+          }
+          if (toLiveHint) {
+            toLiveHint.style.display = live ? "flex" : "none";
+          }
+          if (liveModeBtn) {
+            liveModeBtn.textContent = live ? "Live: On" : "Live: Off";
+            liveModeBtn.setAttribute("aria-pressed", live ? "true" : "false");
+            liveModeBtn.classList.toggle("primary", live);
+          }
         }
 
         function toLocalDateTimeInput(date) {
@@ -1581,7 +1684,7 @@ const DASHBOARD_HTML = `<!doctype html>
           var stateValue = stateInput.value;
           if (q) params.set("q", q);
           if (fromIso) params.set("from", fromIso);
-          if (toIsoValue) params.set("to", toIsoValue);
+          if (!isLiveModeEnabled() && toIsoValue) params.set("to", toIsoValue);
           if (stateValue) params.set("state", stateValue);
           return params;
         }
@@ -1742,7 +1845,16 @@ const DASHBOARD_HTML = `<!doctype html>
               logsState.loaded = 0;
               logsState.total = 0;
               logsMeta.textContent = "No logs matched the current filters.";
-              startLogStream(null);
+              if (reset) {
+                streamState.cursor = typeof data.headCursor === "string" && data.headCursor
+                  ? data.headCursor
+                  : null;
+                if (isLiveModeEnabled()) {
+                  startLogStream(streamState.cursor);
+                } else {
+                  setLiveStatus("Live: off. Showing a static filtered snapshot.");
+                }
+              }
               return;
             }
 
@@ -1760,7 +1872,11 @@ const DASHBOARD_HTML = `<!doctype html>
               streamState.cursor = typeof data.headCursor === "string" && data.headCursor
                 ? data.headCursor
                 : null;
-              startLogStream(streamState.cursor);
+              if (isLiveModeEnabled()) {
+                startLogStream(streamState.cursor);
+              } else {
+                setLiveStatus("Live: off. Showing a static filtered snapshot.");
+              }
             }
             logsState.hasMore = !!logsState.cursor;
             updateLogsMeta();
@@ -1798,6 +1914,7 @@ const DASHBOARD_HTML = `<!doctype html>
         }
 
         function scheduleLogStreamReconnect() {
+          if (!isLiveModeEnabled()) return;
           if (streamState.reconnectTimer) return;
           streamState.reconnectTimer = setTimeout(function () {
             streamState.reconnectTimer = null;
@@ -1827,6 +1944,12 @@ const DASHBOARD_HTML = `<!doctype html>
         }
 
         function startLogStream(cursor) {
+          if (!isLiveModeEnabled()) {
+            stopLogStream();
+            setLiveStatus("Live: off. Showing a static filtered snapshot.");
+            return;
+          }
+
           if (!("EventSource" in window)) {
             setLiveStatus("Live updates unavailable in this browser.");
             return;
@@ -1847,7 +1970,7 @@ const DASHBOARD_HTML = `<!doctype html>
               streamState.cursor = payload.cursor;
             }
             streamState.connecting = false;
-            setLiveStatus("Live: connected");
+            setLiveStatus("Live: connected. Streaming new logs for current filters.");
           });
 
           source.addEventListener("logs", function (event) {
@@ -1879,7 +2002,7 @@ const DASHBOARD_HTML = `<!doctype html>
               q: searchInput.value.trim() || undefined,
               state: stateInput.value || undefined,
               from: toIso(fromInput.value) || undefined,
-              to: toIso(toInput.value) || undefined,
+              to: isLiveModeEnabled() ? undefined : (toIso(toInput.value) || undefined),
               limit: 120
             };
             var resp = await fetch("/api/ask", {
@@ -2094,6 +2217,14 @@ const DASHBOARD_HTML = `<!doctype html>
         toInput.addEventListener("change", function () {
           loadLogsPage({ reset: true }).catch(function () {});
         });
+        liveModeBtn.addEventListener("click", function () {
+          liveModeEnabled = !liveModeEnabled;
+          if (!liveModeEnabled && !toInput.value) {
+            toInput.value = toLocalDateTimeInput(new Date());
+          }
+          syncLiveModeUi();
+          loadLogsPage({ reset: true }).catch(function () {});
+        });
 
         askBtn.addEventListener("click", function () {
           askLogs().catch(function () {});
@@ -2105,6 +2236,7 @@ const DASHBOARD_HTML = `<!doctype html>
 
         startLifeBackground();
         setDefaultRange();
+        syncLiveModeUi();
         initInfiniteScroll();
         refreshAll();
         setInterval(function () {
