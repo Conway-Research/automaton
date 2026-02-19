@@ -177,7 +177,7 @@ function evaluateSupplyChain(): SecurityFinding {
     ],
     references: [
       "MITRE ATT&CK T1195 - Supply Chain Compromise",
-      "SLSA Framework - Supply chain Levels for Software Artifacts",
+      "SLSA Framework - Supply Chain Levels for Software Artifacts",
     ],
   };
 }

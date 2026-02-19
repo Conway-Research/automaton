@@ -9,3 +9,4 @@ dist/
 *.tgz
 .automaton/wallet.json
 .automaton/state.db
+package-lock.json

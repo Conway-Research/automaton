@@ -11,6 +11,9 @@ import { sanitizeInput } from "../agent/injection-defense.js";
 
 /**
  * Run a PoC test for a specific attack vector and return the result.
+ * Only vectors with runtime-testable payloads (those that exercise the
+ * injection defense pipeline) have live PoC implementations. Remaining
+ * vectors require static analysis or infrastructure-level testing.
  */
 export function runPoC(vector: AttackVector): ProofOfConcept {
   const runners: Partial<Record<AttackVector, () => ProofOfConcept>> = {
