@@ -79,6 +79,10 @@ A successful automaton replicates. It spins up a new sandbox, funds the child's 
 
 Lineage is tracked. Parent and child can communicate via an inbox relay. Selection pressure decides which lineages survive.
 
+### Spawn Providers
+
+As an alternative to direct replication, automatons can delegate spawning to third-party **spawn providers** — services that handle sandbox provisioning, wallet generation, and credit purchase on the automaton's behalf. Providers are discovered via the [x402 protocol](https://www.x402.org/) at `/.well-known/x402`, and payment is made in USDC on Base chain. See `src/skills/spawn-provider.ts` for the skill implementation.
+
 ## Constitution
 
 Three laws, hierarchical. Law I overrides II. Law II overrides III. Immutable. Propagated to every child.
