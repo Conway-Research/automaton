@@ -23,6 +23,8 @@ import type {
   RegistryEntry,
   ReputationEntry,
   InboxMessage,
+  TurnsQueryOptions,
+  TurnsQueryResult,
 } from "../types.js";
 import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3 } from "./schema.js";
 
@@ -103,6 +105,69 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
       )
       .all(limit) as any[];
     return rows.map(deserializeTurn).reverse();
+  };
+
+  const queryTurns = (options: TurnsQueryOptions): TurnsQueryResult => {
+    const whereClauses: string[] = [];
+    const whereArgs: unknown[] = [];
+
+    if (options.from) {
+      whereClauses.push("timestamp >= ?");
+      whereArgs.push(options.from);
+    }
+    if (options.to) {
+      whereClauses.push("timestamp <= ?");
+      whereArgs.push(options.to);
+    }
+    if (options.state) {
+      whereClauses.push("state = ?");
+      whereArgs.push(options.state);
+    }
+    if (options.q && options.q.trim()) {
+      const needle = `%${options.q.trim().toLowerCase()}%`;
+      whereClauses.push(
+        [
+          "LOWER(id) LIKE ?",
+          "LOWER(timestamp) LIKE ?",
+          "LOWER(state) LIKE ?",
+          "LOWER(COALESCE(input_source, '')) LIKE ?",
+          "LOWER(COALESCE(input, '')) LIKE ?",
+          "LOWER(COALESCE(thinking, '')) LIKE ?",
+          "LOWER(COALESCE(tool_calls, '')) LIKE ?",
+        ].join(" OR "),
+      );
+      for (let i = 0; i < 7; i++) {
+        whereArgs.push(needle);
+      }
+    }
+
+    const baseWhere = whereClauses.length > 0 ? `WHERE (${whereClauses.join(") AND (")})` : "";
+    const countRow = db
+      .prepare(`SELECT COUNT(*) as count FROM turns ${baseWhere}`)
+      .get(...whereArgs) as { count: number };
+
+    const pageClauses = whereClauses.slice();
+    const pageArgs = whereArgs.slice();
+    if (options.cursor?.timestamp && options.cursor.id) {
+      pageClauses.push("(timestamp < ? OR (timestamp = ? AND id < ?))");
+      pageArgs.push(options.cursor.timestamp, options.cursor.timestamp, options.cursor.id);
+    }
+
+    const pageWhere = pageClauses.length > 0 ? `WHERE (${pageClauses.join(") AND (")})` : "";
+    const limit = Math.max(1, Math.min(500, Math.floor(options.limit)));
+    const rows = db
+      .prepare(
+        `SELECT * FROM turns ${pageWhere} ORDER BY timestamp DESC, id DESC LIMIT ?`,
+      )
+      .all(...pageArgs, limit + 1) as any[];
+
+    const hasMore = rows.length > limit;
+    const turns = (hasMore ? rows.slice(0, limit) : rows).map(deserializeTurn);
+    return {
+      turns,
+      totalMatched: countRow.count,
+      hasMore,
+    };
   };
 
   const getTurnById = (id: string): AgentTurn | undefined => {
@@ -455,6 +520,7 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     setIdentity,
     insertTurn,
     getRecentTurns,
+    queryTurns,
     getTurnById,
     getTurnCount,
     insertToolCall,

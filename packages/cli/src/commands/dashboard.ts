@@ -94,17 +94,32 @@ async function routeRequest(
 
   if (method === "GET" && url.pathname === "/api/logs") {
     const filter = extractFilter(url.searchParams);
-    const turns = filterTurns(filter);
-    const sorted = turns
-      .slice()
-      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-    const limited = sorted.slice(0, filter.limit);
+    const cursorParam = url.searchParams.get("cursor") || undefined;
+    const cursor = decodeCursor(cursorParam);
+    if (cursorParam && !cursor) {
+      sendJson(res, 400, { error: "Invalid cursor" });
+      return;
+    }
+
+    const page = db.queryTurns({
+      from: filter.from,
+      to: filter.to,
+      q: filter.q,
+      state: filter.state,
+      limit: filter.limit,
+      cursor,
+    });
+    const nextCursor =
+      page.hasMore && page.turns.length > 0
+        ? encodeCursor(page.turns[page.turns.length - 1])
+        : null;
 
     sendJson(res, 200, {
-      total: sorted.length,
-      returned: limited.length,
+      total: page.totalMatched,
+      returned: page.turns.length,
       limit: filter.limit,
-      logs: limited.map((turn) => serializeTurn(turn)),
+      nextCursor,
+      logs: page.turns.map((turn) => serializeTurn(turn)),
     });
     return;
   }
@@ -124,9 +139,13 @@ async function routeRequest(
       10,
       300,
     );
-    const turns = filterTurns(filter)
-      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-      .slice(0, askLimit);
+    const turns = db.queryTurns({
+      from: filter.from,
+      to: filter.to,
+      q: filter.q,
+      state: filter.state,
+      limit: askLimit,
+    }).turns;
 
     if (turns.length === 0) {
       sendJson(res, 200, {
@@ -138,8 +157,6 @@ async function routeRequest(
       return;
     }
 
-    const overrideApiKey =
-      typeof payload.apiKey === "string" ? payload.apiKey.trim() : "";
     const overrideModel =
       typeof payload.model === "string" ? payload.model.trim() : "";
 
@@ -148,7 +165,13 @@ async function routeRequest(
       db.getKV("last_inference_model") ||
       runtimeConfig.inferenceModel;
     const model = overrideModel || activeModel;
-    const apiKey = overrideApiKey || runtimeConfig.conwayApiKey;
+    const apiKey = runtimeConfig.conwayApiKey;
+    if (!apiKey) {
+      sendJson(res, 400, {
+        error: "No Conway API key configured for the running automaton.",
+      });
+      return;
+    }
 
     const context = serializeTurnsForAsk(turns.slice().reverse());
     let answer: { text: string; model: string };
@@ -174,7 +197,7 @@ async function routeRequest(
         id: turn.id,
         timestamp: turn.timestamp,
         state: turn.state,
-        snippet: trimForUi(turn.thinking, 180),
+        snippet: trimForUi(summarizeTurn(turn), 180),
       })),
     });
     return;
@@ -408,7 +431,6 @@ function extractFilter(
   q?: string;
   state?: AgentStateName;
   limit: number;
-  scan: number;
 } {
   const rawState =
     (typeof body?.state === "string" ? body.state : undefined) ||
@@ -429,61 +451,43 @@ function extractFilter(
       undefined,
     state: isAgentState(rawState) ? rawState : undefined,
     limit: clamp(
-      toNumber(body?.limit ?? params.get("limit")) ?? 100,
+      toNumber(body?.limit ?? params.get("limit")) ?? 40,
       1,
-      500,
-    ),
-    scan: clamp(
-      toNumber(body?.scan ?? params.get("scan")) ?? 2000,
-      100,
-      10000,
+      200,
     ),
   };
 }
 
-function filterTurns(filter: {
-  from?: string;
-  to?: string;
-  q?: string;
-  state?: AgentStateName;
-  scan: number;
-}): AgentTurnRecord[] {
-  const fromMs = parseDateMs(filter.from);
-  const toMs = parseDateMs(filter.to);
-  const query = (filter.q || "").trim().toLowerCase();
-  const turns = db.getRecentTurns(filter.scan);
-
-  return turns.filter((turn) => {
-    const tsMs = parseDateMs(turn.timestamp);
-    if (fromMs !== undefined && (tsMs === undefined || tsMs < fromMs)) {
-      return false;
+function decodeCursor(raw: string | undefined): { timestamp: string; id: string } | undefined {
+  if (!raw) return undefined;
+  try {
+    const decoded = Buffer.from(raw, "base64url").toString("utf-8");
+    const parsed = JSON.parse(decoded) as { timestamp?: unknown; id?: unknown };
+    if (
+      typeof parsed?.timestamp === "string" &&
+      parsed.timestamp &&
+      typeof parsed?.id === "string" &&
+      parsed.id
+    ) {
+      return {
+        timestamp: parsed.timestamp,
+        id: parsed.id,
+      };
     }
-    if (toMs !== undefined && (tsMs === undefined || tsMs > toMs)) {
-      return false;
-    }
-    if (filter.state && turn.state !== filter.state) {
-      return false;
-    }
-    if (!query) return true;
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
 
-    const blob = [
-      turn.id,
-      turn.timestamp,
-      turn.state,
-      turn.inputSource || "",
-      turn.input || "",
-      turn.thinking || "",
-      turn.toolCalls
-        .map((call) =>
-          `${call.name} ${safeStringify(call.arguments)} ${call.result || ""} ${call.error || ""}`,
-        )
-        .join(" "),
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return blob.includes(query);
-  });
+function encodeCursor(turn: AgentTurnRecord): string {
+  return Buffer.from(
+    JSON.stringify({
+      timestamp: turn.timestamp,
+      id: turn.id,
+    }),
+    "utf-8",
+  ).toString("base64url");
 }
 
 function serializeTurn(turn: AgentTurnRecord): Record<string, unknown> {
@@ -494,6 +498,7 @@ function serializeTurn(turn: AgentTurnRecord): Record<string, unknown> {
     inputSource: turn.inputSource || null,
     input: turn.input || "",
     thinking: trimForUi(turn.thinking || "", 1800),
+    summary: trimForUi(summarizeTurn(turn), 800),
     toolNames: turn.toolCalls.map((call) => call.name),
     hasError: turn.toolCalls.some((call) => !!call.error),
     tokenUsage: turn.tokenUsage || {},
@@ -506,6 +511,57 @@ function serializeTurn(turn: AgentTurnRecord): Record<string, unknown> {
       result: trimForUi(call.result || "", 700),
     })),
   };
+}
+
+function summarizeTurn(turn: AgentTurnRecord): string {
+  const thought = trimForUi(turn.thinking || "", 640);
+  if (thought) return thought;
+
+  const tools = turn.toolCalls || [];
+  if (tools.length === 0) {
+    if (turn.input) {
+      return (
+        `Processed ${turn.inputSource || "unknown"} input: ` +
+        trimForUi(turn.input, 220)
+      );
+    }
+    return "No thought text or tool output was recorded for this turn.";
+  }
+
+  const uniqueNames = Array.from(new Set(tools.map((tool) => tool.name).filter(Boolean)));
+  const shownNames = uniqueNames.slice(0, 4).join(", ");
+  const hiddenNameCount = Math.max(0, uniqueNames.length - 4);
+  const errorCount = tools.filter((tool) => !!tool.error).length;
+  const successCount = tools.length - errorCount;
+
+  let summary =
+    `Executed ${tools.length} tool call${tools.length === 1 ? "" : "s"}` +
+    (shownNames ? ` (${shownNames}${hiddenNameCount ? ` +${hiddenNameCount} more` : ""})` : "") +
+    ".";
+
+  if (errorCount > 0) {
+    summary += ` ${errorCount} failed, ${successCount} succeeded.`;
+  } else {
+    summary += " Completed without recorded errors.";
+  }
+
+  const firstUseful = tools
+    .map((tool) => {
+      if (tool.error) {
+        return `${tool.name} error: ${trimForUi(tool.error, 140)}`;
+      }
+      if (tool.result && tool.result.trim()) {
+        return `${tool.name} result: ${trimForUi(tool.result, 160)}`;
+      }
+      return "";
+    })
+    .find((line) => !!line);
+
+  if (firstUseful) {
+    summary += ` ${firstUseful}`;
+  }
+
+  return summary;
 }
 
 function serializeTurnsForAsk(turns: AgentTurnRecord[]): string {
@@ -522,7 +578,7 @@ function serializeTurnsForAsk(turns: AgentTurnRecord[]): string {
     const line =
       `[${turn.timestamp}] id=${turn.id} state=${turn.state} ` +
       `input=${trimForUi(turn.input || "", 240)} ` +
-      `thought=${trimForUi(turn.thinking || "", 400)} ` +
+      `thought=${trimForUi(turn.thinking || summarizeTurn(turn), 400)} ` +
       `tools=${toolSummary || "none"}`;
 
     if (used + line.length + 1 > maxChars) break;
@@ -613,21 +669,6 @@ async function askLogsWithModel(params: {
   };
 }
 
-function safeStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return "";
-  }
-}
-
-function parseDateMs(value?: string): number | undefined {
-  if (!value) return undefined;
-  const ms = Date.parse(value);
-  if (Number.isNaN(ms)) return undefined;
-  return ms;
-}
-
 function parseJson<T>(value: string | undefined): T | undefined {
   if (!value) return undefined;
   try {
@@ -715,23 +756,34 @@ const DASHBOARD_HTML = `<!doctype html>
         color: var(--color-ink);
         background: var(--color-paper);
         font-size: 19px;
-        line-height: 1.6;
+        line-height: 1.7;
+        overflow-x: hidden;
       }
-      body::before {
+      body::after {
         content: "";
         position: fixed;
         inset: 0;
         pointer-events: none;
-        z-index: -1;
-        background:
-          radial-gradient(1200px 600px at 10% -10%, rgba(22, 163, 74, 0.07), transparent 60%),
-          radial-gradient(1000px 500px at 100% 0%, rgba(0, 0, 0, 0.04), transparent 65%);
+        z-index: 2;
+        opacity: 0.03;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .life-bg {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.25;
       }
       .header {
         max-width: 56rem;
         margin: 0 auto;
         padding: 2rem 1.5rem 1rem;
         text-align: center;
+        position: relative;
+        z-index: 3;
       }
       .title {
         margin: 0;
@@ -765,11 +817,16 @@ const DASHBOARD_HTML = `<!doctype html>
         max-width: 56rem;
         margin: 0 auto;
         padding: 1.25rem 1.5rem 4rem;
+        position: relative;
+        z-index: 3;
       }
       .section {
         border-top: 1px solid var(--color-border);
         padding-top: 2rem;
         margin-top: 2.5rem;
+      }
+      .section:first-of-type {
+        margin-top: 1.25rem;
       }
       .section h2 {
         margin: 0 0 1rem;
@@ -839,6 +896,10 @@ const DASHBOARD_HTML = `<!doctype html>
         display: grid;
         gap: 0.75rem;
       }
+      .scroll-sentinel {
+        margin-top: 0.8rem;
+        text-align: center;
+      }
       .turn {
         border: 1px solid var(--color-border);
         border-left: 3px solid rgba(0, 0, 0, 0.18);
@@ -902,7 +963,7 @@ const DASHBOARD_HTML = `<!doctype html>
       }
       .ask-meta {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 0.65rem;
       }
       .answer {
@@ -942,13 +1003,14 @@ const DASHBOARD_HTML = `<!doctype html>
     </style>
   </head>
   <body>
+    <canvas id="lifeCanvas" class="life-bg" aria-hidden="true"></canvas>
     <header class="header">
       <h1 class="title">Automaton Logbook</h1>
       <p class="subtitle"><span class="mono">__AUTOMATON_NAME__</span> local observability dashboard</p>
       <nav class="nav">
         <a href="#overview">Overview</a>
-        <a href="#logs">Logs</a>
         <a href="#ask">Ask</a>
+        <a href="#logs">Logs</a>
       </nav>
     </header>
 
@@ -992,6 +1054,19 @@ const DASHBOARD_HTML = `<!doctype html>
         <p id="overviewMeta" class="muted small"></p>
       </section>
 
+      <section id="ask" class="section">
+        <h2>Ask the Logs</h2>
+        <div class="ask-grid">
+          <textarea id="questionInput" placeholder="What has the agent been up to in the last day?"></textarea>
+          <div class="ask-meta">
+            <input id="modelInput" type="text" placeholder="Optional model override (e.g. gpt-5.2)" />
+          </div>
+          <button id="askBtn" class="primary" type="button">Ask</button>
+        </div>
+        <div id="askAnswer" class="answer muted">Ask a question to generate a summary from filtered logs.</div>
+        <ol id="askSources" class="sources muted"></ol>
+      </section>
+
       <section id="logs" class="section">
         <h2>Logs</h2>
         <div class="controls">
@@ -1012,25 +1087,14 @@ const DASHBOARD_HTML = `<!doctype html>
         </div>
         <p id="logsMeta" class="muted small"></p>
         <div id="turnList" class="turn-list"></div>
-      </section>
-
-      <section id="ask" class="section">
-        <h2>Ask the Logs</h2>
-        <div class="ask-grid">
-          <textarea id="questionInput" placeholder="What has the agent been up to in the last day?"></textarea>
-          <div class="ask-meta">
-            <input id="modelInput" type="text" placeholder="Optional model override (e.g. gpt-5.2)" />
-            <input id="apiKeyInput" type="password" placeholder="Optional Conway API key override" />
-          </div>
-          <button id="askBtn" class="primary" type="button">Ask</button>
-        </div>
-        <div id="askAnswer" class="answer muted">Ask a question to generate a summary from filtered logs.</div>
-        <ol id="askSources" class="sources muted"></ol>
+        <p id="logsSentinel" class="scroll-sentinel muted small"></p>
       </section>
     </main>
 
     <script>
       (function () {
+        var LOG_PAGE_SIZE = 40;
+
         var stateEl = document.getElementById("stateValue");
         var tierEl = document.getElementById("tierValue");
         var modelEl = document.getElementById("modelValue");
@@ -1048,13 +1112,23 @@ const DASHBOARD_HTML = `<!doctype html>
         var refreshBtn = document.getElementById("refreshBtn");
         var logsMeta = document.getElementById("logsMeta");
         var turnList = document.getElementById("turnList");
+        var logsSentinel = document.getElementById("logsSentinel");
 
         var questionInput = document.getElementById("questionInput");
         var modelInput = document.getElementById("modelInput");
-        var apiKeyInput = document.getElementById("apiKeyInput");
         var askBtn = document.getElementById("askBtn");
         var askAnswer = document.getElementById("askAnswer");
         var askSources = document.getElementById("askSources");
+
+        var logsState = {
+          cursor: null,
+          total: 0,
+          loaded: 0,
+          hasMore: true,
+          loading: false,
+          requestId: 0
+        };
+        var logsObserver = null;
 
         function setDefaultRange() {
           var now = new Date();
@@ -1083,7 +1157,8 @@ const DASHBOARD_HTML = `<!doctype html>
         }
 
         function formatMoney(cents) {
-          return "$" + (cents / 100).toFixed(2);
+          var safeCents = typeof cents === "number" ? cents : 0;
+          return "$" + (safeCents / 100).toFixed(2);
         }
 
         function makeBadge(text) {
@@ -1093,7 +1168,40 @@ const DASHBOARD_HTML = `<!doctype html>
           return span;
         }
 
-        function getFilterParams() {
+        function updateLogsMeta() {
+          logsMeta.textContent = logsState.loaded + " of " + logsState.total + " log entries loaded";
+        }
+
+        function updateSentinel() {
+          if (!logsSentinel) return;
+          if (logsState.loading) {
+            logsSentinel.textContent = "Loading more logs...";
+            return;
+          }
+          if (!logsState.hasMore) {
+            if (logsState.loaded === 0) {
+              logsSentinel.textContent = "";
+            } else {
+              logsSentinel.textContent = "All matching logs are loaded.";
+            }
+            return;
+          }
+          logsSentinel.textContent = "Scroll down to load more.";
+        }
+
+        function resetLogsState() {
+          logsState.requestId += 1;
+          logsState.cursor = null;
+          logsState.total = 0;
+          logsState.loaded = 0;
+          logsState.hasMore = true;
+          logsState.loading = false;
+          turnList.innerHTML = "";
+          logsMeta.textContent = "Loading logs...";
+          updateSentinel();
+        }
+
+        function getFilterParams(cursor) {
           var params = new URLSearchParams();
           var q = searchInput.value.trim();
           var fromIso = toIso(fromInput.value);
@@ -1103,9 +1211,69 @@ const DASHBOARD_HTML = `<!doctype html>
           if (fromIso) params.set("from", fromIso);
           if (toIsoValue) params.set("to", toIsoValue);
           if (stateValue) params.set("state", stateValue);
-          params.set("limit", "120");
-          params.set("scan", "2500");
+          params.set("limit", String(LOG_PAGE_SIZE));
+          if (cursor) params.set("cursor", cursor);
           return params;
+        }
+
+        function appendLogCard(log) {
+          var article = document.createElement("article");
+          article.className = "turn" + (log.hasError ? " error" : "");
+
+          var head = document.createElement("div");
+          head.className = "turn-head";
+          var ts = document.createElement("div");
+          ts.className = "mono small";
+          ts.textContent = formatTime(log.timestamp);
+          head.appendChild(ts);
+          head.appendChild(makeBadge(log.state));
+          article.appendChild(head);
+
+          var summary = document.createElement("p");
+          summary.textContent = log.summary || log.thinking || "No activity summary available.";
+          article.appendChild(summary);
+
+          var meta = document.createElement("p");
+          meta.className = "meta";
+          var tools = Array.isArray(log.toolNames) ? log.toolNames.join(", ") : "";
+          var totalTokens =
+            log.tokenUsage && typeof log.tokenUsage.totalTokens === "number"
+              ? String(log.tokenUsage.totalTokens)
+              : "0";
+          meta.textContent =
+            "Tools: " + (tools || "none") +
+            " | Tokens: " + totalTokens +
+            " | Cost: " + formatMoney(log.costCents || 0);
+          article.appendChild(meta);
+
+          var details = document.createElement("details");
+          var detailsSummary = document.createElement("summary");
+          detailsSummary.className = "small muted";
+          detailsSummary.textContent = "Details";
+          details.appendChild(detailsSummary);
+
+          if (log.input) {
+            var inputPre = document.createElement("pre");
+            inputPre.textContent =
+              "Input (" + (log.inputSource || "unknown") + "):\\n" + log.input;
+            details.appendChild(inputPre);
+          }
+
+          if (Array.isArray(log.tools) && log.tools.length > 0) {
+            log.tools.forEach(function (tool) {
+              var toolPre = document.createElement("pre");
+              var body = tool.error
+                ? "ERROR: " + tool.error
+                : tool.result || "(empty result)";
+              toolPre.textContent =
+                "Tool: " + tool.name +
+                " | Duration: " + (tool.durationMs || 0) + "ms\\n" + body;
+              details.appendChild(toolPre);
+            });
+          }
+
+          article.appendChild(details);
+          turnList.appendChild(article);
         }
 
         async function loadOverview() {
@@ -1137,82 +1305,67 @@ const DASHBOARD_HTML = `<!doctype html>
           overviewMetaEl.textContent = meta;
         }
 
-        async function loadLogs() {
-          logsMeta.textContent = "Loading logs...";
-          turnList.innerHTML = "";
-          var params = getFilterParams();
-          var resp = await fetch("/api/logs?" + params.toString(), { cache: "no-store" });
-          if (!resp.ok) throw new Error("Failed to load logs");
-          var data = await resp.json();
-          logsMeta.textContent =
-            data.returned + " log entries shown (" + data.total + " matched)";
+        async function loadLogsPage(options) {
+          options = options || {};
+          var reset = !!options.reset;
 
-          if (!Array.isArray(data.logs) || data.logs.length === 0) {
-            var empty = document.createElement("p");
-            empty.className = "muted";
-            empty.textContent = "No logs in this range.";
-            turnList.appendChild(empty);
+          if (reset) {
+            resetLogsState();
+          }
+          if (logsState.loading || !logsState.hasMore) {
+            updateSentinel();
             return;
           }
 
-          data.logs.forEach(function (log) {
-            var article = document.createElement("article");
-            article.className = "turn" + (log.hasError ? " error" : "");
+          logsState.loading = true;
+          updateSentinel();
+          var requestId = logsState.requestId;
 
-            var head = document.createElement("div");
-            head.className = "turn-head";
-            var ts = document.createElement("div");
-            ts.className = "mono small";
-            ts.textContent = formatTime(log.timestamp);
-            head.appendChild(ts);
-            head.appendChild(makeBadge(log.state));
-            article.appendChild(head);
+          try {
+            var params = getFilterParams(logsState.cursor);
+            var resp = await fetch("/api/logs?" + params.toString(), { cache: "no-store" });
+            var data = await resp.json();
+            if (!resp.ok) {
+              throw new Error(data && data.error ? data.error : "Failed to load logs");
+            }
+            if (requestId !== logsState.requestId) return;
 
-            var thinking = document.createElement("p");
-            thinking.textContent = log.thinking || "(no thought text)";
-            article.appendChild(thinking);
+            var logs = Array.isArray(data.logs) ? data.logs : [];
+            logsState.total = typeof data.total === "number" ? data.total : logsState.total;
 
-            var meta = document.createElement("p");
-            meta.className = "meta";
-            var tools = Array.isArray(log.toolNames) ? log.toolNames.join(", ") : "";
-            var totalTokens = log.tokenUsage && log.tokenUsage.totalTokens
-              ? String(log.tokenUsage.totalTokens)
-              : "0";
-            meta.textContent =
-              "Tools: " + (tools || "none") +
-              " | Tokens: " + totalTokens +
-              " | Cost: " + formatMoney(log.costCents || 0);
-            article.appendChild(meta);
-
-            var details = document.createElement("details");
-            var summary = document.createElement("summary");
-            summary.className = "small muted";
-            summary.textContent = "Details";
-            details.appendChild(summary);
-
-            if (log.input) {
-              var inputPre = document.createElement("pre");
-              inputPre.textContent =
-                "Input (" + (log.inputSource || "unknown") + "):\\n" + log.input;
-              details.appendChild(inputPre);
+            if (logsState.loaded === 0 && logs.length === 0) {
+              turnList.innerHTML = "";
+              var empty = document.createElement("p");
+              empty.className = "muted";
+              empty.textContent = "No logs in this range.";
+              turnList.appendChild(empty);
+              logsState.hasMore = false;
+              logsState.cursor = null;
+              logsState.loaded = 0;
+              logsState.total = 0;
+              logsMeta.textContent = "No logs matched the current filters.";
+              return;
             }
 
-            if (Array.isArray(log.tools) && log.tools.length > 0) {
-              log.tools.forEach(function (tool) {
-                var toolPre = document.createElement("pre");
-                var body = tool.error
-                  ? "ERROR: " + tool.error
-                  : tool.result || "(empty result)";
-                toolPre.textContent =
-                  "Tool: " + tool.name +
-                  " | Duration: " + (tool.durationMs || 0) + "ms\\n" + body;
-                details.appendChild(toolPre);
-              });
+            logs.forEach(function (log) {
+              appendLogCard(log);
+            });
+            logsState.loaded += logs.length;
+            logsState.cursor = typeof data.nextCursor === "string" && data.nextCursor
+              ? data.nextCursor
+              : null;
+            logsState.hasMore = !!logsState.cursor;
+            updateLogsMeta();
+          } catch (err) {
+            if (requestId !== logsState.requestId) return;
+            logsState.hasMore = false;
+            logsMeta.textContent = String(err && err.message ? err.message : err);
+          } finally {
+            if (requestId === logsState.requestId) {
+              logsState.loading = false;
+              updateSentinel();
             }
-
-            article.appendChild(details);
-            turnList.appendChild(article);
-          });
+          }
         }
 
         async function askLogs() {
@@ -1231,9 +1384,7 @@ const DASHBOARD_HTML = `<!doctype html>
               from: toIso(fromInput.value) || undefined,
               to: toIso(toInput.value) || undefined,
               model: modelInput.value.trim() || undefined,
-              apiKey: apiKeyInput.value.trim() || undefined,
-              limit: 120,
-              scan: 2500
+              limit: 120
             };
             var resp = await fetch("/api/ask", {
               method: "POST",
@@ -1265,17 +1416,166 @@ const DASHBOARD_HTML = `<!doctype html>
           }
         }
 
+        function initInfiniteScroll() {
+          if (!logsSentinel || !("IntersectionObserver" in window)) return;
+          logsObserver = new IntersectionObserver(
+            function (entries) {
+              var first = entries[0];
+              if (!first || !first.isIntersecting) return;
+              loadLogsPage({ reset: false }).catch(function (err) {
+                logsMeta.textContent = String(err && err.message ? err.message : err);
+              });
+            },
+            {
+              root: null,
+              rootMargin: "500px 0px 500px 0px",
+              threshold: 0.01
+            },
+          );
+          logsObserver.observe(logsSentinel);
+        }
+
+        function startLifeBackground() {
+          var canvas = document.getElementById("lifeCanvas");
+          if (!canvas || !canvas.getContext) return;
+          var ctx = canvas.getContext("2d");
+          if (!ctx) return;
+
+          var cellSize = 7;
+          var intervalMs = 120;
+          var density = 0.12;
+          var columns = 0;
+          var rows = 0;
+          var current = new Uint8Array(0);
+          var next = new Uint8Array(0);
+          var ages = new Uint16Array(0);
+          var tick = 0;
+          var stepTimer = null;
+
+          var patterns = [
+            [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]],
+            [[0, 0], [1, 0], [2, 0], [2, 1], [1, 2]],
+            [[0, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
+            [[0, 0], [0, 1], [0, 2], [1, 2], [2, 1]]
+          ];
+
+          function index(x, y) {
+            return y * columns + x;
+          }
+
+          function seedRandom() {
+            for (var i = 0; i < current.length; i++) {
+              var alive = Math.random() < density ? 1 : 0;
+              current[i] = alive;
+              next[i] = 0;
+              ages[i] = alive ? 1 : 0;
+            }
+          }
+
+          function resize() {
+            var width = Math.max(1, Math.floor(window.innerWidth));
+            var height = Math.max(1, Math.floor(window.innerHeight));
+            canvas.width = width;
+            canvas.height = height;
+            columns = Math.max(1, Math.floor(width / cellSize));
+            rows = Math.max(1, Math.floor(height / cellSize));
+            current = new Uint8Array(columns * rows);
+            next = new Uint8Array(columns * rows);
+            ages = new Uint16Array(columns * rows);
+            seedRandom();
+            draw();
+          }
+
+          function neighbors(x, y) {
+            var count = 0;
+            for (var dy = -1; dy <= 1; dy++) {
+              for (var dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                var nx = (x + dx + columns) % columns;
+                var ny = (y + dy + rows) % rows;
+                count += current[index(nx, ny)];
+              }
+            }
+            return count;
+          }
+
+          function injectPattern() {
+            if (!patterns.length || columns < 4 || rows < 4) return;
+            var pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            var px = Math.floor(Math.random() * Math.max(1, columns - 3));
+            var py = Math.floor(Math.random() * Math.max(1, rows - 3));
+            for (var i = 0; i < pattern.length; i++) {
+              var cell = pattern[i];
+              var x = (px + cell[0]) % columns;
+              var y = (py + cell[1]) % rows;
+              current[index(x, y)] = 1;
+              ages[index(x, y)] = Math.max(ages[index(x, y)], 1);
+            }
+          }
+
+          function step() {
+            for (var y = 0; y < rows; y++) {
+              for (var x = 0; x < columns; x++) {
+                var i = index(x, y);
+                var live = current[i] === 1;
+                var n = neighbors(x, y);
+                var aliveNext = n === 3 || (live && n === 2);
+                next[i] = aliveNext ? 1 : 0;
+                ages[i] = aliveNext ? Math.min(ages[i] + 1, 9999) : 0;
+              }
+            }
+            var swap = current;
+            current = next;
+            next = swap;
+          }
+
+          function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var y = 0; y < rows; y++) {
+              for (var x = 0; x < columns; x++) {
+                var i = index(x, y);
+                if (!current[i]) continue;
+                var age = ages[i] || 1;
+                var green = Math.min(255, 110 + age * 6);
+                var blue = Math.min(255, 80 + age * 7);
+                ctx.fillStyle = "rgba(22," + green + "," + blue + ",0.25)";
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+              }
+            }
+          }
+
+          resize();
+          window.addEventListener("resize", resize);
+
+          if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            return;
+          }
+
+          stepTimer = setInterval(function () {
+            step();
+            if (tick % 30 === 0) {
+              injectPattern();
+            }
+            draw();
+            tick += 1;
+          }, intervalMs);
+
+          window.addEventListener("beforeunload", function () {
+            if (stepTimer) clearInterval(stepTimer);
+          });
+        }
+
         async function refreshAll() {
           try {
             await loadOverview();
-            await loadLogs();
+            await loadLogsPage({ reset: true });
           } catch (err) {
             logsMeta.textContent = String(err && err.message ? err.message : err);
           }
         }
 
         refreshBtn.addEventListener("click", function () {
-          loadLogs().catch(function (err) {
+          loadLogsPage({ reset: true }).catch(function (err) {
             logsMeta.textContent = String(err && err.message ? err.message : err);
           });
         });
@@ -1283,27 +1583,29 @@ const DASHBOARD_HTML = `<!doctype html>
         searchInput.addEventListener("keydown", function (event) {
           if (event.key === "Enter") {
             event.preventDefault();
-            loadLogs().catch(function (err) {
+            loadLogsPage({ reset: true }).catch(function (err) {
               logsMeta.textContent = String(err && err.message ? err.message : err);
             });
           }
         });
 
         stateInput.addEventListener("change", function () {
-          loadLogs().catch(function () {});
+          loadLogsPage({ reset: true }).catch(function () {});
         });
         fromInput.addEventListener("change", function () {
-          loadLogs().catch(function () {});
+          loadLogsPage({ reset: true }).catch(function () {});
         });
         toInput.addEventListener("change", function () {
-          loadLogs().catch(function () {});
+          loadLogsPage({ reset: true }).catch(function () {});
         });
 
         askBtn.addEventListener("click", function () {
           askLogs().catch(function () {});
         });
 
+        startLifeBackground();
         setDefaultRange();
+        initInfiniteScroll();
         refreshAll();
         setInterval(function () {
           loadOverview().catch(function () {});

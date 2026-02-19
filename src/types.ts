@@ -434,6 +434,24 @@ export interface ModelInfo {
   };
 }
 
+export interface TurnsQueryOptions {
+  limit: number;
+  from?: string;
+  to?: string;
+  q?: string;
+  state?: AgentState;
+  cursor?: {
+    timestamp: string;
+    id: string;
+  };
+}
+
+export interface TurnsQueryResult {
+  turns: AgentTurn[];
+  totalMatched: number;
+  hasMore: boolean;
+}
+
 // ─── Database ────────────────────────────────────────────────────
 
 export interface AutomatonDatabase {
@@ -444,6 +462,7 @@ export interface AutomatonDatabase {
   // Turns
   insertTurn(turn: AgentTurn): void;
   getRecentTurns(limit: number): AgentTurn[];
+  queryTurns(options: TurnsQueryOptions): TurnsQueryResult;
   getTurnById(id: string): AgentTurn | undefined;
   getTurnCount(): number;
 
