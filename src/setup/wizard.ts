@@ -34,7 +34,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   console.log(chalk.dim(`  Private key stored at: ${getAutomatonDir()}/wallet.json\n`));
 
   // ─── 2. Provision API key ─────────────────────────────────────
-  console.log(chalk.cyan("  [2/6] Provisioning Conway API key (SIWE)..."));
+  console.log(chalk.cyan("  [2/6] Provisioning Conway API key (Solana ed25519)..."));
   let apiKey = "";
   try {
     const result = await provision();

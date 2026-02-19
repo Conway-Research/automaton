@@ -45,7 +45,7 @@ Usage:
   automaton --run          Start the automaton (first run triggers setup wizard)
   automaton --setup        Re-run the interactive setup wizard
   automaton --init         Initialize wallet and config directory
-  automaton --provision    Provision Conway API key via SIWE
+  automaton --provision    Provision Conway API key via Solana ed25519
   automaton --status       Show current automaton status
   automaton --version      Show version
   automaton --help         Show this help
