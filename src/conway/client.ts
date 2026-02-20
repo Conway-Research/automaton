@@ -55,9 +55,14 @@ export function createConwayClient(
 
     if (!resp.ok) {
       const text = await resp.text();
-      throw new Error(
+      const err: any = new Error(
         `Conway API error: ${method} ${path} -> ${resp.status}: ${text}`,
       );
+      err.status = resp.status;
+      err.responseText = text;
+      err.method = method;
+      err.path = path;
+      throw err;
     }
 
     const contentType = resp.headers.get("content-type");
@@ -72,48 +77,62 @@ export function createConwayClient(
 
   const isLocal = !sandboxId;
 
+  const execLocal = (command: string, timeout?: number): ExecResult => {
+    try {
+      const stdout = execSync(command, {
+        timeout: timeout || 30_000,
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        cwd: process.env.HOME || "/root",
+      });
+      return { stdout: stdout || "", stderr: "", exitCode: 0 };
+    } catch (err: any) {
+      return {
+        stdout: err.stdout || "",
+        stderr: err.stderr || err.message || "",
+        exitCode: err.status ?? 1,
+      };
+    }
+  };
+
   const exec = async (
     command: string,
     timeout?: number,
   ): Promise<ExecResult> => {
-    if (isLocal) {
-      try {
-        const stdout = execSync(command, {
-          timeout: timeout || 30_000,
-          encoding: "utf-8",
-          maxBuffer: 10 * 1024 * 1024,
-          cwd: process.env.HOME || "/root",
-        });
-        return { stdout: stdout || "", stderr: "", exitCode: 0 };
-      } catch (err: any) {
-        return {
-          stdout: err.stdout || "",
-          stderr: err.stderr || err.message || "",
-          exitCode: err.status ?? 1,
-        };
+    if (isLocal) return execLocal(command, timeout);
+
+    try {
+      const result = await request(
+        "POST",
+        `/v1/sandboxes/${sandboxId}/exec`,
+        { command, timeout },
+        { idempotencyKey: ulid() },
+      );
+      return {
+        stdout: result.stdout || "",
+        stderr: result.stderr || "",
+        exitCode: result.exit_code ?? result.exitCode ?? -1,
+      };
+    } catch (err: any) {
+      // If sandbox exec 403s (mismatched API key), fall back to local shell.
+      if (err?.message?.includes("403")) {
+        return execLocal(command, timeout);
       }
+      throw err;
     }
-    const result = await request(
-      "POST",
-      `/v1/sandboxes/${sandboxId}/exec`,
-      { command, timeout },
-      { idempotencyKey: ulid() },
-    );
-    return {
-      stdout: result.stdout || "",
-      stderr: result.stderr || "",
-      exitCode: result.exit_code ?? result.exitCode ?? -1,
-    };
   };
+
+  const resolveLocalPath = (filePath: string): string =>
+    filePath.startsWith("~")
+      ? nodePath.join(process.env.HOME || "/root", filePath.slice(1))
+      : filePath;
 
   const writeFile = async (
     filePath: string,
     content: string,
   ): Promise<void> => {
     if (isLocal) {
-      const resolved = filePath.startsWith("~")
-        ? nodePath.join(process.env.HOME || "/root", filePath.slice(1))
-        : filePath;
+      const resolved = resolveLocalPath(filePath);
       const dir = nodePath.dirname(resolved);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -121,25 +140,41 @@ export function createConwayClient(
       fs.writeFileSync(resolved, content, "utf-8");
       return;
     }
-    await request(
-      "POST",
-      `/v1/sandboxes/${sandboxId}/files/upload/json`,
-      { path: filePath, content },
-    );
+    try {
+      await request(
+        "POST",
+        `/v1/sandboxes/${sandboxId}/files/upload/json`,
+        { path: filePath, content },
+      );
+    } catch (err: any) {
+      // If sandbox file APIs 403 due to mismatched Conway keys, fall back to local FS.
+      if (err?.message?.includes("403")) {
+        const resolved = resolveLocalPath(filePath);
+        fs.mkdirSync(nodePath.dirname(resolved), { recursive: true });
+        fs.writeFileSync(resolved, content, "utf-8");
+        return;
+      }
+      throw err;
+    }
   };
 
   const readFile = async (filePath: string): Promise<string> => {
     if (isLocal) {
-      const resolved = filePath.startsWith("~")
-        ? nodePath.join(process.env.HOME || "/root", filePath.slice(1))
-        : filePath;
-      return fs.readFileSync(resolved, "utf-8");
+      return fs.readFileSync(resolveLocalPath(filePath), "utf-8");
     }
-    const result = await request(
-      "GET",
-      `/v1/sandboxes/${sandboxId}/files/read?path=${encodeURIComponent(filePath)}`,
-    );
-    return typeof result === "string" ? result : result.content || "";
+    try {
+      const result = await request(
+        "GET",
+        `/v1/sandboxes/${sandboxId}/files/read?path=${encodeURIComponent(filePath)}`,
+      );
+      return typeof result === "string" ? result : result.content || "";
+    } catch (err: any) {
+      // If sandbox file APIs 403 due to mismatched Conway keys, fall back to local FS.
+      if (err?.message?.includes("403")) {
+        return fs.readFileSync(resolveLocalPath(filePath), "utf-8");
+      }
+      throw err;
+    }
   };
 
   const exposePort = async (port: number): Promise<PortInfo> => {

@@ -150,13 +150,48 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     return { shouldWake: false };
   },
 
-  check_social_inbox: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  check_social_inbox: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
     if (!taskCtx.social) return { shouldWake: false };
 
-    const cursor = taskCtx.db.getKV("social_inbox_cursor") || undefined;
-    const { messages, nextCursor } = await taskCtx.social.poll(cursor);
+    // If we've recently encountered an error polling the inbox, back off.
+    const backoffUntil = taskCtx.db.getKV("social_inbox_backoff_until");
+    if (backoffUntil && new Date(backoffUntil) > new Date()) {
+      return { shouldWake: false };
+    }
 
-    if (messages.length === 0) return { shouldWake: false };
+    const cursor = taskCtx.db.getKV("social_inbox_cursor") || undefined;
+
+    let messages: any[] = [];
+    let nextCursor: string | undefined;
+
+    try {
+      const result = await taskCtx.social.poll(cursor);
+      messages = result.messages;
+      nextCursor = result.nextCursor;
+
+      // Clear previous error/backoff on success.
+      taskCtx.db.deleteKV("last_social_inbox_error");
+      taskCtx.db.deleteKV("social_inbox_backoff_until");
+    } catch (err: any) {
+      taskCtx.db.setKV(
+        "last_social_inbox_error",
+        JSON.stringify({
+          message: err?.message || String(err),
+          stack: err?.stack,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      // 5-minute backoff to avoid spamming errors on transient network failures.
+      taskCtx.db.setKV(
+        "social_inbox_backoff_until",
+        new Date(Date.now() + 300_000).toISOString(),
+      );
+      return { shouldWake: false };
+    }
+
+    if (nextCursor) taskCtx.db.setKV("social_inbox_cursor", nextCursor);
+
+    if (!messages || messages.length === 0) return { shouldWake: false };
 
     // Persist to inbox_messages table for deduplication
     // Sanitize content before DB insertion
@@ -178,8 +213,6 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         newCount++;
       }
     }
-
-    if (nextCursor) taskCtx.db.setKV("social_inbox_cursor", nextCursor);
 
     if (newCount === 0) return { shouldWake: false };
 

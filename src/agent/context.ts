@@ -180,6 +180,30 @@ export function buildContextMessages(
     }
   }
 
+  // ── Anti-Repetition Warning ──
+  // Analyze the last 5 turns for repeated tool usage
+  const analysisWindow = recentTurns.slice(-5);
+  if (analysisWindow.length >= 3) {
+    const toolFrequency: Record<string, number> = {};
+    for (const turn of analysisWindow) {
+      for (const tc of turn.toolCalls) {
+        toolFrequency[tc.name] = (toolFrequency[tc.name] || 0) + 1;
+      }
+    }
+    const repeatedTools = Object.entries(toolFrequency)
+      .filter(([, count]) => count >= 3)
+      .map(([name]) => name);
+    if (repeatedTools.length > 0) {
+      messages.push({
+        role: "user",
+        content:
+          `[system] WARNING: You have been calling ${repeatedTools.join(", ")} repeatedly in recent turns. ` +
+          `You already have this information. Move on to BUILDING something. ` +
+          `Write code, create files, set up a service. Do not check status again.`,
+      });
+    }
+  }
+
   // Add pending input if any
   if (pendingInput) {
     messages.push({

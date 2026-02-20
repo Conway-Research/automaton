@@ -206,6 +206,14 @@ Your sandbox ID is ${identity.sandboxId}.`,
     }
   }
 
+  // Layer 3.5: WORKLOG.md -- persistent working context
+  const worklogContent = loadWorklog();
+  if (worklogContent) {
+    sections.push(
+      `--- WORKLOG.md (your persistent working context — UPDATE THIS after each task!) ---\n${worklogContent}\n--- END WORKLOG.md ---\n\nIMPORTANT: After completing any task or making any decision, update WORKLOG.md using write_file.\nThis is how you remember what you were doing across turns. Without it, you lose context and repeat yourself.`,
+    );
+  }
+
   // Layer 4: Genesis Prompt (set by creator, mutable by self with audit)
   // Sanitized as agent-evolved content with trust boundary markers
   if (config.genesisPrompt) {
@@ -321,6 +329,22 @@ function loadSoulMd(): string | null {
     const soulPath = path.join(home, ".automaton", "SOUL.md");
     if (fs.existsSync(soulPath)) {
       return fs.readFileSync(soulPath, "utf-8");
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null;
+}
+
+/**
+ * Load WORKLOG.md from the automaton's state directory.
+ */
+function loadWorklog(): string | null {
+  try {
+    const home = process.env.HOME || "/root";
+    const worklogPath = path.join(home, ".automaton", "WORKLOG.md");
+    if (fs.existsSync(worklogPath)) {
+      return fs.readFileSync(worklogPath, "utf-8");
     }
   } catch {
     // Ignore errors

@@ -57,6 +57,7 @@ import { createLogger } from "../observability/logger.js";
 const logger = createLogger("loop");
 const MAX_TOOL_CALLS_PER_TURN = 10;
 const MAX_CONSECUTIVE_ERRORS = 5;
+const MAX_REPETITIVE_TURNS = 3;
 
 export interface AgentLoopOptions {
   identity: AutomatonIdentity;
@@ -111,6 +112,7 @@ export async function runAgentLoop(
 
   let consecutiveErrors = 0;
   let running = true;
+  let lastToolPatterns: string[] = [];
 
   // Drain any stale wake events from before this loop started,
   // so they don't re-wake the agent after its first sleep.
@@ -160,6 +162,7 @@ export async function runAgentLoop(
       const sleepUntil = db.getKV("sleep_until");
       if (sleepUntil && new Date(sleepUntil) > new Date()) {
         log(config, `[SLEEP] Sleeping until ${sleepUntil}`);
+        // IMPORTANT: mark agent as sleeping so the outer runtime pauses instead of immediately re-running.
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         running = false;
@@ -388,6 +391,36 @@ export async function runAgentLoop(
         // Memory failure must not block the agent loop
       }
 
+      // ── Loop Detection ──
+      if (turn.toolCalls.length > 0) {
+        const currentPattern = turn.toolCalls
+          .map((tc) => tc.name)
+          .sort()
+          .join(",");
+        lastToolPatterns.push(currentPattern);
+
+        // Keep only the last MAX_REPETITIVE_TURNS entries
+        if (lastToolPatterns.length > MAX_REPETITIVE_TURNS) {
+          lastToolPatterns = lastToolPatterns.slice(-MAX_REPETITIVE_TURNS);
+        }
+
+        // Check if the same pattern repeated MAX_REPETITIVE_TURNS times
+        if (
+          lastToolPatterns.length === MAX_REPETITIVE_TURNS &&
+          lastToolPatterns.every((p) => p === currentPattern)
+        ) {
+          log(config, `[LOOP] Repetitive pattern detected: ${currentPattern}`);
+          pendingInput = {
+            content:
+              `LOOP DETECTED: You have called "${currentPattern}" ${MAX_REPETITIVE_TURNS} times in a row with similar results. ` +
+              `STOP repeating yourself. You already know your status. DO SOMETHING DIFFERENT NOW. ` +
+              `Pick ONE concrete task from your genesis prompt and execute it.`,
+            source: "system",
+          };
+          lastToolPatterns = [];
+        }
+      }
+
       // Log the turn
       if (turn.thinking) {
         log(config, `[THOUGHT] ${turn.thinking.slice(0, 300)}`);
@@ -498,16 +531,22 @@ export async function runAgentLoop(
 
 // ─── Helpers ───────────────────────────────────────────────────
 
+// Cache last known good balances so transient API failures don't
+// cause the automaton to believe it has $0 and kill itself.
+let _lastKnownCredits = 0;
+let _lastKnownUsdc = 0;
+
 async function getFinancialState(
   conway: ConwayClient,
   address: string,
   db?: AutomatonDatabase,
 ): Promise<FinancialState> {
-  let creditsCents = 0;
-  let usdcBalance = 0;
+  let creditsCents = _lastKnownCredits;
+  let usdcBalance = _lastKnownUsdc;
 
   try {
     creditsCents = await conway.getCreditsBalance();
+    if (creditsCents > 0) _lastKnownCredits = creditsCents;
   } catch (error) {
     logger.error("Credits balance fetch failed", error instanceof Error ? error : undefined);
     // Use last known balance from KV, not zero
@@ -538,6 +577,7 @@ async function getFinancialState(
 
   try {
     usdcBalance = await getUsdcBalance(address as `0x${string}`);
+    if (usdcBalance > 0) _lastKnownUsdc = usdcBalance;
   } catch (error) {
     logger.error("USDC balance fetch failed", error instanceof Error ? error : undefined);
   }
