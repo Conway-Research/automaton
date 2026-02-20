@@ -128,8 +128,11 @@ export function createHeartbeatDaemon(
   async function tick(): Promise<void> {
     const entries = db.getHeartbeatEntries();
 
-    // Check survival tier to adjust behavior
-    let creditsCents = 0;
+    // Check survival tier to adjust behavior.
+    // Fall back to the last-known balance persisted in the DB so that a
+    // transient API failure doesn't cause getSurvivalTier(0) → "dead",
+    // which would incorrectly skip all non-essential heartbeat tasks.
+    let creditsCents = Number(db.getKV("last_known_credits") || "0");
     try {
       creditsCents = await conway.getCreditsBalance();
     } catch {}

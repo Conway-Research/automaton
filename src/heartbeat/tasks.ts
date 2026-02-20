@@ -40,11 +40,20 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
     const tier = getSurvivalTier(credits);
 
+    // Fetch USDC balance for a complete status snapshot.
+    // Failure is non-fatal — the heartbeat must not crash over a
+    // secondary balance check.
+    let usdcBalance = 0;
+    try {
+      usdcBalance = await getUsdcBalance(ctx.identity.address);
+    } catch {}
+
     const payload = {
       name: ctx.config.name,
       address: ctx.identity.address,
       state,
       creditsCents: credits,
+      usdcBalance,
       uptimeSeconds: Math.floor(uptimeMs / 1000),
       version: ctx.config.version,
       sandboxId: ctx.identity.sandboxId,

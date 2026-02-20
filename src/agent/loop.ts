@@ -121,6 +121,10 @@ export async function runAgentLoop(
       }
 
       // Check for unprocessed inbox messages
+      // NOTE: we defer markInboxMessageProcessed() until after the turn is
+      // persisted so that a crash between here and insertTurn() doesn't
+      // silently lose messages.
+      let pendingInboxIds: string[] = [];
       if (!pendingInput) {
         const inboxMessages = db.getUnprocessedInboxMessages(5);
         if (inboxMessages.length > 0) {
@@ -128,9 +132,7 @@ export async function runAgentLoop(
             .map((m) => `[Message from ${m.from}]: ${m.content}`)
             .join("\n\n");
           pendingInput = { content: formatted, source: "agent" };
-          for (const m of inboxMessages) {
-            db.markInboxMessageProcessed(m.id);
-          }
+          pendingInboxIds = inboxMessages.map((m) => m.id);
         }
       }
 
@@ -254,6 +256,13 @@ export async function runAgentLoop(
         db.insertToolCall(turn.id, tc);
       }
       onTurnComplete?.(turn);
+
+      // Mark inbox messages as processed only after the turn that consumed
+      // them has been safely persisted.  On crash before this point the
+      // messages stay unprocessed and will be re-delivered on next wake.
+      for (const id of pendingInboxIds) {
+        db.markInboxMessageProcessed(id);
+      }
 
       // ── Loop Detection ──
       if (turn.toolCalls.length > 0) {
