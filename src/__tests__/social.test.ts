@@ -338,6 +338,39 @@ describe("Social Client", () => {
 
     vi.unstubAllGlobals();
   });
+
+  it("rate limiting: failed sends count toward the hourly limit", async () => {
+    const { createSocialClient } = await import("../social/client.js");
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const account = privateKeyToAccount(
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    );
+
+    // Server returns 500 for every request
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: () => Promise.resolve({ error: "server error" }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const client = createSocialClient("https://relay.example.com", account);
+
+    // Send 100 messages that all fail with 500
+    for (let i = 0; i < 100; i++) {
+      await client
+        .send("0x70997970C51812dc3A010C7d01b50e0d17dc79C8", `msg ${i}`)
+        .catch(() => {}); // ignore the send failure
+    }
+
+    // 101st should be rate-limited even though all previous sends failed
+    await expect(
+      client.send("0x70997970C51812dc3A010C7d01b50e0d17dc79C8", "msg 100"),
+    ).rejects.toThrow("Rate limit exceeded");
+
+    vi.unstubAllGlobals();
+  });
 });
 
 // ─── 5. Agent Card Tests ────────────────────────────────────────

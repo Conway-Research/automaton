@@ -83,6 +83,11 @@ export function createSocialClient(
       // Phase 3.2: Rate limit check
       checkRateLimit();
 
+      // Track outbound attempt for rate limiting BEFORE the network call.
+      // Counting attempts (not just successes) prevents hammering the relay
+      // with unlimited retries when the server returns errors.
+      outboundTimestamps.push(Date.now());
+
       // Phase 3.2: Validate message before sending
       const validation = validateMessage({ from: account.address, to, content });
       if (!validation.valid) {
@@ -105,9 +110,6 @@ export function createSocialClient(
           `Send failed (${res.status}): ${(err as any).error || res.statusText}`,
         );
       }
-
-      // Track outbound for rate limiting
-      outboundTimestamps.push(Date.now());
 
       const data = (await res.json()) as { id: string };
       return { id: data.id };
