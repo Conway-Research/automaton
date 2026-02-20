@@ -323,6 +323,7 @@ export async function runAgentLoop(
       if (response.toolCalls && response.toolCalls.length > 0) {
         const toolCallMessages: any[] = [];
         let callCount = 0;
+        let transferCount = 0;
         const currentInputSource = currentInput?.source as InputSource | undefined;
 
         for (const tc of response.toolCalls) {
@@ -350,6 +351,7 @@ export async function runAgentLoop(
             spendTracker ? {
               inputSource: currentInputSource,
               turnToolCallCount: callCount,
+              turnTransferCount: transferCount,
               sessionSpend: spendTracker,
             } : undefined,
           );
@@ -364,6 +366,9 @@ export async function runAgentLoop(
           );
 
           callCount++;
+          if (tc.function.name === "transfer_credits" && !result.error) {
+            transferCount++;
+          }
         }
       }
 

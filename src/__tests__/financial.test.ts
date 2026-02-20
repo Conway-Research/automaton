@@ -114,7 +114,7 @@ function createRequest(
   tool: AutomatonTool,
   args: Record<string, unknown>,
   spendTracker: SpendTrackerInterface,
-  turnToolCallCount = 0,
+  turnTransferCount = 0,
 ): PolicyRequest {
   return {
     tool,
@@ -122,7 +122,8 @@ function createRequest(
     context: {} as ToolContext,
     turnContext: {
       inputSource: "agent",
-      turnToolCallCount,
+      turnToolCallCount: 0,
+      turnTransferCount,
       sessionSpend: spendTracker,
     },
   };

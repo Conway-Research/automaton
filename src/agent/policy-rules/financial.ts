@@ -219,7 +219,7 @@ function createTurnTransferLimitRule(policy: TreasuryPolicy): PolicyRule {
     priority: 500,
     appliesTo: { by: "name", names: ["transfer_credits"] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
-      const count = request.turnContext.turnToolCallCount;
+      const count = request.turnContext.turnTransferCount;
 
       if (count >= policy.maxTransfersPerTurn) {
         return deny(

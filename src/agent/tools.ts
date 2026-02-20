@@ -2389,6 +2389,7 @@ export async function executeTool(
   turnContext?: {
     inputSource: InputSource | undefined;
     turnToolCallCount: number;
+    turnTransferCount: number;
     sessionSpend: SpendTrackerInterface;
   },
 ): Promise<ToolCallResult> {

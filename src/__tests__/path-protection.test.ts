@@ -39,6 +39,7 @@ function makeMockRequest(
     turnContext: {
       inputSource: undefined,
       turnToolCallCount: 0,
+      turnTransferCount: 0,
       sessionSpend: {
         recordSpend: () => {},
         getHourlySpend: () => 0,

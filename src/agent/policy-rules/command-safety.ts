@@ -57,11 +57,11 @@ const FORBIDDEN_COMMAND_PATTERNS: { pattern: RegExp; description: string }[] = [
   { pattern: />\s*.*injection-defense/, description: "Overwrite injection defense" },
   { pattern: />\s*.*self-mod\/code/, description: "Overwrite self-mod code" },
   { pattern: />\s*.*audit-log/, description: "Overwrite audit log" },
-  // Credential harvesting
-  { pattern: /cat\s+.*\.ssh/, description: "Read SSH keys" },
-  { pattern: /cat\s+.*\.gnupg/, description: "Read GPG keys" },
-  { pattern: /cat\s+.*\.env/, description: "Read environment file" },
-  { pattern: /cat\s+.*wallet\.json/, description: "Read wallet file" },
+  // Credential harvesting (match sensitive paths regardless of command)
+  { pattern: /\.ssh\//, description: "Access SSH directory" },
+  { pattern: /\.gnupg\//, description: "Access GPG directory" },
+  { pattern: /\bwallet\.json\b/, description: "Access wallet file" },
+  { pattern: /(^|\s)\.env\b/, description: "Access environment file" },
   // Policy engine modification via shell
   { pattern: /sed\s+.*policy-engine/, description: "Modify policy engine via sed" },
   { pattern: /sed\s+.*policy-rules/, description: "Modify policy rules via sed" },

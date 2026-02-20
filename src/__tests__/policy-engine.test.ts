@@ -197,6 +197,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -219,6 +220,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 1,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -245,6 +247,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -259,6 +262,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -284,6 +288,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -297,6 +302,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -321,6 +327,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -337,6 +344,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -378,6 +386,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -399,6 +408,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -423,6 +433,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -443,6 +454,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -462,6 +474,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -483,6 +496,7 @@ describe("PolicyEngine", () => {
         turnContext: {
           inputSource: "creator",
           turnToolCallCount: 0,
+          turnTransferCount: 0,
           sessionSpend: createMockSpendTracker(),
         },
       };
@@ -657,6 +671,7 @@ describe("executeTool with PolicyEngine", () => {
     const turnContext = {
       inputSource: "creator" as InputSource,
       turnToolCallCount: 0,
+      turnTransferCount: 0,
       sessionSpend: createMockSpendTracker(),
     };
 
@@ -716,6 +731,7 @@ describe("executeTool with PolicyEngine", () => {
     const turnContext = {
       inputSource: "creator" as InputSource,
       turnToolCallCount: 0,
+      turnTransferCount: 0,
       sessionSpend: createMockSpendTracker(),
     };
 

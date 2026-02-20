@@ -132,6 +132,7 @@ function createRequest(
     turnContext: {
       inputSource,
       turnToolCallCount: 0,
+      turnTransferCount: 0,
       sessionSpend: spendTracker ?? createMockSpendTracker(),
     },
   };

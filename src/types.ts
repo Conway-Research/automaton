@@ -482,6 +482,7 @@ export interface PolicyRequest {
   turnContext: {
     inputSource: InputSource | undefined;
     turnToolCallCount: number;
+    turnTransferCount: number;
     sessionSpend: SpendTrackerInterface;
   };
 }

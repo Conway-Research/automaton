@@ -50,6 +50,7 @@ function makeRequest(
     turnContext: {
       inputSource: "agent",
       turnToolCallCount: 0,
+      turnTransferCount: 0,
       sessionSpend: null as any,
     },
   };
