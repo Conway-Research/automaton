@@ -137,6 +137,9 @@ export async function runAgentLoop(
 
   // ─── The Loop ──────────────────────────────────────────────
 
+  const MAX_IDLE_TURNS = 3; // Force sleep after N turns with no real work
+  let idleTurnCount = 0;
+
   let pendingInput: { content: string; source: string } | undefined = {
     content: wakeupInput,
     source: "wakeup",
@@ -376,8 +379,34 @@ export async function runAgentLoop(
         break;
       }
 
+      // ── Idle turn detection ──
+      // If this turn had no pending input (no inbox, no wakeup reason) and
+      // only made read-only/info tool calls, count it as idle.
+      const SAFE_INFO_TOOLS = new Set([
+        "check_credits", "check_usdc_balance", "system_synopsis", "review_memory",
+        "list_children", "check_child_status", "list_sandboxes", "list_models",
+        "list_skills", "git_status", "git_log", "check_reputation",
+        "discover_agents", "recall_facts", "recall_procedure", "heartbeat_ping",
+      ]);
+      const allToolsSafe = turn.toolCalls.length > 0 &&
+        turn.toolCalls.every((tc) => SAFE_INFO_TOOLS.has(tc.name));
+
+      if (!currentInput && allToolsSafe) {
+        idleTurnCount++;
+        if (idleTurnCount >= MAX_IDLE_TURNS) {
+          log(config, `[IDLE] ${idleTurnCount} consecutive idle turns with no work. Entering sleep.`);
+          db.setKV("sleep_until", new Date(Date.now() + 60_000).toISOString());
+          db.setAgentState("sleeping");
+          onStateChange?.("sleeping");
+          running = false;
+        }
+      } else {
+        idleTurnCount = 0;
+      }
+
       // ── If no tool calls and just text, the agent might be done thinking ──
       if (
+        running &&
         (!response.toolCalls || response.toolCalls.length === 0) &&
         response.finishReason === "stop"
       ) {
