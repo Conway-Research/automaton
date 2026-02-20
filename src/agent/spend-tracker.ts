@@ -100,7 +100,9 @@ export class SpendTracker implements SpendTrackerInterface {
       limitHourly = limits.maxX402PaymentCents * 10;
       limitDaily = limits.maxX402PaymentCents * 50;
     } else {
-      limitHourly = limits.maxInferenceDailyCents; // fallback
+      // Derive a meaningful hourly cap from the daily budget.
+      // Without this, the entire daily budget could be consumed in one hour.
+      limitHourly = Math.ceil(limits.maxInferenceDailyCents / 6);
       limitDaily = limits.maxInferenceDailyCents;
     }
 

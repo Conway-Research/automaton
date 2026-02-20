@@ -119,6 +119,7 @@ export class WorkingMemoryManager {
    * Returns number of entries removed.
    */
   prune(sessionId: string, maxEntries: number = 20): number {
+    if (maxEntries < 0) return 0;
     try {
       const count = this.db.prepare(
         "SELECT COUNT(*) as cnt FROM working_memory WHERE session_id = ?",

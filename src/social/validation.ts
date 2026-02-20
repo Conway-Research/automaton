@@ -34,12 +34,17 @@ export function validateMessage(message: {
   // Timestamp validation (replay protection)
   const ts = message.signed_at || message.timestamp;
   if (ts) {
-    const age = Date.now() - new Date(ts).getTime();
-    if (age > MESSAGE_LIMITS.replayWindowMs) {
-      errors.push("Message too old (possible replay)");
-    }
-    if (age < -60_000) {
-      errors.push("Message from future");
+    const parsed = new Date(ts).getTime();
+    if (isNaN(parsed)) {
+      errors.push("Invalid timestamp");
+    } else {
+      const age = Date.now() - parsed;
+      if (age > MESSAGE_LIMITS.replayWindowMs) {
+        errors.push("Message too old (possible replay)");
+      }
+      if (age < -60_000) {
+        errors.push("Message from future");
+      }
     }
   }
 

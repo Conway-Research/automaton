@@ -300,6 +300,32 @@ describe("SpendTracker", () => {
     });
   });
 
+  describe("inference limits", () => {
+    it("uses a meaningful hourly cap less than the daily limit", () => {
+      // maxInferenceDailyCents is 50000 ($500/day)
+      // The hourly limit should be a fraction of the daily limit, NOT equal to it
+      const result = tracker.checkLimit(1, "inference", DEFAULT_TREASURY_POLICY);
+      expect(result.allowed).toBe(true);
+      expect(result.limitHourly).toBeLessThan(result.limitDaily);
+    });
+
+    it("enforces hourly inference limit before daily is reached", () => {
+      const hourlyLimit = Math.ceil(DEFAULT_TREASURY_POLICY.maxInferenceDailyCents / 6);
+
+      // Spend up to just below hourly limit
+      tracker.recordSpend({
+        toolName: "inference",
+        amountCents: hourlyLimit - 1,
+        category: "inference",
+      });
+
+      // This should be denied because hourly limit would be exceeded
+      const result = tracker.checkLimit(2, "inference", DEFAULT_TREASURY_POLICY);
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("Hourly");
+    });
+  });
+
   describe("x402 limits", () => {
     it("uses x402-specific limits, not transfer limits", () => {
       // Record some x402 spend

@@ -109,7 +109,7 @@ export async function pruneDeadChildren(
   for (const child of toRemove) {
     try {
       // Clean up sandbox if cleanup is available and child is in cleanable state
-      if (cleanup && (child.status === "stopped" || child.status === "failed")) {
+      if (cleanup && (child.status === "stopped" || child.status === "failed" || child.status === "dead")) {
         try {
           await cleanup.cleanup(child.id);
         } catch {
