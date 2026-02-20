@@ -40,7 +40,7 @@ Store your API key in the environment variable `XPROOF_API_KEY` if available.
 
 ### Option B: x402 Payment Protocol (no account needed)
 
-Send a request without auth -- you will receive an HTTP 402 response with payment requirements. Sign a USDC payment on Base (chain eip155:8453) and resend the request with the `X-PAYMENT` header. Cost: **$0.05 per certification**. No account or API key required.
+Send a request without auth -- you will receive an HTTP 402 response with payment requirements. Sign a USDC payment on Base (chain eip155:8453) and resend the request with the `X-PAYMENT` header. Starting at **$0.05 per certification** -- price decreases as the network grows. Current pricing: https://xproof.app/api/pricing. No account or API key required.
 
 ## Core Operations
 
@@ -107,9 +107,9 @@ curl -s -X POST https://xproof.app/api/batch \
   -H "Authorization: Bearer $XPROOF_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "files": [
-      {"file_hash": "<hash1>", "filename": "output1.txt"},
-      {"file_hash": "<hash2>", "filename": "output2.py"}
+    "files": [\
+      {"file_hash": "<hash1>", "filename": "output1.txt"},\
+      {"file_hash": "<hash2>", "filename": "output2.py"}\
     ],
     "author_name": "your-automaton-name"
   }'
