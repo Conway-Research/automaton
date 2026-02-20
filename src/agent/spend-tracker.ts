@@ -39,9 +39,48 @@ function getCurrentDayWindow(): string {
 
 export class SpendTracker implements SpendTrackerInterface {
   private db: Database.Database;
+  private pendingSpends: Map<string, { category: SpendCategory; amountCents: number }> = new Map();
 
   constructor(db: Database.Database) {
     this.db = db;
+  }
+
+  /**
+   * Reserve a pending spend before execution. Returns a pendingId
+   * that must be committed or rolled back after the operation completes.
+   */
+  reservePending(category: SpendCategory, amountCents: number): string {
+    const pendingId = ulid();
+    this.pendingSpends.set(pendingId, { category, amountCents });
+    return pendingId;
+  }
+
+  /**
+   * Commit a pending spend (record it to DB and remove from pending).
+   */
+  commitPending(pendingId: string, entry: SpendEntry): void {
+    this.pendingSpends.delete(pendingId);
+    this.recordSpend(entry);
+  }
+
+  /**
+   * Roll back a pending spend (remove without recording).
+   */
+  rollbackPending(pendingId: string): void {
+    this.pendingSpends.delete(pendingId);
+  }
+
+  /**
+   * Get total pending spend for a category (not yet committed to DB).
+   */
+  getPendingSpend(category: SpendCategory): number {
+    let total = 0;
+    for (const pending of this.pendingSpends.values()) {
+      if (pending.category === category) {
+        total += pending.amountCents;
+      }
+    }
+    return total;
   }
 
   recordSpend(entry: SpendEntry): void {
@@ -85,8 +124,9 @@ export class SpendTracker implements SpendTrackerInterface {
     category: SpendCategory,
     limits: TreasuryPolicy,
   ): LimitCheckResult {
-    const currentHourlySpend = this.getHourlySpend(category);
-    const currentDailySpend = this.getDailySpend(category);
+    const pendingAmount = this.getPendingSpend(category);
+    const currentHourlySpend = this.getHourlySpend(category) + pendingAmount;
+    const currentDailySpend = this.getDailySpend(category) + pendingAmount;
 
     let limitHourly: number;
     let limitDaily: number;

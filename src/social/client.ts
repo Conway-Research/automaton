@@ -45,6 +45,10 @@ export function createSocialClient(
     while (outboundTimestamps.length > 0 && outboundTimestamps[0]! < oneHourAgo) {
       outboundTimestamps.shift();
     }
+    // Cap array size as a safety net against unbounded growth
+    if (outboundTimestamps.length > MESSAGE_LIMITS.maxOutboundPerHour * 2) {
+      outboundTimestamps.splice(0, outboundTimestamps.length - MESSAGE_LIMITS.maxOutboundPerHour);
+    }
     if (outboundTimestamps.length >= MESSAGE_LIMITS.maxOutboundPerHour) {
       throw new Error(
         `Rate limit exceeded: ${MESSAGE_LIMITS.maxOutboundPerHour} messages per hour`,
@@ -55,6 +59,11 @@ export function createSocialClient(
   function checkReplayNonce(nonce: string): boolean {
     if (!db) return false;
     try {
+      // Prune expired nonces to prevent unbounded table growth
+      db.prepare(
+        "DELETE FROM heartbeat_dedup WHERE task_name = 'social_replay' AND expires_at < datetime('now')",
+      ).run();
+
       const row = db
         .prepare(
           "SELECT 1 FROM heartbeat_dedup WHERE dedup_key = ? AND expires_at >= datetime('now')",

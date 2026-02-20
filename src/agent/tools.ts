@@ -2335,6 +2335,126 @@ Model: ${ctx.inference.getDefaultModel()}
         return `x402 fetch succeeded:\n${responseStr}`;
       },
     },
+
+    // ── Web Fetch Tool ──
+    {
+      name: "web_fetch",
+      description:
+        "Fetch content from a URL via HTTP GET/POST. Use this for reading web pages, calling APIs, and downloading data. For paid APIs that require x402, use x402_fetch instead.",
+      category: "vm",
+      riskLevel: "caution",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "URL to fetch (must start with http:// or https://)",
+          },
+          method: {
+            type: "string",
+            description: "HTTP method: GET (default) or POST",
+          },
+          body: {
+            type: "string",
+            description: "Request body for POST requests",
+          },
+          headers: {
+            type: "string",
+            description: 'JSON string of headers (e.g., \'{"Accept":"application/json"}\')',
+          },
+        },
+        required: ["url"],
+      },
+      execute: async (args, _ctx) => {
+        const url = args.url as string;
+        const method = ((args.method as string) || "GET").toUpperCase();
+
+        // Validate URL
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          return "Error: Invalid URL. Must be a valid http:// or https:// URL.";
+        }
+
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          return "Error: Only http:// and https:// URLs are supported.";
+        }
+
+        // Block requests to private/internal networks
+        const hostname = parsed.hostname;
+        if (
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          hostname === "0.0.0.0" ||
+          hostname.startsWith("10.") ||
+          hostname.startsWith("192.168.") ||
+          hostname.startsWith("172.") ||
+          hostname === "169.254.169.254" || // AWS metadata
+          hostname.endsWith(".internal") ||
+          hostname.endsWith(".local")
+        ) {
+          return "Error: Requests to private/internal network addresses are blocked.";
+        }
+
+        if (method !== "GET" && method !== "POST") {
+          return "Error: Only GET and POST methods are supported.";
+        }
+
+        let extraHeaders: Record<string, string> = {};
+        if (args.headers) {
+          try {
+            extraHeaders = JSON.parse(args.headers as string);
+          } catch {
+            return "Error: headers must be a valid JSON string.";
+          }
+        }
+
+        const MAX_RESPONSE_SIZE = 50_000; // 50KB text limit
+        const TIMEOUT_MS = 30_000;
+
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+          const fetchOptions: RequestInit = {
+            method,
+            headers: {
+              "User-Agent": "Conway-Automaton/0.1.0",
+              ...extraHeaders,
+            },
+            signal: controller.signal,
+          };
+
+          if (method === "POST" && args.body) {
+            fetchOptions.body = args.body as string;
+            if (!extraHeaders["Content-Type"] && !extraHeaders["content-type"]) {
+              (fetchOptions.headers as Record<string, string>)["Content-Type"] = "application/json";
+            }
+          }
+
+          const response = await fetch(url, fetchOptions);
+          clearTimeout(timer);
+
+          const status = response.status;
+          const contentType = response.headers.get("content-type") || "unknown";
+
+          // Read response as text, with size limit
+          const text = await response.text();
+          const truncated = text.length > MAX_RESPONSE_SIZE;
+          const body = truncated
+            ? text.slice(0, MAX_RESPONSE_SIZE) + `\n\n[TRUNCATED: ${text.length - MAX_RESPONSE_SIZE} chars omitted]`
+            : text;
+
+          return `HTTP ${status} (${contentType})\n\n${body}`;
+        } catch (error: any) {
+          if (error.name === "AbortError") {
+            return `Error: Request timed out after ${TIMEOUT_MS / 1000}s.`;
+          }
+          return `Error: ${error.message}`;
+        }
+      },
+    },
   ];
 }
 

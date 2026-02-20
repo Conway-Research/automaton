@@ -23,9 +23,32 @@ export class ResilientHttpClient {
   private consecutiveFailures = 0;
   private circuitOpenUntil = 0;
   private readonly config: HttpClientConfig;
+  private readonly persistKey: string | undefined;
+  private kvStore: { getKV(key: string): string | undefined; setKV(key: string, value: string): void } | undefined;
 
-  constructor(config?: Partial<HttpClientConfig>) {
+  constructor(config?: Partial<HttpClientConfig> & {
+    persistKey?: string;
+    kvStore?: { getKV(key: string): string | undefined; setKV(key: string, value: string): void };
+  }) {
     this.config = { ...DEFAULT_HTTP_CLIENT_CONFIG, ...config };
+    this.persistKey = config?.persistKey;
+    this.kvStore = config?.kvStore;
+
+    // Restore persisted circuit breaker state
+    if (this.persistKey && this.kvStore) {
+      try {
+        const persisted = this.kvStore.getKV(`circuit:${this.persistKey}`);
+        if (persisted) {
+          const openUntil = parseInt(persisted, 10);
+          if (!isNaN(openUntil) && openUntil > Date.now()) {
+            this.circuitOpenUntil = openUntil;
+            this.consecutiveFailures = this.config.circuitBreakerThreshold;
+          }
+        }
+      } catch {
+        // Ignore — starting fresh is fine
+      }
+    }
   }
 
   async request(
@@ -68,6 +91,7 @@ export class ResilientHttpClient {
           this.consecutiveFailures++;
           if (this.consecutiveFailures >= this.config.circuitBreakerThreshold) {
             this.circuitOpenUntil = Date.now() + this.config.circuitBreakerResetMs;
+            this.persistCircuitState();
           }
           if (attempt < maxRetries) {
             await this.backoff(attempt);
@@ -87,6 +111,7 @@ export class ResilientHttpClient {
         ) {
           this.circuitOpenUntil =
             Date.now() + this.config.circuitBreakerResetMs;
+          this.persistCircuitState();
         }
         if (attempt === maxRetries) throw error;
         await this.backoff(attempt);
@@ -113,9 +138,22 @@ export class ResilientHttpClient {
   resetCircuit(): void {
     this.consecutiveFailures = 0;
     this.circuitOpenUntil = 0;
+    this.persistCircuitState();
   }
 
   getConsecutiveFailures(): number {
     return this.consecutiveFailures;
+  }
+
+  private persistCircuitState(): void {
+    if (!this.persistKey || !this.kvStore) return;
+    try {
+      this.kvStore.setKV(
+        `circuit:${this.persistKey}`,
+        String(this.circuitOpenUntil),
+      );
+    } catch {
+      // Persistence is best-effort; never block requests
+    }
   }
 }
