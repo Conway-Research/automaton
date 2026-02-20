@@ -1145,6 +1145,7 @@ export interface InferenceRequest {
   turnId?: string;
   maxTokens?: number; // override
   tools?: unknown[];
+  overrideModel?: string; // bypass routing matrix and use this model directly
 }
 
 export interface InferenceResult {

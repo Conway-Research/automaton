@@ -45,8 +45,13 @@ export class InferenceRouter {
   ): Promise<InferenceResult> {
     const { messages, taskType, tier, sessionId, turnId, tools } = request;
 
-    // 1. Select model from routing matrix
-    const model = this.selectModel(tier, taskType);
+    // 1. Select model: use overrideModel if set and available in registry, else routing matrix
+    let model = request.overrideModel
+      ? (this.registry.get(request.overrideModel) ?? null)
+      : null;
+    if (!model || !model.enabled) {
+      model = this.selectModel(tier, taskType);
+    }
     if (!model) {
       return {
         content: "",

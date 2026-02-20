@@ -102,6 +102,37 @@ export async function runAgentLoop(
   };
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+
+  // If the configured inference model is not in the default baseline (e.g. an OpenRouter
+  // model like "minimax/minimax-m2.5"), register it so the router can select it.
+  // initialize() disables non-baseline models, so we must do this after the call.
+  const configuredModel = config.inferenceModel;
+  if (configuredModel && configuredModel.includes("/")) {
+    const existing = modelRegistry.get(configuredModel);
+    if (!existing) {
+      const now = new Date().toISOString();
+      modelRegistry.upsert({
+        modelId: configuredModel,
+        provider: "other",
+        displayName: configuredModel,
+        tierMinimum: "normal",
+        costPer1kInput: 0,
+        costPer1kOutput: 0,
+        maxTokens: config.maxTokensPerTurn || 4096,
+        contextWindow: 128000,
+        supportsTools: true,
+        supportsVision: false,
+        parameterStyle: "max_tokens",
+        enabled: true,
+        lastSeen: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else if (!existing.enabled) {
+      modelRegistry.setEnabled(configuredModel, true);
+    }
+  }
+
   const budgetTracker = new InferenceBudgetTracker(db.raw, modelStrategyConfig);
   const inferenceRouter = new InferenceRouter(db.raw, modelRegistry, budgetTracker);
 
@@ -283,6 +314,9 @@ export async function runAgentLoop(
       log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
 
       const inferenceTools = toolsToInferenceFormat(tools);
+      // Use config.inferenceModel as override when it's an OpenRouter model (contains "/"),
+      // so the user's explicit model choice is honoured instead of the routing matrix.
+      const openRouterOverride = configuredModel?.includes("/") ? configuredModel : undefined;
       const routerResult = await inferenceRouter.route(
         {
           messages: messages,
@@ -291,6 +325,7 @@ export async function runAgentLoop(
           sessionId: db.getKV("session_id") || "default",
           turnId: ulid(),
           tools: inferenceTools,
+          overrideModel: openRouterOverride,
         },
         (msgs, opts) => inference.chat(msgs, { ...opts, tools: inferenceTools }),
       );
