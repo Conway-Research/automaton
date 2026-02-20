@@ -28,6 +28,10 @@ export function applyTierRestrictions(
   db: AutomatonDatabase,
 ): void {
   switch (tier) {
+    case "high":
+      inference.setLowComputeMode(false);
+      break;
+
     case "normal":
       inference.setLowComputeMode(false);
       break;
@@ -86,7 +90,7 @@ export function recordTransition(
  * Check if the agent should be allowed to run inference in current tier.
  */
 export function canRunInference(tier: SurvivalTier): boolean {
-  return tier === "normal" || tier === "low_compute" || tier === "critical";
+  return tier === "high" || tier === "normal" || tier === "low_compute" || tier === "critical";
 }
 
 /**

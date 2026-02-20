@@ -427,6 +427,57 @@ describe("Rate Limit Rules", () => {
       expect(decision.reasonCode).toBe("RATE_LIMIT_SPAWN");
     });
   });
+
+  describe("rate limit DB unavailable", () => {
+    it("denies when DB is not accessible (fail-closed)", () => {
+      const rules = createRateLimitRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "update_genesis_prompt",
+        riskLevel: "dangerous",
+        category: "self_mod",
+      });
+      // Pass no DB to simulate DB unavailable
+      const request = createRequest(tool, {}, "agent");
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("deny");
+      expect(decision.reasonCode).toBe("DB_UNAVAILABLE");
+    });
+
+    it("denies edit_own_file when DB is not accessible", () => {
+      const rules = createRateLimitRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "edit_own_file",
+        riskLevel: "dangerous",
+        category: "self_mod",
+      });
+      const request = createRequest(tool, {}, "agent");
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("deny");
+      expect(decision.reasonCode).toBe("DB_UNAVAILABLE");
+    });
+
+    it("denies spawn_child when DB is not accessible", () => {
+      const rules = createRateLimitRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "spawn_child",
+        riskLevel: "dangerous",
+        category: "replication",
+      });
+      const request = createRequest(tool, {}, "agent");
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("deny");
+      expect(decision.reasonCode).toBe("DB_UNAVAILABLE");
+    });
+  });
 });
 
 // ─── Financial Phase 1 Rules Tests ──────────────────────────────

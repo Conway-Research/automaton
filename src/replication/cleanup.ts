@@ -38,6 +38,9 @@ export class SandboxCleanup {
         await this.conway.deleteSandbox(childRow.sandbox_id);
       } catch (error) {
         logger.error(`Failed to destroy sandbox for ${childId}`, error instanceof Error ? error : undefined);
+        // Do not transition to cleaned_up if sandbox deletion failed;
+        // the sandbox is still running and consuming resources.
+        throw error;
       }
     }
 

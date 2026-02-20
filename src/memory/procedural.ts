@@ -80,11 +80,14 @@ export class ProceduralMemoryManager {
    */
   search(query: string): ProceduralMemoryEntry[] {
     try {
+      // Escape SQL LIKE wildcards so literal '%' and '_' in the query
+      // don't match arbitrary characters.
+      const escaped = query.replace(/[%_]/g, (ch) => `\\${ch}`);
       const rows = this.db.prepare(
         `SELECT * FROM procedural_memory
-         WHERE name LIKE ? OR description LIKE ?
+         WHERE name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'
          ORDER BY success_count DESC, updated_at DESC`,
-      ).all(`%${query}%`, `%${query}%`) as any[];
+      ).all(`%${escaped}%`, `%${escaped}%`) as any[];
       return rows.map(deserializeProcedural);
     } catch (error) {
       logger.error("Failed to search", error instanceof Error ? error : undefined);

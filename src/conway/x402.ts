@@ -334,7 +334,7 @@ export async function x402Fetch(
       JSON.stringify(payment),
     ).toString("base64");
 
-    const paidResp = await fetch(url, {
+    const paidResp = await x402HttpClient.request(url, {
       method,
       headers: {
         ...headers,
@@ -342,6 +342,7 @@ export async function x402Fetch(
         "X-Payment": paymentHeader,
       },
       body,
+      retries: 0, // Paid request: do not auto-retry (payment already signed)
     });
 
     const data = await paidResp.json().catch(() => paidResp.text());

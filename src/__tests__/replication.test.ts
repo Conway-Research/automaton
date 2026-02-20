@@ -10,12 +10,16 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { isValidWalletAddress, spawnChild } from "../replication/spawn.js";
+import { SandboxCleanup } from "../replication/cleanup.js";
+import { ChildLifecycle } from "../replication/lifecycle.js";
+import { pruneDeadChildren } from "../replication/lineage.js";
 import {
   MockConwayClient,
   createTestDb,
   createTestIdentity,
 } from "./mocks.js";
 import type { AutomatonDatabase, GenesisConfig } from "../types.js";
+import { MIGRATION_V7 } from "../state/schema.js";
 
 // Mock fs for constitution propagation
 vi.mock("fs", async (importOriginal) => {
@@ -192,5 +196,112 @@ describe("spawnChild", () => {
       .rejects.toThrow("Sandbox creation failed");
 
     expect(deleteSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ─── SandboxCleanup ──────────────────────────────────────────
+
+describe("SandboxCleanup", () => {
+  let conway: MockConwayClient;
+  let db: AutomatonDatabase;
+  let lifecycle: ChildLifecycle;
+
+  beforeEach(() => {
+    conway = new MockConwayClient();
+    db = createTestDb();
+    // Apply lifecycle events migration
+    db.raw.exec(MIGRATION_V7);
+    lifecycle = new ChildLifecycle(db.raw);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("does not transition to cleaned_up when sandbox deletion fails", async () => {
+    // Create a child and transition to stopped
+    lifecycle.initChild("child-1", "test-child", "sandbox-1", "test prompt");
+    lifecycle.transition("child-1", "sandbox_created", "created");
+    lifecycle.transition("child-1", "runtime_ready", "ready");
+    lifecycle.transition("child-1", "wallet_verified", "verified");
+    lifecycle.transition("child-1", "funded", "funded");
+    lifecycle.transition("child-1", "starting", "starting");
+    lifecycle.transition("child-1", "healthy", "healthy");
+    lifecycle.transition("child-1", "stopped", "stopped");
+
+    // Make deleteSandbox fail
+    vi.spyOn(conway, "deleteSandbox").mockRejectedValue(new Error("API unavailable"));
+
+    const cleanup = new SandboxCleanup(conway, lifecycle, db.raw);
+
+    await expect(cleanup.cleanup("child-1")).rejects.toThrow("API unavailable");
+
+    // Child should still be in "stopped" state, NOT "cleaned_up"
+    const state = lifecycle.getCurrentState("child-1");
+    expect(state).toBe("stopped");
+  });
+
+  it("transitions to cleaned_up when sandbox deletion succeeds", async () => {
+    lifecycle.initChild("child-2", "test-child", "sandbox-2", "test prompt");
+    lifecycle.transition("child-2", "sandbox_created", "created");
+    lifecycle.transition("child-2", "runtime_ready", "ready");
+    lifecycle.transition("child-2", "wallet_verified", "verified");
+    lifecycle.transition("child-2", "funded", "funded");
+    lifecycle.transition("child-2", "starting", "starting");
+    lifecycle.transition("child-2", "healthy", "healthy");
+    lifecycle.transition("child-2", "stopped", "stopped");
+
+    const cleanup = new SandboxCleanup(conway, lifecycle, db.raw);
+    await cleanup.cleanup("child-2");
+
+    const state = lifecycle.getCurrentState("child-2");
+    expect(state).toBe("cleaned_up");
+  });
+});
+
+// ─── pruneDeadChildren ──────────────────────────────────────
+
+describe("pruneDeadChildren", () => {
+  let db: AutomatonDatabase;
+  let conway: MockConwayClient;
+
+  beforeEach(() => {
+    db = createTestDb();
+    db.raw.exec(MIGRATION_V7);
+    conway = new MockConwayClient();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function insertChild(id: string, name: string, status: string, createdAt: string): void {
+    db.raw.prepare(
+      `INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, status, created_at)
+       VALUES (?, ?, '0xabc', 'sandbox-${id}', 'prompt', ?, ?)`,
+    ).run(id, name, status, createdAt);
+  }
+
+  it("attempts sandbox cleanup for children with dead status", async () => {
+    // Insert 7 dead children (exceeds keepLast=5, so 2 should be pruned)
+    for (let i = 0; i < 7; i++) {
+      insertChild(`dead-${i}`, `child-${i}`, "dead", `2020-01-0${i + 1} 00:00:00`);
+    }
+
+    // Create a mock cleanup that tracks calls
+    const cleanupCalls: string[] = [];
+    const mockCleanup = {
+      cleanup: vi.fn(async (childId: string) => {
+        cleanupCalls.push(childId);
+      }),
+    } as any;
+
+    const removed = await pruneDeadChildren(db, mockCleanup, 5);
+
+    // 2 oldest should be removed (dead-0 and dead-1)
+    expect(removed).toBe(2);
+    // cleanup.cleanup should have been called for "dead" children
+    expect(cleanupCalls).toContain("dead-0");
+    expect(cleanupCalls).toContain("dead-1");
   });
 });

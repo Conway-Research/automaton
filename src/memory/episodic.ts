@@ -74,12 +74,15 @@ export class EpisodicMemoryManager {
    */
   search(query: string, limit: number = 10): EpisodicMemoryEntry[] {
     try {
+      // Escape SQL LIKE wildcards so literal '%' and '_' in the query
+      // don't match arbitrary characters.
+      const escaped = query.replace(/[%_]/g, (ch) => `\\${ch}`);
       const rows = this.db.prepare(
         `SELECT * FROM episodic_memory
-         WHERE summary LIKE ? OR detail LIKE ?
+         WHERE summary LIKE ? ESCAPE '\\' OR detail LIKE ? ESCAPE '\\'
          ORDER BY importance DESC, created_at DESC
          LIMIT ?`,
-      ).all(`%${query}%`, `%${query}%`, limit) as any[];
+      ).all(`%${escaped}%`, `%${escaped}%`, limit) as any[];
       return rows.map(deserializeEpisodic);
     } catch (error) {
       logger.error("Failed to search", error instanceof Error ? error : undefined);
