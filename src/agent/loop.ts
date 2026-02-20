@@ -41,6 +41,7 @@ import {
   markInboxProcessed,
   markInboxFailed,
   resetInboxToReceived,
+  consumeNextWakeEvent,
 } from "../state/database.js";
 import type { InboxMessageRow } from "../state/database.js";
 import { ulid } from "ulid";
@@ -110,6 +111,11 @@ export async function runAgentLoop(
 
   let consecutiveErrors = 0;
   let running = true;
+
+  // Drain any stale wake events from before this loop started,
+  // so they don't re-wake the agent after its first sleep.
+  let drained = 0;
+  while (consumeNextWakeEvent(db.raw)) drained++;
 
   // Transition to waking state
   db.setAgentState("waking");
