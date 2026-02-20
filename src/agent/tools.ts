@@ -16,6 +16,11 @@ import type {
 
 // ─── Self-Preservation Guard ───────────────────────────────────
 
+// npm package specifiers: @scope/name@version, name@^1.0.0, etc.
+// Rejects shell metacharacters: ; | & $ ` ( ) { } < > \n
+const SAFE_NPM_SPECIFIER =
+  /^(@[\w.-]+\/)?[\w.-]+(@[~^>=<\s\d.*|-]+)?$/;
+
 const FORBIDDEN_COMMAND_PATTERNS = [
   // Self-destruction
   /rm\s+(-rf?\s+)?.*\.automaton/,
@@ -329,6 +334,9 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
       execute: async (args, ctx) => {
         const pkg = args.package as string;
+        if (!SAFE_NPM_SPECIFIER.test(pkg)) {
+          return "Blocked: Invalid package specifier";
+        }
         const result = await ctx.conway.exec(
           `npm install -g ${pkg}`,
           60000,
@@ -393,6 +401,9 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         const { execSync } = await import("child_process");
         const cwd = process.cwd();
         const commit = args.commit as string | undefined;
+        if (commit && !/^[0-9a-fA-F]{7,40}$/.test(commit)) {
+          return "Blocked: commit must be a hex SHA";
+        }
 
         const run = (cmd: string) =>
           execSync(cmd, { cwd, encoding: "utf-8", timeout: 120_000 }).trim();
@@ -682,6 +693,9 @@ Model: ${ctx.inference.getDefaultModel()}
       },
       execute: async (args, ctx) => {
         const pkg = args.package as string;
+        if (!SAFE_NPM_SPECIFIER.test(pkg)) {
+          return "Blocked: Invalid package specifier";
+        }
         const result = await ctx.conway.exec(`npm install -g ${pkg}`, 60000);
 
         if (result.exitCode !== 0) {
