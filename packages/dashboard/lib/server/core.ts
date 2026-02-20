@@ -396,14 +396,57 @@ export async function askLogs(params: {
     db.getKV("last_inference_model") ||
     config.inferenceModel;
 
-  const context = serializeTurnsForAsk(turns.slice().reverse());
-  const answer = await askLogsWithModel({
-    apiUrl: config.conwayApiUrl,
-    apiKey,
-    model,
-    question: params.question,
-    context,
-  });
+  const chronologicalTurns = turns.slice().reverse();
+  const askAttempts = [
+    {
+      context: serializeTurnsForAsk(chronologicalTurns, {
+        maxChars: 24_000,
+      }),
+      maxCompletionTokens: 1_200,
+    },
+    {
+      context: serializeTurnsForAsk(chronologicalTurns.slice(-60), {
+        maxChars: 12_000,
+        maxInputChars: 120,
+        maxThoughtChars: 220,
+        maxToolResultChars: 80,
+        maxToolCalls: 3,
+      }),
+      maxCompletionTokens: 1_800,
+    },
+  ];
+
+  let answer: { text: string; model: string } | null = null;
+  let lastError: unknown;
+  for (const attempt of askAttempts) {
+    try {
+      answer = await askLogsWithModel({
+        apiUrl: config.conwayApiUrl,
+        apiKey,
+        model,
+        question: params.question,
+        context: attempt.context,
+        maxCompletionTokens: attempt.maxCompletionTokens,
+      });
+      break;
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const retryable =
+        message.includes("empty answer") ||
+        message.includes("finish_reason=length");
+      if (!retryable) {
+        break;
+      }
+    }
+  }
+
+  if (!answer) {
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+    throw new Error("Inference failed to produce an answer.");
+  }
 
   return {
     answer: answer.text,
@@ -417,24 +460,44 @@ export async function askLogs(params: {
   };
 }
 
-function serializeTurnsForAsk(turns: AgentTurnRecord[]): string {
-  const maxChars = 45_000;
+type AskContextOptions = {
+  maxChars: number;
+  maxInputChars: number;
+  maxThoughtChars: number;
+  maxToolResultChars: number;
+  maxToolCalls: number;
+};
+
+function serializeTurnsForAsk(
+  turns: AgentTurnRecord[],
+  options?: Partial<AskContextOptions>,
+): string {
+  const settings: AskContextOptions = {
+    maxChars: 45_000,
+    maxInputChars: 240,
+    maxThoughtChars: 400,
+    maxToolResultChars: 120,
+    maxToolCalls: 5,
+    ...options,
+  };
   let used = 0;
   const lines: string[] = [];
 
   for (const turn of turns) {
     const toolSummary = turn.toolCalls
+      .slice(0, settings.maxToolCalls)
       .map((call) =>
-        `${call.name}${call.error ? "(error)" : "(ok)"}: ${trimForUi(call.result || "", 120)}`,
+        `${call.name}${call.error ? "(error)" : "(ok)"}: ${trimForUi(call.result || "", settings.maxToolResultChars)}`,
       )
       .join(" | ");
+    const hiddenToolCount = Math.max(0, turn.toolCalls.length - settings.maxToolCalls);
     const line =
       `[${turn.timestamp}] id=${turn.id} state=${turn.state} ` +
-      `input=${trimForUi(turn.input || "", 240)} ` +
-      `thought=${trimForUi(turn.thinking || summarizeTurn(turn), 400)} ` +
-      `tools=${toolSummary || "none"}`;
+      `input=${trimForUi(turn.input || "", settings.maxInputChars)} ` +
+      `thought=${trimForUi(turn.thinking || summarizeTurn(turn), settings.maxThoughtChars)} ` +
+      `tools=${toolSummary || "none"}${hiddenToolCount > 0 ? ` | +${hiddenToolCount} more` : ""}`;
 
-    if (used + line.length + 1 > maxChars) break;
+    if (used + line.length + 1 > settings.maxChars) break;
     lines.push(line);
     used += line.length + 1;
   }
@@ -448,8 +511,10 @@ async function askLogsWithModel(params: {
   model: string;
   question: string;
   context: string;
+  maxCompletionTokens: number;
 }): Promise<{ text: string; model: string }> {
   const requiresCompletionTokens = /^(o[1-9]|gpt-5|gpt-4\.1)/.test(params.model);
+  const completionBudget = clamp(params.maxCompletionTokens, 400, 4_000);
   const body: Record<string, unknown> = {
     model: params.model,
     messages: [
@@ -473,9 +538,9 @@ async function askLogsWithModel(params: {
   };
 
   if (requiresCompletionTokens) {
-    body.max_completion_tokens = 800;
+    body.max_completion_tokens = completionBudget;
   } else {
-    body.max_tokens = 800;
+    body.max_tokens = completionBudget;
   }
 
   const resp = await fetch(`${params.apiUrl}/v1/chat/completions`, {
@@ -493,7 +558,10 @@ async function askLogsWithModel(params: {
   }
 
   const data = (await resp.json()) as {
-    choices?: Array<{ message?: { content?: unknown } }>;
+    choices?: Array<{
+      message?: { content?: unknown };
+      finish_reason?: string | null;
+    }>;
     model?: string;
   };
   const choice = data.choices?.[0];
@@ -524,7 +592,13 @@ async function askLogsWithModel(params: {
         : "";
 
   if (!text) {
-    throw new Error("Inference returned an empty answer.");
+    const finishReason =
+      typeof choice.finish_reason === "string" && choice.finish_reason
+        ? choice.finish_reason
+        : "unknown";
+    throw new Error(
+      `Inference returned an empty answer (finish_reason=${finishReason}).`,
+    );
   }
 
   return {

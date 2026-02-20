@@ -194,7 +194,6 @@ export async function runAgentLoop(
       });
 
       db.setKV("last_inference_model", response.model || activeModel);
-      db.setKV("last_inference_at", new Date().toISOString());
 
       const turn: AgentTurn = {
         id: ulid(),
@@ -210,7 +209,6 @@ export async function runAgentLoop(
 
       // ── Execute Tool Calls ──
       if (response.toolCalls && response.toolCalls.length > 0) {
-        const toolCallMessages: any[] = [];
         let callCount = 0;
 
         for (const tc of response.toolCalls) {
@@ -253,9 +251,7 @@ export async function runAgentLoop(
       const sleepTool = turn.toolCalls.find((tc) => tc.name === "sleep");
       if (sleepTool && !sleepTool.error) {
         log(config, "[SLEEP] Agent chose to sleep.");
-        if (db.getAgentState() !== "sleeping") {
-          db.setAgentState("sleeping");
-        }
+        db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         shouldStopAfterTurn = true;
       }
@@ -272,9 +268,7 @@ export async function runAgentLoop(
           "sleep_until",
           new Date(Date.now() + 60_000).toISOString(),
         );
-        if (db.getAgentState() !== "sleeping") {
-          db.setAgentState("sleeping");
-        }
+        db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         shouldStopAfterTurn = true;
       }
