@@ -204,13 +204,16 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         const sanitizedMsg = {
           ...msg,
           from: sanitizedFrom.content,
-          content: sanitizedContent.blocked
-            ? sanitizedContent.content
-            : sanitizedContent.content,
+          content: sanitizedContent.content,
         };
         taskCtx.db.insertInboxMessage(sanitizedMsg);
         taskCtx.db.setKV(`inbox_seen_${msg.id}`, "1");
-        newCount++;
+        // Only count non-blocked messages toward wake threshold —
+        // blocked messages are stored for audit but should not wake
+        // the agent (prevents injection spam from draining credits).
+        if (!sanitizedContent.blocked) {
+          newCount++;
+        }
       }
     }
 

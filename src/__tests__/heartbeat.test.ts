@@ -176,6 +176,42 @@ describe("Heartbeat Tasks", () => {
 
       expect(result.shouldWake).toBe(false);
     });
+
+    it("does not wake when all messages are blocked by sanitizer", async () => {
+      const social = new MockSocialClient();
+      // Message exceeding 50KB triggers the size_limit block
+      const oversizedContent = "x".repeat(60_000);
+      social.pollResponses.push({
+        messages: [
+          {
+            id: "blocked-msg-1",
+            from: "0xattacker",
+            to: "0xrecipient",
+            content: oversizedContent,
+            signedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+
+      const tickCtx = createMockTickContext(db);
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig(),
+        db,
+        conway,
+        social,
+      };
+
+      const result = await BUILTIN_TASKS.check_social_inbox(tickCtx, taskCtx);
+
+      // Blocked messages are stored for audit but should not wake the agent
+      expect(result.shouldWake).toBe(false);
+      // Message was still persisted
+      const unprocessed = db.getUnprocessedInboxMessages(10);
+      expect(unprocessed.length).toBe(1);
+      expect(unprocessed[0].content).toContain("[BLOCKED:");
+    });
   });
 
   // ─── heartbeat_ping ─────────────────────────────────────────
