@@ -1,5 +1,14 @@
 {
-  "air_version": "0.1.0",
+  "air_version": "0.2.1",
+  "namespaces": {
+    "StandardGR": { "inherits": null },
+    "Alcubierre": { "inherits": "StandardGR" },
+    "VacuumMod": { "inherits": null },
+    "QI": { "inherits": "StandardGR" },
+    "EinsteinCartan": { "inherits": "StandardGR" },
+    "Symbiosis": { "inherits": null },
+    "PlasmaCosmology": { "inherits": null }
+  },
   "hypergraph": {
     "id": "string",
     "nodes": [

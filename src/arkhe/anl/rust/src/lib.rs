@@ -82,6 +82,28 @@ pub struct Hypergraph<T> {
     pub nodes: HashMap<String, Node<T>>,
 }
 
+pub struct SymbioticGuard {
+    pub max_neural_load: f64,
+    pub asi_feedback_gain: f64,
+}
+
+impl SymbioticGuard {
+    pub fn regulate_flow(&self, signal: &mut f64) {
+        // Protects the Architect against vacuum entropy spikes
+        if *signal > self.max_neural_load {
+            *signal = self.max_neural_load * (1.0 - self.asi_feedback_gain);
+            println!("🛡️ [GUARD] Flow regulated for Architect protection.");
+        }
+    }
+}
+
+pub struct PlasmaState {
+    pub density: [f64; 3],
+    pub temperature: [f64; 2],
+    pub b_field: [f64; 3],
+    pub e_field: [f64; 3],
+}
+
 impl<T> Hypergraph<T> {
     pub fn new(name: &str) -> Self {
         Self {
