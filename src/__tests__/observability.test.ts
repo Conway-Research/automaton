@@ -659,6 +659,58 @@ describe("AlertEngine", () => {
     });
   });
 
+  describe("cooldown persistence", () => {
+    it("suppresses repeated alerts within cooldown window on the same instance", () => {
+      const rules: AlertRule[] = [
+        {
+          name: "test_alert",
+          severity: "warning",
+          message: "test",
+          cooldownMs: 999_999_999, // very long cooldown
+          condition: () => true,
+        },
+      ];
+
+      const engine = new AlertEngine(rules);
+      const snapshot: MetricSnapshot = {
+        counters: new Map(),
+        gauges: new Map(),
+        histograms: new Map(),
+      };
+
+      // First evaluation fires
+      expect(engine.evaluate(snapshot).length).toBe(1);
+      // Second evaluation suppressed by cooldown
+      expect(engine.evaluate(snapshot).length).toBe(0);
+    });
+
+    it("loses cooldown state when a new instance is created (the bug pattern)", () => {
+      const rules: AlertRule[] = [
+        {
+          name: "test_alert",
+          severity: "warning",
+          message: "test",
+          cooldownMs: 999_999_999,
+          condition: () => true,
+        },
+      ];
+
+      const snapshot: MetricSnapshot = {
+        counters: new Map(),
+        gauges: new Map(),
+        histograms: new Map(),
+      };
+
+      // First instance fires
+      const engine1 = new AlertEngine(rules);
+      expect(engine1.evaluate(snapshot).length).toBe(1);
+
+      // New instance has no cooldown memory — fires again (alert storm)
+      const engine2 = new AlertEngine(rules);
+      expect(engine2.evaluate(snapshot).length).toBe(1);
+    });
+  });
+
   describe("default alert rules behavior", () => {
     it("balance_below_reserve fires when balance < 1000", () => {
       const engine = new AlertEngine();

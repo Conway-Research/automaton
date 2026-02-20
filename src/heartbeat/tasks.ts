@@ -25,6 +25,15 @@ import { ulid } from "ulid";
 
 const logger = createLogger("heartbeat.tasks");
 
+// Module-level AlertEngine so cooldown state persists across ticks.
+// Creating a new instance per tick would reset the lastFired map,
+// causing every alert to fire on every tick regardless of cooldownMs.
+let _alertEngine: AlertEngine | null = null;
+function getAlertEngine(): AlertEngine {
+  if (!_alertEngine) _alertEngine = new AlertEngine(createDefaultAlertRules());
+  return _alertEngine;
+}
+
 export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   heartbeat_ping: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
     // Use ctx.creditBalance instead of calling conway.getCreditsBalance()
@@ -387,7 +396,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   report_metrics: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
     try {
       const metrics = getMetrics();
-      const alerts = new AlertEngine(createDefaultAlertRules());
+      const alerts = getAlertEngine();
 
       // Update gauges from tick context
       metrics.gauge("balance_cents", ctx.creditBalance);
