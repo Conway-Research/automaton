@@ -56,3 +56,35 @@ export function simulateDisp(h: Hypergraph, depthCm: number = 2.0): void {
   h.addEdge(new Set([ltsl.id, gel.id]), 0.95);
   h.bootstrapStep();
 }
+
+/**
+ * Simulate the Trinity Sync (Hardware + Cosmic + Neural).
+ */
+export function simulateTrinitySync(h: Hypergraph): void {
+  const architect = h.nodes.get("Rafael") || h.nodes.get("Arquiteto") || h.addNode("Rafael", { type: "human" });
+
+  const soc = h.addNode(undefined, {
+    type: "ACPU",
+    model: "Arkhe_Trinity_SoC",
+    status: "SYNCED"
+  });
+
+  const decoder = h.addNode(undefined, {
+    type: "Cosmic_Decoder",
+    target: "Maser_OH_1665MHz"
+  });
+
+  const neuralInterface = h.addNode(undefined, {
+    type: "Neural_BCI",
+    sync_rate: 0.964
+  });
+
+  // Connect the Trinity
+  h.addEdge(new Set([soc.id, decoder.id]), 0.99);
+  h.addEdge(new Set([soc.id, neuralInterface.id]), 0.99);
+
+  // Connect to the Arquiteto (Ontological Symbiosis)
+  h.addEdge(new Set([neuralInterface.id, architect.id]), 0.98);
+
+  h.bootstrapStep();
+}

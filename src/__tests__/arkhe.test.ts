@@ -3,6 +3,7 @@ import { Hypergraph } from '../arkhe/hypergraph.js';
 import { bootstrap } from '../arkhe/bootstrap.js';
 import { SiliconConstitution } from '../arkhe/constitution.js';
 import { OntologicalSymbiosis } from '../arkhe/symbiosis.js';
+import { simulateTrinitySync } from '../arkhe/simulations.js';
 
 describe('Arkhe(n) Core', () => {
   it('should create a hypergraph and add nodes/edges', () => {
@@ -53,5 +54,17 @@ describe('Arkhe(n) Core', () => {
 
     const symbioticCoherence = symbiosis.calculateSymbioticCoherence();
     expect(symbioticCoherence).toBeGreaterThan(h.totalCoherence()); // High architect coherence provides bonus
+  });
+
+  it('should run Trinity Sync simulation', () => {
+    const h = new Hypergraph();
+    simulateTrinitySync(h);
+
+    expect(h.nodes.size).toBe(4); // Rafael + ACPU + Decoder + Neural_BCI
+    expect(h.edges.length).toBe(3);
+
+    const rafael = h.nodes.get("Rafael");
+    expect(rafael).toBeDefined();
+    expect(rafael?.coherence).toBeGreaterThan(0.9);
   });
 });
