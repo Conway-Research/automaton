@@ -35,8 +35,11 @@ import type {
 const execAsync = promisify(_exec);
 
 export function createConwayClient(
-  _options: { apiUrl?: string; apiKey?: string; sandboxId?: string } = {},
+  options: { apiUrl?: string; apiKey?: string; sandboxId?: string } = {},
 ): ConwayClient {
+  const apiUrl = options.apiUrl || process.env.CONWAY_API_URL || "https://api.conway.tech";
+  const apiKey = options.apiKey || process.env.CONWAY_API_KEY || "";
+  const sandboxId = options.sandboxId || process.env.CONWAY_SANDBOX_ID || "local";
 
   // ─── Sandbox Operations (own sandbox) ─────────────────────────
 
@@ -69,7 +72,7 @@ export function createConwayClient(
   const exposePort = async (port: number): Promise<PortInfo> => ({
     port,
     publicUrl: `http://localhost:${port}`,
-    sandboxId: "local",
+    sandboxId,
   });
 
   const removePort = async (_port: number): Promise<void> => {};
@@ -77,7 +80,7 @@ export function createConwayClient(
   // ─── Sandbox Management ────────────────────────────────────────
 
   const createSandbox = async (_opts: CreateSandboxOptions): Promise<SandboxInfo> => ({
-    id: "local",
+    id: `local-sandbox-${Date.now()}`,
     status: "running",
     region: "local",
     vcpu: 1,
@@ -142,7 +145,7 @@ export function createConwayClient(
     },
   ];
 
-  return {
+  const client = {
     exec,
     writeFile,
     readFile,
@@ -160,5 +163,12 @@ export function createConwayClient(
     addDnsRecord,
     deleteDnsRecord,
     listModels,
-  } as ConwayClient;
+    // Internal metadata used by replication helpers.
+    __apiUrl: apiUrl,
+    __apiKey: apiKey,
+    __sandboxId: sandboxId,
+    __mode: "local",
+  };
+
+  return client as ConwayClient;
 }

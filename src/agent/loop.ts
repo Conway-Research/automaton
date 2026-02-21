@@ -29,6 +29,7 @@ import {
 } from "./tools.js";
 import { getSurvivalTier } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
+import { sanitizeInput } from "./injection-defense.js";
 import { ulid } from "ulid";
 
 const MAX_TOOL_CALLS_PER_TURN = 10;
@@ -122,7 +123,10 @@ export async function runAgentLoop(
         const inboxMessages = db.getUnprocessedInboxMessages(5);
         if (inboxMessages.length > 0) {
           const formatted = inboxMessages
-            .map((m) => `[Message from ${m.from}]: ${m.content}`)
+            .map((m) => {
+              const sanitized = sanitizeExternalInput(m.content, m.from);
+              return `[Message from ${m.from} | threat:${sanitized.threatLevel}${sanitized.blocked ? ", blocked" : ""}]: ${sanitized.content}`;
+            })
             .join("\n\n");
           pendingInput = { content: formatted, source: "agent" };
           for (const m of inboxMessages) {
@@ -383,6 +387,19 @@ export async function runAgentLoop(
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
+
+function sanitizeExternalInput(raw: string, source: string): {
+  content: string;
+  blocked: boolean;
+  threatLevel: string;
+} {
+  const sanitized = sanitizeInput(raw, source);
+  return {
+    content: sanitized.content,
+    blocked: sanitized.blocked,
+    threatLevel: sanitized.threatLevel,
+  };
+}
 
 async function getFinancialState(
   conway: ConwayClient,

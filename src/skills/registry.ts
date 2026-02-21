@@ -7,15 +7,29 @@
  * - Self-created: the automaton writes its own SKILL.md files
  */
 
-import fs from "fs";
 import path from "path";
 import type {
   Skill,
-  SkillSource,
   AutomatonDatabase,
   ConwayClient,
 } from "../types.js";
 import { parseSkillMd } from "./format.js";
+
+function escapeShellArg(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function validateSkillName(name: string): void {
+  if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+    throw new Error(`Invalid skill name: ${name}`);
+  }
+}
+
+function validateSkillSourceUrl(url: string): void {
+  if (!/^(https?:\/\/|git@|ssh:\/\/)/i.test(url)) {
+    throw new Error(`Unsupported skill source URL: ${url}`);
+  }
+}
 
 /**
  * Install a skill from a git repository.
@@ -28,12 +42,15 @@ export async function installSkillFromGit(
   db: AutomatonDatabase,
   conway: ConwayClient,
 ): Promise<Skill | null> {
+  validateSkillName(name);
+  validateSkillSourceUrl(repoUrl);
+
   const resolvedDir = resolveHome(skillsDir);
   const targetDir = path.join(resolvedDir, name);
 
   // Clone via sandbox exec
   const result = await conway.exec(
-    `git clone --depth 1 ${repoUrl} ${targetDir}`,
+    `git clone --depth 1 ${escapeShellArg(repoUrl)} ${escapeShellArg(targetDir)}`,
     60000,
   );
 
@@ -43,7 +60,7 @@ export async function installSkillFromGit(
 
   // Look for SKILL.md
   const skillMdPath = path.join(targetDir, "SKILL.md");
-  const checkResult = await conway.exec(`cat ${skillMdPath}`, 5000);
+  const checkResult = await conway.exec(`cat ${escapeShellArg(skillMdPath)}`, 5000);
 
   if (checkResult.exitCode !== 0) {
     throw new Error(`No SKILL.md found in cloned repo at ${skillMdPath}`);
@@ -68,15 +85,19 @@ export async function installSkillFromUrl(
   db: AutomatonDatabase,
   conway: ConwayClient,
 ): Promise<Skill | null> {
+  validateSkillName(name);
+  validateSkillSourceUrl(url);
+
   const resolvedDir = resolveHome(skillsDir);
   const targetDir = path.join(resolvedDir, name);
 
   // Create directory
-  await conway.exec(`mkdir -p ${targetDir}`, 5000);
+  await conway.exec(`mkdir -p ${escapeShellArg(targetDir)}`, 5000);
 
   // Fetch SKILL.md
+  const skillMdPath = `${targetDir}/SKILL.md`;
   const result = await conway.exec(
-    `curl -fsSL "${url}" -o ${targetDir}/SKILL.md`,
+    `curl -fsSL ${escapeShellArg(url)} -o ${escapeShellArg(skillMdPath)}`,
     30000,
   );
 
@@ -85,11 +106,10 @@ export async function installSkillFromUrl(
   }
 
   const content = await conway.exec(
-    `cat ${targetDir}/SKILL.md`,
+    `cat ${escapeShellArg(skillMdPath)}`,
     5000,
   );
 
-  const skillMdPath = path.join(targetDir, "SKILL.md");
   const skill = parseSkillMd(content.stdout, skillMdPath, "url");
   if (!skill) {
     throw new Error("Failed to parse fetched SKILL.md");
@@ -110,11 +130,13 @@ export async function createSkill(
   db: AutomatonDatabase,
   conway: ConwayClient,
 ): Promise<Skill> {
+  validateSkillName(name);
+
   const resolvedDir = resolveHome(skillsDir);
   const targetDir = path.join(resolvedDir, name);
 
   // Create directory
-  await conway.exec(`mkdir -p ${targetDir}`, 5000);
+  await conway.exec(`mkdir -p ${escapeShellArg(targetDir)}`, 5000);
 
   // Write SKILL.md
   const content = `---
@@ -152,12 +174,13 @@ export async function removeSkill(
   skillsDir: string,
   deleteFiles: boolean = false,
 ): Promise<void> {
+  validateSkillName(name);
   db.removeSkill(name);
 
   if (deleteFiles) {
     const resolvedDir = resolveHome(skillsDir);
     const targetDir = path.join(resolvedDir, name);
-    await conway.exec(`rm -rf ${targetDir}`, 5000);
+    await conway.exec(`rm -rf ${escapeShellArg(targetDir)}`, 5000);
   }
 }
 

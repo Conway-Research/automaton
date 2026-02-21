@@ -1195,12 +1195,13 @@ Model: ${ctx.inference.getDefaultModel()}
           name: { type: "string", description: "Name for the child automaton" },
           specialization: { type: "string", description: "What the child should specialize in" },
           message: { type: "string", description: "Message to the child" },
+          auto_start: { type: "boolean", description: "Automatically start child after spawn (default: true)" },
         },
         required: ["name"],
       },
       execute: async (args, ctx) => {
         const { generateGenesisConfig } = await import("../replication/genesis.js");
-        const { spawnChild } = await import("../replication/spawn.js");
+        const { spawnChild, startChild } = await import("../replication/spawn.js");
 
         const genesis = generateGenesisConfig(ctx.identity, ctx.config, {
           name: args.name as string,
@@ -1209,7 +1210,18 @@ Model: ${ctx.inference.getDefaultModel()}
         });
 
         const child = await spawnChild(ctx.conway, ctx.identity, ctx.db, genesis);
-        return `Child spawned: ${child.name} in sandbox ${child.sandboxId} (status: ${child.status})`;
+
+        const autoStart = args.auto_start !== false;
+        if (!autoStart) {
+          return `Child spawned: ${child.name} in sandbox ${child.sandboxId} (status: ${child.status}, auto_start: false)`;
+        }
+
+        try {
+          await startChild(ctx.conway, ctx.db, child.id);
+          return `Child spawned + started: ${child.name} in sandbox ${child.sandboxId} (status: running)`;
+        } catch (err: any) {
+          return `Child spawned but start failed: ${child.name} in sandbox ${child.sandboxId}. Error: ${err.message}`;
+        }
       },
     },
     {
