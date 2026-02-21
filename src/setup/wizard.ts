@@ -91,10 +91,16 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     console.log(chalk.yellow("  Warning: Anthropic keys usually start with sk-ant-. Saving anyway."));
   }
 
-  if (openaiApiKey || anthropicApiKey) {
+  const openrouterApiKey = await promptOptional("OpenRouter API key (sk-or-..., optional)");
+  if (openrouterApiKey && !openrouterApiKey.startsWith("sk-or-")) {
+    console.log(chalk.yellow("  Warning: OpenRouter keys usually start with sk-or-. Saving anyway."));
+  }
+
+  if (openaiApiKey || anthropicApiKey || openrouterApiKey) {
     const providers = [
       openaiApiKey ? "OpenAI" : null,
       anthropicApiKey ? "Anthropic" : null,
+      openrouterApiKey ? "OpenRouter" : null,
     ].filter(Boolean).join(", ");
     console.log(chalk.green(`  Provider keys saved: ${providers}\n`));
   } else {
@@ -149,6 +155,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     apiKey,
     openaiApiKey: openaiApiKey || undefined,
     anthropicApiKey: anthropicApiKey || undefined,
+    openrouterApiKey: openrouterApiKey || undefined,
     treasuryPolicy,
   });
 

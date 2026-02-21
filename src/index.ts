@@ -213,6 +213,7 @@ async function run(): Promise<void> {
     maxTokens: config.maxTokensPerTurn,
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
+    openrouterApiKey: config.openrouterApiKey,
   });
 
   // Create social client

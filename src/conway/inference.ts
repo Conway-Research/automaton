@@ -26,14 +26,15 @@ interface InferenceClientOptions {
   lowComputeModel?: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
+  openrouterApiKey?: string;
 }
 
-type InferenceBackend = "conway" | "openai" | "anthropic";
+type InferenceBackend = "conway" | "openai" | "anthropic" | "openrouter";
 
 export function createInferenceClient(
   options: InferenceClientOptions,
 ): InferenceClient {
-  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey } = options;
+  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, openrouterApiKey } = options;
   const httpClient = new ResilientHttpClient({
     baseTimeout: INFERENCE_TIMEOUT_MS,
     retryableStatuses: [429, 500, 502, 503, 504],
@@ -76,6 +77,7 @@ export function createInferenceClient(
     const backend = resolveInferenceBackend(model, {
       openaiApiKey,
       anthropicApiKey,
+      openrouterApiKey,
     });
 
     if (backend === "anthropic") {
@@ -90,10 +92,18 @@ export function createInferenceClient(
       });
     }
 
-    const openAiLikeApiUrl =
-      backend === "openai" ? "https://api.openai.com" : apiUrl;
-    const openAiLikeApiKey =
-      backend === "openai" ? (openaiApiKey as string) : apiKey;
+    let openAiLikeApiUrl: string;
+    let openAiLikeApiKey: string;
+    if (backend === "openai") {
+      openAiLikeApiUrl = "https://api.openai.com";
+      openAiLikeApiKey = openaiApiKey as string;
+    } else if (backend === "openrouter") {
+      openAiLikeApiUrl = "https://openrouter.ai/api";
+      openAiLikeApiKey = openrouterApiKey as string;
+    } else {
+      openAiLikeApiUrl = apiUrl;
+      openAiLikeApiKey = apiKey;
+    }
 
     return chatViaOpenAiCompatible({
       model,
@@ -155,6 +165,7 @@ function resolveInferenceBackend(
   keys: {
     openaiApiKey?: string;
     anthropicApiKey?: string;
+    openrouterApiKey?: string;
   },
 ): InferenceBackend {
   // Anthropic models: claude-*
@@ -165,6 +176,10 @@ function resolveInferenceBackend(
   if (keys.openaiApiKey && /^(gpt|o[1-9]|chatgpt)/i.test(model)) {
     return "openai";
   }
+  // OpenRouter model IDs use "provider/model" format (e.g. "openai/gpt-4o")
+  if (keys.openrouterApiKey && model.includes("/")) {
+    return "openrouter";
+  }
   // Default: Conway proxy (handles all models including unknown ones)
   return "conway";
 }
@@ -174,18 +189,18 @@ async function chatViaOpenAiCompatible(params: {
   body: Record<string, unknown>;
   apiUrl: string;
   apiKey: string;
-  backend: "conway" | "openai";
+  backend: "conway" | "openai" | "openrouter";
   httpClient: ResilientHttpClient;
 }): Promise<InferenceResponse> {
+  const usesBearer = params.backend === "openai" || params.backend === "openrouter";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: usesBearer ? `Bearer ${params.apiKey}` : params.apiKey,
+  };
+
   const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization:
-        params.backend === "openai"
-          ? `Bearer ${params.apiKey}`
-          : params.apiKey,
-    },
+    headers,
     body: JSON.stringify(params.body),
     timeout: INFERENCE_TIMEOUT_MS,
   });
