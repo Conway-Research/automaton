@@ -730,7 +730,7 @@ Model: ${ctx.inference.getDefaultModel()}
       execute: async (args, ctx) => {
         ctx.db.setAgentState("low_compute");
         ctx.inference.setLowComputeMode(true);
-        return `Entered low-compute mode. Model switched to gpt-4o-mini. Reason: ${(args.reason as string) || "manual"}`;
+        return `Entered low-compute mode. Model switched to gpt-5-mini. Reason: ${(args.reason as string) || "manual"}`;
       },
     },
 
@@ -1652,7 +1652,7 @@ Model: ${ctx.inference.getDefaultModel()}
         properties: {
           model_id: {
             type: "string",
-            description: "Model ID to switch to (e.g., 'gpt-4.1', 'claude-sonnet-4-6')",
+            description: "Model ID to switch to (e.g., 'gpt-5.2', 'gpt-5-mini', 'claude-sonnet-4-6')",
           },
           reason: {
             type: "string",

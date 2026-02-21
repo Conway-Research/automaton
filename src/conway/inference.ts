@@ -111,7 +111,7 @@ export function createInferenceClient(
    */
   const setLowComputeMode = (enabled: boolean): void => {
     if (enabled) {
-      currentModel = options.lowComputeModel || "gpt-4.1";
+      currentModel = options.lowComputeModel || "gpt-5-mini";
       maxTokens = 4096;
     } else {
       currentModel = options.defaultModel;
