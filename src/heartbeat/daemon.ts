@@ -131,13 +131,16 @@ export function createHeartbeatDaemon(
     if (running) return;
     running = true;
 
-    // Run first tick immediately
-    scheduler.tick().catch((err) => {
-      logger.error("First tick failed", err instanceof Error ? err : undefined);
-    });
-
-    // Schedule subsequent ticks
-    scheduleTick();
+    // Run first tick immediately, then start the recursive schedule.
+    // Chaining scheduleTick after the first tick prevents overlap
+    // when the first tick takes longer than tickMs to complete.
+    scheduler.tick()
+      .catch((err) => {
+        logger.error("First tick failed", err instanceof Error ? err : undefined);
+      })
+      .finally(() => {
+        scheduleTick();
+      });
 
     logger.info(`Daemon started. Tick interval: ${tickMs / 1000}s (from config)`);
   };

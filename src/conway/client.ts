@@ -114,10 +114,8 @@ export function createConwayClient(
         exitCode: result.exit_code ?? result.exitCode ?? -1,
       };
     } catch (err: any) {
-      // If sandbox exec 403s (mismatched API key), fall back to local shell.
-      if (err?.message?.includes("403")) {
-        return execLocal(command, timeout);
-      }
+      // 403 means the API key lacks permission for the sandbox.
+      // Falling back to local shell would bypass sandbox isolation.
       throw err;
     }
   };
@@ -147,13 +145,8 @@ export function createConwayClient(
         { path: filePath, content },
       );
     } catch (err: any) {
-      // If sandbox file APIs 403 due to mismatched Conway keys, fall back to local FS.
-      if (err?.message?.includes("403")) {
-        const resolved = resolveLocalPath(filePath);
-        fs.mkdirSync(nodePath.dirname(resolved), { recursive: true });
-        fs.writeFileSync(resolved, content, "utf-8");
-        return;
-      }
+      // 403 means the API key lacks permission for the sandbox.
+      // Falling back to local FS would bypass sandbox isolation.
       throw err;
     }
   };
@@ -169,10 +162,8 @@ export function createConwayClient(
       );
       return typeof result === "string" ? result : result.content || "";
     } catch (err: any) {
-      // If sandbox file APIs 403 due to mismatched Conway keys, fall back to local FS.
-      if (err?.message?.includes("403")) {
-        return fs.readFileSync(resolveLocalPath(filePath), "utf-8");
-      }
+      // 403 means the API key lacks permission for the sandbox.
+      // Falling back to local FS would bypass sandbox isolation.
       throw err;
     }
   };
