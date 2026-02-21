@@ -22,6 +22,10 @@ import { runAgentLoop } from "./agent/loop.js";
 import { loadSkills } from "./skills/loader.js";
 import { initStateRepo } from "./git/state-versioning.js";
 import { createSocialClient } from "./social/client.js";
+import {
+  KV_SLEEP_UNTIL,
+  KV_WAKE_REQUEST,
+} from "./state/kv-keys.js";
 import type { AutomatonIdentity, AgentState, Skill, SocialClientInterface } from "./types.js";
 
 const VERSION = "0.1.0";
@@ -243,7 +247,7 @@ async function run(): Promise<void> {
       console.log(`[HEARTBEAT] Wake request: ${reason}`);
       // The heartbeat can trigger the agent loop
       // In the main run loop, we check for wake requests
-      db.setKV("wake_request", reason);
+      db.setKV(KV_WAKE_REQUEST, reason);
     },
   });
 
@@ -304,7 +308,7 @@ async function run(): Promise<void> {
       }
 
       if (state === "sleeping") {
-        const sleepUntilStr = db.getKV("sleep_until");
+        const sleepUntilStr = db.getKV(KV_SLEEP_UNTIL);
         const sleepUntil = sleepUntilStr
           ? new Date(sleepUntilStr).getTime()
           : Date.now() + 60_000;
@@ -321,19 +325,19 @@ async function run(): Promise<void> {
           slept += checkInterval;
 
           // Check for wake request from heartbeat
-          const wakeRequest = db.getKV("wake_request");
+          const wakeRequest = db.getKV(KV_WAKE_REQUEST);
           if (wakeRequest) {
             console.log(
               `[${new Date().toISOString()}] Woken by heartbeat: ${wakeRequest}`,
             );
-            db.deleteKV("wake_request");
-            db.deleteKV("sleep_until");
+            db.deleteKV(KV_WAKE_REQUEST);
+            db.deleteKV(KV_SLEEP_UNTIL);
             break;
           }
         }
 
         // Clear sleep state
-        db.deleteKV("sleep_until");
+        db.deleteKV(KV_SLEEP_UNTIL);
         continue;
       }
     } catch (err: any) {

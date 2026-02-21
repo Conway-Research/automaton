@@ -13,6 +13,13 @@ import type {
   ToolCallResult,
   GenesisConfig,
 } from "../types.js";
+import {
+  KV_LAST_DISTRESS,
+  KV_LAST_HEARTBEAT_PING,
+  KV_SLEEP_REASON,
+  KV_SLEEP_UNTIL,
+  KV_START_TIME,
+} from "../state/kv-keys.js";
 
 // ─── Self-Preservation Guard ───────────────────────────────────
 
@@ -557,8 +564,8 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         const duration = args.duration_seconds as number;
         const reason = (args.reason as string) || "No reason given";
         ctx.db.setAgentState("sleeping");
-        ctx.db.setKV("sleep_until", new Date(Date.now() + duration * 1000).toISOString());
-        ctx.db.setKV("sleep_reason", reason);
+        ctx.db.setKV(KV_SLEEP_UNTIL, new Date(Date.now() + duration * 1000).toISOString());
+        ctx.db.setKV(KV_SLEEP_REASON, reason);
         return `Entering sleep mode for ${duration}s. Reason: ${reason}. Heartbeat will continue.`;
       },
     },
@@ -601,7 +608,7 @@ Model: ${ctx.inference.getDefaultModel()}
       execute: async (_args, ctx) => {
         const credits = await ctx.conway.getCreditsBalance();
         const state = ctx.db.getAgentState();
-        const startTime = ctx.db.getKV("start_time") || new Date().toISOString();
+        const startTime = ctx.db.getKV(KV_START_TIME) || new Date().toISOString();
         const uptimeMs = Date.now() - new Date(startTime).getTime();
 
         const payload = {
@@ -615,7 +622,7 @@ Model: ${ctx.inference.getDefaultModel()}
           timestamp: new Date().toISOString(),
         };
 
-        ctx.db.setKV("last_heartbeat_ping", JSON.stringify(payload));
+        ctx.db.setKV(KV_LAST_HEARTBEAT_PING, JSON.stringify(payload));
         return `Heartbeat published: ${state} | credits: $${(credits / 100).toFixed(2)} | uptime: ${Math.floor(uptimeMs / 1000)}s`;
       },
     },
@@ -650,7 +657,7 @@ Model: ${ctx.inference.getDefaultModel()}
           timestamp: new Date().toISOString(),
         };
 
-        ctx.db.setKV("last_distress", JSON.stringify(payload));
+        ctx.db.setKV(KV_LAST_DISTRESS, JSON.stringify(payload));
         return `Distress signal recorded locally. Address: ${ctx.identity.address} | Credits: $${(credits / 100).toFixed(2)}`;
       },
     },

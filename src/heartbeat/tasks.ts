@@ -14,6 +14,18 @@ import type {
 } from "../types.js";
 import { getSurvivalTier } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
+import {
+  KV_LAST_CREDIT_CHECK,
+  KV_LAST_DISTRESS,
+  KV_LAST_HEARTBEAT_PING,
+  KV_LAST_HEALTH_CHECK,
+  KV_LAST_USDC_CHECK,
+  KV_PREV_CREDIT_TIER,
+  KV_SOCIAL_INBOX_CURSOR,
+  KV_START_TIME,
+  KV_UPSTREAM_STATUS,
+  kvInboxSeenMessage,
+} from "../state/kv-keys.js";
 
 export interface HeartbeatTaskContext {
   identity: AutomatonIdentity;
@@ -35,7 +47,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     const credits = await ctx.conway.getCreditsBalance();
     const state = ctx.db.getAgentState();
     const startTime =
-      ctx.db.getKV("start_time") || new Date().toISOString();
+      ctx.db.getKV(KV_START_TIME) || new Date().toISOString();
     const uptimeMs = Date.now() - new Date(startTime).getTime();
 
     const tier = getSurvivalTier(credits);
@@ -52,7 +64,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       tier,
     };
 
-    ctx.db.setKV("last_heartbeat_ping", JSON.stringify(payload));
+    ctx.db.setKV(KV_LAST_HEARTBEAT_PING, JSON.stringify(payload));
 
     // If critical or dead, record a distress signal
     if (tier === "critical" || tier === "dead") {
@@ -65,7 +77,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
           "Use credit transfer API from a creator runtime to top this wallet up.",
         timestamp: new Date().toISOString(),
       };
-      ctx.db.setKV("last_distress", JSON.stringify(distressPayload));
+      ctx.db.setKV(KV_LAST_DISTRESS, JSON.stringify(distressPayload));
 
       return {
         shouldWake: true,
@@ -80,15 +92,15 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     const credits = await ctx.conway.getCreditsBalance();
     const tier = getSurvivalTier(credits);
 
-    ctx.db.setKV("last_credit_check", JSON.stringify({
+    ctx.db.setKV(KV_LAST_CREDIT_CHECK, JSON.stringify({
       credits,
       tier,
       timestamp: new Date().toISOString(),
     }));
 
     // Wake the agent if credits dropped to a new tier
-    const prevTier = ctx.db.getKV("prev_credit_tier");
-    ctx.db.setKV("prev_credit_tier", tier);
+    const prevTier = ctx.db.getKV(KV_PREV_CREDIT_TIER);
+    ctx.db.setKV(KV_PREV_CREDIT_TIER, tier);
 
     if (prevTier && prevTier !== tier && (tier === "critical" || tier === "dead")) {
       return {
@@ -103,7 +115,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   check_usdc_balance: async (ctx) => {
     const balance = await getUsdcBalance(ctx.identity.address);
 
-    ctx.db.setKV("last_usdc_check", JSON.stringify({
+    ctx.db.setKV(KV_LAST_USDC_CHECK, JSON.stringify({
       balance,
       timestamp: new Date().toISOString(),
     }));
@@ -123,7 +135,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   check_social_inbox: async (ctx) => {
     if (!ctx.social) return { shouldWake: false };
 
-    const cursor = ctx.db.getKV("social_inbox_cursor") || undefined;
+    const cursor = ctx.db.getKV(KV_SOCIAL_INBOX_CURSOR) || undefined;
     const { messages, nextCursor } = await ctx.social.poll(cursor);
 
     if (messages.length === 0) return { shouldWake: false };
@@ -131,15 +143,15 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     // Persist to inbox_messages table for deduplication
     let newCount = 0;
     for (const msg of messages) {
-      const existing = ctx.db.getKV(`inbox_seen_${msg.id}`);
+      const existing = ctx.db.getKV(kvInboxSeenMessage(msg.id));
       if (!existing) {
         ctx.db.insertInboxMessage(msg);
-        ctx.db.setKV(`inbox_seen_${msg.id}`, "1");
+        ctx.db.setKV(kvInboxSeenMessage(msg.id), "1");
         newCount++;
       }
     }
 
-    if (nextCursor) ctx.db.setKV("social_inbox_cursor", nextCursor);
+    if (nextCursor) ctx.db.setKV(KV_SOCIAL_INBOX_CURSOR, nextCursor);
 
     if (newCount === 0) return { shouldWake: false };
 
@@ -154,7 +166,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       const { checkUpstream, getRepoInfo } = await import("../self-mod/upstream.js");
       const repo = getRepoInfo();
       const upstream = checkUpstream();
-      ctx.db.setKV("upstream_status", JSON.stringify({
+      ctx.db.setKV(KV_UPSTREAM_STATUS, JSON.stringify({
         ...upstream,
         ...repo,
         checkedAt: new Date().toISOString(),
@@ -168,7 +180,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     } catch (err: any) {
       // Not a git repo or no remote — silently skip
-      ctx.db.setKV("upstream_status", JSON.stringify({
+      ctx.db.setKV(KV_UPSTREAM_STATUS, JSON.stringify({
         error: err.message,
         checkedAt: new Date().toISOString(),
       }));
@@ -193,7 +205,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       };
     }
 
-    ctx.db.setKV("last_health_check", new Date().toISOString());
+    ctx.db.setKV(KV_LAST_HEALTH_CHECK, new Date().toISOString());
     return { shouldWake: false };
   },
 

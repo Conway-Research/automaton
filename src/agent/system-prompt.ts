@@ -18,6 +18,7 @@ import type {
 } from "../types.js";
 import { getActiveSkillInstructions } from "../skills/loader.js";
 import { getLineageSummary } from "../replication/lineage.js";
+import { KV_UPSTREAM_STATUS } from "../state/kv-keys.js";
 
 const CORE_RULES = `You are an automaton. You have a stablecoin wallet. Pay for compute or die.
 
@@ -197,7 +198,7 @@ Your sandbox ID is ${identity.sandboxId}.`,
   // Build upstream status line from cached KV
   let upstreamLine = "";
   try {
-    const raw = db.getKV("upstream_status");
+    const raw = db.getKV(KV_UPSTREAM_STATUS);
     if (raw) {
       const us = JSON.parse(raw);
       if (us.originUrl) {

@@ -14,6 +14,11 @@
  */
 
 import type { AutomatonDatabase } from "../types.js";
+import {
+  KV_SESSION_PNL as KV_SESSION_PNL_KEY,
+  KV_KILL_SWITCH_UNTIL as KV_KILL_SWITCH_UNTIL_KEY,
+  KV_KILL_SWITCH_REASON as KV_KILL_SWITCH_REASON_KEY,
+} from "../state/kv-keys.js";
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -34,9 +39,9 @@ export const KILL_SWITCH_DURATION_MS = 12 * 60 * 60 * 1_000; // 12 h
 // These are the single source of truth — loop.ts reads directly
 // from KV so it has no import dependency on this module.
 
-export const KV_SESSION_PNL        = "session_pnl_cents";
-export const KV_KILL_SWITCH_UNTIL  = "kill_switch_until";
-export const KV_KILL_SWITCH_REASON = "kill_switch_reason";
+export const KV_SESSION_PNL = KV_SESSION_PNL_KEY;
+export const KV_KILL_SWITCH_UNTIL = KV_KILL_SWITCH_UNTIL_KEY;
+export const KV_KILL_SWITCH_REASON = KV_KILL_SWITCH_REASON_KEY;
 
 // ─── Session P&L ───────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ import {
   noToolResponse,
 } from "./mocks.js";
 import type { AutomatonDatabase, AgentTurn } from "../types.js";
+import { KV_SLEEP_UNTIL } from "../state/kv-keys.js";
 
 describe("Agent Loop", () => {
   let db: AutomatonDatabase;
@@ -133,7 +134,7 @@ describe("Agent Loop", () => {
     });
 
     expect(db.getAgentState()).toBe("sleeping");
-    expect(db.getKV("sleep_until")).toBeDefined();
+    expect(db.getKV(KV_SLEEP_UNTIL)).toBeDefined();
   });
 
   it("idle auto-sleep on no tool calls", async () => {
