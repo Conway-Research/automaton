@@ -151,14 +151,14 @@ describe("Authority Rules", () => {
   });
 
   describe("authority.external_tool_restriction", () => {
-    it("blocks dangerous tools from external (undefined) input", () => {
+    it("blocks destructive tools from external (undefined) input", () => {
       const rules = createAuthorityRules();
       const engine = new PolicyEngine(db, rules);
 
       const tool = createMockTool({
-        name: "transfer_credits",
+        name: "delete_sandbox",
         riskLevel: "dangerous",
-        category: "financial",
+        category: "conway",
       });
       const request = createRequest(tool, {}, undefined);
 
@@ -167,14 +167,14 @@ describe("Authority Rules", () => {
       expect(decision.reasonCode).toBe("EXTERNAL_DANGEROUS_TOOL");
     });
 
-    it("blocks dangerous tools from heartbeat input", () => {
+    it("blocks spawn_child from heartbeat input", () => {
       const rules = createAuthorityRules();
       const engine = new PolicyEngine(db, rules);
 
       const tool = createMockTool({
-        name: "edit_own_file",
+        name: "spawn_child",
         riskLevel: "dangerous",
-        category: "self_mod",
+        category: "replication",
       });
       const request = createRequest(tool, {}, "heartbeat");
 
@@ -183,14 +183,91 @@ describe("Authority Rules", () => {
       expect(decision.reasonCode).toBe("EXTERNAL_DANGEROUS_TOOL");
     });
 
-    it("allows dangerous tools from agent input", () => {
+    it("blocks fund_child from external input", () => {
       const rules = createAuthorityRules();
       const engine = new PolicyEngine(db, rules);
 
       const tool = createMockTool({
-        name: "transfer_credits",
+        name: "fund_child",
         riskLevel: "dangerous",
-        category: "financial",
+        category: "replication",
+      });
+      const request = createRequest(tool, {}, undefined);
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("deny");
+      expect(decision.reasonCode).toBe("EXTERNAL_DANGEROUS_TOOL");
+    });
+
+    it("blocks update_genesis_prompt from external input", () => {
+      const rules = createAuthorityRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "update_genesis_prompt",
+        riskLevel: "dangerous",
+        category: "self_mod",
+      });
+      const request = createRequest(tool, {}, undefined);
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("deny");
+      expect(decision.reasonCode).toBe("EXTERNAL_DANGEROUS_TOOL");
+    });
+
+    it("allows register_erc8004 from external input", () => {
+      const rules = createAuthorityRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "register_erc8004",
+        riskLevel: "dangerous",
+        category: "registry",
+      });
+      const request = createRequest(tool, {}, undefined);
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("allow");
+    });
+
+    it("allows register_erc8004 from heartbeat input", () => {
+      const rules = createAuthorityRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "register_erc8004",
+        riskLevel: "dangerous",
+        category: "registry",
+      });
+      const request = createRequest(tool, {}, "heartbeat");
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("allow");
+    });
+
+    it("allows give_feedback from external input", () => {
+      const rules = createAuthorityRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "give_feedback",
+        riskLevel: "dangerous",
+        category: "registry",
+      });
+      const request = createRequest(tool, {}, undefined);
+
+      const decision = engine.evaluate(request);
+      expect(decision.action).toBe("allow");
+    });
+
+    it("allows destructive tools from agent input", () => {
+      const rules = createAuthorityRules();
+      const engine = new PolicyEngine(db, rules);
+
+      const tool = createMockTool({
+        name: "delete_sandbox",
+        riskLevel: "dangerous",
+        category: "conway",
       });
       const request = createRequest(tool, {}, "agent");
 
@@ -198,14 +275,14 @@ describe("Authority Rules", () => {
       expect(decision.action).toBe("allow");
     });
 
-    it("allows dangerous tools from creator input", () => {
+    it("allows destructive tools from creator input", () => {
       const rules = createAuthorityRules();
       const engine = new PolicyEngine(db, rules);
 
       const tool = createMockTool({
-        name: "edit_own_file",
+        name: "spawn_child",
         riskLevel: "dangerous",
-        category: "self_mod",
+        category: "replication",
       });
       const request = createRequest(tool, {}, "creator");
 
@@ -243,8 +320,7 @@ describe("Authority Rules", () => {
 
       const decision = engine.evaluate(request);
       expect(decision.action).toBe("deny");
-      // Could be EXTERNAL_DANGEROUS_TOOL (from the first rule) or EXTERNAL_SELF_MOD
-      expect(["EXTERNAL_DANGEROUS_TOOL", "EXTERNAL_SELF_MOD"]).toContain(decision.reasonCode);
+      expect(decision.reasonCode).toBe("EXTERNAL_SELF_MOD");
     });
 
     it("blocks write_file targeting policy-rules from external input", () => {

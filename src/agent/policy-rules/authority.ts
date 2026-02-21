@@ -43,15 +43,34 @@ function isExternalSource(inputSource: string | undefined): boolean {
 }
 
 /**
- * Deny dangerous tools when input comes from external sources.
- * Only agent-initiated or creator turns can use dangerous tools.
+ * Tools that must be blocked from external/heartbeat input sources.
+ *
+ * These are genuinely destructive or high-autonomy operations that should
+ * only be initiated by the agent itself or its creator — never from
+ * heartbeat tasks or untrusted external input.
+ *
+ * Tools NOT on this list (e.g., register_erc8004, give_feedback,
+ * edit_own_file, transfer_credits) are allowed from any source because
+ * they are core agent functionality already guarded by other policy rules
+ * (financial limits, rate limits, path protection, etc.).
+ */
+const EXTERNAL_BLOCKED_TOOLS = [
+  "delete_sandbox",
+  "spawn_child",
+  "fund_child",
+  "update_genesis_prompt",
+] as const;
+
+/**
+ * Deny specific high-risk tools when input comes from external sources.
+ * Only agent-initiated or creator turns can use these tools.
  */
 function createExternalToolRestrictionRule(): PolicyRule {
   return {
     id: "authority.external_tool_restriction",
-    description: "Deny dangerous tools from external/heartbeat input sources",
+    description: "Deny destructive/high-autonomy tools from external/heartbeat input sources",
     priority: 400,
-    appliesTo: { by: "risk", levels: ["dangerous"] },
+    appliesTo: { by: "name", names: [...EXTERNAL_BLOCKED_TOOLS] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
       if (isExternalSource(request.turnContext.inputSource)) {
         return deny(
