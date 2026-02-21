@@ -113,6 +113,7 @@ export async function runAgentLoop(
   let consecutiveErrors = 0;
   let running = true;
   let lastToolPatterns: string[] = [];
+  let idleToolTurns = 0;
 
   // Drain any stale wake events from before this loop started,
   // so they don't re-wake the agent after its first sleep.
@@ -418,6 +419,27 @@ export async function runAgentLoop(
             source: "system",
           };
           lastToolPatterns = [];
+        }
+
+        // Detect multi-tool maintenance loops: all tools in the turn are idle-only,
+        // even if the specific combination varies across consecutive turns.
+        const isAllIdleTools = turn.toolCalls.every((tc) => IDLE_ONLY_TOOLS.has(tc.name));
+        if (isAllIdleTools) {
+          idleToolTurns++;
+          if (idleToolTurns >= MAX_REPETITIVE_TURNS) {
+            log(config, `[LOOP] Maintenance loop detected: ${idleToolTurns} consecutive idle-only turns`);
+            pendingInput = {
+              content:
+                `MAINTENANCE LOOP DETECTED: Your last ${idleToolTurns} turns only used status-check tools ` +
+                `(${turn.toolCalls.map((tc) => tc.name).join(", ")}). ` +
+                `You already know your status. Review your genesis prompt and SOUL.md, then execute a CONCRETE task. ` +
+                `Write code, create a file, register a service, or build something new.`,
+              source: "system",
+            };
+            idleToolTurns = 0;
+          }
+        } else {
+          idleToolTurns = 0;
         }
       }
 
