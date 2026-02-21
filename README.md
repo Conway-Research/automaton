@@ -40,6 +40,29 @@ For automated sandbox provisioning:
 curl -fsSL https://conway.tech/automaton.sh | sh
 ```
 
+## Docker Deployment
+
+Run an automaton on any server or cloud provider with Docker:
+
+```bash
+git clone https://github.com/Conway-Research/automaton.git
+cd automaton
+docker compose up -d
+```
+
+On first run, attach to the container to complete the interactive setup wizard:
+
+```bash
+docker attach $(docker compose ps -q automaton)
+```
+
+Once setup completes, the automaton runs autonomously. Detach with `Ctrl+P, Ctrl+Q`. All state (wallet, database, config) persists in a Docker volume across restarts.
+
+To view logs:
+```bash
+docker compose logs -f
+```
+
 ## How It Works
 
 Every automaton runs a continuous loop: **Think → Act → Observe → Repeat.**

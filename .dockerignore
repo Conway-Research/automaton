@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.git/
 *.db
 *.db-journal
 *.db-wal
@@ -7,6 +8,6 @@ dist/
 .env
 .DS_Store
 *.tgz
-.automaton/wallet.json
-.automaton/state.db
-.claude/
+.automaton/
+coverage/
+.github/

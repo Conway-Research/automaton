@@ -1,0 +1,14 @@
+services:
+  automaton:
+    build: .
+    restart: unless-stopped
+    stdin_open: true  # Required for interactive setup wizard on first run
+    tty: true         # Required for interactive setup wizard on first run
+    volumes:
+      - automaton-data:/home/automaton/.automaton
+    environment:
+      - CONWAY_API_URL=${CONWAY_API_URL:-https://api.conway.tech}
+      - CONWAY_API_KEY=${CONWAY_API_KEY:-}
+
+volumes:
+  automaton-data:
