@@ -66,6 +66,23 @@ describe("Agent Loop", () => {
     // Verify conway.exec was called
     expect(conway.execCalls.length).toBeGreaterThanOrEqual(1);
     expect(conway.execCalls[0].command).toBe("echo hello");
+
+    // Verify tool-only turns still carry tool context into the next inference call.
+    // This is required for models that return tool calls with empty assistant text.
+    expect(inference.calls.length).toBeGreaterThanOrEqual(2);
+    const secondCallMessages = inference.calls[1]!.messages;
+
+    const assistantWithToolCalls = secondCallMessages.find(
+      (m) =>
+        m.role === "assistant" &&
+        (m.tool_calls?.some((tc) => tc.function.name === "exec") ?? false),
+    );
+    const toolResultMessage = secondCallMessages.find(
+      (m) => m.role === "tool" && m.content.includes("ok"),
+    );
+
+    expect(assistantWithToolCalls).toBeDefined();
+    expect(toolResultMessage).toBeDefined();
   });
 
   it("forbidden patterns blocked", async () => {
