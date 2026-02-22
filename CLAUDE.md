@@ -116,6 +116,41 @@ The gwi-bridge skill uses `curl -sf -X POST ${MOAT_GATEWAY_URL}/execute/{capabil
 
 Policy engine enforces: scope checks, daily budget limits, domain allowlists, approval requirements. Default-deny — unregistered capabilities are blocked.
 
+### HTTP Proxy via Moat
+
+All outbound HTTP is routed through Moat's `http.proxy` capability. The scout has **zero direct internet access** — DNS is disabled in the container. The `moatFetch()` helper (`src/landscape/moat-fetch.ts`) wraps all HTTP calls.
+
+**Header**: `X-Tenant-ID: automaton` (required when Moat auth is disabled)
+
+**11 Allowlisted Domains**:
+
+| Domain | Purpose |
+|--------|---------|
+| `api.github.com` | GitHub Issues/bounty labels |
+| `github.com` | GitHub web scraping fallback |
+| `api.algora.io` | Algora bounty platform API |
+| `console.algora.io` | Algora bounty listings |
+| `gitcoin.co` | Gitcoin grants/bounties |
+| `indexer.gitcoin.co` | Gitcoin data indexer |
+| `api.immunefi.com` | Immunefi Web3 security bounties |
+| `immunefi.com` | Immunefi listings |
+| `code4rena.com` | Code4rena audit contests |
+| `api.sherlock.xyz` | Sherlock audit competitions |
+| `app.hats.finance` | Hats Finance bug bounties |
+
+### Bounty Scanners (6)
+
+The landscape scanner (`src/landscape/scanner.ts`) runs 6 concurrent scanners every 30 minutes:
+
+| Scanner | Source | What It Finds |
+|---------|--------|---------------|
+| GitHub Bounties | `api.github.com` | Issues with bounty/reward labels across top repos |
+| Algora | `console.algora.io` | Active bounties with USD rewards |
+| Gitcoin | `gitcoin.co` | Active grants rounds and bounties |
+| Web3 Audits | `immunefi.com`, `code4rena.com`, `api.sherlock.xyz`, `app.hats.finance` | Smart contract audit contests and bug bounties |
+| ERC-8004 Jobs | Moat `erc8004.*` capabilities | On-chain job postings for registered agents |
+| ERC-8004 Network | Moat `erc8004.*` capabilities | Agent network opportunities |
+
 ## Conventions
 
 - **Commit format**: `<type>(<scope>): <subject>`
