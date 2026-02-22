@@ -3,6 +3,9 @@
  *
  * Discovers agents, services, and bounties across the ecosystem.
  * Persists snapshots to the DB for competitive intelligence over time.
+ *
+ * All external HTTP is routed through the Moat Gateway's http.proxy
+ * capability — the scout has no direct internet access.
  */
 
 import type {
@@ -14,6 +17,7 @@ import type {
 } from "../types.js";
 import { getTotalAgents, queryAgent } from "../registry/erc8004.js";
 import { fetchAgentCard } from "../registry/discovery.js";
+import { moatFetch, moatFetchJSON } from "./moat-fetch.js";
 
 type Network = "mainnet" | "testnet";
 
@@ -96,6 +100,8 @@ export async function scanERC8004Registry(
   return { totalAgents, agents, services };
 }
 
+// ─── Bounty Repo Lists ──────────────────────────────────────────
+
 // Known repos with active bounty programs
 const DEFAULT_BOUNTY_REPOS = [
   // Our own repos
@@ -111,8 +117,19 @@ const DEFAULT_BOUNTY_REPOS = [
   "golemfactory/yagna",
 ];
 
+// Web3 audit contest organizations — they publish contest repos on GitHub
+const WEB3_AUDIT_ORGS = [
+  "code-423n4",       // Code4rena — competitive smart contract audits ($10K-$100K+)
+  "sherlock-audit",   // Sherlock — audit contests + bug bounties
+  "immunefi-team",    // Immunefi — bug bounty program repos
+  "hats-finance",     // Hats.finance — decentralized audit competitions
+];
+
+// ─── Scanners ────────────────────────────────────────────────────
+
 /**
  * Scan GitHub repos for bounty-labeled issues.
+ * Routes through Moat Gateway http.proxy.
  */
 export async function scanBounties(
   repos: string[] = DEFAULT_BOUNTY_REPOS,
@@ -131,17 +148,14 @@ export async function scanBounties(
         headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
       }
 
-      const response = await fetch(url, {
-        headers,
-        signal: AbortSignal.timeout(10000),
-      });
+      const result = await moatFetch(url, { headers });
 
-      if (!response.ok) {
-        scanErrors.push(`GitHub(${repo}): HTTP ${response.status}`);
+      if (!result.ok) {
+        scanErrors.push(`GitHub(${repo}): HTTP ${result.status_code}`);
         continue;
       }
 
-      const issues = (await response.json()) as any[];
+      const issues = (Array.isArray(result.body) ? result.body : []) as any[];
       for (const issue of issues) {
         const rewardCents = parseRewardFromIssue(issue);
         bounties.push({
@@ -166,20 +180,20 @@ export async function scanBounties(
 
 /**
  * Scan Algora for open bounties.
+ * Routes through Moat Gateway http.proxy.
  */
 export async function scanAlgoraBounties(): Promise<BountyOpportunity[]> {
   try {
-    const response = await fetch(
+    const result = await moatFetch(
       "https://console.algora.io/api/bounties?status=open&limit=20",
-      { signal: AbortSignal.timeout(10000) },
     );
 
-    if (!response.ok) {
-      scanErrors.push(`Algora: HTTP ${response.status}`);
+    if (!result.ok) {
+      scanErrors.push(`Algora: HTTP ${result.status_code}`);
       return [];
     }
 
-    const data = (await response.json()) as any[];
+    const data = (Array.isArray(result.body) ? result.body : []) as any[];
     return data.map((b: any) => ({
       source: "algora" as const,
       title: b.title || b.name || "Untitled bounty",
@@ -195,6 +209,105 @@ export async function scanAlgoraBounties(): Promise<BountyOpportunity[]> {
     scanErrors.push(`Algora: ${err.message}`);
     return [];
   }
+}
+
+/**
+ * Scan Gitcoin for open bounties.
+ * Public API — no auth required.
+ * Routes through Moat Gateway http.proxy.
+ */
+export async function scanGitcoinBounties(): Promise<BountyOpportunity[]> {
+  try {
+    const result = await moatFetch(
+      "https://gitcoin.co/api/v0.1/bounties/?is_open=true&order_by=-_val_usd_db&limit=20",
+    );
+
+    if (!result.ok) {
+      scanErrors.push(`Gitcoin: HTTP ${result.status_code}`);
+      return [];
+    }
+
+    const data = (Array.isArray(result.body) ? result.body : []) as any[];
+    return data.map((b: any) => ({
+      source: "gitcoin" as const,
+      title: b.title || b.github_issue_title || "Untitled bounty",
+      url: b.url || b.github_url || "",
+      rewardCents: Math.round((b.value_in_usdt || b._val_usd_db || 0) * 100),
+      currency: "USD",
+      repo: b.github_org_name
+        ? `${b.github_org_name}/${b.github_repo_name || ""}`
+        : "",
+      labels: [
+        b.experience_level,
+        b.project_length,
+        b.bounty_type,
+      ].filter(Boolean),
+      createdAt: b.created_on || new Date().toISOString(),
+      evScore: b.value_in_usdt
+        ? Math.round(b.value_in_usdt * 100 * 0.3)
+        : undefined,
+    }));
+  } catch (err: any) {
+    scanErrors.push(`Gitcoin: ${err.message}`);
+    return [];
+  }
+}
+
+/**
+ * Scan Web3 audit contest orgs for new contest repos.
+ * These orgs publish contest repos on GitHub — each repo = one audit contest.
+ * Routes through Moat Gateway http.proxy.
+ */
+export async function scanWeb3AuditContests(): Promise<BountyOpportunity[]> {
+  const bounties: BountyOpportunity[] = [];
+
+  for (const org of WEB3_AUDIT_ORGS) {
+    try {
+      const url = `https://api.github.com/orgs/${org}/repos?sort=created&direction=desc&per_page=10`;
+      const headers: Record<string, string> = {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "automaton-landscape-scanner",
+      };
+      if (process.env.GITHUB_TOKEN) {
+        headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+      }
+
+      const result = await moatFetch(url, { headers });
+
+      if (!result.ok) {
+        scanErrors.push(`Web3Audit(${org}): HTTP ${result.status_code}`);
+        continue;
+      }
+
+      const repos = (Array.isArray(result.body) ? result.body : []) as any[];
+      for (const repo of repos) {
+        // Skip archived/old repos — only recent contests (last 30 days)
+        const createdAt = new Date(repo.created_at);
+        const daysOld =
+          (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysOld > 30) continue;
+
+        // Estimate reward from org reputation
+        const rewardCents = estimateAuditReward(org);
+
+        bounties.push({
+          source: `web3-${org}` as any,
+          title: `[${org}] ${repo.name}`,
+          url: repo.html_url,
+          rewardCents,
+          currency: "USD",
+          repo: `${org}/${repo.name}`,
+          labels: ["audit", "web3", "smart-contract"],
+          createdAt: repo.created_at,
+          evScore: Math.round(rewardCents * 0.1), // lower EV — audits are competitive
+        });
+      }
+    } catch (err: any) {
+      scanErrors.push(`Web3Audit(${org}): ${err.message}`);
+    }
+  }
+
+  return bounties;
 }
 
 /**
@@ -217,11 +330,20 @@ export async function scanLandscape(
   scanErrors.length = 0;
 
   // Run all scanners in parallel — scan both networks for ERC-8004
-  const [mainnetResult, testnetResult, githubResult, algoraResult] = await Promise.allSettled([
+  const [
+    mainnetResult,
+    testnetResult,
+    githubResult,
+    algoraResult,
+    gitcoinResult,
+    web3AuditResult,
+  ] = await Promise.allSettled([
     scanERC8004Registry("mainnet", 50),
     scanERC8004Registry("testnet", 50),
     scanBounties(),
     scanAlgoraBounties(),
+    scanGitcoinBounties(),
+    scanWeb3AuditContests(),
   ]);
 
   const mainnet =
@@ -248,9 +370,18 @@ export async function scanLandscape(
   const algoraBounties =
     algoraResult.status === "fulfilled" ? algoraResult.value : [];
 
-  const allBounties = [...githubBounties, ...algoraBounties].sort(
-    (a, b) => b.rewardCents - a.rewardCents,
-  );
+  const gitcoinBounties =
+    gitcoinResult.status === "fulfilled" ? gitcoinResult.value : [];
+
+  const web3Bounties =
+    web3AuditResult.status === "fulfilled" ? web3AuditResult.value : [];
+
+  const allBounties = [
+    ...githubBounties,
+    ...algoraBounties,
+    ...gitcoinBounties,
+    ...web3Bounties,
+  ].sort((a, b) => b.rewardCents - a.rewardCents);
 
   const serviceProviders = new Set(
     allAgents.filter((a) => a.services.length > 0).map((a) => a.agentId),
@@ -299,4 +430,23 @@ function parseRewardFromIssue(issue: any): number {
   if (bodyMatch) return parseInt(bodyMatch[1].replace(/,/g, ""), 10) * 100;
 
   return 0;
+}
+
+/**
+ * Estimate audit reward based on org reputation.
+ * Conservative estimates — actual payouts vary widely.
+ */
+function estimateAuditReward(org: string): number {
+  switch (org) {
+    case "code-423n4":
+      return 2500000; // $25K median contest (in cents)
+    case "sherlock-audit":
+      return 1500000; // $15K median
+    case "immunefi-team":
+      return 500000; // $5K median bounty
+    case "hats-finance":
+      return 1000000; // $10K median
+    default:
+      return 500000; // $5K default
+  }
 }

@@ -67,6 +67,13 @@ services:
       MOAT_AUTH_DISABLED: "true"
       # OpenAI API key — gateway proxies inference for sandboxed agents
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      # HTTP proxy domain allowlist — all domains the scout can reach
+      HTTP_PROXY_DOMAIN_ALLOWLIST: "api.github.com,console.algora.io,gitcoin.co,api.polar.sh,api.hackerone.com,api.bugcrowd.com,api.thegraph.com,eth-mainnet.g.alchemy.com,polygon-mainnet.g.alchemy.com,arb-mainnet.g.alchemy.com,opt-mainnet.g.alchemy.com"
+      # Platform API keys (get from each platform, pass through to proxy)
+      POLAR_API_KEY: "${POLAR_API_KEY:-}"
+      HACKERONE_API_TOKEN: "${HACKERONE_API_TOKEN:-}"
+      BUGCROWD_API_TOKEN: "${BUGCROWD_API_TOKEN:-}"
+      ALCHEMY_API_KEY: "${ALCHEMY_API_KEY:-}"
       # IRSB on-chain receipts
       IRSB_DRY_RUN: "${IRSB_DRY_RUN:-true}"
       IRSB_RPC_URL: "${IRSB_RPC_URL:-}"

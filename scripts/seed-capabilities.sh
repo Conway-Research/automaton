@@ -43,6 +43,9 @@ register "github.api"         "GitHub REST API access"             "github"
 register "openai.inference"   "OpenAI model inference"             "openai"
 register "irsb.receipt"       "IRSB on-chain receipt submission"   "irsb-sepolia"
 
+# Generic HTTPS proxy (domain-allowlisted)
+register "http.proxy"         "Generic HTTPS proxy with domain allowlist" "http_proxy"
+
 echo ""
 echo "Verifying registration..."
 curl -s "${CP}/capabilities" | python3 -m json.tool 2>/dev/null || curl -s "${CP}/capabilities"
