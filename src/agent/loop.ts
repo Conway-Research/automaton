@@ -234,9 +234,24 @@ export async function runAgentLoop(
         return t.toolCalls.some((tc) => !IDLE_ONLY_TOOLS.has(tc.name));
       });
       // Keep at least the last 2 turns for continuity, even if idle
-      const recentTurns = trimContext(
-        meaningfulTurns.length > 0 ? meaningfulTurns : allTurns.slice(-2),
-      );
+      let contextTurns;
+      if (meaningfulTurns.length > 0) {
+        contextTurns = meaningfulTurns;
+      } else {
+        // Deep fallback: when ALL recent turns are idle-only, scan further back
+        // for productive context so the model has something to reference
+        const extendedTurns = db.getRecentTurns(100);
+        const productiveTurns = extendedTurns.filter((t) =>
+          t.toolCalls.length > 0 &&
+          t.toolCalls.some((tc) => !IDLE_ONLY_TOOLS.has(tc.name)),
+        );
+        const historicalProductive = productiveTurns.slice(0, 5);
+        const recentAnchor = allTurns.slice(-2);
+        contextTurns = historicalProductive.length > 0
+          ? [...historicalProductive, ...recentAnchor]
+          : recentAnchor;  // Ultimate fallback: same as current behavior
+      }
+      const recentTurns = trimContext(contextTurns);
       const systemPrompt = buildSystemPrompt({
         identity,
         config,
@@ -254,6 +269,10 @@ export async function runAgentLoop(
         const sessionId = db.getKV("session_id") || "default";
         const retriever = new MemoryRetriever(db.raw, DEFAULT_MEMORY_BUDGET);
         const memories = retriever.retrieve(sessionId, pendingInput?.content);
+        // Filter maintenance/idle episodic entries to prevent loop reinforcement
+        memories.episodicMemory = memories.episodicMemory.filter(
+          (e) => e.classification !== "maintenance" && e.classification !== "idle",
+        );
         if (memories.totalTokens > 0) {
           memoryBlock = formatMemoryBlock(memories);
         }

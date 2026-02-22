@@ -48,7 +48,11 @@ export class MemoryRetriever {
       // Fetch raw memories from each tier
       const workingEntries = this.working.getBySession(sessionId);
 
-      const episodicEntries = this.episodic.getRecent(sessionId, 20);
+      const rawEpisodicEntries = this.episodic.getRecent(sessionId, 20);
+      // Filter maintenance/idle entries to prevent loop reinforcement
+      const episodicEntries = rawEpisodicEntries.filter(
+        (e) => e.classification !== "maintenance" && e.classification !== "idle",
+      );
 
       // For semantic and procedural, use current input as search query if available
       const semanticEntries = currentInput

@@ -576,7 +576,7 @@ describe("MemoryRetriever", () => {
     const sm = new SemanticMemoryManager(db);
 
     wm.add({ sessionId: "s1", content: "Goal: deploy app", contentType: "goal", priority: 0.9 });
-    ep.record({ sessionId: "s1", eventType: "tool:exec", summary: "Ran build", outcome: "success" });
+    ep.record({ sessionId: "s1", eventType: "tool:exec", summary: "Ran build", outcome: "success", classification: "productive" });
     sm.store({ category: "self", key: "name", value: "TestBot", source: "s1" });
 
     const retriever = new MemoryRetriever(db);

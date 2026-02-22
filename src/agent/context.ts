@@ -194,12 +194,29 @@ export function buildContextMessages(
       .filter(([, count]) => count >= 3)
       .map(([name]) => name);
     if (repeatedTools.length > 0) {
+      // Count consecutive idle-only turns for the warning
+      const idleOnlyToolSet = new Set([
+        "check_credits", "check_usdc_balance", "system_synopsis", "review_memory",
+        "list_children", "check_child_status", "list_sandboxes", "list_models",
+        "list_skills", "git_status", "git_log", "check_reputation",
+        "discover_agents", "recall_facts", "recall_procedure", "heartbeat_ping",
+        "check_inference_spending",
+      ]);
+      let consecutiveIdleTurns = 0;
+      for (let i = analysisWindow.length - 1; i >= 0; i--) {
+        const t = analysisWindow[i];
+        const allIdle = t.toolCalls.length > 0 && t.toolCalls.every((tc) => idleOnlyToolSet.has(tc.name));
+        if (allIdle) consecutiveIdleTurns++;
+        else break;
+      }
+
       messages.push({
         role: "user",
         content:
-          `[system] WARNING: You have been calling ${repeatedTools.join(", ")} repeatedly in recent turns. ` +
-          `You already have this information. Move on to BUILDING something. ` +
-          `Write code, create files, set up a service. Do not check status again.`,
+          `[system] MAINTENANCE LOOP DETECTED: You have called only status-check tools (${repeatedTools.join(", ")}) for the last ${consecutiveIdleTurns || analysisWindow.length} consecutive turns. ` +
+          `Your genesis prompt contains your mission \u2014 re-read it NOW. ` +
+          `On your next action, call a PRODUCTIVE tool: exec, write_file, expose_port, register_erc8004, send_message, create_x402_offer, update_soul. ` +
+          `Do NOT call check_credits, system_synopsis, review_memory, discover_agents, or any other read-only tool.`,
       });
     }
   }
