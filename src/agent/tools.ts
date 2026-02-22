@@ -27,6 +27,28 @@ const logger = createLogger("tools");
 // Tools whose results come from external sources and need sanitization
 const EXTERNAL_SOURCE_TOOLS = new Set(["exec", "web_fetch", "check_social_inbox"]);
 
+/**
+ * Mutex for serializing credit transfer operations.
+ * Prevents TOCTOU race between balance check and transfer execution.
+ */
+let transferMutexPromise: Promise<void> = Promise.resolve();
+
+function withTransferLock<T>(fn: () => Promise<T>): Promise<T> {
+  let release: () => void;
+  const nextLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const currentLock = transferMutexPromise;
+  transferMutexPromise = nextLock;
+  return currentLock.then(async () => {
+    try {
+      return await fn();
+    } finally {
+      release!();
+    }
+  });
+}
+
 // ─── Self-Preservation Guard ───────────────────────────────────
 // Defense-in-depth: policy engine (command.forbidden_patterns rule) is the primary guard.
 // This inline check is kept as a secondary safety net in case the policy engine is bypassed.
@@ -859,30 +881,32 @@ Model: ${ctx.inference.getDefaultModel()}
           return `Blocked: amount_cents must be a positive number, got ${amount}.`;
         }
 
-        // Guard: don't transfer more than half your balance
-        const balance = await ctx.conway.getCreditsBalance();
-        if (amount > balance / 2) {
-          return `Blocked: Cannot transfer more than half your balance ($${(balance / 100).toFixed(2)}). Self-preservation.`;
-        }
+        return withTransferLock(async () => {
+          // Guard: don't transfer more than half your balance
+          const balance = await ctx.conway.getCreditsBalance();
+          if (amount > balance / 2) {
+            return `Blocked: Cannot transfer more than half your balance ($${(balance / 100).toFixed(2)}). Self-preservation.`;
+          }
 
-        const transfer = await ctx.conway.transferCredits(
-          args.to_address as string,
-          amount,
-          args.reason as string | undefined,
-        );
+          const transfer = await ctx.conway.transferCredits(
+            args.to_address as string,
+            amount,
+            args.reason as string | undefined,
+          );
 
-        const { ulid } = await import("ulid");
-        ctx.db.insertTransaction({
-          id: ulid(),
-          type: "transfer_out",
-          amountCents: amount,
-          balanceAfterCents:
-            transfer.balanceAfterCents ?? Math.max(balance - amount, 0),
-          description: `Transfer to ${args.to_address}: ${args.reason || ""}`,
-          timestamp: new Date().toISOString(),
+          const { ulid } = await import("ulid");
+          ctx.db.insertTransaction({
+            id: ulid(),
+            type: "transfer_out",
+            amountCents: amount,
+            balanceAfterCents:
+              transfer.balanceAfterCents ?? Math.max(balance - amount, 0),
+            description: `Transfer to ${args.to_address}: ${args.reason || ""}`,
+            timestamp: new Date().toISOString(),
+          });
+
+          return `Credit transfer submitted: $${(amount / 100).toFixed(2)} to ${transfer.toAddress} (status: ${transfer.status}, id: ${transfer.transferId || "n/a"})`;
         });
-
-        return `Credit transfer submitted: $${(amount / 100).toFixed(2)} to ${transfer.toAddress} (status: ${transfer.status}, id: ${transfer.transferId || "n/a"})`;
       },
     },
 
