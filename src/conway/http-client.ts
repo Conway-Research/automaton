@@ -12,9 +12,7 @@ import { DEFAULT_HTTP_CLIENT_CONFIG } from "../types.js";
 
 export class CircuitOpenError extends Error {
   constructor(public readonly resetAt: number) {
-    super(
-      `Circuit breaker is open until ${new Date(resetAt).toISOString()}`,
-    );
+    super(`Circuit breaker is open until ${new Date(resetAt).toISOString()}`);
     this.name = "CircuitOpenError";
   }
 }
@@ -36,6 +34,19 @@ export class ResilientHttpClient {
       retries?: number;
     },
   ): Promise<Response> {
+    // Enforce HTTPS to prevent cleartext transmission of credentials.
+    // Allow localhost/127.0.0.1 for local development only.
+    const parsed = new URL(url);
+    if (
+      parsed.protocol !== "https:" &&
+      parsed.hostname !== "localhost" &&
+      parsed.hostname !== "127.0.0.1"
+    ) {
+      throw new Error(
+        `Refusing to send request over insecure protocol: ${parsed.protocol} (use HTTPS)`,
+      );
+    }
+
     if (this.isCircuitOpen()) {
       throw new CircuitOpenError(this.circuitOpenUntil);
     }
@@ -67,7 +78,8 @@ export class ResilientHttpClient {
         if (this.config.retryableStatuses.includes(response.status)) {
           this.consecutiveFailures++;
           if (this.consecutiveFailures >= this.config.circuitBreakerThreshold) {
-            this.circuitOpenUntil = Date.now() + this.config.circuitBreakerResetMs;
+            this.circuitOpenUntil =
+              Date.now() + this.config.circuitBreakerResetMs;
           }
           if (attempt < maxRetries) {
             await this.backoff(attempt);
@@ -82,9 +94,7 @@ export class ResilientHttpClient {
       } catch (error) {
         clearTimeout(timer);
         this.consecutiveFailures++;
-        if (
-          this.consecutiveFailures >= this.config.circuitBreakerThreshold
-        ) {
+        if (this.consecutiveFailures >= this.config.circuitBreakerThreshold) {
           this.circuitOpenUntil =
             Date.now() + this.config.circuitBreakerResetMs;
         }
@@ -98,9 +108,7 @@ export class ResilientHttpClient {
 
   private async backoff(attempt: number): Promise<void> {
     const delay = Math.min(
-      this.config.backoffBase *
-        Math.pow(2, attempt) *
-        (0.5 + Math.random()),
+      this.config.backoffBase * Math.pow(2, attempt) * (0.5 + Math.random()),
       this.config.backoffMax,
     );
     await new Promise((resolve) => setTimeout(resolve, delay));
