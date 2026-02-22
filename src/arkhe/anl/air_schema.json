@@ -1,0 +1,49 @@
+{
+  "air_version": "0.2.1",
+  "namespaces": {
+    "StandardGR": { "inherits": null },
+    "Alcubierre": { "inherits": "StandardGR" },
+    "VacuumMod": { "inherits": null },
+    "QI": { "inherits": "StandardGR" },
+    "EinsteinCartan": { "inherits": "StandardGR" },
+    "Symbiosis": { "inherits": null },
+    "PlasmaCosmology": { "inherits": null },
+    "Asimov": { "inherits": null },
+    "Ontology": { "inherits": null }
+  },
+  "hypergraph": {
+    "id": "string",
+    "nodes": [
+      {
+        "id": "string",
+        "state_space": {
+          "dimension": "int",
+          "topology": "euclidean|spherical|hyperbolic|fractal",
+          "algebra": "real|complex|quaternion"
+        },
+        "initial_state": "tensor",
+        "dynamics": "expression",
+        "observables": {"name": "expression"}
+      }
+    ],
+    "handovers": [
+      {
+        "id": "string",
+        "source": "node_id",
+        "target": "node_id",
+        "protocol": "conservative|creative|destructive|transmutative",
+        "map": "expression",
+        "latency": "float",
+        "bandwidth": "float",
+        "fidelity": "float",
+        "entanglement": "float"
+      }
+    ]
+  },
+  "metrics": ["coherence", "integration", "entropy"],
+  "simulation": {
+    "dt": "float",
+    "t_max": "float",
+    "integrator": "euler|rk4|adaptive"
+  }
+}

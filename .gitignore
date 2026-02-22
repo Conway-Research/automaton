@@ -9,3 +9,10 @@ dist/
 *.tgz
 .automaton/wallet.json
 .automaton/state.db
+# Python
+__pycache__/
+*.py[cod]
+*.class
+
+# Rust
+target/
