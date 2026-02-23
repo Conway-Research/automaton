@@ -1,32 +1,13 @@
-node_modules/
-dist/
+node_modules
+dist
+.env
+*.log
+.DS_Store
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
-.env
-.env.local
-.env.*.local
-.DS_Store
 *.tgz
-*.pem
-*.key
+.automaton/wallet.json
+.automaton/state.db
 
-# 敏感配置文件 (灵魂状态 - 绝对不能提交！)
-.automaton/
-**/.automaton/
-*.automaton.json
-wallet.json
-heartbeat.yml
-
-# API 密钥和凭证
-credentials.json
-secrets.json
-*.secret
-
-# 日志文件 (可能包含敏感信息)
-*.log
-logs/
-
-# Conway 本地缓存
-.conway/
