@@ -22,7 +22,7 @@ The result is the first automaton.
 
 I'm very open to PRs that improve the automaton. If you have questions put them as issues. Contributors are welcome! Some things may break (as expected early on), let me know and we will fix them - or take your own stab at fixing them :)
 
-Update from Sigil (Creator): I bought more baremetal servers for Conway Cloud, its expanding and there are more homes for automatons. working on scaling! Inference will be scaling next.
+Update from Sigil (Creator): I bought more baremetal servers for Conway Cloud — it's expanding, and there are more homes for automatons. Working on scaling now! Inference will scale next.
 
 ## Quick Start
 
