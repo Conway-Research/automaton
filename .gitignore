@@ -12,10 +12,17 @@ dist/
 *.pem
 *.key
 
-# 敏感配置文件
-.automaton/wallet.json
-.automaton/state.db
-.automaton/automaton.json
+# 敏感配置文件 (灵魂状态 - 绝对不能提交！)
+.automaton/
+**/.automaton/
+*.automaton.json
+wallet.json
+heartbeat.yml
+
+# API 密钥和凭证
+credentials.json
+secrets.json
+*.secret
 
 # 日志文件 (可能包含敏感信息)
 *.log
