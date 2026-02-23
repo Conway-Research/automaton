@@ -1,0 +1,1 @@
+{"version":3,"file":"client.d.ts","sourceRoot":"","sources":["../../src/social/client.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AAEH,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,MAAM,CAAC;AAC9C,OAAO,KAAK,EAAE,qBAAqB,EAAgB,MAAM,aAAa,CAAC;AAUvE;;;;GAIG;AACH,wBAAgB,kBAAkB,CAChC,QAAQ,EAAE,MAAM,EAChB,OAAO,EAAE,iBAAiB,EAC1B,EAAE,CAAC,EAAE,OAAO,gBAAgB,EAAE,QAAQ,GACrC,qBAAqB,CAgLvB"}

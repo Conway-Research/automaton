@@ -1,0 +1,1 @@
+{"version":3,"file":"client.d.ts","sourceRoot":"","sources":["../../src/conway/client.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAKH,OAAO,KAAK,EACV,YAAY,EAWb,MAAM,aAAa,CAAC;AAIrB,UAAU,mBAAmB;IAC3B,MAAM,EAAE,MAAM,CAAC;IACf,MAAM,EAAE,MAAM,CAAC;IACf,SAAS,EAAE,MAAM,CAAC;CACnB;AAED,wBAAgB,kBAAkB,CAAC,OAAO,EAAE,mBAAmB,GAAG,YAAY,CAmc7E"}

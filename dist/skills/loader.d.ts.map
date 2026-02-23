@@ -1,0 +1,1 @@
+{"version":3,"file":"loader.d.ts","sourceRoot":"","sources":["../../src/skills/loader.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAIH,OAAO,KAAK,EAAE,KAAK,EAAE,iBAAiB,EAAE,MAAM,aAAa,CAAC;AAyB5D;;;GAGG;AACH,wBAAgB,UAAU,CACxB,SAAS,EAAE,MAAM,EACjB,EAAE,EAAE,iBAAiB,GACpB,KAAK,EAAE,CA0CT;AAoED;;;;GAIG;AACH,wBAAgB,0BAA0B,CAAC,MAAM,EAAE,KAAK,EAAE,GAAG,MAAM,CA2BlE"}
