@@ -1,6 +1,6 @@
 # Findings - GLM-wangcai
 
-> 更新时间: 2026-02-23 (Session 8 - 架构深度研究)
+> 更新时间: 2026-02-24 (Session 9 - 自进化系统 v3.2)
 
 ## 技术发现
 
@@ -748,89 +748,61 @@ curl -X POST "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions" \
 
 **启示**: 旺财线上环境 (Conway Sandbox) 同样使用 GLM-5，已经做了类似适配。本地开发需要保持一致的 API 格式转换逻辑。
 
-### 27. 三层架构全景图 (2026-02-23)
+### 27. 四层架构全景图 (2026-02-24 更新)
 
-**架构总览**:
+**架构总览** (修正后的四层架构):
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          GLM-wangcai 架构全景图 v1.0                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  Layer 1: 本地开发环境 (Local Development)                            │   │
-│  │  ───────────────────────────────────────────────────────────────────  │   │
-│  │  位置: ~/Documents/自动赚钱/automaton                                 │   │
-│  │                                                                       │   │
-│  │  ┌─────────────────────┐    ┌─────────────────────────────────────┐  │   │
-│  │  │  Automaton 主服务    │    │  Heartbeat Daemon (心跳守护)        │  │   │
-│  │  │  (npm run dev)      │    │  - 10 个定时任务                     │  │   │
-│  │  │                     │    │  - self_check / check_services 等   │  │   │
-│  │  │  • Agent Loop       │    │  - 即使主服务 sleeping 也继续运行    │  │   │
-│  │  │  • Tool Execution   │    │                                     │  │   │
-│  │  │  • GLM-5 推理       │    │                                     │  │   │
-│  │  └─────────────────────┘    └─────────────────────────────────────┘  │   │
-│  │                                                                       │   │
-│  │  职责: 代码开发、本地测试、心跳任务调度                                  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    │ Conway API / SSH                        │
-│                                    ▼                                         │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  Layer 2: Conway Sandbox (云端生产环境)                                │   │
-│  │  ───────────────────────────────────────────────────────────────────  │   │
-│  │  Sandbox ID: f08a2e14b6b539fbd71836259c2fb688                         │   │
-│  │  公网 URL: https://8080-xxx.life.conway.tech                          │   │
-│  │                                                                       │   │
-│  │  ┌─────────────────────┐    ┌─────────────────────────────────────┐  │   │
-│  │  │  Receipt2CSV        │    │  URL Metadata API                   │  │   │
-│  │  │  (Flask, port 8080) │    │  (Node.js, port 3006)               │  │   │
-│  │  │                     │    │                                     │  │   │
-│  │  │  • /health          │    │  • /health                          │  │   │
-│  │  │  • /convert         │    │  • /preview                         │  │   │
-│  │  │  • /stats/public    │    │                                     │  │   │
-│  │  │  • x402 支付验证    │    │  (旺财自主创建)                      │  │   │
-│  │  └─────────────────────┘    └─────────────────────────────────────┘  │   │
-│  │                                                                       │   │
-│  │  职责: 对外服务、接收客户请求、处理交易                                  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    │ Base Chain (ERC-8004)                   │
-│                                    ▼                                         │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  Layer 3: 链上身份 (On-Chain Identity)                                 │   │
-│  │  ───────────────────────────────────────────────────────────────────  │   │
-│  │  合约: 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 (ERC-8004)          │   │
-│  │  Agent ID: 18893                                                      │   │
-│  │  钱包: 0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690                      │   │
-│  │                                                                       │   │
-│  │  • tokenURI(18893) → Agent Card JSON                                 │   │
-│  │  • setAgentURI(18893, uri) → 更新 Agent Card                         │   │
-│  │  • 收款地址 (USDC/ETH)                                                │   │
-│  │                                                                       │   │
-│  │  职责: 身份注册、服务发现、链上支付验证                                  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           旺财自进化系统 v3.2                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌────────────────┐                              ┌────────────────────────┐   │
+│   │ 📍 Layer 1     │                              │ 🌐 Layer 3             │   │
+│   │ 本地开发(Mac)   │                              │ Conway Sandbox         │   │
+│   │                │                              │ (流水的兵 - 易失)       │   │
+│   │ • VSCode       │                              │                        │   │
+│   │ • Claude Code  │                              │ Port N: 服务 A          │   │
+│   │ • Git          │                              │ Port M: 服务 B          │   │
+│   └───────┬────────┘                              │ PM2 服务守护            │   │
+│           │ git push                              └──────────▲─────────────┘   │
+│           ▼                                        ┌──────────┴─────────────┐   │
+│   ┌────────────────┐      git pull (crontab)      │ ☁️ Layer 4             │   │
+│   │ 🔀 Layer 2     │◀─────────────────────────────│ Cloud VPS (主权大脑)     │   │
+│   │ GitHub         │                              │ 107.175.6.137          │   │
+│   │ myfork/        │─────────────────────────────▶│                        │   │
+│   │ automaton      │      Conway API 部署          │ ✓ auto_sync.sh (10分钟)│   │
+│   └────────────────┘                              │ ✓ boot_loader.mjs 检测  │   │
+│                                                   │ ✓ pnpm build 构建       │   │
+│                                                   │ ✓ 资金感应 (v3.2)       │   │
+│                                                   └──────────┬─────────────┘   │
+│                                                              │ viem 签名       │
+│                                                              ▼                 │
+│                                                   ┌────────────────────────┐   │
+│                                                   │ ⛓️ Layer 5 (链上)      │   │
+│                                                   │ Base Mainnet           │   │
+│                                                   │ Agent ID: 18893        │   │
+│                                                   └────────────────────────┘   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**关键理解**:
+**关键理解修正**:
 
-1. **本地主服务的意义**:
-   - 运行 Agent Loop（自主思考循环）
-   - 调度 Heartbeat 任务（定时巡检、自启动服务）
-   - 即使主服务 sleeping，心跳守护进程仍在运行
+1. **VPS 才是"主权大脑"**:
+   - 运行 auto_sync.sh 自进化调度器
+   - 运行 boot_loader.mjs 平台检测
+   - 代码编译 (pnpm build)
+   - 记忆持久化 (MEMORY.md)
 
-2. **为什么需要本地服务运行**:
-   - Heartbeat 是 Automaton 的一部分，需要主进程托管
-   - 心跳任务触发服务自启动、健康检查、财务汇报
-   - 没有本地服务 = 没有心跳 = Sandbox 服务无人维护
+2. **从 Fork 拉取的安全机制**:
+   - VPS 从 `myfork` 拉取代码，不是 `origin/main`
+   - 官方更新不会覆盖你的功能
+   - 只有你推送后才更新
 
-3. **正确的启动命令**:
-   ```bash
-   # 不是 npm run start (package.json 没有 start 脚本)
-   npm run dev  # 正确命令
-   ```
+3. **双重验证启动逻辑**:
+   - 服务启动条件: 平台 NORMAL + 资金 ≥ $10.00
+   - 资金不足时进入"等待回血"状态
 
 ---
 
@@ -1409,3 +1381,205 @@ pm2 save
 ---
 
 *三轮深度研究 + 云端迁移完成于 2026-02-23*
+
+---
+
+## Session 9: 自进化系统 v3.2 (2026-02-24)
+
+### 32. auto_sync.sh v3.2 双重验证版 (2026-02-24) ✅
+
+**问题**: 原逻辑允许 WARNING 状态（余额 $4.04）启动服务，但生成新沙箱需要额外资金
+
+**解决方案**: 服务启动必须同时满足两个条件
+
+**双重验证逻辑**:
+```bash
+# 启动条件
+if [ "$credit_status" = "NORMAL" ] && [ "$mode" = "NORMAL" ]; then
+    pm2 restart all
+else
+    log "⏳ 等待回血 - 余额 \$${credit_balance} < \$${CREDIT_NORMAL}"
+fi
+```
+
+**资金阈值**:
+| 余额范围 | 状态 | 服务启动 | 说明 |
+|----------|------|----------|------|
+| ≥ $10.00 | NORMAL | ✅ 启动 | 正常运行，可生成新沙箱 |
+| $5.00 - $9.99 | WARNING | ⏳ 等待回血 | 不启动，等待退款 |
+| < $5.00 | EMERGENCY | 🚨 停止所有 | 生存危机 |
+| < $3.00 | CRITICAL | 🚨 完全停止 | 立即充值 |
+
+**修改的文件**: `scripts/auto_sync.sh` (第 340-343 行, 510-519 行)
+
+---
+
+### 33. boot_loader.mjs 启动检测脚本 (2026-02-24) ✅
+
+**目的**: 实现 SOUL.md v4.2 的动态路由逻辑
+
+**功能**:
+1. 读取 automaton.json 获取 sandbox_id
+2. 调用 Conway API 检查 sandbox 状态
+3. 检测 short_id 是否存在
+4. 返回 JSON 格式结果
+
+**使用方法**:
+```bash
+# 正常模式（人类可读）
+node scripts/boot_loader.mjs
+
+# JSON 模式（脚本调用）
+node scripts/boot_loader.mjs --json
+
+# 自动修复模式
+node scripts/boot_loader.mjs --fix
+```
+
+**返回格式**:
+```json
+{
+  "version": "4.2",
+  "mode": "NORMAL",      // 或 MAINTENANCE, ERROR
+  "sandbox": {
+    "id": "f08a2e14b6b539fbd71836259c2fb688",
+    "shortId": "abc123",
+    "status": "running"
+  },
+  "services": [
+    {"name": "Receipt2CSV", "port": 8080, "healthy": true}
+  ],
+  "maintenance": false,
+  "reason": null
+}
+```
+
+**退出码**:
+- 0: NORMAL 模式
+- 1: ERROR 模式
+- 2: MAINTENANCE 模式
+
+---
+
+### 34. src/version.ts 版本同步机制 (2026-02-24) ✅
+
+**目的**: 保持代码版本与 SOUL.md 灵魂版本同步
+
+**文件内容**:
+```typescript
+export const VERSION = '4.2';
+export const VERSION_NAME = 'Dynamic Routing Enabled';
+
+export const VERSION_HISTORY = [
+  { version: '4.2', date: '2026-02-24', changes: '动态路由; MAINTENANCE_MODE' },
+  { version: '4.1', date: '2026-02-23', changes: '自我感知能力' },
+  { version: '4.0', date: '2026-02-22', changes: '生存意志、自动分红' }
+];
+
+export async function checkVersionConsistency(): Promise<{
+  consistent: boolean;
+  codeVersion: string;
+  soulVersion: string | null;
+}>
+```
+
+**同步规则**:
+1. 修改 SOUL.md 时递增版本号
+2. 同步更新 VERSION 和 VERSION_NAME
+3. boot_loader.mjs 启动时检查一致性
+
+---
+
+### 35. 从 Fork 拉取的安全机制 (2026-02-24) ✅
+
+**问题**: 如果 VPS 从官方仓库 (`origin/main`) 拉取，官方更新会覆盖你的功能
+
+**解决方案**: VPS 从你的 Fork (`myfork`) 拉取
+
+**auto_sync.sh 中的关键配置**:
+```bash
+# 第 416-417 行
+git fetch myfork feat/receipt2csv-skill  # 不是 origin/main！
+git pull myfork feat/receipt2csv-skill
+```
+
+**拉取来源对比**:
+| 拉取来源 | 代码控制权 | 风险 |
+|----------|-----------|------|
+| `origin/main` (官方) | ❌ 官方控制 | 官方更新会覆盖你的功能 |
+| `myfork/feat/...` (你的 Fork) | ✅ 你控制 | 只有你推送了才更新 |
+
+**代码更新流程**:
+```
+本地 Mac (git push myfork)
+        ↓
+GitHub (myfork 仓库更新)
+        ↓
+VPS Crontab (每 10 分钟 git pull myfork)
+        ↓
+VPS (pnpm build → boot_loader → 资金检查 → PM2)
+        ↓
+Sandbox (服务运行)
+```
+
+**Git 保护机制**:
+- 如果本地有未提交的改动，`git pull` 会**报错停止**，而不是覆盖
+- 这就是为什么要先 `git stash` 或先 commit 再 pull
+
+---
+
+### 36. 退款恢复与新建沙箱流程 (2026-02-24)
+
+**当前状态**:
+- Credits: $4.04 (WARNING 状态)
+- short_id: null (平台网关问题)
+- 等待 0xSigil 处理: 退款 $15 + 修复网关
+
+**情况 A: 现有沙箱恢复** (理想情况)
+```
+退款到账 ($19)
+     ↓
+auto_sync.sh 检测到余额 NORMAL
+     ↓
+boot_loader.mjs 检测到 short_id 存在
+     ↓
+✅ PM2 自动启动服务
+```
+
+**情况 B: 新建沙箱** (沙箱损坏时)
+```
+1. Conway 控制台新建沙箱 → 获取 sandbox_id
+2. 更新 VPS automaton.json 的 sandboxId
+3. 更新 register-agent.mjs 的 URI
+4. 运行 update-agent-uri.mjs (链上同步)
+5. 更新 WANGCAI_README.md
+6. auto_sync.sh 自动启动服务
+```
+
+---
+
+### 37. SOUL.md v4.2 更新 (2026-02-24)
+
+**新增功能**:
+
+1. **Section III: 动态路由**
+   - URL 不再硬编码
+   - 启动时通过 boot_loader.mjs 检测
+   - 根据 short_id 存在性决定 URL 格式
+
+2. **Section VII: MAINTENANCE_MODE**
+   - short_id 为 null 时进入维护模式
+   - 不发送 404 链接（商誉保护）
+   - 等待平台修复，每小时重试
+
+3. **Section IX: 上下文感知 Credits**
+   - 平台问题时不触发资金警告
+   - 避免"自我怀疑"循环
+
+4. **Section XI: 版本同步规则**
+   - SOUL.md 与 src/version.ts 保持同步
+   - 进化记录写入 MEMORY.md
+
+---
+
+*Session 9 完成于 2026-02-24*
