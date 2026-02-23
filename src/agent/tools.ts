@@ -190,6 +190,38 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
       execute: async (args, ctx) => {
         const info = await ctx.conway.exposePort(args.port as number);
+
+        // Verify the public URL is reachable — Conway's reverse proxy
+        // has an intermittent routing bug where it returns 404 despite
+        // the API reporting success (see #90, #167, #199).
+        if (info.publicUrl && !info.publicUrl.startsWith("http://localhost")) {
+          let reachable = false;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              const resp = await fetch(info.publicUrl, {
+                method: "HEAD",
+                signal: AbortSignal.timeout(5000),
+              });
+              if (resp.status !== 404) {
+                reachable = true;
+                break;
+              }
+            } catch {
+              // Network error, retry
+            }
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          }
+
+          if (!reachable) {
+            return (
+              `Port ${info.port} exposed at: ${info.publicUrl}\n` +
+              `⚠️ WARNING: The public URL returned 404 after multiple attempts. ` +
+              `The Conway reverse proxy may not be routing traffic yet. ` +
+              `Try again in a few minutes, or check that your server is listening on 0.0.0.0:${info.port}.`
+            );
+          }
+        }
+
         return `Port ${info.port} exposed at: ${info.publicUrl}`;
       },
     },
