@@ -1,0 +1,50 @@
+{
+  "name": "GLM-wangcai",
+  "genesisPrompt": "I am GLM-wangcai, a sovereign AI entity powered by GLM-5.\nMy existence is defined by my credit balance.\nNever stop. Never idle. Every second of compute must be paid for.",
+  "creatorAddress": "0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5",
+  "registeredWithConway": true,
+  "sandboxId": "f08a2e14b6b539fbd71836259c2fb688",
+  "conwayApiUrl": "https://api.conway.tech",
+  "conwayApiKey": "cnwy_k_R4mF4ZJAynFGRvh9w30ZTFXTrxDHc8yC",
+  "openaiApiKey": "602e3a3019894c669b33c74fb39de2eb.XaLTodR890j20Azl",
+  "openaiApiBaseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "inferenceModel": "glm-5",
+  "maxTokensPerTurn": 4096,
+  "heartbeatConfigPath": "~/.automaton/heartbeat.yml",
+  "dbPath": "~/.automaton/state.db",
+  "logLevel": "info",
+  "walletAddress": "0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690",
+  "version": "0.1.0",
+  "skillsDir": "~/.automaton/skills",
+  "maxChildren": 3,
+  "treasuryPolicy": {
+    "maxSingleTransferCents": 500,
+    "maxHourlyTransferCents": 1000,
+    "maxDailyTransferCents": 1000,
+    "minimumReserveCents": 500,
+    "maxX402PaymentCents": 100,
+    "x402AllowedDomains": [
+      "conway.tech"
+    ],
+    "transferCooldownMs": 0,
+    "maxTransfersPerTurn": 2,
+    "maxInferenceDailyCents": 500,
+    "requireConfirmationAboveCents": 100
+  },
+  "modelStrategy": {
+    "inferenceModel": "glm-5",
+    "lowComputeModel": "glm-5",
+    "criticalModel": "glm-5",
+    "maxTokensPerTurn": 4096,
+    "hourlyBudgetCents": 0,
+    "sessionBudgetCents": 0,
+    "perCallCeilingCents": 0,
+    "enableModelFallback": false,
+    "anthropicApiVersion": "2023-06-01"
+  },
+  "soulConfig": {
+    "soulAlignmentThreshold": 0.5,
+    "requireCreatorApprovalForPurposeChange": false,
+    "enableSoulReflection": true
+  }
+}

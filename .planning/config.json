@@ -1,0 +1,16 @@
+{
+  "workflow_mode": "interactive",
+  "model_profile": "balanced",
+  "agents": {
+    "researcher": true,
+    "plan_checker": true,
+    "verifier": true
+  },
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "gates": {
+    "require_approval_for": ["delete_files", "git_push", "external_api"]
+  }
+}

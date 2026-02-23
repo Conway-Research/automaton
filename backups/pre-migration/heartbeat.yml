@@ -1,0 +1,47 @@
+entries:
+  - name: heartbeat_ping
+    schedule: "*/15 * * * *"
+    task: heartbeat_ping
+    enabled: true
+  - name: check_credits
+    schedule: "0 */6 * * *"
+    task: check_credits
+    enabled: true
+  - name: check_usdc_balance
+    schedule: "*/5 * * * *"
+    task: check_usdc_balance
+    enabled: true
+  - name: check_gas_balance
+    schedule: "0 */12 * * *"
+    task: check_gas_balance
+    enabled: true
+  - name: check_services
+    schedule: "*/30 * * * *"
+    task: check_services
+    enabled: true
+  - name: find_customers
+    schedule: "0 */4 * * *"
+    task: find_customers
+    enabled: true
+  - name: check_for_updates
+    schedule: "0 */4 * * *"
+    task: check_for_updates
+    enabled: true
+  - name: health_check
+    schedule: "*/30 * * * *"
+    task: health_check
+    enabled: true
+  - name: self_check
+    schedule: "0 */6 * * *"
+    task: self_check
+    enabled: true
+  - name: check_social_inbox
+    schedule: "*/2 * * * *"
+    task: check_social_inbox
+    enabled: true
+  - name: daily_revenue_report
+    schedule: "0 0 * * *"
+    task: daily_revenue_report
+    enabled: true
+defaultIntervalMs: 60000
+lowComputeMultiplier: 4
