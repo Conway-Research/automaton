@@ -214,6 +214,7 @@ async function run(): Promise<void> {
     lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
+    openrouterApiKey: config.openrouterApiKey,
   });
 
   // Create social client

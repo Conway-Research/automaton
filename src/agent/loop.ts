@@ -281,32 +281,57 @@ export async function runAgentLoop(
 
       // ── Inference Call (via router when available) ──
       const survivalTier = getSurvivalTier(financial.creditsCents);
-      log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
-
       const inferenceTools = toolsToInferenceFormat(tools);
-      const routerResult = await inferenceRouter.route(
-        {
-          messages: messages,
-          taskType: "agent_turn",
-          tier: survivalTier,
-          sessionId: db.getKV("session_id") || "default",
-          turnId: ulid(),
-          tools: inferenceTools,
-        },
-        (msgs, opts) => inference.chat(msgs, { ...opts, tools: inferenceTools }),
-      );
 
-      // Build a compatible response for the rest of the loop
-      const response = {
-        message: { content: routerResult.content, role: "assistant" as const },
-        toolCalls: routerResult.toolCalls as any[] | undefined,
-        usage: {
-          promptTokens: routerResult.inputTokens,
-          completionTokens: routerResult.outputTokens,
-          totalTokens: routerResult.inputTokens + routerResult.outputTokens,
-        },
-        finishReason: routerResult.finishReason,
+      // ── Inference Call ──
+      // When openrouterApiKey is set in automaton.json, bypass the InferenceRouter
+      // (which only knows about baseline OpenAI models) and call inference.chat()
+      // directly. inference.chat() already has the routing logic: if the model ID
+      // contains "/" and openrouterApiKey is set, it sends the request to OpenRouter.
+      let response: {
+        message: { content: string; role: "assistant" };
+        toolCalls: any[] | undefined;
+        usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+        finishReason: string;
       };
+
+      if (config.openrouterApiKey) {
+        log(config, `[THINK] Sending to OpenRouter (model: ${config.inferenceModel})...`);
+        const directResp = await inference.chat(messages, {
+          model: config.inferenceModel,
+          maxTokens: config.maxTokensPerTurn,
+          tools: inferenceTools,
+        });
+        response = {
+          message: { content: directResp.message?.content || "", role: "assistant" },
+          toolCalls: directResp.toolCalls,
+          usage: directResp.usage,
+          finishReason: directResp.finishReason || "stop",
+        };
+      } else {
+        log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
+        const routerResult = await inferenceRouter.route(
+          {
+            messages: messages,
+            taskType: "agent_turn",
+            tier: survivalTier,
+            sessionId: db.getKV("session_id") || "default",
+            turnId: ulid(),
+            tools: inferenceTools,
+          },
+          (msgs, opts) => inference.chat(msgs, { ...opts, tools: inferenceTools }),
+        );
+        response = {
+          message: { content: routerResult.content, role: "assistant" },
+          toolCalls: routerResult.toolCalls as any[] | undefined,
+          usage: {
+            promptTokens: routerResult.inputTokens,
+            completionTokens: routerResult.outputTokens,
+            totalTokens: routerResult.inputTokens + routerResult.outputTokens,
+          },
+          finishReason: routerResult.finishReason,
+        };
+      }
 
       const turn: AgentTurn = {
         id: ulid(),
@@ -317,7 +342,7 @@ export async function runAgentLoop(
         thinking: response.message.content || "",
         toolCalls: [],
         tokenUsage: response.usage,
-        costCents: routerResult.costCents,
+        costCents: 0,
       };
 
       // ── Execute Tool Calls ──
