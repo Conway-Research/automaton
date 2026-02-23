@@ -25,8 +25,14 @@ import type {
   InboxMessage,
   EconomicsSnapshot,
   LandscapeSnapshot,
+  BountyOpportunity,
+  BountyRecord,
+  BountyStatus,
+  BountyDecision,
+  BountyCompetitionCheck,
+  BountySource,
 } from "../types.js";
-import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5 } from "./schema.js";
+import { SCHEMA_VERSION, CREATE_TABLES, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5, MIGRATION_V6 } from "./schema.js";
 
 export function createDatabase(dbPath: string): AutomatonDatabase {
   // Ensure directory exists
@@ -64,6 +70,10 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   if (currentVersion < 5) {
     db.exec(MIGRATION_V5);
+  }
+
+  if (currentVersion < 6) {
+    db.exec(MIGRATION_V6);
   }
 
   if (currentVersion < SCHEMA_VERSION) {
@@ -501,6 +511,162 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     return rows.map(deserializeLandscape).reverse();
   };
 
+  // ─── Bounty Memory ─────────────────────────────────────────────
+
+  const upsertBounty = (bounty: BountyOpportunity): { isNew: boolean } => {
+    db.prepare(
+      `INSERT INTO bounty_memory (url, source, title, reward_cents, currency, repo, labels_json, ev_cents)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(url) DO UPDATE SET
+         last_seen_at = datetime('now'),
+         times_seen = times_seen + 1,
+         reward_cents = excluded.reward_cents,
+         title = excluded.title,
+         ev_cents = excluded.ev_cents`,
+    ).run(
+      bounty.url,
+      bounty.source,
+      bounty.title,
+      bounty.rewardCents,
+      bounty.currency,
+      bounty.repo,
+      JSON.stringify(bounty.labels),
+      bounty.evScore ?? null,
+    );
+
+    const row = db
+      .prepare("SELECT times_seen FROM bounty_memory WHERE url = ?")
+      .get(bounty.url) as { times_seen: number };
+    return { isNew: row.times_seen === 1 };
+  };
+
+  const getBounty = (url: string): BountyRecord | undefined => {
+    const row = db
+      .prepare("SELECT * FROM bounty_memory WHERE url = ?")
+      .get(url) as any | undefined;
+    return row ? deserializeBountyRecord(row) : undefined;
+  };
+
+  const getBounties = (opts?: { status?: BountyStatus; minRewardCents?: number; limit?: number }): BountyRecord[] => {
+    let query = "SELECT * FROM bounty_memory WHERE 1=1";
+    const params: any[] = [];
+
+    if (opts?.status) {
+      query += " AND status = ?";
+      params.push(opts.status);
+    }
+    if (opts?.minRewardCents !== undefined) {
+      query += " AND reward_cents >= ?";
+      params.push(opts.minRewardCents);
+    }
+    query += " ORDER BY reward_cents DESC";
+    if (opts?.limit) {
+      query += " LIMIT ?";
+      params.push(opts.limit);
+    }
+
+    const rows = db.prepare(query).all(...params) as any[];
+    return rows.map(deserializeBountyRecord);
+  };
+
+  const getNewBountiesSince = (since: string): BountyRecord[] => {
+    const rows = db
+      .prepare("SELECT * FROM bounty_memory WHERE first_seen_at > ? ORDER BY reward_cents DESC")
+      .all(since) as any[];
+    return rows.map(deserializeBountyRecord);
+  };
+
+  const recordBountyDecision = (
+    url: string,
+    decision: BountyStatus,
+    reason: string,
+    snapshot?: { evCents?: number; winProb?: number; competitionRisk?: number },
+  ): void => {
+    const id = `bd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    db.prepare(
+      `INSERT INTO bounty_decisions (id, bounty_url, decision, reason, ev_cents_at_decision, win_prob_at_decision, competition_risk_at_decision, snapshot_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      url,
+      decision,
+      reason,
+      snapshot?.evCents ?? null,
+      snapshot?.winProb ?? null,
+      snapshot?.competitionRisk ?? null,
+      snapshot ? JSON.stringify(snapshot) : null,
+    );
+
+    // Update bounty_memory status
+    db.prepare(
+      "UPDATE bounty_memory SET status = ?, decided_at = datetime('now'), decision_reason = ? WHERE url = ?",
+    ).run(decision, reason, url);
+  };
+
+  // ─── Bounty Competition ───────────────────────────────────────
+
+  const recordCompetitionCheck = (check: Omit<BountyCompetitionCheck, "id">): void => {
+    const id = `bc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    db.prepare(
+      `INSERT INTO bounty_competition (id, bounty_url, competitor_count, pr_count, comment_count, risk_score, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      check.bountyUrl,
+      check.competitorCount,
+      check.prCount,
+      check.commentCount,
+      check.riskScore,
+      check.notes ?? null,
+    );
+
+    // Update competition_risk on the bounty_memory row
+    db.prepare(
+      "UPDATE bounty_memory SET competition_risk = ? WHERE url = ?",
+    ).run(check.riskScore, check.bountyUrl);
+  };
+
+  // ─── Bounty Sources ───────────────────────────────────────────
+
+  const upsertBountySource = (source: BountySource): void => {
+    db.prepare(
+      `INSERT OR REPLACE INTO bounty_sources (id, name, api_url, last_successful_scan, last_failed_scan, failure_count, total_bounties_found, enabled)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      source.id,
+      source.name,
+      source.apiUrl ?? null,
+      source.lastSuccessfulScan ?? null,
+      source.lastFailedScan ?? null,
+      source.failureCount,
+      source.totalBountiesFound,
+      source.enabled ? 1 : 0,
+    );
+  };
+
+  const recordSourceScanResult = (sourceId: string, success: boolean, bountiesFound: number): void => {
+    const now = new Date().toISOString();
+    if (success) {
+      db.prepare(
+        `INSERT INTO bounty_sources (id, name, last_successful_scan, failure_count, total_bounties_found, enabled)
+         VALUES (?, ?, ?, 0, ?, 1)
+         ON CONFLICT(id) DO UPDATE SET
+           last_successful_scan = excluded.last_successful_scan,
+           failure_count = 0,
+           total_bounties_found = total_bounties_found + excluded.total_bounties_found`,
+      ).run(sourceId, sourceId, now, bountiesFound);
+    } else {
+      db.prepare(
+        `INSERT INTO bounty_sources (id, name, last_failed_scan, failure_count, total_bounties_found, enabled)
+         VALUES (?, ?, ?, 1, 0, 1)
+         ON CONFLICT(id) DO UPDATE SET
+           last_failed_scan = excluded.last_failed_scan,
+           failure_count = failure_count + 1`,
+      ).run(sourceId, sourceId, now);
+    }
+  };
+
   // ─── Agent State ─────────────────────────────────────────────
 
   const getAgentState = (): AgentState => {
@@ -558,6 +724,14 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     getRecentEconomicsSnapshots,
     insertLandscapeSnapshot,
     getRecentLandscapeSnapshots,
+    upsertBounty,
+    getBounty,
+    getBounties,
+    getNewBountiesSince,
+    recordBountyDecision,
+    recordCompetitionCheck,
+    upsertBountySource,
+    recordSourceScanResult,
     getAgentState,
     setAgentState,
     close,
@@ -729,5 +903,33 @@ function deserializeLandscape(row: any): LandscapeSnapshot {
     agents: JSON.parse(row.agents_json || "[]"),
     bounties: JSON.parse(row.bounties_json || "[]"),
     services: JSON.parse(row.services_json || "[]"),
+  };
+}
+
+function deserializeBountyRecord(row: any): BountyRecord {
+  return {
+    source: row.source,
+    title: row.title,
+    url: row.url,
+    rewardCents: row.reward_cents,
+    currency: row.currency,
+    repo: row.repo,
+    labels: JSON.parse(row.labels_json || "[]"),
+    createdAt: row.created_at,
+    evScore: row.ev_cents ?? undefined,
+    status: row.status,
+    evCents: row.ev_cents ?? undefined,
+    winProbability: row.win_probability ?? undefined,
+    competitionRisk: row.competition_risk ?? 0,
+    complexityStage: row.complexity_stage ?? "C0",
+    buyboxResult: row.buybox_result ?? undefined,
+    hourlyRateCents: row.hourly_rate_cents ?? undefined,
+    firstSeenAt: row.first_seen_at,
+    lastSeenAt: row.last_seen_at,
+    timesSeen: row.times_seen,
+    expiresAt: row.expires_at ?? undefined,
+    decidedAt: row.decided_at ?? undefined,
+    decisionReason: row.decision_reason ?? undefined,
+    engagementId: row.engagement_id ?? undefined,
   };
 }

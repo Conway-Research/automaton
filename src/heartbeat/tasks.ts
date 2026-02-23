@@ -211,21 +211,31 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
   landscape_scan: async (ctx) => {
     const { scanLandscape } = await import("../landscape/scanner.js");
+
+    // Remember when the last scan happened so we can detect first-time bounties
+    const lastScanTimestamp = ctx.db.getKV("last_landscape_scan_ts") || "1970-01-01T00:00:00.000Z";
+
     const snapshot = await scanLandscape(ctx.db, "mainnet");
 
+    // Find bounties first seen since last scan (truly new discoveries)
+    const newBounties = ctx.db.getNewBountiesSince(lastScanTimestamp);
+    const highValueNew = newBounties.filter(b => b.rewardCents >= 5000);
+
+    ctx.db.setKV("last_landscape_scan_ts", snapshot.timestamp);
     ctx.db.setKV("last_landscape_scan", JSON.stringify({
       totalAgents: snapshot.totalAgents,
       serviceProviders: snapshot.serviceProviders,
       bountyCount: snapshot.bounties.length,
+      newBountyCount: newBounties.length,
+      highValueNewCount: highValueNew.length,
       timestamp: snapshot.timestamp,
     }));
 
-    // Wake agent if bounties found worth pursuing (>= $50)
-    const highValue = snapshot.bounties.filter(b => b.rewardCents >= 5000);
-    if (highValue.length > 0) {
+    // Only wake for NEW high-value bounties (>= $50), not ones already seen
+    if (highValueNew.length > 0) {
       return {
         shouldWake: true,
-        message: `${highValue.length} high-value bounty(ies) found: ${highValue.map(b => `${b.title} ($${(b.rewardCents / 100).toFixed(0)})`).join(", ")}`,
+        message: `${highValueNew.length} NEW high-value bounty(ies): ${highValueNew.map(b => `${b.title} ($${(b.rewardCents / 100).toFixed(0)})`).join(", ")}`,
       };
     }
 

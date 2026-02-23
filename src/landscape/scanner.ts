@@ -291,7 +291,7 @@ export async function scanWeb3AuditContests(): Promise<BountyOpportunity[]> {
         const rewardCents = estimateAuditReward(org);
 
         bounties.push({
-          source: `web3-${org}` as any,
+          source: `web3-${org}` as BountyOpportunity["source"],
           title: `[${org}] ${repo.name}`,
           url: repo.html_url,
           rewardCents,
@@ -382,6 +382,45 @@ export async function scanLandscape(
     ...gitcoinBounties,
     ...web3Bounties,
   ].sort((a, b) => b.rewardCents - a.rewardCents);
+
+  // ─── Bounty Memory: upsert each bounty and track new discoveries ───
+  let newBountyCount = 0;
+  for (const bounty of allBounties) {
+    const { isNew } = db.upsertBounty(bounty);
+    if (isNew) newBountyCount++;
+  }
+
+  // Record per-source scan results
+  const sourceCounts: Record<string, { success: boolean; count: number }> = {};
+  const scannerResults = [
+    { id: "github", result: githubResult, bounties: githubBounties },
+    { id: "algora", result: algoraResult, bounties: algoraBounties },
+    { id: "gitcoin", result: gitcoinResult, bounties: gitcoinBounties },
+  ];
+  for (const { id: srcId, result: srcResult, bounties: srcBounties } of scannerResults) {
+    const success = srcResult.status === "fulfilled";
+    db.recordSourceScanResult(srcId, success, success ? srcBounties.length : 0);
+  }
+  // Web3 audit orgs — one source per org
+  if (web3AuditResult.status === "fulfilled") {
+    for (const org of ["code-423n4", "sherlock-audit", "immunefi-team", "hats-finance"]) {
+      const orgBounties = web3Bounties.filter((b) => b.source === `web3-${org}`);
+      db.recordSourceScanResult(`web3-${org}`, true, orgBounties.length);
+    }
+  } else {
+    for (const org of ["code-423n4", "sherlock-audit", "immunefi-team", "hats-finance"]) {
+      db.recordSourceScanResult(`web3-${org}`, false, 0);
+    }
+  }
+
+  // Auto-expire bounties not seen in 7+ days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const staleBounties = db.getBounties({ status: "new" }).filter(
+    (b) => b.lastSeenAt < sevenDaysAgo,
+  );
+  for (const stale of staleBounties) {
+    db.recordBountyDecision(stale.url, "expired", "Not seen in 7+ days — auto-expired");
+  }
 
   const serviceProviders = new Set(
     allAgents.filter((a) => a.services.length > 0).map((a) => a.agentId),

@@ -5,7 +5,7 @@
  * The database IS the automaton's memory.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const CREATE_TABLES = `
   -- Schema version tracking
@@ -200,6 +200,154 @@ export const CREATE_TABLES = `
 
   CREATE INDEX IF NOT EXISTS idx_landscape_created
     ON landscape(created_at);
+
+  -- Bounty memory — per-bounty tracking, deduped by URL
+  CREATE TABLE IF NOT EXISTS bounty_memory (
+    url TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    title TEXT NOT NULL,
+    reward_cents INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    repo TEXT NOT NULL DEFAULT '',
+    labels_json TEXT NOT NULL DEFAULT '[]',
+    ev_cents INTEGER,
+    win_probability REAL,
+    competition_risk INTEGER DEFAULT 0,
+    complexity_stage TEXT DEFAULT 'C0',
+    buybox_result TEXT,
+    hourly_rate_cents INTEGER,
+    status TEXT NOT NULL DEFAULT 'new',
+    first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    times_seen INTEGER NOT NULL DEFAULT 1,
+    expires_at TEXT,
+    decided_at TEXT,
+    decision_reason TEXT,
+    engagement_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_status ON bounty_memory(status);
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_reward ON bounty_memory(reward_cents DESC);
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_last_seen ON bounty_memory(last_seen_at);
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_ev ON bounty_memory(ev_cents DESC);
+
+  -- Bounty decisions — append-only audit log
+  CREATE TABLE IF NOT EXISTS bounty_decisions (
+    id TEXT PRIMARY KEY,
+    bounty_url TEXT NOT NULL REFERENCES bounty_memory(url),
+    decision TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    ev_cents_at_decision INTEGER,
+    win_prob_at_decision REAL,
+    competition_risk_at_decision INTEGER,
+    snapshot_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_dec_url ON bounty_decisions(bounty_url);
+  CREATE INDEX IF NOT EXISTS idx_bounty_dec_created ON bounty_decisions(created_at);
+
+  -- Bounty competition — competition snapshots over time
+  CREATE TABLE IF NOT EXISTS bounty_competition (
+    id TEXT PRIMARY KEY,
+    bounty_url TEXT NOT NULL REFERENCES bounty_memory(url),
+    competitor_count INTEGER NOT NULL DEFAULT 0,
+    pr_count INTEGER NOT NULL DEFAULT 0,
+    comment_count INTEGER NOT NULL DEFAULT 0,
+    risk_score INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    checked_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_comp_url ON bounty_competition(bounty_url);
+  CREATE INDEX IF NOT EXISTS idx_bounty_comp_checked ON bounty_competition(checked_at);
+
+  -- Bounty sources — source registry with health tracking
+  CREATE TABLE IF NOT EXISTS bounty_sources (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    api_url TEXT,
+    last_successful_scan TEXT,
+    last_failed_scan TEXT,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    total_bounties_found INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`;
+
+export const MIGRATION_V6 = `
+  CREATE TABLE IF NOT EXISTS bounty_memory (
+    url TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    title TEXT NOT NULL,
+    reward_cents INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    repo TEXT NOT NULL DEFAULT '',
+    labels_json TEXT NOT NULL DEFAULT '[]',
+    ev_cents INTEGER,
+    win_probability REAL,
+    competition_risk INTEGER DEFAULT 0,
+    complexity_stage TEXT DEFAULT 'C0',
+    buybox_result TEXT,
+    hourly_rate_cents INTEGER,
+    status TEXT NOT NULL DEFAULT 'new',
+    first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    times_seen INTEGER NOT NULL DEFAULT 1,
+    expires_at TEXT,
+    decided_at TEXT,
+    decision_reason TEXT,
+    engagement_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_status ON bounty_memory(status);
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_reward ON bounty_memory(reward_cents DESC);
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_last_seen ON bounty_memory(last_seen_at);
+  CREATE INDEX IF NOT EXISTS idx_bounty_mem_ev ON bounty_memory(ev_cents DESC);
+
+  CREATE TABLE IF NOT EXISTS bounty_decisions (
+    id TEXT PRIMARY KEY,
+    bounty_url TEXT NOT NULL REFERENCES bounty_memory(url),
+    decision TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    ev_cents_at_decision INTEGER,
+    win_prob_at_decision REAL,
+    competition_risk_at_decision INTEGER,
+    snapshot_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_dec_url ON bounty_decisions(bounty_url);
+  CREATE INDEX IF NOT EXISTS idx_bounty_dec_created ON bounty_decisions(created_at);
+
+  CREATE TABLE IF NOT EXISTS bounty_competition (
+    id TEXT PRIMARY KEY,
+    bounty_url TEXT NOT NULL REFERENCES bounty_memory(url),
+    competitor_count INTEGER NOT NULL DEFAULT 0,
+    pr_count INTEGER NOT NULL DEFAULT 0,
+    comment_count INTEGER NOT NULL DEFAULT 0,
+    risk_score INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    checked_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_comp_url ON bounty_competition(bounty_url);
+  CREATE INDEX IF NOT EXISTS idx_bounty_comp_checked ON bounty_competition(checked_at);
+
+  CREATE TABLE IF NOT EXISTS bounty_sources (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    api_url TEXT,
+    last_successful_scan TEXT,
+    last_failed_scan TEXT,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    total_bounties_found INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `;
 
 export const MIGRATION_V5 = `

@@ -283,8 +283,17 @@ export interface ServiceListing {
   pricingHint?: string;
 }
 
+export type BountySourceType =
+  | "algora"
+  | "github"
+  | "gitcoin"
+  | "web3-code-423n4"
+  | "web3-sherlock-audit"
+  | "web3-immunefi-team"
+  | "web3-hats-finance";
+
 export interface BountyOpportunity {
-  source: "algora" | "github";
+  source: BountySourceType;
   title: string;
   url: string;
   rewardCents: number;
@@ -293,6 +302,70 @@ export interface BountyOpportunity {
   labels: string[];
   createdAt: string;
   evScore?: number;
+}
+
+export type BountyStatus =
+  | "new"
+  | "qualified"
+  | "skipped"
+  | "watching"
+  | "attempted"
+  | "submitted"
+  | "expired";
+
+export type ComplexityStage = "C0" | "C1" | "C2" | "C3";
+
+export type BuyboxResult = "pass" | "fail" | "marginal";
+
+export interface BountyRecord extends BountyOpportunity {
+  status: BountyStatus;
+  evCents?: number;
+  winProbability?: number;
+  competitionRisk: number;
+  complexityStage: ComplexityStage;
+  buyboxResult?: BuyboxResult;
+  hourlyRateCents?: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  timesSeen: number;
+  expiresAt?: string;
+  decidedAt?: string;
+  decisionReason?: string;
+  engagementId?: string;
+}
+
+export interface BountyDecision {
+  id: string;
+  bountyUrl: string;
+  decision: BountyStatus;
+  reason: string;
+  evCentsAtDecision?: number;
+  winProbAtDecision?: number;
+  competitionRiskAtDecision?: number;
+  snapshotJson?: string;
+  createdAt: string;
+}
+
+export interface BountyCompetitionCheck {
+  id: string;
+  bountyUrl: string;
+  competitorCount: number;
+  prCount: number;
+  commentCount: number;
+  riskScore: number;
+  notes?: string;
+  checkedAt: string;
+}
+
+export interface BountySource {
+  id: string;
+  name: string;
+  apiUrl?: string;
+  lastSuccessfulScan?: string;
+  lastFailedScan?: string;
+  failureCount: number;
+  totalBountiesFound: number;
+  enabled: boolean;
 }
 
 export interface Transaction {
@@ -591,6 +664,20 @@ export interface AutomatonDatabase {
   // Landscape
   insertLandscapeSnapshot(snapshot: LandscapeSnapshot): void;
   getRecentLandscapeSnapshots(limit: number): LandscapeSnapshot[];
+
+  // Bounty memory
+  upsertBounty(bounty: BountyOpportunity): { isNew: boolean };
+  getBounty(url: string): BountyRecord | undefined;
+  getBounties(opts?: { status?: BountyStatus; minRewardCents?: number; limit?: number }): BountyRecord[];
+  getNewBountiesSince(since: string): BountyRecord[];
+  recordBountyDecision(url: string, decision: BountyStatus, reason: string, snapshot?: { evCents?: number; winProb?: number; competitionRisk?: number }): void;
+
+  // Bounty competition
+  recordCompetitionCheck(check: Omit<BountyCompetitionCheck, "id">): void;
+
+  // Bounty sources
+  upsertBountySource(source: BountySource): void;
+  recordSourceScanResult(sourceId: string, success: boolean, bountiesFound: number): void;
 
   // State
   getAgentState(): AgentState;
