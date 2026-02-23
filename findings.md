@@ -798,6 +798,90 @@ git pull myfork feat/receipt2csv-skill
 - 每个文件开头增加了用途声明
 - 消除了跨文件同步维护的问题
 
+### 39. Fork 同步与合并标准流程 (2026-02-24) ✅
+
+**场景**: 将官方仓库的最新代码（包括你的 PR 和官方的审计更新）合并到你的功能分支
+
+**前置条件**:
+- 已安装 `gh` CLI 并认证 (`gh auth status`)
+- 远程仓库配置：`origin` = 官方，`myfork` = 你的 Fork
+
+#### 完整流程（7 步）
+
+| 步骤 | 名称 | 工具 | 命令 | 注意事项 |
+|------|------|------|------|----------|
+| 0️⃣ | Fork 同步 | `gh` CLI | `gh repo sync <fork> --source <upstream>` | 需要 GitHub 写权限；替代方案：手动在 GitHub 网页操作 |
+| 1️⃣ | 存档工作 | `git` | `git add -A && git commit -m "..."` | 先检查 `git status` 确认更改内容 |
+| 2️⃣ | 同步 main | `git` | `git checkout main && git pull myfork main` | 从 **myfork** 拉取（已同步的 Fork），不是 origin |
+| 3️⃣ | 基因融合 | `git` | `git checkout <branch> && git merge main` | `--no-edit` 跳过编辑提交信息 |
+| 4️⃣ | 冲突审计 | `git` | `git checkout --theirs <file>` | 安全文件用 `--theirs`（官方），自定义用 `--ours` |
+| 5️⃣ | 稳定验证 | `pnpm` | `pnpm build` | 失败则检查 `tsc` 错误，逐个修复 |
+| 6️⃣ | 触发进化 | `git` | `git push myfork <branch>` | 推送到 **myfork**，不是 origin |
+
+#### 详细命令
+
+```bash
+# 0️⃣ Fork 同步（GitHub 层面）
+# 工具: gh CLI (GitHub 官方命令行)
+# 注意: 需要 repo 权限，首次使用需 gh auth login
+gh repo sync hanzhcn/automaton --source Conway-Research/automaton
+
+# 1️⃣ 存档当前工作
+# 工具: git
+# 注意: 确保敏感文件在 .gitignore 中
+git status                              # 先检查
+git add -A && git commit -m "wip: 存档"  # 再提交
+
+# 2️⃣ 同步 main 分支
+# 工具: git
+# 注意: 从 myfork 拉取，不是 origin（因为 myfork 已在步骤 0 同步）
+git checkout main
+git fetch myfork
+git pull myfork main
+
+# 3️⃣ 基因融合
+# 工具: git
+# 注意: 如有冲突，Git 会提示文件列表
+git checkout <feature-branch>
+git merge main --no-edit
+
+# 4️⃣ 冲突审计
+# 工具: git
+# 注意: --theirs = 采纳 incoming（main），--ours = 保留 local
+git diff --name-only --diff-filter=U    # 查看冲突文件
+git checkout --theirs .gitignore        # 安全文件采纳官方
+git checkout --theirs src/registry/erc8004.ts
+git checkout --ours scripts/boot_loader.mjs  # 自定义保留本地
+git add .                               # 标记冲突已解决
+git commit -m "merge: 合并 main 分支"
+
+# 5️⃣ 稳定性验证
+# 工具: pnpm (或 npm/yarn)
+# 注意: 编译失败时，先看 tsc 错误信息
+pnpm build
+
+# 6️⃣ 触发进化
+# 工具: git
+# 注意: 推送到 myfork，不是 origin（origin 是只读的官方仓库）
+git push myfork <feature-branch>
+```
+
+#### 冲突处理原则
+
+| 文件类型 | 处理策略 | 命令 | 原因 |
+|----------|----------|------|------|
+| `.gitignore` | 采纳官方 | `--theirs` | 经过 unifiedh 安全审计 |
+| `erc8004.ts` | 采纳官方 | `--theirs` | 经过安全审计 |
+| `boot_loader.mjs` | 保留本地 | `--ours` | 自定义启动脚本 |
+| `version.ts` | 保留本地 | `--ours` | 自定义版本同步 |
+
+#### 私钥安全保障
+
+- `wallet.json` 始终在 `.gitignore` 保护下
+- Git 历史从未包含敏感文件
+- 合并前检查：`grep -r "wallet\|private\|secret" --include="*.ts" --include="*.js"`
+- 合并后验证：`git diff --name-only HEAD~1` 确认无敏感文件
+
 ---
 
 ## 🔐 安全发现
