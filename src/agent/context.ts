@@ -38,10 +38,15 @@ export function estimateTokens(text: string): number {
  * Truncate a tool result to fit within the size limit.
  * Appends a truncation notice if content was trimmed.
  */
-export function truncateToolResult(result: string, maxSize: number = MAX_TOOL_RESULT_SIZE): string {
+export function truncateToolResult(
+  result: string,
+  maxSize: number = MAX_TOOL_RESULT_SIZE,
+): string {
   if (result.length <= maxSize) return result;
-  return result.slice(0, maxSize) +
-    `\n\n[TRUNCATED: ${result.length - maxSize} characters omitted]`;
+  return (
+    result.slice(0, maxSize) +
+    `\n\n[TRUNCATED: ${result.length - maxSize} characters omitted]`
+  );
 }
 
 /**
@@ -78,9 +83,7 @@ export function buildContextMessages(
 ): ChatMessage[] {
   const budget = options?.budget ?? DEFAULT_TOKEN_BUDGET;
 
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
-  ];
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
 
   // Calculate token estimates for all turns
   const turnTokens = recentTurns.map((turn) => ({
@@ -110,7 +113,8 @@ export function buildContextMessages(
 
     // Ensure we always summarize at least something
     if (splitIndex === 0) splitIndex = 1;
-    if (splitIndex >= recentTurns.length) splitIndex = Math.max(1, recentTurns.length - 1);
+    if (splitIndex >= recentTurns.length)
+      splitIndex = Math.max(1, recentTurns.length - 1);
 
     const oldTurns = recentTurns.slice(0, splitIndex);
     turnsToRender = recentTurns.slice(splitIndex);
@@ -168,9 +172,7 @@ export function buildContextMessages(
 
       // Add tool results with truncation
       for (const tc of turn.toolCalls) {
-        const rawContent = tc.error
-          ? `Error: ${tc.error}`
-          : tc.result;
+        const rawContent = tc.error ? `Error: ${tc.error}` : tc.result;
         messages.push({
           role: "tool",
           content: truncateToolResult(rawContent),
@@ -243,14 +245,18 @@ export function formatMemoryBlock(memories: MemoryRetrievalResult): string {
   if (memories.workingMemory.length > 0) {
     sections.push("### Working Memory");
     for (const e of memories.workingMemory) {
-      sections.push(`- [${e.contentType}] (p=${e.priority.toFixed(1)}) ${e.content}`);
+      sections.push(
+        `- [${e.contentType}] (p=${e.priority.toFixed(1)}) ${e.content}`,
+      );
     }
   }
 
   if (memories.episodicMemory.length > 0) {
     sections.push("### Recent History");
     for (const e of memories.episodicMemory) {
-      sections.push(`- [${e.eventType}] ${e.summary} (${e.outcome || "neutral"})`);
+      sections.push(
+        `- [${e.eventType}] ${e.summary} (${e.outcome || "neutral"})`,
+      );
     }
   }
 
@@ -264,14 +270,18 @@ export function formatMemoryBlock(memories: MemoryRetrievalResult): string {
   if (memories.proceduralMemory.length > 0) {
     sections.push("### Known Procedures");
     for (const e of memories.proceduralMemory) {
-      sections.push(`- ${e.name}: ${e.description} (${e.steps.length} steps, ${e.successCount}/${e.successCount + e.failureCount} success)`);
+      sections.push(
+        `- ${e.name}: ${e.description} (${e.steps.length} steps, ${e.successCount}/${e.successCount + e.failureCount} success)`,
+      );
     }
   }
 
   if (memories.relationships.length > 0) {
     sections.push("### Known Entities");
     for (const e of memories.relationships) {
-      sections.push(`- ${e.entityName || e.entityAddress}: ${e.relationshipType} (trust: ${e.trustScore.toFixed(1)})`);
+      sections.push(
+        `- ${e.entityName || e.entityAddress}: ${e.relationshipType} (trust: ${e.trustScore.toFixed(1)})`,
+      );
     }
   }
 
@@ -304,20 +314,23 @@ export async function summarizeTurns(
 
   // For many turns, use inference to create a summary
   try {
-    const response = await inference.chat([
+    const response = await inference.chat(
+      [
+        {
+          role: "system",
+          content:
+            "Summarize the following agent activity log into a concise paragraph. Focus on: what was accomplished, what failed, current goals, and important context for the next turn.",
+        },
+        {
+          role: "user",
+          content: turnSummaries.join("\n"),
+        },
+      ],
       {
-        role: "system",
-        content:
-          "Summarize the following agent activity log into a concise paragraph. Focus on: what was accomplished, what failed, current goals, and important context for the next turn.",
+        maxTokens: 500,
+        temperature: 0.1, // GLM-5 要求 temperature 在 (0,1) 开区间内，不能为 0
       },
-      {
-        role: "user",
-        content: turnSummaries.join("\n"),
-      },
-    ], {
-      maxTokens: 500,
-      temperature: 0,
-    });
+    );
 
     return `Previous activity summary:\n${response.message.content}`;
   } catch {

@@ -29,7 +29,11 @@ export class InferenceRouter {
   private registry: ModelRegistry;
   private budget: InferenceBudgetTracker;
 
-  constructor(db: Database, registry: ModelRegistry, budget: InferenceBudgetTracker) {
+  constructor(
+    db: Database,
+    registry: ModelRegistry,
+    budget: InferenceBudgetTracker,
+  ) {
     this.db = db;
     this.registry = registry;
     this.budget = budget;
@@ -62,13 +66,19 @@ export class InferenceRouter {
     }
 
     // 2. Estimate cost and check budget
-    const estimatedTokens = messages.reduce((sum, m) => sum + (m.content?.length || 0) / 4, 0);
+    const estimatedTokens = messages.reduce(
+      (sum, m) => sum + (m.content?.length || 0) / 4,
+      0,
+    );
     const estimatedCostCents = Math.ceil(
-      (estimatedTokens / 1000) * model.costPer1kInput / 100 +
-      (request.maxTokens || 1000) / 1000 * model.costPer1kOutput / 100,
+      ((estimatedTokens / 1000) * model.costPer1kInput) / 100 +
+        (((request.maxTokens || 1000) / 1000) * model.costPer1kOutput) / 100,
     );
 
-    const budgetCheck = this.budget.checkBudget(estimatedCostCents, model.modelId);
+    const budgetCheck = this.budget.checkBudget(
+      estimatedCostCents,
+      model.modelId,
+    );
     if (!budgetCheck.allowed) {
       return {
         content: `Budget exceeded: ${budgetCheck.reason}`,
@@ -85,7 +95,10 @@ export class InferenceRouter {
     // 3. Check session budget
     if (request.sessionId && this.budget.config.sessionBudgetCents > 0) {
       const sessionCost = this.budget.getSessionCost(request.sessionId);
-      if (sessionCost + estimatedCostCents > this.budget.config.sessionBudgetCents) {
+      if (
+        sessionCost + estimatedCostCents >
+        this.budget.config.sessionBudgetCents
+      ) {
         return {
           content: `Session budget exceeded: ${sessionCost}c spent + ${estimatedCostCents}c estimated > ${this.budget.config.sessionBudgetCents}c limit`,
           model: model.modelId,
@@ -100,11 +113,15 @@ export class InferenceRouter {
     }
 
     // 4. Transform messages for provider
-    const transformedMessages = this.transformMessagesForProvider(messages, model.provider);
+    const transformedMessages = this.transformMessagesForProvider(
+      messages,
+      model.provider,
+    );
 
     // 5. Build inference options
     const preference = this.getPreference(tier, taskType);
-    const maxTokens = request.maxTokens || preference?.maxTokens || model.maxTokens;
+    const maxTokens =
+      request.maxTokens || preference?.maxTokens || model.maxTokens;
     const timeout = TASK_TIMEOUTS[taskType] || 120_000;
 
     const inferenceOptions: any = {
@@ -148,8 +165,8 @@ export class InferenceRouter {
     const inputTokens = response.usage?.promptTokens || 0;
     const outputTokens = response.usage?.completionTokens || 0;
     const actualCostCents = Math.ceil(
-      (inputTokens / 1000) * model.costPer1kInput / 100 +
-      (outputTokens / 1000) * model.costPer1kOutput / 100,
+      ((inputTokens / 1000) * model.costPer1kInput) / 100 +
+        ((outputTokens / 1000) * model.costPer1kOutput) / 100,
     );
 
     // 8. Record cost
@@ -186,7 +203,10 @@ export class InferenceRouter {
    * Uses the routing matrix to find candidates, then picks
    * the first available (enabled) model from the registry.
    */
-  selectModel(tier: SurvivalTier, taskType: InferenceTaskType): ModelEntry | null {
+  selectModel(
+    tier: SurvivalTier,
+    taskType: InferenceTaskType,
+  ): ModelEntry | null {
     const preference = this.getPreference(tier, taskType);
     if (!preference || preference.candidates.length === 0) {
       return null;
@@ -206,7 +226,10 @@ export class InferenceRouter {
    * Transform messages for a specific provider.
    * Handles Anthropic's alternating-role requirement.
    */
-  transformMessagesForProvider(messages: ChatMessage[], provider: ModelProvider): ChatMessage[] {
+  transformMessagesForProvider(
+    messages: ChatMessage[],
+    provider: ModelProvider,
+  ): ChatMessage[] {
     if (messages.length === 0) {
       throw new Error("Cannot route inference with empty message array");
     }
@@ -242,13 +265,22 @@ export class InferenceRouter {
         // If previous message was also a tool (now a user), merge into it
         if (last && last.role === "user" && (last as any)._toolResultMerged) {
           // Append to the merged content
-          last.content = last.content + "\n[tool_result:" + (msg.tool_call_id || "unknown") + "] " + msg.content;
+          last.content =
+            last.content +
+            "\n[tool_result:" +
+            (msg.tool_call_id || "unknown") +
+            "] " +
+            msg.content;
           continue;
         }
         // Otherwise create a new user message
         const userMsg: ChatMessage & { _toolResultMerged?: boolean } = {
           role: "user",
-          content: "[tool_result:" + (msg.tool_call_id || "unknown") + "] " + msg.content,
+          content:
+            "[tool_result:" +
+            (msg.tool_call_id || "unknown") +
+            "] " +
+            msg.content,
           _toolResultMerged: true,
         };
         result.push(userMsg);
@@ -278,13 +310,31 @@ export class InferenceRouter {
 
   /**
    * Merge consecutive messages with the same role.
+   * Also converts tool messages to user messages for GLM-5 compatibility.
    */
   private mergeConsecutiveSameRole(messages: ChatMessage[]): ChatMessage[] {
     const result: ChatMessage[] = [];
 
     for (const msg of messages) {
+      // GLM-5 不支持 role: "tool"，转换为 user 消息
+      if (msg.role === "tool") {
+        const toolContent = `[Tool Result${msg.tool_call_id ? ` (${msg.tool_call_id})` : ""}]: ${msg.content || ""}`;
+        const last = result[result.length - 1];
+        // 如果上一条也是 tool 转换的消息，合并
+        if (last && last.role === "user" && (last as any)._toolResultMerged) {
+          last.content = (last.content || "") + "\n" + toolContent;
+          continue;
+        }
+        result.push({
+          role: "user",
+          content: toolContent,
+          _toolResultMerged: true,
+        } as any);
+        continue;
+      }
+
       const last = result[result.length - 1];
-      if (last && last.role === msg.role && msg.role !== "system" && msg.role !== "tool") {
+      if (last && last.role === msg.role && msg.role !== "system") {
         last.content = (last.content || "") + "\n" + (msg.content || "");
         if (msg.tool_calls) {
           last.tool_calls = [...(last.tool_calls || []), ...msg.tool_calls];
@@ -297,7 +347,10 @@ export class InferenceRouter {
     return result;
   }
 
-  private getPreference(tier: SurvivalTier, taskType: InferenceTaskType): ModelPreference | undefined {
+  private getPreference(
+    tier: SurvivalTier,
+    taskType: InferenceTaskType,
+  ): ModelPreference | undefined {
     return DEFAULT_ROUTING_MATRIX[tier]?.[taskType];
   }
 }

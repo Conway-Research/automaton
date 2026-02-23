@@ -41,6 +41,7 @@ export interface AutomatonConfig {
   conwayApiUrl: string;
   conwayApiKey: string;
   openaiApiKey?: string;
+  openaiApiBaseUrl?: string;  // 自定义 OpenAI 兼容 API URL（如 GLM）
   anthropicApiKey?: string;
   inferenceModel: string;
   maxTokensPerTurn: number;

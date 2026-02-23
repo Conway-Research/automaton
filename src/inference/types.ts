@@ -49,6 +49,20 @@ export const TASK_TIMEOUTS: Record<string, number> = {
 
 export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | "updatedAt">[] = [
   {
+    modelId: "glm-5",
+    provider: "openai",  // OpenAI-compatible API
+    displayName: "GLM-5 (智谱)",
+    tierMinimum: "normal",
+    costPer1kInput: 1,     // GLM-5 编码套餐：超低成本
+    costPer1kOutput: 1,
+    maxTokens: 32768,
+    contextWindow: 128000,
+    supportsTools: true,
+    supportsVision: false,
+    parameterStyle: "max_tokens",
+    enabled: true,
+  },
+  {
     modelId: "gpt-5.2",
     provider: "openai",
     displayName: "GPT-5.2",
@@ -60,7 +74,7 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
     supportsTools: true,
     supportsVision: true,
     parameterStyle: "max_completion_tokens",
-    enabled: true,
+    enabled: false,  // 禁用，改用 GLM-5
   },
   {
     modelId: "gpt-4.1",
@@ -139,32 +153,32 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
 
 export const DEFAULT_ROUTING_MATRIX: RoutingMatrix = {
   high: {
-    agent_turn: { candidates: ["gpt-5.2", "gpt-5.3"], maxTokens: 8192, ceilingCents: -1 },
-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
-    safety_check: { candidates: ["gpt-5.2", "gpt-5.3"], maxTokens: 4096, ceilingCents: 20 },
-    summarization: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 15 },
-    planning: { candidates: ["gpt-5.2", "gpt-5.3"], maxTokens: 8192, ceilingCents: -1 },
+    agent_turn: { candidates: ["glm-5"], maxTokens: 8192, ceilingCents: -1 },
+    heartbeat_triage: { candidates: ["glm-5"], maxTokens: 2048, ceilingCents: 5 },
+    safety_check: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: 20 },
+    summarization: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: 15 },
+    planning: { candidates: ["glm-5"], maxTokens: 8192, ceilingCents: -1 },
   },
   normal: {
-    agent_turn: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: -1 },
-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
-    safety_check: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
-    summarization: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
-    planning: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: -1 },
+    agent_turn: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: -1 },
+    heartbeat_triage: { candidates: ["glm-5"], maxTokens: 2048, ceilingCents: 5 },
+    safety_check: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: 10 },
+    summarization: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: 10 },
+    planning: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: -1 },
   },
   low_compute: {
-    agent_turn: { candidates: ["gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 1024, ceilingCents: 2 },
-    safety_check: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
-    summarization: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
-    planning: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
+    agent_turn: { candidates: ["glm-5"], maxTokens: 4096, ceilingCents: 10 },
+    heartbeat_triage: { candidates: ["glm-5"], maxTokens: 1024, ceilingCents: 2 },
+    safety_check: { candidates: ["glm-5"], maxTokens: 2048, ceilingCents: 5 },
+    summarization: { candidates: ["glm-5"], maxTokens: 2048, ceilingCents: 5 },
+    planning: { candidates: ["glm-5"], maxTokens: 2048, ceilingCents: 5 },
   },
   critical: {
-    agent_turn: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 3 },
-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 512, ceilingCents: 1 },
-    safety_check: { candidates: ["gpt-5-mini"], maxTokens: 1024, ceilingCents: 2 },
-    summarization: { candidates: [], maxTokens: 0, ceilingCents: 0 },
-    planning: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+    agent_turn: { candidates: ["glm-5"], maxTokens: 2048, ceilingCents: 3 },
+    heartbeat_triage: { candidates: ["glm-5"], maxTokens: 512, ceilingCents: 1 },
+    safety_check: { candidates: ["glm-5"], maxTokens: 1024, ceilingCents: 2 },
+    summarization: { candidates: ["glm-5"], maxTokens: 512, ceilingCents: 1 },
+    planning: { candidates: ["glm-5"], maxTokens: 1024, ceilingCents: 2 },
   },
   dead: {
     agent_turn: { candidates: [], maxTokens: 0, ceilingCents: 0 },
