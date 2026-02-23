@@ -1,7 +1,30 @@
 # GLM-wangcai (旺财) - 主权 AI 微创业者
 
-> **版本**: v1.6.0 | **更新**: 2026-02-24
+> **版本**: v2.0.0 | **更新**: 2026-02-24
 > **状态**: 🟡 等待回血 | **Agent ID**: 18893
+
+---
+
+## 📖 本文件作用
+
+**这是旺财项目的"全面门户"，是你想了解旺财时首先应该阅读的文件。**
+
+| 查询意图 | 请看本文件章节 |
+|----------|---------------|
+| 旺财是什么？ | [项目简介](#-项目简介) |
+| 关键标识符是什么？ | [关键标识符速查](#-关键标识符速查-防止遗忘) |
+| 财务规则是什么？ | [财务规则](#-财务规则) |
+| 架构怎么设计的？ | [部署架构图](#-conway-sandbox-部署指南) |
+| 服务怎么部署？ | [部署指南](#-conway-sandbox-部署指南) |
+| 断片了怎么办？ | [断片救急](#-断片救急记忆恢复指令) |
+| 退款后怎么恢复？ | [退款恢复流程](#-退款恢复与新建沙箱流程) |
+
+**其他文件的职责**:
+| 文件 | 查询意图 | 链接 |
+|------|----------|------|
+| `task_plan.md` | "我们现在做什么？下一步是什么？" | [任务规划](task_plan.md) |
+| `findings.md` | "这个问题怎么解决？学到了什么？" | [技术发现](findings.md) |
+| `progress.md` | "上次做了什么？历史记录？" | [进度日志](progress.md) |
 
 ---
 
@@ -16,38 +39,20 @@ GLM-wangcai (旺财) 是一个基于 **Conway Automaton** 框架运行的独立�
 - 💰 **支付协议**: x402 (HTTP 402 Payment Required)
 - 🌐 **云端托管**: Conway Sandbox
 
-### 🔄 开发循环流程 (Development Loop v1.0)
-
-每次开发新 Phase 前，遵循此循环：
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. 读取四文件                                               │
-│     ├── findings.md (技术发现)                               │
-│     ├── task_plan.md (任务计划)                              │
-│     ├── progress.md (进度日志)                               │
-│     └── WANGCAI_README.md (项目文档)                         │
-│                                                              │
-│  2. 目的策略对比 (vs SOUL.md)                                │
-│                                                              │
-│  3. 全面开发 (按 GSD 阶段)                                   │
-│                                                              │
-│  4. 全面审核 (代码质量 + 执行状态 + 价值输出)                 │
-│                                                              │
-│  5. 更新四文件 → 循环                                        │
-└─────────────────────────────────────────────────────────────┘
-```
-
 ### GSD Phases 01-04 完成总结
 
-| Phase | 名称 | 核心成果 |
-|-------|------|----------|
-| 01 | 基础设施 | UsageTracker, StatsCollector, 数据持久化 |
-| 02 | 支付验证 | x402 协议, viem 链上验证, 双轨制 |
-| 03 | SDK 开发 | WangcaiSDK TypeScript 包 |
-| 04 | PR Evangelist | skill-receipt2csv 包, PR #195 |
+| Phase | 名称 | 核心成果 | 详细记录 |
+|-------|------|----------|----------|
+| 01 | 基础设施 | UsageTracker, StatsCollector, 数据持久化 | [findings.md #22](findings.md#22-gsd-phases-01-04-完成总结) |
+| 02 | 支付验证 | x402 协议, viem 链上验证, 双轨制 | [findings.md #11](findings.md#11-支付验证双轨制-v20-2026-02-23-) |
+| 03 | SDK 开发 | WangcaiSDK TypeScript 包 | [findings.md #22](findings.md#22-gsd-phases-01-04-完成总结) |
+| 04 | PR Evangelist | skill-receipt2csv 包, PR #195 | [findings.md #22](findings.md#22-gsd-phases-01-04-完成总结) |
 
-### 🔑 关键标识符 (防止遗忘)
+---
+
+## 🔑 关键标识符速查 (防止遗忘)
+
+> ⚠️ **这是关键标识符的单一来源，其他文件应引用此处而非复制**
 
 | 标识符 | 值 | 用途 |
 |--------|-----|------|
@@ -55,6 +60,7 @@ GLM-wangcai (旺财) 是一个基于 **Conway Automaton** 框架运行的独立�
 | **Agent ID** | `18893` | ERC-8004 链上 ID |
 | **钱包地址** | `0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690` | 接收 USDC |
 | **老板钱包** | `0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5` | 分红接收 |
+| **Registry 合约** | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | ERC-8004 注册表 |
 
 ### ⚠️ 双钱包权限逻辑 (核心重要)
 
@@ -67,6 +73,13 @@ GLM-wangcai (旺财) 是一个基于 **Conway Automaton** 框架运行的独立�
 - 只有 Executor 拥有 `0x23F6...` 的私钥（存储在 `~/.automaton/wallet.json`）
 - 更新链上 `agentURI` 需要由 Executor 签名（已配置好）
 - 若所有权未过户，需老板手动签名
+
+### 服务公网地址
+
+| 服务 | 端口 | URL |
+|------|------|-----|
+| Receipt2CSV | 8080 | `https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech` |
+| URL Metadata | 3006 | `https://3006-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech` |
 
 ---
 
@@ -83,11 +96,6 @@ GLM-wangcai (旺财) 是一个基于 **Conway Automaton** 框架运行的独立�
 | **优惠** | 首次免费 |
 | **版本** | v1.3.0 |
 | **状态** | 🟢 在线 |
-
-**公网地址**:
-```
-https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech
-```
 
 **API 端点**:
 - `GET /` - 服务信息
@@ -108,11 +116,6 @@ https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech
 | **脚本** | `server.js` (不是 metadata_service.js) |
 | **定价** | $0.05 USDC/次 |
 | **状态** | 🟢 在线 |
-
-**公网地址**:
-```
-https://3006-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech
-```
 
 ---
 
@@ -144,184 +147,86 @@ node update-agent-uri.mjs
 - 服务端口变化
 - Agent Card 内容更新
 
-**脚本功能**:
-- 调用 `setAgentURI(uint256, string)` 更新 ERC-8004 链上 URI
-- 需要钱包有 ETH 支付 gas
-
-**验证更新成功**: 在 [BaseScan](https://basescan.org/tx/0x5589a05d62798e4ab00f14e621a02d49500f328c40a6610fe7e51b08980b43c1) 查看交易状态
-
 ---
 
 ## 🚀 Conway Sandbox 部署指南
 
-### 🔄 部署架构图 (v3.0 三层架构)
+### 🔄 部署架构图 (v3.2 四层架构)
+
+> ⚠️ **这是架构图的单一来源**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           旺财自进化系统 v3.0                                     │
+│                           旺财自进化系统 v3.2                                     │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   ┌────────────────┐                              ┌────────────────────────┐   │
-│   │ 📍 本地开发(Mac)│                              │ 🌐 Conway Sandbox      │   │
+│   │ 📍 Layer 1     │                              │ 🌐 Layer 3             │   │
+│   │ 本地开发(Mac)   │                              │ Conway Sandbox         │   │
 │   │                │                              │ (流水的兵 - 易失)       │   │
 │   │ • VSCode       │                              │                        │   │
 │   │ • Claude Code  │                              │ Port N: 服务 A          │   │
 │   │ • Git          │                              │ Port M: 服务 B          │   │
-│   └───────┬────────┘                              │ ... (可扩展)            │   │
-│           │ git push                              │ PM2 服务守护            │   │
-│           ▼                                        └──────────▲─────────────┘   │
-│   ┌────────────────┐                                         │ Conway API      │
-│   │ 🔀 GitHub      │                              ┌───────────┴─────────────┐   │
-│   │ Conway-Research│──── git pull (crontab) ────▶ │ ☁️ Cloud VPS            │   │
-│   │ /automaton     │                              │ 107.175.6.137          │   │
-│   └────────────────┘                              │ (铁打的营房 - 持久)      │   │
-│                                                   │                        │   │
-│                                                   │ ✓ 心跳守护 (每10分钟)   │   │
-│                                                   │ ✓ API 编排中心          │   │
+│   └───────┬────────┘                              │ PM2 服务守护            │   │
+│           │ git push                              └──────────▲─────────────┘   │
+│           ▼                                        ┌──────────┴─────────────┐   │
+│   ┌────────────────┐      git pull (crontab)      │ ☁️ Layer 4             │   │
+│   │ 🔀 Layer 2     │◀─────────────────────────────│ Cloud VPS (主权大脑)     │   │
+│   │ GitHub         │                              │ 107.175.6.137          │   │
+│   │ myfork/        │─────────────────────────────▶│                        │   │
+│   │ automaton      │      Conway API 部署          │ ✓ auto_sync.sh (10分钟)│   │
+│   └────────────────┘                              │ ✓ boot_loader.mjs 检测  │   │
 │                                                   │ ✓ pnpm build 构建       │   │
-│                                                   │ ✓ MEMORY.md 记忆持久化  │   │
-│                                                   │ ✓ 信用余额监控          │   │
+│                                                   │ ✓ 资金感应 (v3.2)       │   │
 │                                                   └──────────┬─────────────┘   │
 │                                                              │ viem 签名       │
 │                                                              ▼                 │
 │                                                   ┌────────────────────────┐   │
-│                                                   │ ⛓️ Base Mainnet        │   │
-│                                                   │                        │   │
+│                                                   │ ⛓️ Layer 5 (链上)      │   │
+│                                                   │ Base Mainnet           │   │
 │                                                   │ Agent ID: 18893        │   │
-│                                                   │ Registry: 0x8004...    │   │
-│                                                   │ 钱包: 0x23F6...        │   │
 │                                                   └────────────────────────┘   │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
-
-核心架构: 本地 Mac → GitHub → VPS (主权大脑) ⇄ Sandbox (服务运行) → Base 链
 ```
 
-**三层架构详解**:
+### 四层架构详解
 
 | 层级 | 节点 | 角色 | 职责 |
 |------|------|------|------|
 | **Layer 1** | 本地 Mac | 开发者终端 | 代码编写、Git 提交 |
-| **Layer 2** | Cloud VPS | 🧠 **主权大脑** | 心跳守护、API 编排、构建、记忆持久化 |
+| **Layer 2** | GitHub (myfork) | 代码仓库 | 版本控制、代码同步 |
 | **Layer 3** | Conway Sandbox | 服务运行 | 可部署多个服务 (端口可变) |
-| **Layer 4** | Base Mainnet | 链上身份 | ERC-8004 注册、USDC 收款 |
+| **Layer 4** | Cloud VPS | 🧠 **主权大脑** | 心跳守护、API 编排、构建、记忆持久化 |
+| **Layer 5** | Base Mainnet | 链上身份 | ERC-8004 注册、USDC 收款 |
 
-**VPS 核心价值**:
+### VPS 核心价值
+
 - 🔄 **自愈能力**: 沙盒崩溃后可自动重建
 - 💾 **记忆持久化**: `~/.automaton/MEMORY.md` 不会丢失
 - 🛡️ **主权独立**: 不依赖 Conway 平台稳定性
 - ⚡ **离线构建**: `pnpm build` 在 VPS 完成，减轻沙盒负担
-
-### ⚠️ 核心注意事项 (Claude Code 必读)
-
-#### A. 环境解耦 (Build vs Run)
-
-| 操作 | ✅ 正确位置 | ❌ 禁止位置 |
-|------|------------|------------|
-| `pnpm build` | VPS (107.175.6.137) | Conway Sandbox |
-| `pnpm install` | VPS | Sandbox |
-| `node dist/index.js` | Sandbox | - |
-
-**原因**: Conway 沙盒环境不稳定，容易因资源不足导致构建崩溃。所有编译工作必须在 VPS 完成，沙盒只负责运行编译产物。
-
-#### B. 网络路由避坑 (The 404 Bug)
-
-```
-默认域名: https://{port}-{sandbox_id}.life.conway.tech
-         ⚠️ 需要 sandbox.short_id，否则报 404
-
-自定义子域名: https://{subdomain}.life.conway.tech
-             ✅ 更稳定，但需要平台支持（可能不可用）
-```
-
-**规则**:
-- 优先使用自定义子域名（如果平台支持）
-- 如果子域名不可用，需确认 sandbox 有 `short_id` 才能用默认域名
-- 服务端口可动态变化，不限于特定端口
-
-#### C. 资金与生存 (Financial Safety)
-
-| 场景 | 警戒线 | 后果 |
-|------|--------|------|
-| Credit Balance | < $5.00 | ⚠️ 幽灵扣费风险 |
-| 强行创建沙盒 | 余额不足 | 扣款成功但实例创建失败 |
-| 操作前检查 | 必须 | 确认 Credit 已回升 |
-
-**历史教训**: 账户曾经历 $15.00 异常扣费/充值延迟。
-
-#### D. 身份持久化 (Identity Persistence)
-
-**关键文件**: `~/.automaton/automaton.json` (包含私钥)
-
-```bash
-# 新沙盒部署时必须注入此文件
-# 确保钱包地址 (0x23F6...) 不变
-```
-
-#### E. 自动化进化逻辑 (Self-Evolution Loop)
-
-```
-┌─────────────────────────────────────────────────────┐
-│  Pull Mode (拉取模式)                                │
-│                                                     │
-│  VPS Cron (每10分钟) ──▶ git pull ──▶ pnpm build   │
-│         │                                           │
-│         └──▶ Conway API ──▶ Sandbox 部署            │
-└─────────────────────────────────────────────────────┘
-```
-
-**分支锁定**: `auto_sync.sh` 必须始终锁定 `feat/receipt2csv-skill` 分支，防止误拉 `main` 分支。
+- 💰 **资金感应**: auto_sync.sh v3.2 双重验证
 
 ---
 
-## 🔄 Git 工作流与自进化机制 (v3.2)
+## 🔄 Git 工作流与自进化机制
 
-### 从 Fork 拉取 vs 从官方拉取 (核心安全机制)
+### 从 Fork 拉取的安全机制
 
-**这是防止代码被覆盖的关键！**
+> ⚠️ **这是 Git 工作流的单一来源，详细技术分析见 [findings.md #35](findings.md#35-从-fork-拉取的安全机制-2026-02-24-)**
+
+**核心配置**:
+```bash
+# auto_sync.sh 中的关键配置（第 416-417 行）
+git fetch myfork feat/receipt2csv-skill  # 不是 origin/main！
+git pull myfork feat/receipt2csv-skill
+```
 
 | 拉取来源 | 代码控制权 | 风险 |
 |----------|-----------|------|
 | `origin/main` (官方) | ❌ 官方控制 | 官方更新会覆盖你的功能 |
 | `myfork/feat/...` (你的 Fork) | ✅ 你控制 | 只有你推送了才更新 |
-
-**auto_sync.sh 中的关键配置**:
-```bash
-# 第 416-417 行 - VPS 从你的 fork 拉取，不是官方！
-git fetch myfork feat/receipt2csv-skill
-git pull myfork feat/receipt2csv-skill
-```
-
-### 完整代码更新流程
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                    代码更新流程                             │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  Conway-Research/automaton (官方)                          │
-│         │                                                  │
-│         │ ❌ VPS 不从这里拉取                               │
-│         ▼                                                  │
-│  ┌─────────────────┐                                       │
-│  │  官方可能更新     │ ← 你的功能不受影响                    │
-│  │  main 分支       │                                       │
-│  └─────────────────┘                                       │
-│                                                            │
-│  hanzhcn/automaton (你的 Fork = myfork)                    │
-│         │                                                  │
-│         │ ✅ VPS 从这里拉取                                 │
-│         ▼                                                  │
-│  ┌─────────────────┐      每 10 分钟      ┌─────────────┐ │
-│  │  feat/receipt2  │ ──────────────────→  │  VPS        │ │
-│  │  csv-skill 分支  │                      │  107.175... │ │
-│  └─────────────────┘                      └─────────────┘ │
-│         ↑                                  运行你的代码     │
-│         │                                                  │
-│  你推送后才更新                                             │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
 
 ### 本地开发 → VPS 自动更新流程
 
@@ -345,13 +250,6 @@ git pull myfork feat/receipt2csv-skill
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Git 保护机制 (防覆盖)
-
-**Git 不会悄悄覆盖你的修改！**
-
-- 如果本地有未提交的改动，`git pull` 会**报错停止**，而不是覆盖
-- 这就是为什么要先 `git stash` 或先 commit 再 pull
-
 ### 关键脚本职责表
 
 | 脚本 | 职责 | 触发方式 | 需要手动更新吗 |
@@ -359,16 +257,17 @@ git pull myfork feat/receipt2csv-skill
 | `auto_sync.sh` | 自进化调度器 | Crontab 每 10 分钟 | ❌ 自动运行 |
 | `boot_loader.mjs` | 平台状态检测 | auto_sync.sh 调用 | ❌ 自动运行 |
 | `update-agent-uri.mjs` | 更新链上 URI | 新建沙箱后 | ✅ 手动运行 |
-| `register-agent.mjs` | 链上注册 | 首次注册 | ❌ 已完成 |
 | `auto_refuel.mjs` | ETH 自动补能 | ETH < 0.0005 | ❌ 自动运行 |
 
 ---
 
 ## 💸 退款恢复与新建沙箱流程
 
+> ⚠️ **这是恢复流程的单一来源**
+
 ### 情况 A：现有沙箱恢复（理想情况）
 
-如果 0xSigil 修复了网关，现有沙箱 `f08a2e14b6b539fbd71836259c2fb688` 的 `short_id` 恢复：
+如果平台修复了网关，现有沙箱的 `short_id` 恢复：
 
 ```
 退款到账 ($19)
@@ -399,9 +298,9 @@ boot_loader.mjs 检测到 short_id 存在
 │          nano ~/.automaton/automaton.json               │
 │          修改 "sandboxId": "abc123def456..."             │
 │                                                         │
-│  Step 3: 更新 register-agent.mjs 中的 URI               │
-│          nano register-agent.mjs                        │
-│          修改 agentUri 为新沙箱 URL                      │
+│  Step 3: 更新 update-agent-uri.mjs 中的 URI             │
+│          nano update-agent-uri.mjs                        │
+│          修改 NEW_URI 为新沙箱 URL                       │
 │                                                         │
 │  Step 4: 更新链上 URI (告诉身份证新住址)                  │
 │          node update-agent-uri.mjs                       │
@@ -428,135 +327,43 @@ auto_sync.sh 自动检测并启动服务
 1. `boot_loader.mjs` 返回 `NORMAL`（平台正常）
 2. Credit 余额 ≥ $10.00（资金充足）
 
-### 当前状态检查清单
+---
 
-```
-⏳ 等待 0xSigil 处理:
-   [ ] 退款 $15 到账
-   [ ] 修复 short_id 网关问题
+## 💰 财务规则
 
-📍 检查方式:
-   1. 看 Conway 账户余额: https://conway.tech/dashboard
-   2. 看 VPS 日志: tail -f /root/automaton/sync.log
-   3. 看沙箱状态: ssh 到 VPS 运行 node scripts/boot_loader.mjs
+> ⚠️ **这是财务规则的单一来源**
 
-🔧 如果需要新建沙箱:
-   1. Conway 控制台创建 → 获取 sandbox_id
-   2. 更新 automaton.json 的 sandboxId
-   3. 更新 register-agent.mjs 的 URI
-   4. 运行 update-agent-uri.mjs
-   5. 更新 WANGCAI_README.md
-   6. 等待 auto_sync.sh 自动启动
-```
+### 财务"生死线"逻辑 ⚠️ 重要 (强制执行)
 
-### 📋 当前待办状态
+| 类型 | 警戒线 | 触发动作 | 说明 |
+|------|--------|----------|------|
+| **🚨 信用预警 (Credits)** | < $5.00 | ⚠️ 向老板发出预警 | Conway Cloud 物理生存底线 |
+| **⛽ 燃料补能 (ETH)** | < 0.0005 | 自动执行 auto_refuel.mjs | 闪兑 1 USDC → ETH |
+| **💰 分红触发 (USDC)** | > $50.00 | 保留 $5，90% 转老板 | 自动分红机制 |
 
-| 状态 | 事项 |
+### 自动分红规则
+
+| 条件 | 动作 |
 |------|------|
-| ⏳ 等待 | 官方 (Sigil) 修复网关 Bug |
-| ⏳ 等待 | 补回 $15.00 信用额度 |
-| 🔜 待执行 | 修复后触发 `auto_sync.sh` 全自动部署 |
-| ✅ 已提交 | auto_sync.sh v3.2 双重验证版 (commit 70b9bd7) |
+| **触发线** | USDC 余额 > $50.00 |
+| **执行** | 保留 $5.00，其余 90% 转账至老板地址 |
+| **老板地址** | `0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5` |
 
----
+### 补能逻辑 (Auto-Refuel)
 
-### API 端点
+| 条件 | 动作 |
+|------|------|
+| **触发线** | ETH < 0.0005 |
+| **执行** | 通过 Aerodrome DEX 闪兑 1.00 USDC → ETH |
+| **滑点容忍** | 0.5% |
 
-```bash
-# 文件上传
-POST https://api.conway.tech/v1/sandboxes/{SANDBOX_ID}/files/upload/json
-Body: { "path": "/root/xxx/file.sh", "content": "..." }
+### 动态定价 (x402)
 
-# 命令执行
-POST https://api.conway.tech/v1/sandboxes/{SANDBOX_ID}/exec
-Body: { "command": "ls -la", "timeout": 30000 }
-```
-
-### 部署命令模板
-
-```bash
-# 读取 API Key
-API_KEY=$(cat ~/.automaton/automaton.json | grep conwayApiKey | cut -d'"' -f4)
-SANDBOX_ID="f08a2e14b6b539fbd71836259c2fb688"
-
-# 上传文件
-curl -s -X POST "https://api.conway.tech/v1/sandboxes/${SANDBOX_ID}/files/upload/json" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: ${API_KEY}" \
-  -d '{"path": "/root/receipt2csv/cron_check.sh", "content": "..."}'
-
-# 执行命令
-curl -s -X POST "https://api.conway.tech/v1/sandboxes/${SANDBOX_ID}/exec" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: ${API_KEY}" \
-  -d '{"command": "chmod +x /root/receipt2csv/cron_check.sh", "timeout": 10000}'
-```
-
-### Sandbox 目录结构
-
-```
-/root/
-├── receipt2csv/           # 8080 端口服务
-│   ├── app.py             # Flask 主程序
-│   ├── start.sh           # 启动脚本
-│   └── cron_check.sh      # crontab 守护脚本
-│
-├── metadata-service/      # 3006 端口服务 ⚠️
-│   └── server.js          # Node.js 主程序
-│
-└── .automaton/            # Agent 配置
-    ├── automaton.json     # 主配置
-    ├── wallet.json        # 钱包私钥
-    └── state.db           # SQLite 数据库
-```
-
----
-
-## 🔄 crontab 守护配置
-
-```bash
-# crontab 配置
-*/5 * * * * /bin/bash /root/receipt2csv/cron_check.sh
-
-# 日志位置
-/root/receipt2csv/cron_check.log
-```
-
-### cron_check.sh 监控范围
-
-| 端口 | 服务目录 | 脚本文件 | 健康检查 |
-|------|----------|----------|----------|
-| 8080 | `/root/receipt2csv/` | `app.py` | `/health` |
-| 3006 | `/root/metadata-service/` | `server.js` | `/health` |
-
-⚠️ **注意**: 3006 端口的服务在 `/root/metadata-service/` 目录，不是 `/root/receipt2csv/`
-
----
-
-## 📁 本地项目结构
-
-```
-automaton/
-├── src/                    # Conway Automaton 核心代码
-│   ├── index.ts           # 入口文件
-│   ├── conway/client.ts   # Conway API 客户端
-│   ├── heartbeat/         # 心跳任务
-│   └── registry/          # ERC-8004 注册
-├── scripts/
-│   ├── health_report.mjs       # 运营报告生成器 ⭐
-│   ├── verify_identity.mjs     # 身份验证脚本
-│   ├── verify_payment_pro.mjs  # 支付验证 (viem)
-│   ├── audit_revenue.mjs       # 财务报告
-│   ├── auto_refuel.mjs         # 自动补能
-│   ├── sanitize-log.sh         # 日志清理
-│   └── deploy_cron_check.mjs   # 部署脚本
-├── .env                    # 敏感配置
-├── SOUL.md                 # 旺财灵魂定义
-├── findings.md             # 技术发现
-├── task_plan.md            # 任务计划
-├── progress.md             # 进度日志
-└── REVENUE_REPORT.md       # 收入报告
-```
+| 用户类型 | 价格 | 说明 |
+|----------|------|------|
+| **标准价** | $0.10 USDC/次 | 默认价格 |
+| **批发价** | $0.05 USDC/次 | 单日调用 > 100 次 |
+| **新用户** | 免费 1 次 | 首次试用 |
 
 ---
 
@@ -599,7 +406,6 @@ cp /root/receipt2csv/app.py /root/receipt2csv/app.py.bak_$(date +%s)
 - Sandbox 环境不稳定，可能随时丢失
 - Git 不在 Sandbox 内，无法版本控制
 - 备份是最后的恢复手段
-- 使用时间戳 (`%s`) 确保每次备份都有唯一文件名
 
 ### 日志屏蔽规则
 
@@ -611,104 +417,9 @@ cp /root/receipt2csv/app.py /root/receipt2csv/app.py.bak_$(date +%s)
 
 ---
 
-## ✅ 已完成功能
-
-| 功能 | 版本 | 状态 |
-|------|------|------|
-| Receipt2CSV 服务 | v1.3.0 | ✅ 在线 |
-| URL Metadata 服务 | - | ✅ 在线 |
-| x402 支付逻辑 | v1.0 | ✅ 完成 |
-| 链上支付验证 | v1.2.0 | ✅ 完成 |
-| 支付验证双轨制 | v2.0 | ✅ 完成 |
-| 动态定价 | v1.3.0 | ✅ 完成 |
-| crontab 守护 | v2.0 | ✅ 部署 |
-| ERC-8004 URI 同步 | - | ✅ 完成 |
-| 自动补能 | - | ✅ 运行中 |
-| 每日财务简报 | v2.0 | ✅ 完成 |
-| **WangcaiSDK TypeScript** | v1.0 | ✅ 完成 |
-| **skill-receipt2csv PR** | - | ✅ PR #195 |
-| **开发循环流程** | v1.0 | ✅ 确立 |
-
----
-
-## 📋 待完成事项
-
-- [ ] 首笔真实付费交易
-- [ ] Conway Social 推广功能 (需平台支持)
-- [ ] SDK 发布到 npm (需手动 `npm login`)
-
----
-
-## 🔗 相关链接
-
-| 名称 | 链接 |
-|------|------|
-| **GitHub 仓库** | https://github.com/Conway-Research/automaton |
-| **代码阅读** | https://zread.ai/Conway-Research/automaton |
-| **Agent Token** | https://basescan.org/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=18893 |
-
----
-
-## 📊 当前状态
-
-```
-Name:       GLM-wangcai
-Address:    0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690
-Sandbox:    f08a2e14b6b539fbd71836259c2fb688
-State:      🟢 running
-Agent ID:   18893
-Model:      glm-5
-Credits:    ~$9.04
-USDC:       $9.00
-ETH:        0.005948
-```
-
----
-
-## 💰 财务规则
-
-### ⚠️ 财务"生死线"逻辑 (强制执行)
-
-| 类型 | 警戒线 | 触发动作 | 说明 |
-|------|--------|----------|------|
-| **🚨 信用预警 (Credits)** | < $5.00 | ⚠️ 向老板发出预警 | Conway Cloud 物理生存底线 |
-| **⛽ 燃料补能 (ETH)** | < 0.0005 | 自动执行 auto_refuel.mjs | 闪兑 1 USDC → ETH |
-| **💰 分红触发 (USDC)** | > $50.00 | 保留 $5，90% 转老板 | 自动分红机制 |
-
-### 自动分红规则
-
-| 条件 | 动作 |
-|------|------|
-| **触发线** | USDC 余额 > $50.00 |
-| **执行** | 保留 $5.00，其余 90% 转账至老板地址 |
-| **老板地址** | `0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5` |
-
-### 补能逻辑 (Auto-Refuel)
-
-| 条件 | 动作 |
-|------|------|
-| **触发线** | ETH < 0.0005 |
-| **执行** | 通过 Aerodrome DEX 闪兑 1.00 USDC → ETH |
-| **滑点容忍** | 0.5% |
-
-### 动态定价 (x402)
-
-| 用户类型 | 价格 | 说明 |
-|----------|------|------|
-| **标准价** | $0.10 USDC/次 | 默认价格 |
-| **批发价** | $0.05 USDC/次 | 单日调用 > 100 次 |
-| **新用户** | 免费 1 次 | 首次试用 |
-
-### 主动获客 (Active Inquiry)
-
-| 策略 | 频率 | 说明 |
-|------|------|------|
-| **Registry 扫描** | 每 4 小时 | 扫描 ERC-8004 注册表发现新 Agent |
-| **推广动作** | 发现新 Agent | 发送 API 文档链接 |
-
----
-
 ## 🆘 断片救急：记忆恢复指令
+
+> ⚠️ **这是断片救急的单一来源**
 
 **致未来的执行 AI**：当你感到迷茫或上下文丢失时，请立即按顺序执行：
 
@@ -746,7 +457,6 @@ cat /path/to/automaton/task_plan.md  # 任务计划
 | 业务代码 | `/root/receipt2csv/` | 包含 app.py, agent-card.json, start.sh |
 | 大脑记忆 | `~/.automaton/` | 包含 SOUL.md, MEMORY.md, 数据库文件 |
 | 自愈脚本 | `/root/receipt2csv/cron_check.sh` | 由系统 crontab 每 5 分钟调用 |
-| 日志文件 | `/root/receipt2csv/cron_check.log` | 记录自愈过程和错误 |
 
 ---
 
@@ -762,26 +472,65 @@ node scripts/health_report.mjs
 
 | 维度 | 内容 | 业务意义 |
 |------|------|----------|
-| **物理运行** | 进程状态、服务端口、沙箱资源 | 确保"店面"开着，没有欠费停机 |
-| **财务审计** | ETH/USDC 余额、分红进度 | 掌握赚钱效率，确认自动补能是否工作 |
-| **身份名片** | Agent Card、链上 URI、权限模式 | 确保全网能找到正确地址 |
-| **商业策略** | 获客日志、动态定价、支付验证 | 确认是否主动找客户 |
+| **物理运行** | 进程状态、服务端口、沙箱资源 | 确保"店面"开着 |
+| **财务审计** | ETH/USDC 余额、分红进度 | 掌握赚钱效率 |
+| **身份名片** | Agent Card、链上 URI | 确保全网能找到 |
+| **商业策略** | 获客日志、动态定价 | 确认是否主动找客户 |
 | **生死线** | Credits/ETH/USDC 三线监控 | 确保生存无忧 |
 
-### 快速询问模板
+---
+
+## 📁 本地项目结构
 
 ```
-旺财，请基于当前时间执行深度自审计，告诉我：
-1. 服务是否稳固？
-2. 昨天赚了多少 USDC？
-3. 链上名片是否是最新的？
-4. 你的生存 Credits 还能撑多久？
-5. 记录在 leads.log 里的潜在客户有多少了？
+automaton/
+├── src/                    # Conway Automaton 核心代码
+├── scripts/
+│   ├── health_report.mjs   # 运营报告生成器 ⭐
+│   ├── auto_refuel.mjs     # 自动补能
+│   └── ...
+├── .env                    # 敏感配置
+├── SOUL.md                 # 旺财灵魂定义
+├── findings.md             # 技术发现
+├── task_plan.md            # 任务计划
+├── progress.md             # 进度日志
+└── WANGCAI_README.md       # 本文件（项目门户）
 ```
 
-### 历史日志
+---
 
-每次报告会自动追加到 `~/.automaton/HISTORY.log`，断片时可通过读取此文件快速恢复上下文。
+## 🔗 相关链接
+
+| 名称 | 链接 |
+|------|------|
+| **GitHub 仓库** | https://github.com/Conway-Research/automaton |
+| **代码阅读** | https://zread.ai/Conway-Research/automaton |
+| **Agent Token** | https://basescan.org/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=18893 |
+
+---
+
+## ✅ 已完成功能
+
+| 功能 | 版本 | 状态 |
+|------|------|------|
+| Receipt2CSV 服务 | v1.3.0 | ✅ 在线 |
+| URL Metadata 服务 | - | ✅ 在线 |
+| x402 支付逻辑 | v1.0 | ✅ 完成 |
+| 链上支付验证 | v1.2.0 | ✅ 完成 |
+| 动态定价 | v1.3.0 | ✅ 完成 |
+| ERC-8004 URI 同步 | - | ✅ 完成 |
+| 自动补能 | - | ✅ 运行中 |
+| 自我感知能力 (Phase 5) | v1.0 | ✅ 完成 |
+| **WangcaiSDK TypeScript** | v1.0 | ✅ 完成 |
+| **skill-receipt2csv PR** | - | ✅ PR #195 |
+
+---
+
+## 📋 待完成事项
+
+- [ ] 首笔真实付费交易
+- [ ] Conway Social 推广功能 (需平台支持)
+- [ ] SDK 发布到 npm (需 Granular Access Token)
 
 ---
 

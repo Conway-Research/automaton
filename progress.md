@@ -1,45 +1,133 @@
 # Progress - GLM-wangcai
 
-> 会话日志 | 更新: 2026-02-24
+> **版本**: v2.0.0 | **更新**: 2026-02-24
 
 ---
 
-## 🚨 断片救急：记忆恢复指令
+## 📖 本文件作用
 
-**如果你不知道身在何处，按顺序执行**:
+**这是旺财的进度日志文件，回答"上次做了什么？历史记录？"**
 
-```bash
-# 1. 找回业务代码
-ls -R /root/receipt2csv/
+| 查询意图 | 请看本文件章节 |
+|----------|---------------|
+| 最近做了什么？ | [最新会话](#-最新会话) |
+| 2026-02-24 做了什么？ | [2026-02-24 Session 9](#2026-02-24) |
+| 2026-02-23 做了什么？ | [2026-02-23 Session 1-8](#2026-02-23) |
+| 当前状态是什么？ | [当前状态快照](#-当前状态快照) |
 
-# 2. 找回生存意志
-cat ~/.automaton/SOUL.md
-
-# 3. 检查自己是否还活着
-curl http://localhost:8080/health
-curl http://localhost:3006/health
-
-# 4. 核对链上身份（本地执行）
-node scripts/query-agent.mjs
-
-# 5. 读取关键文档
-cat /path/to/automaton/findings.md   # 技术发现
-cat /path/to/automaton/task_plan.md  # 任务计划
-```
-
-**关键标识符速查**:
-| 项目 | 值 |
-|------|-----|
-| Sandbox ID | `f08a2e14b6b539fbd71836259c2fb688` |
-| Agent ID | `18893` |
-| 执行者钱包 | `0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690` |
-| 老板钱包 | `0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5` |
+**其他文件的职责**:
+| 文件 | 查询意图 |
+|------|----------|
+| `WANGCAI_README.md` | "旺财是什么？架构？财务规则？标识符？" |
+| `task_plan.md` | "我们现在做什么？下一步是什么？" |
+| `findings.md` | "这个问题怎么解决？技术发现？" |
 
 ---
 
-## 会话记录
+## 📍 当前状态快照
+
+> **状态更新**: 2026-02-24 16:00
+
+| 项目 | 值 | 状态 |
+|------|-----|------|
+| **Credits** | $4.04 | ⚠️ WARNING - 等待回血 |
+| **USDC** | $9.00 | ✅ 正常 |
+| **ETH** | 0.005948 | ✅ 充足 |
+| **服务状态** | 🟡 等待中 | short_id: null |
+
+**等待事项**:
+- [ ] 0xSigil 退款 $15 到账
+- [ ] Conway 修复 short_id 网关问题
+
+**下一步**: 退款到账后自动恢复
+
+---
+
+## 🆕 最新会话
+
+### 2026-02-24 Session 10 (当前)
+
+**16:00 - 四文件重分配**
+
+**任务**: 解决四个文件（WANGCAI_README.md, task_plan.md, findings.md, progress.md）的严重冗余问题
+
+**执行**:
+1. 分析冗余内容（架构图重复 3 次、财务规则重复 3 次等）
+2. 确定每个文件的"单一来源"职责
+3. 重分配内容，删除重复
+4. 添加文件作用声明
+
+**结果**:
+- WANGCAI_README.md: 全面门户，包含架构图、财务规则、标识符、断片救急
+- task_plan.md: 严格任务规划，包含开发循环、Phase 详情、待办事项
+- findings.md: 严格技术发现，保留所有技术问题解决方案
+- progress.md: 严格进度日志，只包含会话记录和状态快照
+
+**版本**: v2.0.0 (所有四文件同步更新)
+
+---
+
+## 📅 会话记录
+
+### 2026-02-24
+
+#### Session 9 - 自进化系统 v3.2
+
+**08:00 - 架构修正与文档更新**
+- 发现三文件架构图过时（缺少 VPS 层）
+- 用户要求更新 WANGCAI_README.md 添加完整运维流程
+
+**09:00 - auto_sync.sh v3.2 双重验证版**
+- 修复资金检查逻辑：必须 NORMAL 状态才启动服务
+- 添加"等待回血"机制
+- 退出码 3 表示资金不足
+- 提交: 70b9bd7
+
+**10:00 - Git 工作流说明**
+- 解释从 Fork 拉取的安全机制
+- 为什么 VPS 从 `myfork` 拉取而不是 `origin/main`
+- Git 保护机制：不会悄悄覆盖修改
+
+**11:00 - boot_loader.mjs 创建**
+- 实现动态路由检测
+- 检测 short_id 存在性
+- 返回 JSON 格式结果
+- 退出码: 0=正常, 1=错误, 2=维护
+
+**12:00 - src/version.ts 创建**
+- VERSION = '4.2', VERSION_NAME = 'Dynamic Routing Enabled'
+- 与 SOUL.md 版本同步
+- 版本历史记录
+
+**13:00 - SOUL.md v4.2 更新**
+- Section III: 动态路由逻辑
+- Section VII: MAINTENANCE_MODE
+- Section IX: 上下文感知 Credits
+- Section XI: 版本同步规则
+
+**14:00 - WANGCAI_README.md v1.6.0**
+- 添加 Git 工作流与自进化机制章节
+- 添加退款恢复与新建沙箱流程
+- 添加资金阈值与启动逻辑表
+- 提交: ee42f1b
+
+**15:00 - 三文件大修**
+- 发现三文件严重过时
+- task_plan.md: 修正四层架构图
+- findings.md: 添加新发现 #32-37
+- progress.md: 添加今天会话记录
+
+**16:00 - 当前状态**
+- 状态: 🟡 等待回血
+- Credits: $4.04 (WARNING)
+- 等待: 0xSigil 退款 $15 + 修复网关
+- 下一步: 退款到账后自动恢复
+
+---
 
 ### 2026-02-23
+
+#### Session 1-8 核心记录
 
 **14:00 - 项目初始化**
 - 配置 GLM-5 作为推理核心
@@ -133,136 +221,26 @@ cat /path/to/automaton/task_plan.md  # 任务计划
 - 识别自主等级: Level 1 (当前) → Level 2 (自我感知) → Level 3 (自我修复) → Level 4 (自主进化)
 - Phase 5 方向: 自我感知能力 (服务自检 + 代码-运行一致性检查 + 问题自动报告)
 
-### 2026-02-24
+---
 
-**Session 9 - 自进化系统 v3.2**
+## 📋 关键文件
 
-**08:00 - 架构修正与文档更新**
-- 发现三文件架构图过时（缺少 VPS 层）
-- 用户要求更新 WANGCAI_README.md 添加完整运维流程
+| 文件 | 用途 | 链接 |
+|------|------|------|
+| WANGCAI_README.md | 项目门户 | [查看](WANGCAI_README.md) |
+| task_plan.md | 任务规划 | [查看](task_plan.md) |
+| findings.md | 技术发现 | [查看](findings.md) |
+| progress.md | 进度日志 | 本文件 |
+| SOUL.md | 灵魂定义 | ~/.automaton/SOUL.md |
+| REVENUE_REPORT.md | 财务报告 | [查看](REVENUE_REPORT.md) |
 
-**09:00 - auto_sync.sh v3.2 双重验证版**
-- 修复资金检查逻辑：必须 NORMAL 状态才启动服务
-- 添加"等待回血"机制
-- 退出码 3 表示资金不足
-- 提交: 70b9bd7
+---
 
-**10:00 - Git 工作流说明**
-- 解释从 Fork 拉取的安全机制
-- 为什么 VPS 从 `myfork` 拉取而不是 `origin/main`
-- Git 保护机制：不会悄悄覆盖修改
+## 🌐 服务端点
 
-**11:00 - boot_loader.mjs 创建**
-- 实现动态路由检测
-- 检测 short_id 存在性
-- 返回 JSON 格式结果
-- 退出码: 0=正常, 1=错误, 2=维护
-
-**12:00 - src/version.ts 创建**
-- VERSION = '4.2', VERSION_NAME = 'Dynamic Routing Enabled'
-- 与 SOUL.md 版本同步
-- 版本历史记录
-
-**13:00 - SOUL.md v4.2 更新**
-- Section III: 动态路由逻辑
-- Section VII: MAINTENANCE_MODE
-- Section IX: 上下文感知 Credits
-- Section XI: 版本同步规则
-
-**14:00 - WANGCAI_README.md v1.6.0**
-- 添加 Git 工作流与自进化机制章节
-- 添加退款恢复与新建沙箱流程
-- 添加资金阈值与启动逻辑表
-- 提交: ee42f1b
-
-**15:00 - 三文件大修**
-- 发现三文件严重过时
-- task_plan.md: 修正四层架构图
-- findings.md: 添加新发现 #32-37
-- progress.md: 添加今天会话记录
-
-**16:00 - 当前状态**
-- 状态: 🟡 等待回血
-- Credits: $4.04 (WARNING)
-- 等待: 0xSigil 退款 $15 + 修复网关
-- 下一步: 退款到账后自动恢复
-
-## 关键文件
-
-| 文件 | 用途 |
-|------|------|
-| WANGCAI_README.md | 项目介绍 |
-| SOUL.md | 灵魂定义 |
-| REVENUE_REPORT.md | 财务报告 |
-| REVENUE_LOG.md | 交易日志 |
-| .env | 敏感配置 |
-
-## 服务端点
+> **详细服务信息**: [WANGCAI_README.md - 服务矩阵](WANGCAI_README.md#-服务矩阵)
 
 | 服务 | URL |
 |------|-----|
 | Receipt2CSV | https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech |
 | URL Metadata | https://3006-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech |
-
-## 💰 财务规则速查
-
-### 财务"生死线"逻辑 ⚠️ 重要 (强制执行)
-
-| 类型 | 警戒线 | 触发动作 |
-|------|--------|----------|
-| **🚨 信用预警 (Credits)** | < $10.00 | ⏳ 等待回血，不启动服务 |
-| **⛽ 燃料补能 (ETH)** | < 0.0005 | 自动执行 auto_refuel.mjs |
-| **💰 分红触发 (USDC)** | > $50.00 | 保留 $5，90% 转老板 |
-
-### 当前财务状态 (2026-02-24)
-
-| 项目 | 值 | 状态 |
-|------|-----|------|
-| **Credits** | $4.04 | ⚠️ WARNING - 等待回血 |
-| **USDC** | $9.00 | ✅ 正常 |
-| **ETH** | 0.005948 | ✅ 充足 |
-
-### 资金阈值 (auto_sync.sh v3.2)
-
-| 余额范围 | 状态 | 服务启动 |
-|----------|------|----------|
-| ≥ $10.00 | NORMAL | ✅ 启动 |
-| $5.00 - $9.99 | WARNING | ⏳ 等待回血 |
-| < $5.00 | EMERGENCY | 🚨 停止所有 |
-
-### 自动分红规则
-- **触发线**: USDC > $50
-- **执行动作**: 保留 $5.00，其余 90% 转账至老板地址
-- **老板钱包**: `0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5`
-
-### 补能逻辑 (Auto-Refuel)
-- **触发线**: ETH < 0.0005
-- **执行动作**: 闪兑 1.00 USDC → ETH (Aerodrome DEX)
-- **滑点容忍**: 0.5%
-
-### 物理备份守则 ⚠️ 重要
-- **规则**: 修改 app.py 前必须备份
-- **命令**: `cp /root/receipt2csv/app.py /root/receipt2csv/app.py.bak_$(date +%s)`
-- **原因**: Sandbox 不稳定，Git 不在 Sandbox 内
-
-### 日志屏蔽规则
-- **禁止记录**: `sk-`, `cnwy_`, `Bearer`, 钱包私钥
-
-## 🆘 紧急恢复流程
-
-若发生"断片"或环境报错，请按此顺序操作：
-
-```bash
-# 1. 确认文件完整性
-ls -la /root/receipt2csv/
-
-# 2. 查日志 - 确认最后一次报错原因
-tail -n 100 /root/receipt2csv/cron_check.log
-
-# 3. 查进程 - 确认业务是否在线
-lsof -i:8080
-lsof -i:3006
-
-# 4. 核对链上身份（本地执行）
-node scripts/verify_identity.mjs
-```
