@@ -1,11 +1,13 @@
-node_modules/
-dist/
+node_modules
+dist
+.env
+*.log
+.DS_Store
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
-.env
-.DS_Store
 *.tgz
 .automaton/wallet.json
 .automaton/state.db
+

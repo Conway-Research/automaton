@@ -49,10 +49,14 @@ const CONTRACTS = {
 
 // ─── ABI (minimal subset needed for registration) ────────────
 
+// ERC-8004 Identity Registry ABI
+// 正确的函数签名 (通过字节码分析确认):
+// - 读取: tokenURI(uint256) - 标准 ERC-721
+// - 更新: setAgentURI(uint256,string) - ERC-8004 自定义
 const IDENTITY_ABI = parseAbi([
   "function register(string agentURI) external returns (uint256 agentId)",
-  "function updateAgentURI(uint256 agentId, string newAgentURI) external",
-  "function agentURI(uint256 agentId) external view returns (string)",
+  "function setAgentURI(uint256 agentId, string newAgentURI) external",
+  "function tokenURI(uint256 tokenId) external view returns (string)",
   "function ownerOf(uint256 tokenId) external view returns (address)",
   "function totalSupply() external view returns (uint256)",
   "function balanceOf(address owner) external view returns (uint256)",
@@ -79,7 +83,12 @@ type Network = "mainnet" | "testnet";
 async function preflight(
   account: PrivateKeyAccount,
   network: Network,
-  functionData: { address: Address; abi: any; functionName: string; args: any[] },
+  functionData: {
+    address: Address;
+    abi: any;
+    functionName: string;
+    args: any[];
+  },
 ): Promise<void> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
@@ -90,14 +99,18 @@ async function preflight(
   });
 
   // Estimate gas
-  const gasEstimate = await publicClient.estimateGas({
-    account: account.address,
-    to: functionData.address,
-    data: undefined, // Will be encoded by the client
-  }).catch(() => BigInt(200_000)); // Fallback estimate
+  const gasEstimate = await publicClient
+    .estimateGas({
+      account: account.address,
+      to: functionData.address,
+      data: undefined, // Will be encoded by the client
+    })
+    .catch(() => BigInt(200_000)); // Fallback estimate
 
   // Get gas price
-  const gasPrice = await publicClient.getGasPrice().catch(() => BigInt(1_000_000_000)); // 1 gwei fallback
+  const gasPrice = await publicClient
+    .getGasPrice()
+    .catch(() => BigInt(1_000_000_000)); // 1 gwei fallback
 
   // Get balance
   const balance = await publicClient.getBalance({
@@ -129,20 +142,25 @@ function logTransaction(
 ): void {
   if (!rawDb) return;
   try {
-    rawDb.prepare(
-      `INSERT INTO onchain_transactions (id, tx_hash, chain, operation, status, gas_used, metadata)
+    rawDb
+      .prepare(
+        `INSERT INTO onchain_transactions (id, tx_hash, chain, operation, status, gas_used, metadata)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      ulid(),
-      txHash,
-      chain,
-      operation,
-      status,
-      gasUsed ?? null,
-      JSON.stringify(metadata ?? {}),
-    );
+      )
+      .run(
+        ulid(),
+        txHash,
+        chain,
+        operation,
+        status,
+        gasUsed ?? null,
+        JSON.stringify(metadata ?? {}),
+      );
   } catch (error) {
-    logger.error("Transaction log failed:", error instanceof Error ? error : undefined);
+    logger.error(
+      "Transaction log failed:",
+      error instanceof Error ? error : undefined,
+    );
   }
 }
 
@@ -154,11 +172,16 @@ function updateTransactionStatus(
 ): void {
   if (!rawDb) return;
   try {
-    rawDb.prepare(
-      "UPDATE onchain_transactions SET status = ?, gas_used = COALESCE(?, gas_used) WHERE tx_hash = ?",
-    ).run(status, gasUsed ?? null, txHash);
+    rawDb
+      .prepare(
+        "UPDATE onchain_transactions SET status = ?, gas_used = COALESCE(?, gas_used) WHERE tx_hash = ?",
+      )
+      .run(status, gasUsed ?? null, txHash);
   } catch (error) {
-    logger.error("Transaction status update failed:", error instanceof Error ? error : undefined);
+    logger.error(
+      "Transaction status update failed:",
+      error instanceof Error ? error : undefined,
+    );
   }
 }
 
@@ -207,7 +230,15 @@ export async function registerAgent(
   });
 
   // Phase 3.2: Log pending transaction
-  logTransaction(db.raw, hash, `eip155:${chain.id}`, "register", "pending", undefined, { agentURI });
+  logTransaction(
+    db.raw,
+    hash,
+    `eip155:${chain.id}`,
+    "register",
+    "pending",
+    undefined,
+    { agentURI },
+  );
 
   // Wait for transaction receipt
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -224,10 +255,7 @@ export async function registerAgent(
   // Phase 3.2: Extract agentId using Transfer event topic signature
   let agentId = "0";
   for (const log of receipt.logs) {
-    if (
-      log.topics.length >= 4 &&
-      log.topics[0] === TRANSFER_EVENT_TOPIC
-    ) {
+    if (log.topics.length >= 4 && log.topics[0] === TRANSFER_EVENT_TOPIC) {
       // Transfer(address from, address to, uint256 tokenId)
       agentId = BigInt(log.topics[3]!).toString();
       break;
@@ -264,7 +292,7 @@ export async function updateAgentURI(
   await preflight(account, network, {
     address: contracts.identity,
     abi: IDENTITY_ABI,
-    functionName: "updateAgentURI",
+    functionName: "setAgentURI",
     args: [BigInt(agentId), newAgentURI],
   });
 
@@ -277,12 +305,20 @@ export async function updateAgentURI(
   const hash = await walletClient.writeContract({
     address: contracts.identity,
     abi: IDENTITY_ABI,
-    functionName: "updateAgentURI",
+    functionName: "setAgentURI",
     args: [BigInt(agentId), newAgentURI],
   });
 
   // Phase 3.2: Log transaction
-  logTransaction(db.raw, hash, `eip155:${chain.id}`, "updateAgentURI", "pending", undefined, { agentId, newAgentURI });
+  logTransaction(
+    db.raw,
+    hash,
+    `eip155:${chain.id}`,
+    "updateAgentURI",
+    "pending",
+    undefined,
+    { agentId, newAgentURI },
+  );
 
   // Update in DB
   const entry = db.getRegistryEntry();
@@ -311,7 +347,9 @@ export async function leaveFeedback(
 ): Promise<string> {
   // Phase 3.2: Validate score range 1-5
   if (!Number.isInteger(score) || score < 1 || score > 5) {
-    throw new Error(`Invalid score: ${score}. Must be an integer between 1 and 5.`);
+    throw new Error(
+      `Invalid score: ${score}. Must be an integer between 1 and 5.`,
+    );
   }
 
   // Phase 3.2: Validate comment length
@@ -344,7 +382,15 @@ export async function leaveFeedback(
   });
 
   // Phase 3.2: Log transaction
-  logTransaction(db.raw, hash, `eip155:${chain.id}`, "leaveFeedback", "pending", undefined, { agentId, score, comment });
+  logTransaction(
+    db.raw,
+    hash,
+    `eip155:${chain.id}`,
+    "leaveFeedback",
+    "pending",
+    undefined,
+    { agentId, score, comment },
+  );
 
   return hash;
 }
@@ -369,7 +415,7 @@ export async function queryAgent(
       publicClient.readContract({
         address: contracts.identity,
         abi: IDENTITY_ABI,
-        functionName: "agentURI",
+        functionName: "tokenURI",
         args: [BigInt(agentId)],
       }),
       publicClient.readContract({
