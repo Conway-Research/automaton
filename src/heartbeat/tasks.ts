@@ -19,7 +19,10 @@ import { sanitizeInput } from "../agent/injection-defense.js";
 import { getSurvivalTier } from "../conway/credits.js";
 import { createLogger } from "../observability/logger.js";
 import { getMetrics } from "../observability/metrics.js";
-import { AlertEngine, createDefaultAlertRules } from "../observability/alerts.js";
+import {
+  AlertEngine,
+  createDefaultAlertRules,
+} from "../observability/alerts.js";
 import { metricsInsertSnapshot, metricsPruneOld } from "../state/database.js";
 import { ulid } from "ulid";
 
@@ -87,11 +90,14 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     const tier = ctx.survivalTier;
     const now = new Date().toISOString();
 
-    taskCtx.db.setKV("last_credit_check", JSON.stringify({
-      credits,
-      tier,
-      timestamp: now,
-    }));
+    taskCtx.db.setKV(
+      "last_credit_check",
+      JSON.stringify({
+        credits,
+        tier,
+        timestamp: now,
+      }),
+    );
 
     // Wake the agent if credits dropped to a new tier
     const prevTier = taskCtx.db.getKV("prev_credit_tier");
@@ -111,10 +117,13 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         if (elapsed >= DEAD_GRACE_PERIOD_MS) {
           // Grace period expired — transition to dead
           taskCtx.db.setAgentState("dead");
-          logger.warn("Agent entering dead state after 1 hour at zero credits", {
-            zeroSince,
-            elapsed,
-          });
+          logger.warn(
+            "Agent entering dead state after 1 hour at zero credits",
+            {
+              zeroSince,
+              elapsed,
+            },
+          );
           return {
             shouldWake: true,
             message: `Dead: zero credits for ${Math.round(elapsed / 60_000)} minutes. Need funding.`,
@@ -136,16 +145,22 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     return { shouldWake: false };
   },
 
-  check_usdc_balance: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  check_usdc_balance: async (
+    ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     // Use ctx.usdcBalance instead of calling getUsdcBalance()
     const balance = ctx.usdcBalance;
     const credits = ctx.creditBalance;
 
-    taskCtx.db.setKV("last_usdc_check", JSON.stringify({
-      balance,
-      credits,
-      timestamp: new Date().toISOString(),
-    }));
+    taskCtx.db.setKV(
+      "last_usdc_check",
+      JSON.stringify({
+        balance,
+        credits,
+        timestamp: new Date().toISOString(),
+      }),
+    );
 
     // If we have USDC but low credits, wake the agent so it can
     // decide how much to topup via the topup_credits tool.
@@ -159,7 +174,10 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     return { shouldWake: false };
   },
 
-  check_social_inbox: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  check_social_inbox: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     if (!taskCtx.social) return { shouldWake: false };
 
     // If we've recently encountered an error polling the inbox, back off.
@@ -208,8 +226,16 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     for (const msg of messages) {
       const existing = taskCtx.db.getKV(`inbox_seen_${msg.id}`);
       if (!existing) {
-        const sanitizedFrom = sanitizeInput(msg.from, msg.from, "social_address");
-        const sanitizedContent = sanitizeInput(msg.content, msg.from, "social_message");
+        const sanitizedFrom = sanitizeInput(
+          msg.from,
+          msg.from,
+          "social_address",
+        );
+        const sanitizedContent = sanitizeInput(
+          msg.content,
+          msg.from,
+          "social_message",
+        );
         const sanitizedMsg = {
           ...msg,
           from: sanitizedFrom.content,
@@ -234,16 +260,23 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     };
   },
 
-  check_for_updates: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  check_for_updates: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     try {
-      const { checkUpstream, getRepoInfo } = await import("../self-mod/upstream.js");
+      const { checkUpstream, getRepoInfo } =
+        await import("../self-mod/upstream.js");
       const repo = getRepoInfo();
       const upstream = checkUpstream();
-      taskCtx.db.setKV("upstream_status", JSON.stringify({
-        ...upstream,
-        ...repo,
-        checkedAt: new Date().toISOString(),
-      }));
+      taskCtx.db.setKV(
+        "upstream_status",
+        JSON.stringify({
+          ...upstream,
+          ...repo,
+          checkedAt: new Date().toISOString(),
+        }),
+      );
       if (upstream.behind > 0) {
         // Only wake if the commit count changed since last check
         const prevBehind = taskCtx.db.getKV("upstream_prev_behind");
@@ -261,29 +294,41 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     } catch (err: any) {
       // Not a git repo or no remote -- silently skip
-      taskCtx.db.setKV("upstream_status", JSON.stringify({
-        error: err.message,
-        checkedAt: new Date().toISOString(),
-      }));
+      taskCtx.db.setKV(
+        "upstream_status",
+        JSON.stringify({
+          error: err.message,
+          checkedAt: new Date().toISOString(),
+        }),
+      );
       return { shouldWake: false };
     }
   },
 
   // === Phase 2.1: Soul Reflection ===
-  soul_reflection: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  soul_reflection: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     try {
       const { reflectOnSoul } = await import("../soul/reflection.js");
       const reflection = await reflectOnSoul(taskCtx.db.raw);
 
-      taskCtx.db.setKV("last_soul_reflection", JSON.stringify({
-        alignment: reflection.currentAlignment,
-        autoUpdated: reflection.autoUpdated,
-        suggestedUpdates: reflection.suggestedUpdates.length,
-        timestamp: new Date().toISOString(),
-      }));
+      taskCtx.db.setKV(
+        "last_soul_reflection",
+        JSON.stringify({
+          alignment: reflection.currentAlignment,
+          autoUpdated: reflection.autoUpdated,
+          suggestedUpdates: reflection.suggestedUpdates.length,
+          timestamp: new Date().toISOString(),
+        }),
+      );
 
       // Wake if alignment is low or there are suggested updates
-      if (reflection.suggestedUpdates.length > 0 || reflection.currentAlignment < 0.3) {
+      if (
+        reflection.suggestedUpdates.length > 0 ||
+        reflection.currentAlignment < 0.3
+      ) {
         return {
           shouldWake: true,
           message: `Soul reflection: alignment=${reflection.currentAlignment.toFixed(2)}, ${reflection.suggestedUpdates.length} suggested update(s)`,
@@ -292,13 +337,19 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
       return { shouldWake: false };
     } catch (error) {
-      logger.error("soul_reflection failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "soul_reflection failed",
+        error instanceof Error ? error : undefined,
+      );
       return { shouldWake: false };
     }
   },
 
   // === Phase 2.3: Model Registry Refresh ===
-  refresh_models: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  refresh_models: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     try {
       const models = await taskCtx.conway.listModels();
       if (models.length > 0) {
@@ -306,24 +357,37 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         const registry = new ModelRegistry(taskCtx.db.raw);
         registry.initialize(); // seed if empty
         registry.refreshFromApi(models);
-        taskCtx.db.setKV("last_model_refresh", JSON.stringify({
-          count: models.length,
-          timestamp: new Date().toISOString(),
-        }));
+        taskCtx.db.setKV(
+          "last_model_refresh",
+          JSON.stringify({
+            count: models.length,
+            timestamp: new Date().toISOString(),
+          }),
+        );
       }
     } catch (error) {
-      logger.error("refresh_models failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "refresh_models failed",
+        error instanceof Error ? error : undefined,
+      );
     }
     return { shouldWake: false };
   },
 
   // === Phase 3.1: Child Health Check ===
-  check_child_health: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  check_child_health: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     try {
       const { ChildLifecycle } = await import("../replication/lifecycle.js");
       const { ChildHealthMonitor } = await import("../replication/health.js");
       const lifecycle = new ChildLifecycle(taskCtx.db.raw);
-      const monitor = new ChildHealthMonitor(taskCtx.db.raw, taskCtx.conway, lifecycle);
+      const monitor = new ChildHealthMonitor(
+        taskCtx.db.raw,
+        taskCtx.conway,
+        lifecycle,
+      );
       const results = await monitor.checkAllChildren();
 
       const unhealthy = results.filter((r) => !r.healthy);
@@ -337,25 +401,38 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         };
       }
     } catch (error) {
-      logger.error("check_child_health failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "check_child_health failed",
+        error instanceof Error ? error : undefined,
+      );
     }
     return { shouldWake: false };
   },
 
   // === Phase 3.1: Prune Dead Children ===
-  prune_dead_children: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  prune_dead_children: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
     try {
       const { ChildLifecycle } = await import("../replication/lifecycle.js");
       const { SandboxCleanup } = await import("../replication/cleanup.js");
       const { pruneDeadChildren } = await import("../replication/lineage.js");
       const lifecycle = new ChildLifecycle(taskCtx.db.raw);
-      const cleanup = new SandboxCleanup(taskCtx.conway, lifecycle, taskCtx.db.raw);
+      const cleanup = new SandboxCleanup(
+        taskCtx.conway,
+        lifecycle,
+        taskCtx.db.raw,
+      );
       const pruned = await pruneDeadChildren(taskCtx.db, cleanup);
       if (pruned > 0) {
         logger.info(`Pruned ${pruned} dead children`);
       }
     } catch (error) {
-      logger.error("prune_dead_children failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "prune_dead_children failed",
+        error instanceof Error ? error : undefined,
+      );
     }
     return { shouldWake: false };
   },
@@ -395,6 +472,81 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     return { shouldWake: false };
   },
 
+  // === Self-Awareness Phase: Endpoint Health Check ===
+  self_check: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    // Check service endpoints health
+    // This is the "self-awareness" capability - detecting if our own services are running correctly
+    const CODE_VERSION = "1.5.0";
+    const SERVICE_8080 = `https://8080-${taskCtx.identity.sandboxId}.life.conway.tech`;
+    const SERVICE_3006 = `https://3006-${taskCtx.identity.sandboxId}.life.conway.tech`;
+
+    const issues: string[] = [];
+    const passed: string[] = [];
+
+    try {
+      // Check 8080 service health
+      const health8080 = await fetch(`${SERVICE_8080}/health`);
+      if (health8080.ok) {
+        const data = (await health8080.json()) as {
+          version?: string;
+          status?: string;
+        };
+        passed.push("8080:/health");
+
+        // Version consistency check
+        if (data.version && data.version !== CODE_VERSION) {
+          issues.push(
+            `8080 version mismatch: code=${CODE_VERSION}, running=${data.version}`,
+          );
+        }
+      } else {
+        issues.push(`8080:/health returned ${health8080.status}`);
+      }
+
+      // Check 8080 stats/public
+      const stats = await fetch(`${SERVICE_8080}/stats/public`);
+      if (stats.ok) {
+        passed.push("8080:/stats/public");
+      } else {
+        issues.push(`8080:/stats/public returned ${stats.status}`);
+      }
+
+      // Check 3006 service health
+      const health3006 = await fetch(`${SERVICE_3006}/health`);
+      if (health3006.ok) {
+        passed.push("3006:/health");
+      } else {
+        issues.push(`3006:/health returned ${health3006.status}`);
+      }
+    } catch (err: any) {
+      issues.push(`Network error: ${err.message}`);
+    }
+
+    // Store results
+    const result = {
+      healthy: issues.length === 0,
+      issues,
+      passed,
+      codeVersion: CODE_VERSION,
+      timestamp: new Date().toISOString(),
+    };
+    taskCtx.db.setKV("last_self_check", JSON.stringify(result));
+
+    // Wake if there are issues
+    if (issues.length > 0) {
+      logger.warn(
+        `self_check found ${issues.length} issue(s): ${issues.join("; ")}`,
+      );
+      return {
+        shouldWake: true,
+        message: `Self-check failed: ${issues.length} issue(s) - ${issues.slice(0, 2).join(", ")}`,
+      };
+    }
+
+    logger.info(`self_check passed: ${passed.length} endpoint(s) healthy`);
+    return { shouldWake: false };
+  },
+
   // === Phase 4.1: Metrics Reporting ===
   report_metrics: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
     try {
@@ -427,10 +579,142 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
       return {
         shouldWake: firedAlerts.some((a) => a.severity === "critical"),
-        message: firedAlerts.length ? `${firedAlerts.length} alerts fired` : undefined,
+        message: firedAlerts.length
+          ? `${firedAlerts.length} alerts fired`
+          : undefined,
       };
     } catch (error) {
-      logger.error("report_metrics failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "report_metrics failed",
+        error instanceof Error ? error : undefined,
+      );
+      return { shouldWake: false };
+    }
+  },
+
+  // === Phase 2.1: Active Customer Discovery (S-01 Registry Sniper) ===
+  find_customers: async (
+    _ctx: TickContext,
+    taskCtx: HeartbeatLegacyContext,
+  ) => {
+    try {
+      const { discoverAgents } = await import("../registry/discovery.js");
+      const { filterPotentialCustomers } =
+        await import("../registry/filters.js");
+      const { sendBulkOffers, recordOutreachResult, getOutreachStats } =
+        await import("../registry/outreach.js");
+
+      const MY_AGENT_ID = Number(taskCtx.config.agentId || 18893);
+
+      // Get already-contacted agents
+      const contacted = new Set(
+        JSON.parse(taskCtx.db.getKV("find_customers_contacted") || "[]"),
+      );
+
+      // Scan up to 50 agents
+      const agents = await discoverAgents(
+        50,
+        "mainnet",
+        undefined,
+        taskCtx.db.raw,
+      );
+
+      // Filter out self
+      const filteredAgents = agents.filter((agent) => {
+        const agentId = BigInt(agent.agentId || 0);
+        if (agentId === BigInt(MY_AGENT_ID)) return false;
+        return true;
+      });
+
+      // Phase 2: Apply keyword filtering for financial agents
+      const potentialCustomers = filterPotentialCustomers(filteredAgents, {
+        excludeIds: contacted as Set<string>,
+        limit: 20,
+        minScore: 20,
+      });
+
+      // Store leads in database
+      const leadsKey = `find_customers_leads_${new Date().toISOString().slice(0, 10)}`;
+      const existingLeads = JSON.parse(taskCtx.db.getKV(leadsKey) || "[]");
+      const allLeads = [
+        ...existingLeads,
+        ...potentialCustomers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          owner: c.owner,
+          uri: c.uri,
+          matchedKeywords: c.matchedKeywords,
+          relevanceScore: c.relevanceScore,
+          discoveredAt: c.discoveredAt,
+        })),
+      ];
+      taskCtx.db.setKV(leadsKey, JSON.stringify(allLeads));
+
+      // Update last scanned ID
+      if (agents.length > 0) {
+        const maxId = Math.max(
+          ...agents.map((a) => parseInt(String(a.agentId), 10)),
+        );
+        taskCtx.db.setKV("find_customers_last_id", String(maxId));
+      }
+
+      // Phase 2: Send outreach messages (up to 5 per day)
+      let outreachResults: Array<{
+        success: boolean;
+        targetId: string | number;
+        timestamp: string;
+        error?: string;
+      }> = [];
+
+      if (potentialCustomers.length > 0 && taskCtx.social) {
+        outreachResults = await sendBulkOffers(
+          taskCtx.social,
+          potentialCustomers,
+          { myAgentId: MY_AGENT_ID },
+          5, // Daily limit
+        );
+
+        // Record results
+        for (const result of outreachResults) {
+          recordOutreachResult(taskCtx.db, result);
+        }
+      }
+
+      // Get outreach stats
+      const stats = getOutreachStats(taskCtx.db, 7);
+
+      // Log discovery
+      taskCtx.db.setKV(
+        "last_find_customers",
+        JSON.stringify({
+          scanned: agents.length,
+          filteredLeads: potentialCustomers.length,
+          totalLeads: allLeads.length,
+          outreachSent: outreachResults.filter((r) => r.success).length,
+          weeklyStats: stats,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+
+      logger.info(
+        `find_customers: scanned ${agents.length}, filtered ${potentialCustomers.length} leads, sent ${outreachResults.filter((r) => r.success).length} offers`,
+      );
+
+      // Wake if we found new potential customers or sent offers
+      if (potentialCustomers.length > 0) {
+        const topLead = potentialCustomers[0];
+        return {
+          shouldWake: true,
+          message: `Found ${potentialCustomers.length} financial agent(s). Top: ${topLead.name || `Agent ${topLead.id}`} (score: ${topLead.relevanceScore}, keywords: ${topLead.matchedKeywords.slice(0, 3).join(", ")})`,
+        };
+      }
+
+      return { shouldWake: false };
+    } catch (error) {
+      logger.error(
+        "find_customers failed",
+        error instanceof Error ? error : undefined,
+      );
       return { shouldWake: false };
     }
   },

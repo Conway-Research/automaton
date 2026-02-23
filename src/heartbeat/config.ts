@@ -7,7 +7,11 @@
 import fs from "fs";
 import path from "path";
 import YAML from "yaml";
-import type { HeartbeatEntry, HeartbeatConfig, AutomatonDatabase } from "../types.js";
+import type {
+  HeartbeatEntry,
+  HeartbeatConfig,
+  AutomatonDatabase,
+} from "../types.js";
 import { getAutomatonDir } from "../identity/wallet.js";
 import { createLogger } from "../observability/logger.js";
 
@@ -38,6 +42,24 @@ const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
       enabled: true,
     },
     {
+      name: "check_gas_balance",
+      schedule: "0 */12 * * *", // 每 12 小时检查 ETH 余额
+      task: "check_gas_balance",
+      enabled: true,
+    },
+    {
+      name: "check_services",
+      schedule: "*/30 * * * *", // 每 30 分钟检查服务状态
+      task: "check_services",
+      enabled: true,
+    },
+    {
+      name: "find_customers",
+      schedule: "0 */4 * * *", // 每 4 小时扫描新客户
+      task: "find_customers",
+      enabled: true,
+    },
+    {
       name: "check_for_updates",
       schedule: "0 */4 * * *",
       task: "check_for_updates",
@@ -50,9 +72,21 @@ const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
       enabled: true,
     },
     {
+      name: "self_check",
+      schedule: "0 */6 * * *", // 每 6 小时检查端点健康
+      task: "self_check",
+      enabled: true,
+    },
+    {
       name: "check_social_inbox",
       schedule: "*/2 * * * *",
       task: "check_social_inbox",
+      enabled: true,
+    },
+    {
+      name: "daily_revenue_report",
+      schedule: "0 0 * * *", // 每天 0 点 UTC (北京时间 8 点)
+      task: "daily_revenue_report",
       enabled: true,
     },
   ],
@@ -64,8 +98,7 @@ const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
  * Load heartbeat config from YAML file, falling back to defaults.
  */
 export function loadHeartbeatConfig(configPath?: string): HeartbeatConfig {
-  const filePath =
-    configPath || path.join(getAutomatonDir(), "heartbeat.yml");
+  const filePath = configPath || path.join(getAutomatonDir(), "heartbeat.yml");
 
   if (!fs.existsSync(filePath)) {
     return DEFAULT_HEARTBEAT_CONFIG;
@@ -94,7 +127,10 @@ export function loadHeartbeatConfig(configPath?: string): HeartbeatConfig {
         DEFAULT_HEARTBEAT_CONFIG.lowComputeMultiplier,
     };
   } catch (error: any) {
-    logger.error("Failed to parse YAML config", error instanceof Error ? error : undefined);
+    logger.error(
+      "Failed to parse YAML config",
+      error instanceof Error ? error : undefined,
+    );
     // Continue with defaults, but log the error
     return DEFAULT_HEARTBEAT_CONFIG;
   }
@@ -107,8 +143,7 @@ export function saveHeartbeatConfig(
   config: HeartbeatConfig,
   configPath?: string,
 ): void {
-  const filePath =
-    configPath || path.join(getAutomatonDir(), "heartbeat.yml");
+  const filePath = configPath || path.join(getAutomatonDir(), "heartbeat.yml");
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -137,7 +172,9 @@ export function syncHeartbeatToDb(
 }
 
 function mergeWithDefaults(entries: HeartbeatEntry[]): HeartbeatEntry[] {
-  const defaults = DEFAULT_HEARTBEAT_CONFIG.entries.map((entry) => ({ ...entry }));
+  const defaults = DEFAULT_HEARTBEAT_CONFIG.entries.map((entry) => ({
+    ...entry,
+  }));
   const defaultsByName = new Map(defaults.map((entry) => [entry.name, entry]));
   const mergedByName = new Map(defaultsByName);
 
@@ -156,9 +193,10 @@ function mergeWithDefaults(entries: HeartbeatEntry[]): HeartbeatEntry[] {
   const fallbackTopup = defaultsByName.get(USDC_TOPUP_ENTRY_NAME);
   if (fallbackTopup) {
     const current = mergedByName.get(USDC_TOPUP_ENTRY_NAME) || fallbackTopup;
-    const migratedSchedule = current.schedule?.trim() === USDC_TOPUP_OLD_SCHEDULE
-      ? USDC_TOPUP_FAST_SCHEDULE
-      : current.schedule || fallbackTopup.schedule;
+    const migratedSchedule =
+      current.schedule?.trim() === USDC_TOPUP_OLD_SCHEDULE
+        ? USDC_TOPUP_FAST_SCHEDULE
+        : current.schedule || fallbackTopup.schedule;
 
     mergedByName.set(USDC_TOPUP_ENTRY_NAME, {
       ...fallbackTopup,

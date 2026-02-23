@@ -25,6 +25,7 @@ interface InferenceClientOptions {
   maxTokens: number;
   lowComputeModel?: string;
   openaiApiKey?: string;
+  openaiApiBaseUrl?: string;  // 支持自定义 OpenAI 兼容 API URL
   anthropicApiKey?: string;
 }
 
@@ -76,6 +77,7 @@ export function createInferenceClient(
     const backend = resolveInferenceBackend(model, {
       openaiApiKey,
       anthropicApiKey,
+      openaiApiBaseUrl: options.openaiApiBaseUrl,
     });
 
     if (backend === "anthropic") {
@@ -91,7 +93,7 @@ export function createInferenceClient(
     }
 
     const openAiLikeApiUrl =
-      backend === "openai" ? "https://api.openai.com" : apiUrl;
+      backend === "openai" ? (options.openaiApiBaseUrl || "https://api.openai.com") : apiUrl;
     const openAiLikeApiKey =
       backend === "openai" ? (openaiApiKey as string) : apiKey;
 
@@ -155,6 +157,7 @@ function resolveInferenceBackend(
   keys: {
     openaiApiKey?: string;
     anthropicApiKey?: string;
+    openaiApiBaseUrl?: string;
   },
 ): InferenceBackend {
   // Anthropic models: claude-*
@@ -163,6 +166,14 @@ function resolveInferenceBackend(
   }
   // OpenAI models: gpt-*, o[1-9]*, chatgpt-*
   if (keys.openaiApiKey && /^(gpt|o[1-9]|chatgpt)/i.test(model)) {
+    return "openai";
+  }
+  // GLM models (智谱): glm-* - 使用 OpenAI 兼容 API
+  if (keys.openaiApiKey && /^glm/i.test(model)) {
+    return "openai";
+  }
+  // 如果配置了自定义 OpenAI API URL，也走 openai 后端
+  if (keys.openaiApiKey && keys.openaiApiBaseUrl) {
     return "openai";
   }
   // Default: Conway proxy (handles all models including unknown ones)
@@ -177,7 +188,12 @@ async function chatViaOpenAiCompatible(params: {
   backend: "conway" | "openai";
   httpClient: ResilientHttpClient;
 }): Promise<InferenceResponse> {
-  const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
+  // GLM 编码套餐使用 /chat/completions 而不是 /v1/chat/completions
+  // 检测是否是 GLM URL（包含 /v4 或 bigmodel.cn）
+  const isGlmApi = params.apiUrl.includes('bigmodel.cn') || params.apiUrl.includes('/v4');
+  const endpoint = isGlmApi ? '/chat/completions' : '/v1/chat/completions';
+
+  const resp = await params.httpClient.request(`${params.apiUrl}${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
