@@ -5,7 +5,21 @@ dist/
 *.db-wal
 *.db-shm
 .env
+.env.local
+.env.*.local
 .DS_Store
 *.tgz
+*.pem
+*.key
+
+# 敏感配置文件
 .automaton/wallet.json
 .automaton/state.db
+.automaton/automaton.json
+
+# 日志文件 (可能包含敏感信息)
+*.log
+logs/
+
+# Conway 本地缓存
+.conway/
