@@ -969,6 +969,58 @@ cp /root/receipt2csv/app.py /root/receipt2csv/app.py.bak_$(date +%s)
 
 ---
 
+## #43 VPS 架构误导事件 - 深度反思 (2026-02-24)
+
+> **严重程度**: 🔴 HIGH - 导致一整天开发停滞
+
+### 问题回顾
+
+在 2026-02-23 的会话中，Claude AI（助手）错误地假设旺财需要一个外部 VPS (HostPapa 107.175.6.137) 作为"主权大脑"来管理 Conway Sandbox。这导致：
+
+1. 创建了基于 VPS 假设的脚本 (`setup-auto-deploy.sh`)
+2. 在架构图中添加了"Layer 4 Cloud VPS"
+3. 编写了大量 VPS 相关文档
+4. 用户花费一整天调查"莫名扣款"来源
+
+### 根本原因
+
+| 原因 | 分析 |
+|------|------|
+| **缺乏官方文档阅读** | 没有首先阅读 `ARCHITECTURE.md` 和 `conways-rules.txt` |
+| **假设性开发** | 在没有验证的情况下假设了 VPS 存在 |
+| **无架构验证** | 代码和文档没有经过"能否真正运行"的验证 |
+
+### 真相
+
+```
+VPS IP 107.175.6.137:
+├── 从未真正连接过
+├── 只在脚本中作为 echo 打印文本存在
+├── 仅存活 14 分钟就被移除 (commit 28bc4ba)
+└── 不是旺财购买的，也不是用户购买的
+
+Conway 官方架构:
+├── Conway Cloud = Sandbox VM + 推理 + 域名
+├── 持久化存储在 ~/.automaton/
+├── 不需要外部 VPS
+└── 一切都在 Conway 生态内完成
+```
+
+### 防护措施
+
+1. **架构优先原则**: 任何开发前先阅读官方文档
+2. **单一来源**: WANGCAI_README.md 是架构的唯一来源
+3. **代码验证**: 写的代码必须能在 Conway Terminal 中真正运行
+4. **禁止假设**: 未经用户确认的资源假设一律禁止
+
+### 相关文件清理
+
+- ✅ 删除 `scripts/setup-auto-deploy.sh`
+- ✅ 更新 `WANGCAI_README.md` 架构图 (v4.0)
+- ✅ 移除所有 VPS 相关待办任务
+
+---
+
 ## 💰 财务发现
 
 > **单一来源**: [WANGCAI_README.md - 财务规则](WANGCAI_README.md#-财务规则)

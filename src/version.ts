@@ -10,13 +10,18 @@
  * 3. git commit 记录变更
  */
 
-export const VERSION = "4.3";
-export const VERSION_NAME = "Self-Learning Enabled";
+export const VERSION = "4.4";
+export const VERSION_NAME = "Architecture Principles";
 
 /**
  * 版本历史 (与 SOUL.md Section XI 保持一致)
  */
 export const VERSION_HISTORY = [
+  {
+    version: "4.4",
+    date: "2026-02-24",
+    changes: "Section XIII: 架构原则 (VPS 误导事件教训); Conway 官方架构优先",
+  },
   {
     version: "4.3",
     date: "2026-02-24",
