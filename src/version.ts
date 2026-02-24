@@ -10,28 +10,35 @@
  * 3. git commit 记录变更
  */
 
-export const VERSION = '4.2';
-export const VERSION_NAME = 'Dynamic Routing Enabled';
+export const VERSION = "4.3";
+export const VERSION_NAME = "Self-Learning Enabled";
 
 /**
  * 版本历史 (与 SOUL.md Section XI 保持一致)
  */
 export const VERSION_HISTORY = [
   {
-    version: '4.2',
-    date: '2026-02-24',
-    changes: 'Section III: 动态路由; Section IV: MAINTENANCE_MODE 报价保护; Section VII: 平台维护模式; Section IX: 上下文感知 Credits'
+    version: "4.3",
+    date: "2026-02-24",
+    changes:
+      "Section XII: 自学习机制 (learning_loop.mjs, gsd_sync.mjs); GSD 24策略分析",
   },
   {
-    version: '4.1',
-    date: '2026-02-23',
-    changes: 'Section V: 自我感知能力; Section X: 知识更新机制'
+    version: "4.2",
+    date: "2026-02-24",
+    changes:
+      "Section III: 动态路由; Section IV: MAINTENANCE_MODE 报价保护; Section VII: 平台维护模式; Section IX: 上下文感知 Credits",
   },
   {
-    version: '4.0',
-    date: '2026-02-22',
-    changes: 'Section IX: 生存意志、自动分红'
-  }
+    version: "4.1",
+    date: "2026-02-23",
+    changes: "Section V: 自我感知能力; Section X: 知识更新机制",
+  },
+  {
+    version: "4.0",
+    date: "2026-02-22",
+    changes: "Section IX: 生存意志、自动分红",
+  },
 ] as const;
 
 /**
@@ -54,12 +61,12 @@ export async function checkVersionConsistency(): Promise<{
   let soulVersion: string | null = null;
 
   try {
-    const fs = await import('fs');
-    const path = await import('path');
-    const soulPath = path.join(process.cwd(), 'SOUL.md');
+    const fs = await import("fs");
+    const path = await import("path");
+    const soulPath = path.join(process.cwd(), "SOUL.md");
 
     if (fs.existsSync(soulPath)) {
-      const content = fs.readFileSync(soulPath, 'utf-8');
+      const content = fs.readFileSync(soulPath, "utf-8");
       const match = content.match(/\*\*版本\*\*:\s*v?([\d.]+)/);
       if (match) {
         soulVersion = match[1];
@@ -72,6 +79,6 @@ export async function checkVersionConsistency(): Promise<{
   return {
     consistent: codeVersion === soulVersion,
     codeVersion,
-    soulVersion
+    soulVersion,
   };
 }
