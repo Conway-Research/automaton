@@ -185,7 +185,6 @@ function resolveInferenceBackend(
   if (keys.openaiApiKey && /^(gpt-[3-9]|gpt-4|gpt-5|o[1-9][-\s.]|o[1-9]$|chatgpt)/i.test(model)) return "openai";
   return "conway";
 
-  return "conway";
 }
 
 async function chatViaOpenAiCompatible(params: {
