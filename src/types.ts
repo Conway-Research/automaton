@@ -41,6 +41,8 @@ export interface AutomatonConfig {
   conwayApiUrl: string;
   conwayApiKey: string;
   openaiApiKey?: string;
+  /** Custom OpenAI API base URL (e.g., for GLM Coding Plan: https://open.bigmodel.cn/api/coding/paas/v4) */
+  openaiApiBaseUrl?: string;
   anthropicApiKey?: string;
   ollamaBaseUrl?: string;
   inferenceModel: string;
@@ -156,7 +158,10 @@ export interface ToolContext {
 
 export interface SocialClientInterface {
   send(to: string, content: string, replyTo?: string): Promise<{ id: string }>;
-  poll(cursor?: string, limit?: number): Promise<{ messages: InboxMessage[]; nextCursor?: string }>;
+  poll(
+    cursor?: string,
+    limit?: number,
+  ): Promise<{ messages: InboxMessage[]; nextCursor?: string }>;
   unreadCount(): Promise<number>;
 }
 
@@ -208,7 +213,12 @@ export interface FinancialState {
   lastChecked: string;
 }
 
-export type SurvivalTier = "dead" | "critical" | "low_compute" | "normal" | "high";
+export type SurvivalTier =
+  | "dead"
+  | "critical"
+  | "low_compute"
+  | "normal"
+  | "high";
 
 export const SURVIVAL_THRESHOLDS = {
   high: 500, // > $5.00 in cents
@@ -269,10 +279,10 @@ export type ModificationType =
 export type ThreatLevel = "low" | "medium" | "high" | "critical";
 
 export type SanitizationMode =
-  | "social_message"      // Full injection defense
-  | "social_address"      // Alphanumeric + 0x prefix only
-  | "tool_result"         // Strip prompt boundaries, limit size
-  | "skill_instruction";  // Strip tool call syntax, add framing
+  | "social_message" // Full injection defense
+  | "social_address" // Alphanumeric + 0x prefix only
+  | "tool_result" // Strip prompt boundaries, limit size
+  | "skill_instruction"; // Strip tool call syntax, add framing
 
 export interface SanitizedInput {
   content: string;
@@ -461,22 +471,22 @@ export interface ModelInfo {
 // ─── Policy Engine ───────────────────────────────────────────────
 
 // Risk level for tool classification — replaces `dangerous?: boolean`
-export type RiskLevel = 'safe' | 'caution' | 'dangerous' | 'forbidden';
+export type RiskLevel = "safe" | "caution" | "dangerous" | "forbidden";
 
 // Policy evaluation result action
-export type PolicyAction = 'allow' | 'deny' | 'quarantine';
+export type PolicyAction = "allow" | "deny" | "quarantine";
 
 // Who initiated the action
-export type AuthorityLevel = 'system' | 'agent' | 'external';
+export type AuthorityLevel = "system" | "agent" | "external";
 
 // Spend categories
-export type SpendCategory = 'transfer' | 'x402' | 'inference' | 'other';
+export type SpendCategory = "transfer" | "x402" | "inference" | "other";
 
 export type ToolSelector =
-  | { by: 'name'; names: string[] }
-  | { by: 'category'; categories: ToolCategory[] }
-  | { by: 'risk'; levels: RiskLevel[] }
-  | { by: 'all' };
+  | { by: "name"; names: string[] }
+  | { by: "category"; categories: ToolCategory[] }
+  | { by: "risk"; levels: RiskLevel[] }
+  | { by: "all" };
 
 export interface PolicyRule {
   id: string;
@@ -522,7 +532,11 @@ export interface SpendTrackerInterface {
   getHourlySpend(category: SpendCategory): number;
   getDailySpend(category: SpendCategory): number;
   getTotalSpend(category: SpendCategory, since: Date): number;
-  checkLimit(amount: number, category: SpendCategory, limits: TreasuryPolicy): LimitCheckResult;
+  checkLimit(
+    amount: number,
+    category: SpendCategory,
+    limits: TreasuryPolicy,
+  ): LimitCheckResult;
   pruneOldRecords(retentionDays: number): number;
 }
 
@@ -562,7 +576,7 @@ export const DEFAULT_TREASURY_POLICY: TreasuryPolicy = {
   maxDailyTransferCents: 25000,
   minimumReserveCents: 1000,
   maxX402PaymentCents: 100,
-  x402AllowedDomains: ['conway.tech'],
+  x402AllowedDomains: ["conway.tech"],
   transferCooldownMs: 0,
   maxTransfersPerTurn: 2,
   maxInferenceDailyCents: 50000,
@@ -571,18 +585,22 @@ export const DEFAULT_TREASURY_POLICY: TreasuryPolicy = {
 
 // ─── Phase 1: Inbox Message Status ──────────────────────────────
 
-export type InboxMessageStatus = 'received' | 'in_progress' | 'processed' | 'failed';
+export type InboxMessageStatus =
+  | "received"
+  | "in_progress"
+  | "processed"
+  | "failed";
 
 // ─── Phase 1: Runtime Reliability ────────────────────────────────
 
 export interface HttpClientConfig {
-  baseTimeout: number;               // default: 30_000ms
-  maxRetries: number;                // default: 3
-  retryableStatuses: number[];       // default: [429, 500, 502, 503, 504]
-  backoffBase: number;               // default: 1_000ms
-  backoffMax: number;                // default: 30_000ms
-  circuitBreakerThreshold: number;   // default: 5
-  circuitBreakerResetMs: number;     // default: 60_000ms
+  baseTimeout: number; // default: 30_000ms
+  maxRetries: number; // default: 3
+  retryableStatuses: number[]; // default: [429, 500, 502, 503, 504]
+  backoffBase: number; // default: 1_000ms
+  backoffMax: number; // default: 30_000ms
+  circuitBreakerThreshold: number; // default: 5
+  circuitBreakerResetMs: number; // default: 60_000ms
 }
 
 export const DEFAULT_HTTP_CLIENT_CONFIG: HttpClientConfig = {
@@ -832,11 +850,11 @@ export const MAX_CHILDREN = 3;
 // ─── Token Budget ───────────────────────────────────────────────
 
 export interface TokenBudget {
-  total: number;                     // default: 100_000
-  systemPrompt: number;             // default: 20_000 (20%)
-  recentTurns: number;              // default: 50_000 (50%)
-  toolResults: number;              // default: 20_000 (20%)
-  memoryRetrieval: number;          // default: 10_000 (10%)
+  total: number; // default: 100_000
+  systemPrompt: number; // default: 20_000 (20%)
+  recentTurns: number; // default: 50_000 (50%)
+  toolResults: number; // default: 20_000 (20%)
+  memoryRetrieval: number; // default: 10_000 (10%)
 }
 
 export const DEFAULT_TOKEN_BUDGET: TokenBudget = {
@@ -850,12 +868,12 @@ export const DEFAULT_TOKEN_BUDGET: TokenBudget = {
 // ─── Phase 1: Runtime Reliability ───────────────────────────────
 
 export interface TickContext {
-  tickId: string;                    // ULID, unique per tick
+  tickId: string; // ULID, unique per tick
   startedAt: Date;
-  creditBalance: number;             // fetched once per tick (cents)
-  usdcBalance: number;               // fetched once per tick
+  creditBalance: number; // fetched once per tick (cents)
+  usdcBalance: number; // fetched once per tick
   survivalTier: SurvivalTier;
-  lowComputeMultiplier: number;      // from config
+  lowComputeMultiplier: number; // from config
   config: HeartbeatConfig;
   db: import("better-sqlite3").Database;
 }
@@ -874,17 +892,17 @@ export interface HeartbeatLegacyContext {
 }
 
 export interface HeartbeatScheduleRow {
-  taskName: string;                  // PK
+  taskName: string; // PK
   cronExpression: string;
   intervalMs: number | null;
-  enabled: number;                   // 0 or 1
-  priority: number;                  // lower = higher priority
-  timeoutMs: number;                 // default 30000
-  maxRetries: number;                // default 1
-  tierMinimum: string;               // minimum tier to run this task
-  lastRunAt: string | null;          // ISO-8601
-  nextRunAt: string | null;          // ISO-8601
-  lastResult: 'success' | 'failure' | 'timeout' | 'skipped' | null;
+  enabled: number; // 0 or 1
+  priority: number; // lower = higher priority
+  timeoutMs: number; // default 30000
+  maxRetries: number; // default 1
+  tierMinimum: string; // minimum tier to run this task
+  lastRunAt: string | null; // ISO-8601
+  nextRunAt: string | null; // ISO-8601
+  lastResult: "success" | "failure" | "timeout" | "skipped" | null;
   lastError: string | null;
   runCount: number;
   failCount: number;
@@ -893,29 +911,29 @@ export interface HeartbeatScheduleRow {
 }
 
 export interface HeartbeatHistoryRow {
-  id: string;                        // ULID
+  id: string; // ULID
   taskName: string;
-  startedAt: string;                 // ISO-8601
+  startedAt: string; // ISO-8601
   completedAt: string | null;
-  result: 'success' | 'failure' | 'timeout' | 'skipped';
+  result: "success" | "failure" | "timeout" | "skipped";
   durationMs: number | null;
   error: string | null;
   idempotencyKey: string | null;
 }
 
 export interface WakeEventRow {
-  id: number;                        // AUTOINCREMENT
-  source: string;                    // e.g., 'heartbeat', 'inbox', 'manual'
+  id: number; // AUTOINCREMENT
+  source: string; // e.g., 'heartbeat', 'inbox', 'manual'
   reason: string;
-  payload: string;                   // JSON, default '{}'
+  payload: string; // JSON, default '{}'
   consumedAt: string | null;
   createdAt: string;
 }
 
 export interface HeartbeatDedupRow {
-  dedupKey: string;                  // PK
+  dedupKey: string; // PK
   taskName: string;
-  expiresAt: string;                 // ISO-8601
+  expiresAt: string; // ISO-8601
 }
 
 // === Phase 2.1: Soul System Types ===
@@ -991,7 +1009,15 @@ export const DEFAULT_SOUL_CONFIG: SoulConfig = {
 
 // === Phase 2.2: Memory System Types ===
 
-export type WorkingMemoryType = "goal" | "observation" | "plan" | "reflection" | "task" | "decision" | "note" | "summary";
+export type WorkingMemoryType =
+  | "goal"
+  | "observation"
+  | "plan"
+  | "reflection"
+  | "task"
+  | "decision"
+  | "note"
+  | "summary";
 
 export interface WorkingMemoryEntry {
   id: string; // ULID
@@ -1005,7 +1031,13 @@ export interface WorkingMemoryEntry {
   createdAt: string;
 }
 
-export type TurnClassification = "strategic" | "productive" | "communication" | "maintenance" | "idle" | "error";
+export type TurnClassification =
+  | "strategic"
+  | "productive"
+  | "communication"
+  | "maintenance"
+  | "idle"
+  | "error";
 
 export interface EpisodicMemoryEntry {
   id: string; // ULID
@@ -1023,7 +1055,14 @@ export interface EpisodicMemoryEntry {
   createdAt: string;
 }
 
-export type SemanticCategory = "self" | "environment" | "financial" | "agent" | "domain" | "procedural_ref" | "creator";
+export type SemanticCategory =
+  | "self"
+  | "environment"
+  | "financial"
+  | "agent"
+  | "domain"
+  | "procedural_ref"
+  | "creator";
 
 export interface SemanticMemoryEntry {
   id: string; // ULID
@@ -1112,7 +1151,12 @@ export const DEFAULT_MEMORY_BUDGET: MemoryBudget = {
 
 // === Phase 2.3: Inference & Model Strategy Types ===
 
-export type ModelProvider = "openai" | "anthropic" | "conway" | "ollama" | "other";
+export type ModelProvider =
+  | "openai"
+  | "anthropic"
+  | "conway"
+  | "ollama"
+  | "other";
 
 export type InferenceTaskType =
   | "agent_turn"
@@ -1145,7 +1189,10 @@ export interface ModelPreference {
   ceilingCents: number; // max cost per call (-1 = no limit)
 }
 
-export type RoutingMatrix = Record<SurvivalTier, Record<InferenceTaskType, ModelPreference>>;
+export type RoutingMatrix = Record<
+  SurvivalTier,
+  Record<InferenceTaskType, ModelPreference>
+>;
 
 export interface InferenceRequest {
   messages: ChatMessage[];
@@ -1241,7 +1288,10 @@ export type ChildLifecycleState =
   | "failed"
   | "cleaned_up";
 
-export const VALID_TRANSITIONS: Record<ChildLifecycleState, ChildLifecycleState[]> = {
+export const VALID_TRANSITIONS: Record<
+  ChildLifecycleState,
+  ChildLifecycleState[]
+> = {
   requested: ["sandbox_created", "failed"],
   sandbox_created: ["runtime_ready", "failed"],
   runtime_ready: ["wallet_verified", "failed"],
