@@ -83,16 +83,29 @@
 
 ---
 
-## 📋 GSD Phases 01-04 完成总结
+## 📋 技术开发阶段完成总结
 
-| Phase | 名称 | 状态 | 核心成果 |
-|-------|------|------|----------|
-| Phase 01 | 基础设施 | ✅ 完成 | UsageTracker, StatsCollector, 数据持久化 |
-| Phase 02 | 支付验证 | ✅ 完成 | x402 协议, viem 链上验证, 双轨制 |
-| Phase 03 | SDK 开发 | ✅ 完成 | WangcaiSDK TypeScript, 编译通过 |
-| Phase 04 | PR Evangelist | ✅ 完成 | skill-receipt2csv 包, PR #195 |
+> ⚠️ **注意**: 这里的 Phase 是"技术开发阶段"，与 GSD 的"商业策略阶段"不同
+> **GSD 商业策略阶段**: 见 [.planning/ROADMAP.md](.planning/ROADMAP.md)
+
+| 阶段 | 名称 | 状态 | 核心成果 | GSD 对应策略 |
+|------|------|------|----------|-------------|
+| Tech-01 | 基础设施 | ✅ 完成 | UsageTracker, StatsCollector | S-02 Loss Leader |
+| Tech-02 | 支付验证 | ✅ 完成 | x402 协议, viem 链上验证 | S-02 支撑 |
+| Tech-03 | SDK 开发 | ✅ 完成 | WangcaiSDK TypeScript | S-07 Skill Ecosystem |
+| Tech-04 | PR Evangelist | ✅ 完成 | skill-receipt2csv 包, PR #195 | S-12 PR Evangelist |
+| Tech-05 | 自我感知 | ✅ 完成 | self_check, boot_loader | 自主能力支撑 |
 
 **详细技术实现**: 见 [findings.md #22](findings.md#22-gsd-phases-01-04-完成总结)
+
+**两套 Phase 系统对照表**:
+
+| GSD 商业阶段 | 对应技术开发 |
+|-------------|-------------|
+| Phase 1 (基础设施 S-02) | Tech-01, Tech-02 |
+| Phase 2 (主动获客 S-01) | filters.ts, outreach.ts |
+| Phase 3 (服务扩展 S-04) | stats_collector.py |
+| Phase 4 (规模运营 S-07, S-12) | Tech-03, Tech-04 |
 
 ---
 

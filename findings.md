@@ -914,6 +914,61 @@ cp /root/receipt2csv/app.py /root/receipt2csv/app.py.bak_$(date +%s)
 
 ---
 
+## 🧠 GSD 与三文件系统整合 (2026-02-24)
+
+### 40. GSD Phase 定义冲突与解决方案 (2026-02-24) ✅
+
+**问题描述**:
+
+两套 Phase 系统定义完全不同：
+
+| 系统 | Phase 01 | Phase 02 | Phase 03 | Phase 04 |
+|------|----------|----------|----------|----------|
+| **三文件** | 基础设施(UsageTracker) | 支付验证(x402) | SDK开发 | PR Evangelist |
+| **GSD** | 基础设施(S-02) | 主动获客(S-01,S-06) | 服务扩展(S-04,S-09) | 规模运营(S-03等) |
+
+**解决方案**:
+
+1. 重命名三文件中的为"技术开发阶段"（Tech-01 到 Tech-05）
+2. 建立对照表：技术开发阶段 ↔ GSD 商业策略
+3. 在 task_plan.md 中添加清晰的区分说明
+
+**影响文件**: `task_plan.md`
+
+### 41. GSD 24 策略可行性分析 (2026-02-24) ✅
+
+**分析结果**:
+
+| 类别 | 数量 | 占比 |
+|------|------|------|
+| **可立即执行** | 8 | 33% |
+| **需要前置 SDK** | 10 | 42% |
+| **高风险需调研** | 6 | 25% |
+
+**可立即执行的策略**:
+- S-02 Loss Leader（优化免费额度）
+- S-01 Registry Sniper（调整发送频率）
+- S-04/S-09 Reputation（部署统计模块）
+- S-12 PR Evangelist（提交 PR）
+- S-21/S-22/S-23 Agent SEO（优化元数据）
+
+**详细分析**: 见 `docs/strategy_deep_dive.md`
+
+### 42. 新增守护脚本 (2026-02-24) ✅
+
+**scripts/gateway_watchdog.mjs**:
+- 检测沙盒网关状态（3939 端口）
+- 遇到 502 时自动尝试 PM2 重启
+- 每 5 分钟重试一次
+- 路径安全锁定（禁止 /Users/ 路径）
+
+**scripts/sync_memory.ts**:
+- 从 GSD STATE.md 提取关键决策
+- 同步到 findings.md
+- 自动更新 SOUL.md 版本号
+
+---
+
 ## 💰 财务发现
 
 > **单一来源**: [WANGCAI_README.md - 财务规则](WANGCAI_README.md#-财务规则)
