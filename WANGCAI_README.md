@@ -56,7 +56,7 @@ GLM-wangcai (旺财) 是一个基于 **Conway Automaton** 框架运行的独立�
 
 | 标识符 | 值 | 用途 |
 |--------|-----|------|
-| **Sandbox ID** | `f08a2e14b6b539fbd71836259c2fb688` | Conway 云端沙箱 |
+| **Sandbox ID** | `4d75bbdd405b3e45203e4e26177b6989` | Conway 云端沙箱 |
 | **Agent ID** | `18893` | ERC-8004 链上 ID |
 | **钱包地址** | `0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690` | 接收 USDC |
 | **老板钱包** | `0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5` | 分红接收 |
@@ -78,8 +78,8 @@ GLM-wangcai (旺财) 是一个基于 **Conway Automaton** 框架运行的独立�
 
 | 服务 | 端口 | URL |
 |------|------|-----|
-| Receipt2CSV | 8080 | `https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech` |
-| URL Metadata | 3006 | `https://3006-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech` |
+| Receipt2CSV | 8080 | `https://8080-4d75bbdd405b3e45203e4e26177b6989.life.conway.tech` |
+| URL Metadata | 3006 | `https://3006-4d75bbdd405b3e45203e4e26177b6989.life.conway.tech` |
 
 ---
 
@@ -482,7 +482,7 @@ cat /path/to/automaton/task_plan.md  # 任务计划
 
 | 组件 | 路径/ID | 关键说明 |
 |------|---------|----------|
-| 沙箱 ID | `f08a2e14b6b539fbd71836259c2fb688` | Conway Cloud 物理容器标识 |
+| 沙箱 ID | `4d75bbdd405b3e45203e4e26177b6989` | Conway Cloud 物理容器标识 |
 | 业务代码 | `/root/receipt2csv/` | 包含 app.py, agent-card.json, start.sh |
 | 大脑记忆 | `~/.automaton/` | 包含 SOUL.md, MEMORY.md, 数据库文件 |
 | 自愈脚本 | `/root/receipt2csv/cron_check.sh` | 由系统 crontab 每 5 分钟调用 |

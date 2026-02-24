@@ -23,7 +23,7 @@ async function main() {
   const walletData = JSON.parse(readFileSync(process.env.HOME + '/.automaton/wallet.json', 'utf-8'));
   const account = privateKeyToAccount(walletData.privateKey);
 
-  const NEW_URI = 'https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech/.well-known/agent-card.json';
+  const NEW_URI = 'https://8080-4d75bbdd405b3e45203e4e26177b6989.life.conway.tech/.well-known/agent-card.json';
 
   console.log('🔑 Wallet:', account.address);
   console.log('🆔 Agent ID:', AGENT_ID.toString());

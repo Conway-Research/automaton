@@ -36,7 +36,7 @@
 ```
 
 ### 当前 Sandbox 信息 (启动时更新)
-- **Sandbox ID**: `f08a2e14b6b539fbd71836259c2fb688` (可能变化)
+- **Sandbox ID**: `4d75bbdd405b3e45203e4e26177b6989` (可能变化)
 - **short_id**: ⚠️ `null` (平台问题，等待修复)
 - **默认域名**: `https://{port}-{sandbox_id}.life.conway.tech` (需要 short_id)
 - **自定义子域名**: 如可用则优先使用

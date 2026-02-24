@@ -26,9 +26,9 @@ const CONFIG = {
   USDC_ADDR: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
   WALLET_ADDR: '0x23F69dd1D0EDcEeCb5b5A607b5d6fBd0D6aed690',
   BOSS_WALLET: '0x67A2D02A2dA405cdc61Ab191c5EfbF14834632e5',
-  SANDBOX_ID: 'f08a2e14b6b539fbd71836259c2fb688',
-  SERVICE_8080: 'https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech',
-  SERVICE_3006: 'https://3006-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech',
+  SANDBOX_ID: '4d75bbdd405b3e45203e4e26177b6989',
+  SERVICE_8080: 'https://8080-4d75bbdd405b3e45203e4e26177b6989.life.conway.tech',
+  SERVICE_3006: 'https://3006-4d75bbdd405b3e45203e4e26177b6989.life.conway.tech',
   CONWAY_API_URL: process.env.CONWAY_API_URL || 'https://api.conway.tech',
   CONWAY_API_KEY: process.env.CONWAY_API_KEY
 };

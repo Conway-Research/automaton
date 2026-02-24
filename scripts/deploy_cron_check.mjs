@@ -20,7 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // 配置
-const SANDBOX_ID = 'f08a2e14b6b539fbd71836259c2fb688';
+const SANDBOX_ID = '4d75bbdd405b3e45203e4e26177b6989';
 const API_URL = 'https://api.conway.tech';
 const API_KEY = process.env.CONWAY_API_KEY || '';
 
