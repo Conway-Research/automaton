@@ -183,7 +183,8 @@ function resolveInferenceBackend(
   // Heuristic fallback (model not in registry yet)
   if (keys.anthropicApiKey && /^claude/i.test(model)) return "anthropic";
   if (keys.openaiApiKey && /^(gpt-[3-9]|gpt-4|gpt-5|o[1-9][-\s.]|o[1-9]$|chatgpt)/i.test(model)) return "openai";
-  if (keys.ollamaBaseUrl) return "ollama";
+  return "conway";
+
   return "conway";
 }
 
