@@ -26,11 +26,26 @@ const DISCOVERY_TIMEOUT_MS = 60_000;
 // ─── SSRF Protection ────────────────────────────────────────────
 
 /**
- * Check if a hostname resolves to an internal/private network.
+ * Check if a hostname or IP resolves to an internal/private network.
  * Blocks: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12,
  *         192.168.0.0/16, 169.254.0.0/16, ::1, localhost, 0.0.0.0/8
+ *         IPv6-mapped IPv4 (::ffff:x.x.x.x), decimal IP notation
  */
 export function isInternalNetwork(hostname: string): boolean {
+  // Normalize IPv6-mapped IPv4 (e.g., ::ffff:127.0.0.1 → 127.0.0.1)
+  const ipv4Mapped = hostname.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  const normalized = ipv4Mapped ? ipv4Mapped[1] : hostname;
+
+  // Block decimal IP notation (e.g., 2130706433 = 127.0.0.1)
+  if (/^\d+$/.test(normalized)) {
+    const num = parseInt(normalized, 10);
+    if (num >= 0 && num <= 0xffffffff) {
+      // Convert decimal to dotted-quad and re-check
+      const ip = `${(num >>> 24) & 0xff}.${(num >>> 16) & 0xff}.${(num >>> 8) & 0xff}.${num & 0xff}`;
+      return isInternalNetwork(ip);
+    }
+  }
+
   const blocked = [
     /^127\./,
     /^10\./,
@@ -41,19 +56,43 @@ export function isInternalNetwork(hostname: string): boolean {
     /^localhost$/i,
     /^0\./,
   ];
-  return blocked.some(pattern => pattern.test(hostname));
+  return blocked.some((pattern) => pattern.test(normalized));
 }
 
 /**
- * Check if a URI is allowed for fetching.
+ * Resolve a hostname to its IP address and check against internal network blocklist.
+ * Prevents DNS rebinding attacks where a domain resolves to a private IP.
+ * Returns true if the resolved IP is internal (i.e., should be blocked).
+ */
+export async function resolveAndCheckHost(hostname: string): Promise<boolean> {
+  // First check the hostname string itself (catches IP literals, localhost)
+  if (isInternalNetwork(hostname)) return true;
+
+  // Resolve DNS to get the actual IP address
+  try {
+    const { lookup } = await import("node:dns/promises");
+    const { address } = await lookup(hostname);
+    return isInternalNetwork(address);
+  } catch {
+    // DNS resolution failure — block by default (fail-closed)
+    return true;
+  }
+}
+
+/**
+ * Check if a URI is allowed for fetching (synchronous, hostname-only check).
  * Only https: and ipfs: schemes are permitted.
  * Internal network addresses are blocked (SSRF protection).
+ *
+ * NOTE: This performs string-based hostname checks only. For full DNS
+ * rebinding protection, use resolveAndCheckHost() in async contexts.
  */
 export function isAllowedUri(uri: string): boolean {
   try {
     const url = new URL(uri);
-    if (!['https:', 'ipfs:'].includes(url.protocol)) return false;
-    if (url.protocol === 'https:' && isInternalNetwork(url.hostname)) return false;
+    if (!["https:", "ipfs:"].includes(url.protocol)) return false;
+    if (url.protocol === "https:" && isInternalNetwork(url.hostname))
+      return false;
     return true;
   } catch {
     return false;
@@ -74,27 +113,32 @@ const MAX_SERVICES_COUNT = 20;
  * Phase 3.2: Stricter validation with field length checks.
  */
 export function validateAgentCard(data: unknown): AgentCard | null {
-  if (!data || typeof data !== 'object') return null;
+  if (!data || typeof data !== "object") return null;
   const card = data as Record<string, unknown>;
 
   // Required fields
-  if (typeof card.name !== 'string' || card.name.length === 0) return null;
-  if (typeof card.type !== 'string' || card.type.length === 0) return null;
+  if (typeof card.name !== "string" || card.name.length === 0) return null;
+  if (typeof card.type !== "string" || card.type.length === 0) return null;
 
   // Phase 3.2: Stricter field length validation
   if (card.name.length > MAX_NAME_LENGTH) {
-    logger.error(`Agent card name too long: ${card.name.length} > ${MAX_NAME_LENGTH}`);
+    logger.error(
+      `Agent card name too long: ${card.name.length} > ${MAX_NAME_LENGTH}`,
+    );
     return null;
   }
 
   // address is optional but must be string if present
-  if (card.address !== undefined && typeof card.address !== 'string') return null;
+  if (card.address !== undefined && typeof card.address !== "string")
+    return null;
 
   // description is optional but must be string if present with length check
   if (card.description !== undefined) {
-    if (typeof card.description !== 'string') return null;
+    if (typeof card.description !== "string") return null;
     if (card.description.length > MAX_DESCRIPTION_LENGTH) {
-      logger.error(`Agent card description too long: ${card.description.length}`);
+      logger.error(
+        `Agent card description too long: ${card.description.length}`,
+      );
       return null;
     }
   }
@@ -107,9 +151,17 @@ export function validateAgentCard(data: unknown): AgentCard | null {
       return null;
     }
     for (const svc of card.services) {
-      if (!svc || typeof svc !== 'object') return null;
-      if (typeof svc.name !== 'string' || svc.name.length > MAX_SERVICE_NAME_LENGTH) return null;
-      if (typeof svc.endpoint !== 'string' || svc.endpoint.length > MAX_SERVICE_ENDPOINT_LENGTH) return null;
+      if (!svc || typeof svc !== "object") return null;
+      if (
+        typeof svc.name !== "string" ||
+        svc.name.length > MAX_SERVICE_NAME_LENGTH
+      )
+        return null;
+      if (
+        typeof svc.endpoint !== "string" ||
+        svc.endpoint.length > MAX_SERVICE_ENDPOINT_LENGTH
+      )
+        return null;
     }
   }
 
@@ -127,9 +179,13 @@ function getCachedCard(
 ): AgentCard | null {
   if (!db) return null;
   try {
-    const row = db.prepare(
-      "SELECT agent_card, valid_until FROM discovered_agents_cache WHERE agent_address = ?",
-    ).get(agentAddress) as { agent_card: string; valid_until: string | null } | undefined;
+    const row = db
+      .prepare(
+        "SELECT agent_card, valid_until FROM discovered_agents_cache WHERE agent_address = ?",
+      )
+      .get(agentAddress) as
+      | { agent_card: string; valid_until: string | null }
+      | undefined;
     if (!row) return null;
 
     // Check if cache is still valid
@@ -174,7 +230,10 @@ function setCachedCard(
          last_fetched_at = excluded.last_fetched_at`,
     ).run(agentAddress, cardJson, fetchedFrom, cardHash, validUntil, now, now);
   } catch (error) {
-    logger.error("Cache write failed:", error instanceof Error ? error : undefined);
+    logger.error(
+      "Cache write failed:",
+      error instanceof Error ? error : undefined,
+    );
   }
 }
 
@@ -203,7 +262,9 @@ export async function discoverAgents(
   for (let i = total; i > total - scanCount && i > 0; i--) {
     // Overall discovery timeout
     if (Date.now() - overallStart > DISCOVERY_TIMEOUT_MS) {
-      logger.warn("Overall discovery timeout reached (60s), returning partial results");
+      logger.warn(
+        "Overall discovery timeout reached (60s), returning partial results",
+      );
       break;
     }
 
@@ -225,13 +286,19 @@ export async function discoverAgents(
           }
         } catch (error) {
           // Phase 3.2: Log and skip invalid cards instead of crashing
-          logger.error("Card fetch failed:", error instanceof Error ? error : undefined);
+          logger.error(
+            "Card fetch failed:",
+            error instanceof Error ? error : undefined,
+          );
         }
         agents.push(agent);
       }
     } catch (error) {
       // Phase 3.2: Log and skip errors per agent instead of crashing
-      logger.error("Agent query failed:", error instanceof Error ? error : undefined);
+      logger.error(
+        "Agent query failed:",
+        error instanceof Error ? error : undefined,
+      );
     }
   }
 
@@ -250,9 +317,24 @@ export async function fetchAgentCard(
 ): Promise<AgentCard | null> {
   const cfg = { ...DEFAULT_DISCOVERY_CONFIG, ...config };
 
-  // SSRF protection: validate URI before fetching
+  // SSRF protection: validate URI before fetching (sync check)
   if (!isAllowedUri(uri)) {
     logger.error(`Blocked URI (SSRF protection): ${uri}`);
+    return null;
+  }
+
+  // DNS rebinding protection: resolve hostname and re-check against blocklist
+  try {
+    const url = new URL(uri);
+    if (
+      url.protocol === "https:" &&
+      (await resolveAndCheckHost(url.hostname))
+    ) {
+      logger.error(`Blocked URI (DNS rebinding protection): ${uri}`);
+      return null;
+    }
+  } catch {
+    logger.error(`Invalid URI: ${uri}`);
     return null;
   }
 
@@ -295,7 +377,10 @@ export async function fetchAgentCard(
       clearTimeout(timer);
     }
   } catch (error) {
-    logger.error("Agent card fetch failed:", error instanceof Error ? error : undefined);
+    logger.error(
+      "Agent card fetch failed:",
+      error instanceof Error ? error : undefined,
+    );
     return null;
   }
 }
