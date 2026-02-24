@@ -286,7 +286,7 @@ export async function runAgentLoop(
 
   // ─── The Loop ──────────────────────────────────────────────
 
-  const MAX_IDLE_TURNS = 3; // Force sleep after N turns with no real work
+  const MAX_IDLE_TURNS = 10; // Force sleep after N turns with no real work
   let idleTurnCount = 0;
 
   let pendingInput: { content: string; source: string } | undefined = {
