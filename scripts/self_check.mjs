@@ -27,15 +27,15 @@ config({ path: `${homedir()}/Documents/自动赚钱/automaton/.env` });
 
 // ========== 配置 ==========
 const CONFIG = {
-  SANDBOX_ID: 'f08a2e14b6b539fbd71836259c2fb688',
-  BASE_URL: 'https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech',
-  SERVICE_8080: 'https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech',
-  SERVICE_3006: 'https://3006-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech',
+  SANDBOX_ID: '4d75bbdd405b3e45203e4e26177b6989',
+  BASE_URL: 'https://wangcai.life.conway.tech',
+  SERVICE_8080: 'https://wangcai.life.conway.tech',
+  SERVICE_3006: 'https://3006-4d75bbdd405b3e45203e4e26177b6989.life.conway.tech',
   CONWAY_API_URL: process.env.CONWAY_API_URL || 'https://api.conway.tech',
   CONWAY_API_KEY: process.env.CONWAY_API_KEY,
   CODE_VERSION: '1.5.0',  // 当前代码版本
   STATE_DB: `${homedir()}/.automaton/state.db`,
-  AGENT_CARD_URL: 'https://8080-f08a2e14b6b539fbd71836259c2fb688.life.conway.tech/.well-known/agent-card.json'
+  AGENT_CARD_URL: 'https://wangcai.life.conway.tech/.well-known/agent-card.json'
 };
 
 /**

@@ -25,7 +25,7 @@ import { join } from 'path';
 // 配置
 const CONFIG = {
   // 沙盒服务 URL (通过 Conway 网关)
-  sandboxUrl: process.env.WANGCAI_URL || 'https://wangcai-live.life.conway.tech',
+  sandboxUrl: process.env.WANGCAI_URL || 'https://wangcai.life.conway.tech',
 
   // 本地端口检查 (VPS 上运行时)
   localPort: 3939,
