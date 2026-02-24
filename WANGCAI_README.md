@@ -320,7 +320,7 @@ boot_loader.mjs 检测到 short_id 存在
 你手动操作 ↓
 ┌─────────────────────────────────────────────────────────┐
 │  Step 1: 在 Conway 控制台新建沙箱                        │
-│          https://conway.tech/dashboard                   │
+│          https://app.conway.tech/                        │
 │          ↓                                               │
 │          获取新的 sandbox_id (如: abc123def456...)       │
 │                                                         │
@@ -534,6 +534,7 @@ automaton/
 
 | 名称 | 链接 |
 |------|------|
+| **Conway 控制台** | https://app.conway.tech/ |
 | **GitHub 仓库** | https://github.com/Conway-Research/automaton |
 | **代码阅读** | https://zread.ai/Conway-Research/automaton |
 | **Agent Token** | https://basescan.org/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=18893 |
