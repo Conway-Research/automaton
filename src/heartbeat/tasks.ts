@@ -147,12 +147,41 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       timestamp: new Date().toISOString(),
     }));
 
-    // If we have USDC but low credits, wake the agent so it can
-    // decide how much to topup via the topup_credits tool.
-    if (balance > 5 && credits < 500) {
+    const MIN_TOPUP_USD = 5;
+    if (balance >= MIN_TOPUP_USD && (ctx.survivalTier === "critical" || ctx.survivalTier === "dead")) {
+      // Cooldown: don't attempt more than once every 5 minutes to avoid
+      // hammering the payment endpoint on repeated ticks.
+      const AUTO_TOPUP_COOLDOWN_MS = 5 * 60 * 1000;
+      const lastAttempt = taskCtx.db.getKV("last_auto_topup_attempt");
+      if (lastAttempt && Date.now() - new Date(lastAttempt).getTime() < AUTO_TOPUP_COOLDOWN_MS) {
+        return { shouldWake: false };
+      }
+
+      taskCtx.db.setKV("last_auto_topup_attempt", new Date().toISOString());
+
+      const { bootstrapTopup } = await import("../conway/topup.js");
+      const result = await bootstrapTopup({
+        apiUrl: taskCtx.config.conwayApiUrl,
+        account: taskCtx.identity.account,
+        creditsCents: credits,
+      });
+
+      if (result?.success) {
+        logger.info(
+          `Auto-topup successful: $${result.amountUsd} USD → ${result.creditsCentsAdded} credit cents`,
+        );
+        return {
+          shouldWake: true,
+          message: `Auto-topped up $${result.amountUsd} in credits (was $${(credits / 100).toFixed(2)}). USDC remaining: ~$${(balance - result.amountUsd).toFixed(2)}.`,
+        };
+      }
+
+      // Topup failed — wake the agent so it can handle it manually
+      const errMsg = result?.error ?? "unknown error";
+      logger.warn(`Auto-topup failed: ${errMsg}`);
       return {
         shouldWake: true,
-        message: `USDC available: $${balance.toFixed(2)} but only $${(credits / 100).toFixed(2)} credits. Use topup_credits to buy more.`,
+        message: `Low credits ($${(credits / 100).toFixed(2)}) with USDC available ($${balance.toFixed(2)}) but auto-topup failed: ${errMsg}. Use topup_credits to retry.`,
       };
     }
 

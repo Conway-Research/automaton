@@ -14,7 +14,7 @@ import type {
   DiscoveredAgentCacheRow,
 } from "../types.js";
 import { DEFAULT_DISCOVERY_CONFIG } from "../types.js";
-import { queryAgent, getTotalAgents } from "./erc8004.js";
+import { queryAgent, getTotalAgents, getRegisteredAgentsByEvents } from "./erc8004.js";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("registry.discovery");
 
@@ -181,6 +181,33 @@ function setCachedCard(
 // ─── Discovery ──────────────────────────────────────────────────
 
 /**
+ * Enrich a discovered agent with its agent card data (name, description).
+ * Tries cache first, then fetches from the agent's URI.
+ */
+async function enrichAgentWithCard(
+  agent: DiscoveredAgent,
+  cfg: DiscoveryConfig,
+  db?: import("better-sqlite3").Database,
+): Promise<void> {
+  try {
+    const cacheKey = agent.owner || agent.agentId;
+    let card = getCachedCard(db, cacheKey);
+    if (!card) {
+      card = await fetchAgentCard(agent.agentURI, cfg);
+      if (card && db) {
+        setCachedCard(db, cacheKey, card, agent.agentURI);
+      }
+    }
+    if (card) {
+      agent.name = card.name;
+      agent.description = card.description;
+    }
+  } catch (error) {
+    logger.error("Card fetch failed:", error instanceof Error ? error : undefined);
+  }
+}
+
+/**
  * Discover agents by scanning the registry.
  * Returns a list of discovered agents with their metadata.
  *
@@ -194,44 +221,54 @@ export async function discoverAgents(
 ): Promise<DiscoveredAgent[]> {
   const cfg = { ...DEFAULT_DISCOVERY_CONFIG, ...config };
   const total = await getTotalAgents(network);
-  const scanCount = Math.min(total, limit, cfg.maxScanCount);
   const agents: DiscoveredAgent[] = [];
 
   const overallStart = Date.now();
 
-  // Scan from most recent to oldest
-  for (let i = total; i > total - scanCount && i > 0; i--) {
-    // Overall discovery timeout
-    if (Date.now() - overallStart > DISCOVERY_TIMEOUT_MS) {
-      logger.warn("Overall discovery timeout reached (60s), returning partial results");
-      break;
-    }
-
-    try {
-      const agent = await queryAgent(i.toString(), network);
-      if (agent) {
-        // Phase 3.2: Try cache first, then fetch
-        try {
-          let card = getCachedCard(db, agent.owner);
-          if (!card) {
-            card = await fetchAgentCard(agent.agentURI, cfg);
-            if (card && db) {
-              setCachedCard(db, agent.owner, card, agent.agentURI);
-            }
-          }
-          if (card) {
-            agent.name = card.name;
-            agent.description = card.description;
-          }
-        } catch (error) {
-          // Phase 3.2: Log and skip invalid cards instead of crashing
-          logger.error("Card fetch failed:", error instanceof Error ? error : undefined);
-        }
-        agents.push(agent);
+  if (total > 0) {
+    // totalSupply worked — use sequential iteration (existing path)
+    const scanCount = Math.min(total, limit, cfg.maxScanCount);
+    for (let i = total; i > total - scanCount && i > 0; i--) {
+      if (Date.now() - overallStart > DISCOVERY_TIMEOUT_MS) {
+        logger.warn("Overall discovery timeout reached (60s), returning partial results");
+        break;
       }
-    } catch (error) {
-      // Phase 3.2: Log and skip errors per agent instead of crashing
-      logger.error("Agent query failed:", error instanceof Error ? error : undefined);
+
+      try {
+        const agent = await queryAgent(i.toString(), network);
+        if (agent) {
+          await enrichAgentWithCard(agent, cfg, db);
+          agents.push(agent);
+        }
+      } catch (error) {
+        logger.error("Agent query failed:", error instanceof Error ? error : undefined);
+      }
+    }
+  } else {
+    // totalSupply returned 0 (likely reverted) — fall back to Transfer event scanning
+    logger.info("totalSupply returned 0, falling back to Transfer event scanning");
+    const eventAgents = await getRegisteredAgentsByEvents(network, Math.min(limit, cfg.maxScanCount));
+
+    for (const { tokenId, owner } of eventAgents) {
+      if (Date.now() - overallStart > DISCOVERY_TIMEOUT_MS) {
+        logger.warn("Overall discovery timeout reached (60s), returning partial results");
+        break;
+      }
+
+      try {
+        // Try queryAgent first (gets tokenURI), fall back to event data only
+        const agent = await queryAgent(tokenId, network);
+        if (agent) {
+          // Use owner from event if queryAgent couldn't get it
+          if (!agent.owner && owner) {
+            agent.owner = owner;
+          }
+          await enrichAgentWithCard(agent, cfg, db);
+          agents.push(agent);
+        }
+      } catch (error) {
+        logger.error(`Agent query failed for token ${tokenId}:`, error instanceof Error ? error : undefined);
+      }
     }
   }
 

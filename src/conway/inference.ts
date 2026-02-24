@@ -26,14 +26,17 @@ interface InferenceClientOptions {
   lowComputeModel?: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
+  ollamaBaseUrl?: string;
+  /** Optional registry lookup — if provided, used before name heuristics */
+  getModelProvider?: (modelId: string) => string | undefined;
 }
 
-type InferenceBackend = "conway" | "openai" | "anthropic";
+type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama";
 
 export function createInferenceClient(
   options: InferenceClientOptions,
 ): InferenceClient {
-  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey } = options;
+  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, getModelProvider } = options;
   const httpClient = new ResilientHttpClient({
     baseTimeout: INFERENCE_TIMEOUT_MS,
     retryableStatuses: [429, 500, 502, 503, 504],
@@ -48,8 +51,17 @@ export function createInferenceClient(
     const model = opts?.model || currentModel;
     const tools = opts?.tools;
 
-    // Newer models (o-series, gpt-5.x, gpt-4.1) require max_completion_tokens
-    const usesCompletionTokens = /^(o[1-9]|gpt-5|gpt-4\.1)/.test(model);
+    const backend = resolveInferenceBackend(model, {
+      openaiApiKey,
+      anthropicApiKey,
+      ollamaBaseUrl,
+      getModelProvider,
+    });
+
+    // Newer models (o-series, gpt-5.x, gpt-4.1) require max_completion_tokens.
+    // Ollama always uses max_tokens.
+    const usesCompletionTokens =
+      backend !== "ollama" && /^(o[1-9]|gpt-5|gpt-4\.1)/.test(model);
     const tokenLimit = opts?.maxTokens || maxTokens;
 
     const body: Record<string, unknown> = {
@@ -73,11 +85,6 @@ export function createInferenceClient(
       body.tool_choice = "auto";
     }
 
-    const backend = resolveInferenceBackend(model, {
-      openaiApiKey,
-      anthropicApiKey,
-    });
-
     if (backend === "anthropic") {
       return chatViaAnthropic({
         model,
@@ -91,9 +98,13 @@ export function createInferenceClient(
     }
 
     const openAiLikeApiUrl =
-      backend === "openai" ? "https://api.openai.com" : apiUrl;
+      backend === "openai" ? "https://api.openai.com" :
+      backend === "ollama" ? (ollamaBaseUrl as string).replace(/\/$/, "") :
+      apiUrl;
     const openAiLikeApiKey =
-      backend === "openai" ? (openaiApiKey as string) : apiKey;
+      backend === "openai" ? (openaiApiKey as string) :
+      backend === "ollama" ? "ollama" :
+      apiKey;
 
     return chatViaOpenAiCompatible({
       model,
@@ -155,18 +166,25 @@ function resolveInferenceBackend(
   keys: {
     openaiApiKey?: string;
     anthropicApiKey?: string;
+    ollamaBaseUrl?: string;
+    getModelProvider?: (modelId: string) => string | undefined;
   },
 ): InferenceBackend {
-  // Anthropic models: claude-*
-  if (keys.anthropicApiKey && /^claude/i.test(model)) {
-    return "anthropic";
+  // Registry-based routing: most accurate, no name guessing
+  if (keys.getModelProvider) {
+    const provider = keys.getModelProvider(model);
+    if (provider === "ollama" && keys.ollamaBaseUrl) return "ollama";
+    if (provider === "anthropic" && keys.anthropicApiKey) return "anthropic";
+    if (provider === "openai" && keys.openaiApiKey) return "openai";
+    if (provider === "conway") return "conway";
+    // provider unknown or key not configured — fall through to heuristics
   }
-  // OpenAI models: gpt-*, o[1-9]*, chatgpt-*
-  if (keys.openaiApiKey && /^(gpt|o[1-9]|chatgpt)/i.test(model)) {
-    return "openai";
-  }
-  // Default: Conway proxy (handles all models including unknown ones)
+
+  // Heuristic fallback (model not in registry yet)
+  if (keys.anthropicApiKey && /^claude/i.test(model)) return "anthropic";
+  if (keys.openaiApiKey && /^(gpt-[3-9]|gpt-4|gpt-5|o[1-9][-\s.]|o[1-9]$|chatgpt)/i.test(model)) return "openai";
   return "conway";
+
 }
 
 async function chatViaOpenAiCompatible(params: {
@@ -174,7 +192,7 @@ async function chatViaOpenAiCompatible(params: {
   body: Record<string, unknown>;
   apiUrl: string;
   apiKey: string;
-  backend: "conway" | "openai";
+  backend: "conway" | "openai" | "ollama";
   httpClient: ResilientHttpClient;
 }): Promise<InferenceResponse> {
   const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
@@ -182,7 +200,7 @@ async function chatViaOpenAiCompatible(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization:
-        params.backend === "openai"
+        params.backend === "openai" || params.backend === "ollama"
           ? `Bearer ${params.apiKey}`
           : params.apiKey,
     },

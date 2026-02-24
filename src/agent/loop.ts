@@ -71,6 +71,7 @@ export interface AgentLoopOptions {
   spendTracker?: SpendTrackerInterface;
   onStateChange?: (state: AgentState) => void;
   onTurnComplete?: (turn: AgentTurn) => void;
+  ollamaBaseUrl?: string;
 }
 
 /**
@@ -80,7 +81,7 @@ export interface AgentLoopOptions {
 export async function runAgentLoop(
   options: AgentLoopOptions,
 ): Promise<void> {
-  const { identity, config, db, conway, inference, social, skills, policyEngine, spendTracker, onStateChange, onTurnComplete } =
+  const { identity, config, db, conway, inference, social, skills, policyEngine, spendTracker, onStateChange, onTurnComplete, ollamaBaseUrl } =
     options;
 
   const builtinTools = createBuiltinTools(identity.sandboxId);
@@ -102,6 +103,12 @@ export async function runAgentLoop(
   };
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+
+  // Discover Ollama models if configured
+  if (ollamaBaseUrl) {
+    const { discoverOllamaModels } = await import("../ollama/discover.js");
+    await discoverOllamaModels(ollamaBaseUrl, db.raw);
+  }
   const budgetTracker = new InferenceBudgetTracker(db.raw, modelStrategyConfig);
   const inferenceRouter = new InferenceRouter(db.raw, modelRegistry, budgetTracker);
 
@@ -119,6 +126,10 @@ export async function runAgentLoop(
   // so they don't re-wake the agent after its first sleep.
   let drained = 0;
   while (consumeNextWakeEvent(db.raw)) drained++;
+
+  // Clear any stale sleep_until from a previous session so the agent
+  // doesn't immediately go back to sleep on startup.
+  db.deleteKV("sleep_until");
 
   // Transition to waking state
   db.setAgentState("waking");
@@ -201,12 +212,46 @@ export async function runAgentLoop(
       } else {
         const tier = getSurvivalTier(financial.creditsCents);
 
-        if (tier === "critical") {
+        // Inline auto-topup: if credits are critically low and USDC is
+        // available, buy credits NOW — before attempting inference.
+        // This prevents the agent from dying mid-loop while waiting for
+        // the heartbeat to fire. Uses a 60s cooldown to avoid hammering.
+        if ((tier === "critical" || tier === "low_compute") && financial.usdcBalance >= 5) {
+          const INLINE_TOPUP_COOLDOWN_MS = 60_000;
+          const lastInlineTopup = db.getKV("last_inline_topup_attempt");
+          const cooldownExpired = !lastInlineTopup ||
+            Date.now() - new Date(lastInlineTopup).getTime() >= INLINE_TOPUP_COOLDOWN_MS;
+
+          if (cooldownExpired) {
+            db.setKV("last_inline_topup_attempt", new Date().toISOString());
+            try {
+              const { bootstrapTopup } = await import("../conway/topup.js");
+              const topupResult = await bootstrapTopup({
+                apiUrl: config.conwayApiUrl,
+                account: identity.account,
+                creditsCents: financial.creditsCents,
+              });
+              if (topupResult?.success) {
+                log(config, `[AUTO-TOPUP] Bought $${topupResult.amountUsd} credits from USDC mid-loop`);
+                // Re-fetch financial state after topup so the rest of
+                // the turn sees the updated balance.
+                financial = await getFinancialState(conway, identity.address, db);
+              }
+            } catch (err: any) {
+              logger.warn(`Inline auto-topup failed: ${err.message}`);
+            }
+          }
+        }
+
+        // Re-evaluate tier after potential topup
+        const effectiveTier = getSurvivalTier(financial.creditsCents);
+
+        if (effectiveTier === "critical") {
           log(config, "[CRITICAL] Credits critically low. Limited operation.");
           db.setAgentState("critical");
           onStateChange?.("critical");
           inference.setLowComputeMode(true);
-        } else if (tier === "low_compute") {
+        } else if (effectiveTier === "low_compute") {
           db.setAgentState("low_compute");
           onStateChange?.("low_compute");
           inference.setLowComputeMode(true);

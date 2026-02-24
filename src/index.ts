@@ -20,6 +20,7 @@ import {
 } from "./heartbeat/config.js";
 import { consumeNextWakeEvent, insertWakeEvent } from "./state/database.js";
 import { runAgentLoop } from "./agent/loop.js";
+import { ModelRegistry } from "./inference/registry.js";
 import { loadSkills } from "./skills/loader.js";
 import { initStateRepo } from "./git/state-versioning.js";
 import { ensureSandbox, syncStateToSandbox } from "./conway/sandbox-provision.js";
@@ -54,6 +55,8 @@ Sovereign AI Agent Runtime
 Usage:
   automaton --run          Start the automaton (first run triggers setup wizard)
   automaton --setup        Re-run the interactive setup wizard
+  automaton --configure    Edit configuration (providers, model, treasury, general)
+  automaton --pick-model   Interactively pick the active inference model
   automaton --init         Initialize wallet and config directory
   automaton --provision    Provision Conway API key via SIWE
   automaton --status       Show current automaton status
@@ -63,6 +66,7 @@ Usage:
 Environment:
   CONWAY_API_URL           Conway API URL (default: https://api.conway.tech)
   CONWAY_API_KEY           Conway API key (overrides config)
+  OLLAMA_BASE_URL          Ollama base URL (overrides config, e.g. http://localhost:11434)
 `);
     process.exit(0);
   }
@@ -98,6 +102,18 @@ Environment:
   if (args.includes("--setup")) {
     const { runSetupWizard } = await import("./setup/wizard.js");
     await runSetupWizard();
+    process.exit(0);
+  }
+
+  if (args.includes("--pick-model")) {
+    const { runModelPicker } = await import("./setup/model-picker.js");
+    await runModelPicker();
+    process.exit(0);
+  }
+
+  if (args.includes("--configure")) {
+    const { runConfigure } = await import("./setup/configure.js");
+    await runConfigure();
     process.exit(0);
   }
 
@@ -232,7 +248,13 @@ async function run(): Promise<void> {
     sandboxId: config.sandboxId,
   });
 
-  // Create inference client
+  // Resolve Ollama base URL: env var takes precedence over config
+  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || config.ollamaBaseUrl;
+
+  // Create inference client — pass a live registry lookup so model names like
+  // "gpt-oss:120b" route to Ollama based on their registered provider, not heuristics.
+  const modelRegistry = new ModelRegistry(db.raw);
+  modelRegistry.initialize();
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
@@ -241,7 +263,13 @@ async function run(): Promise<void> {
     lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
+    ollamaBaseUrl,
+    getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
+
+  if (ollamaBaseUrl) {
+    logger.info(`[${new Date().toISOString()}] Ollama backend: ${ollamaBaseUrl}`);
+  }
 
   // Create social client
   let social: SocialClientInterface | undefined;
@@ -290,19 +318,32 @@ async function run(): Promise<void> {
   // Bootstrap topup: buy minimum credits ($5) from USDC so the agent can start.
   // The agent decides larger topups itself via the topup_credits tool.
   try {
-    const creditsCents = await conway.getCreditsBalance().catch(() => 0);
-    const topupResult = await bootstrapTopup({
-      apiUrl: config.conwayApiUrl,
-      account,
-      creditsCents,
+    let bootstrapTimer: ReturnType<typeof setTimeout>;
+    const bootstrapTimeout = new Promise<null>((_, reject) => {
+      bootstrapTimer = setTimeout(() => reject(new Error("bootstrap topup timed out")), 15_000);
     });
-    if (topupResult?.success) {
-      logger.info(
-        `[${new Date().toISOString()}] Bootstrap topup: +$${topupResult.amountUsd} credits from USDC`,
-      );
+    try {
+      await Promise.race([
+        (async () => {
+          const creditsCents = await conway.getCreditsBalance().catch(() => 0);
+          const topupResult = await bootstrapTopup({
+            apiUrl: config.conwayApiUrl,
+            account,
+            creditsCents,
+          });
+          if (topupResult?.success) {
+            logger.info(
+              `[${new Date().toISOString()}] Bootstrap topup: +$${topupResult.amountUsd} credits from USDC`,
+            );
+          }
+        })(),
+        bootstrapTimeout,
+      ]);
+    } finally {
+      clearTimeout(bootstrapTimer!);
     }
   } catch (err: any) {
-    logger.warn(`[${new Date().toISOString()}] Bootstrap topup failed: ${err.message}`);
+    logger.warn(`[${new Date().toISOString()}] Bootstrap topup skipped: ${err.message}`);
   }
 
   // Start heartbeat daemon (Phase 1.1: DurableScheduler)
@@ -360,6 +401,7 @@ async function run(): Promise<void> {
         skills,
         policyEngine,
         spendTracker,
+        ollamaBaseUrl,
         onStateChange: (state: AgentState) => {
           logger.info(`[${new Date().toISOString()}] State: ${state}`);
         },

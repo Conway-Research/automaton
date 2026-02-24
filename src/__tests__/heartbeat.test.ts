@@ -363,10 +363,11 @@ describe("Heartbeat Tasks", () => {
       expect(result.shouldWake).toBe(false);
     });
 
-    it("wakes when has USDC but low credits", async () => {
+    it("wakes when has USDC but critically low credits", async () => {
       const tickCtx = createMockTickContext(db, {
-        creditBalance: 200, // < 500
+        creditBalance: 0, // critical tier
         usdcBalance: 10.0, // > 5
+        survivalTier: "critical",
       });
       const taskCtx: HeartbeatLegacyContext = {
         identity: createTestIdentity(),
