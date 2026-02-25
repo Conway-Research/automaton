@@ -140,9 +140,9 @@ export const STATIC_MODEL_BASELINE: Omit<
     provider: "openai",
     displayName: "GLM-5 (智谱 Coding Plan)",
     tierMinimum: "normal",
-    costPer1kInput: 0, // GLM Coding Plan 免费额度内
+    costPer1kInput: 0, // GLM Coding Plan 已付费，0 成本
     costPer1kOutput: 0,
-    maxTokens: 4096,
+    maxTokens: 32768, // 最大化 token 限制
     contextWindow: 128000,
     supportsTools: true,
     supportsVision: false,
