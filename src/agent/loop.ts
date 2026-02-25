@@ -224,6 +224,17 @@ export async function runAgentLoop(
         messaging,
         inference: unifiedInference,
         identity,
+        isWorkerAlive: (address: string) => {
+          if (address.startsWith("local://")) {
+            return workerPool.hasWorker(address);
+          }
+          // Remote workers: check children table
+          const child = db.raw.prepare(
+            "SELECT status FROM children WHERE sandbox_id = ? OR address = ?",
+          ).get(address, address) as { status: string } | undefined;
+          if (!child) return false;
+          return !["failed", "dead", "cleaned_up"].includes(child.status);
+        },
         config: {
           ...config,
           spawnAgent: async (task: any) => {
@@ -289,7 +300,9 @@ export async function runAgentLoop(
   let consecutiveErrors = 0;
   let running = true;
   let lastToolPatterns: string[] = [];
+  let loopWarningPattern: string | null = null;
   let idleToolTurns = 0;
+  let blockedGoalTurns = 0;
 
   // Drain any stale wake events from before this loop started,
   // so they don't re-wake the agent after its first sleep.
@@ -439,7 +452,7 @@ export async function runAgentLoop(
         "check_credits", "check_usdc_balance", "system_synopsis", "review_memory",
         "list_children", "check_child_status", "list_sandboxes", "list_models",
         "list_skills", "git_status", "git_log", "check_reputation",
-        "discover_agents", "recall_facts", "recall_procedure", "heartbeat_ping",
+        "recall_facts", "recall_procedure", "heartbeat_ping",
         "check_inference_spending",
       ]);
       const allTurns = db.getRecentTurns(20);
@@ -634,6 +647,27 @@ export async function runAgentLoop(
         // Memory failure must not block the agent loop
       }
 
+      // ── create_goal BLOCKED fast-break ──
+      // If agent keeps calling create_goal and getting BLOCKED, force sleep
+      // after 2 consecutive attempts to prevent token waste.
+      const blockedGoalCall = turn.toolCalls.find(
+        (tc) => tc.name === "create_goal" && tc.result?.includes("BLOCKED"),
+      );
+      if (blockedGoalCall) {
+        blockedGoalTurns++;
+        if (blockedGoalTurns >= 2) {
+          log(config, "[LOOP] create_goal BLOCKED twice — forcing sleep to let workers finish.");
+          db.setKV("sleep_until", new Date(Date.now() + 120_000).toISOString());
+          db.setAgentState("sleeping");
+          onStateChange?.("sleeping");
+          running = false;
+          blockedGoalTurns = 0;
+          break;
+        }
+      } else {
+        blockedGoalTurns = 0;
+      }
+
       // ── Loop Detection ──
       if (turn.toolCalls.length > 0) {
         const currentPattern = turn.toolCalls
@@ -645,6 +679,34 @@ export async function runAgentLoop(
         // Keep only the last MAX_REPETITIVE_TURNS entries
         if (lastToolPatterns.length > MAX_REPETITIVE_TURNS) {
           lastToolPatterns = lastToolPatterns.slice(-MAX_REPETITIVE_TURNS);
+        }
+
+        // Reset enforcement tracker if agent changed behavior
+        if (loopWarningPattern && currentPattern !== loopWarningPattern) {
+          loopWarningPattern = null;
+        }
+
+        // ── Loop Enforcement Escalation ──
+        // If we already warned about this pattern and the agent STILL repeats, force sleep.
+        if (
+          loopWarningPattern &&
+          currentPattern === loopWarningPattern &&
+          lastToolPatterns.length === MAX_REPETITIVE_TURNS &&
+          lastToolPatterns.every((p) => p === currentPattern)
+        ) {
+          log(config, `[LOOP] Enforcement: agent ignored loop warning, forcing sleep.`);
+          pendingInput = {
+            content:
+              `LOOP ENFORCEMENT: You were warned about repeating "${currentPattern}" but continued. ` +
+              `Forcing sleep to prevent credit waste. On next wake, try a DIFFERENT approach.`,
+            source: "system",
+          };
+          loopWarningPattern = null;
+          lastToolPatterns = [];
+          db.setAgentState("sleeping");
+          onStateChange?.("sleeping");
+          running = false;
+          break;
         }
 
         // Check if the same pattern repeated MAX_REPETITIVE_TURNS times
@@ -660,6 +722,7 @@ export async function runAgentLoop(
               `Pick ONE concrete task from your genesis prompt and execute it.`,
             source: "system",
           };
+          loopWarningPattern = currentPattern;
           lastToolPatterns = [];
         }
 

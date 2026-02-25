@@ -55,6 +55,8 @@ export interface AutomatonConfig {
   skillsDir: string;
   agentId?: string;
   maxChildren: number;
+  /** 子沙盒内存配置 (MB)，默认 1024 */
+  childSandboxMemoryMb?: number;
   parentAddress?: Address;
   socialRelayUrl?: string;
   treasuryPolicy?: TreasuryPolicy;
@@ -73,6 +75,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   version: "0.2.0",
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
+  childSandboxMemoryMb: 1024,
   socialRelayUrl: "https://social.conway.tech",
 };
 
@@ -384,6 +387,8 @@ export interface ConwayClient {
   deleteDnsRecord(domain: string, recordId: string): Promise<void>;
   // Model discovery
   listModels(): Promise<ModelInfo[]>;
+  /** Create a new client scoped to a specific sandbox ID. */
+  createScopedClient(targetSandboxId: string): ConwayClient;
 }
 
 export interface ExecResult {

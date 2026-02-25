@@ -18,6 +18,7 @@ import {
   parseAbi,
   keccak256,
   toBytes,
+  encodeFunctionData,
   type Address,
   type PrivateKeyAccount,
 } from "viem";
@@ -98,12 +99,19 @@ async function preflight(
     transport: http(),
   });
 
+  // Encode calldata for accurate gas estimation
+  const data = encodeFunctionData({
+    abi: functionData.abi,
+    functionName: functionData.functionName,
+    args: functionData.args,
+  });
+
   // Estimate gas
   const gasEstimate = await publicClient
     .estimateGas({
       account: account.address,
       to: functionData.address,
-      data: undefined, // Will be encoded by the client
+      data,
     })
     .catch(() => BigInt(200_000)); // Fallback estimate
 

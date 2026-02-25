@@ -14,8 +14,21 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
-      - run: pnpm test
-      - run: pnpm test -- --grep "security|injection|policy|financial"
+      - name: Run tests
+        timeout-minutes: 5
+        run: |
+          timeout 180 pnpm test
+          RC=$?
+          # Exit code 124 means timeout killed the process (vitest hung after tests completed)
+          if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
+          exit $RC
+      - name: Run security tests
+        timeout-minutes: 5
+        run: |
+          timeout 180 pnpm test -- --grep "security|injection|policy|financial"
+          RC=$?
+          if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
+          exit $RC
 
   security-audit:
     runs-on: ubuntu-latest

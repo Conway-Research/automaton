@@ -21,6 +21,11 @@ import type { TaskNode, TaskResult } from "./task-graph.js";
 import type { Database } from "better-sqlite3";
 import type { ConwayClient } from "../types.js";
 
+function truncateOutput(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen) + `\n[TRUNCATED: ${text.length - maxLen} chars omitted]`;
+}
+
 function localExec(command: string, timeoutMs: number): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const proc = execCb(command, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
@@ -119,6 +124,15 @@ export class LocalWorkerPool {
 
   getActiveCount(): number {
     return this.activeWorkers.size;
+  }
+
+  /**
+   * Check if a worker is currently active in this pool.
+   * Accepts either a full address ("local://worker-id") or raw worker ID.
+   */
+  hasWorker(addressOrId: string): boolean {
+    const id = addressOrId.replace("local://", "");
+    return this.activeWorkers.has(id);
   }
 
   async shutdown(): Promise<void> {
@@ -322,14 +336,14 @@ RULES:
           // Try Conway API first, fall back to local shell
           try {
             const result = await this.config.conway.exec(command, timeoutMs);
-            const stdout = (result.stdout ?? "").slice(0, 8000);
-            const stderr = (result.stderr ?? "").slice(0, 2000);
+            const stdout = truncateOutput(result.stdout ?? "", 16_000);
+            const stderr = truncateOutput(result.stderr ?? "", 4000);
             return stderr ? `stdout:\n${stdout}\nstderr:\n${stderr}` : stdout || "(no output)";
           } catch {
             try {
               const result = await localExec(command, timeoutMs);
-              const stdout = result.stdout.slice(0, 8000);
-              const stderr = result.stderr.slice(0, 2000);
+              const stdout = truncateOutput(result.stdout, 16_000);
+              const stderr = truncateOutput(result.stderr, 4000);
               return stderr ? `stdout:\n${stdout}\nstderr:\n${stderr}` : stdout || "(no output)";
             } catch (error) {
               return `exec error: ${error instanceof Error ? error.message : String(error)}`;

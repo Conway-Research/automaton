@@ -393,7 +393,7 @@ describe("Agent Loop", () => {
     const inference = new MockInferenceClient([
       idleToolResponse("check_credits", {}, "t1"),
       idleToolResponse("system_synopsis", {}, "t2"),
-      idleToolResponse("discover_agents", { limit: 15 }, "t3"),
+      idleToolResponse("review_memory", {}, "t3"),
       noToolResponse("I will now work on something productive."),
     ]);
 
@@ -504,5 +504,185 @@ describe("Agent Loop", () => {
       (t) => t.input?.includes("MAINTENANCE LOOP DETECTED"),
     );
     expect(interventionTurn).toBeDefined();
+  });
+
+  it("loop enforcement forces sleep after warning is ignored (6 identical patterns)", async () => {
+    // 6 identical exec tool calls: warning fires at turn 3, enforcement at turn 6.
+    // Use unique IDs to avoid DB collisions.
+    function execResponse(uid: string): ReturnType<typeof toolCallResponse> {
+      return {
+        id: `resp_${uid}`,
+        model: "mock-model",
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [{
+            id: `call_${uid}`,
+            type: "function" as const,
+            function: { name: "exec", arguments: JSON.stringify({ command: "echo loop" }) },
+          }],
+        },
+        toolCalls: [{
+          id: `call_${uid}`,
+          type: "function" as const,
+          function: { name: "exec", arguments: JSON.stringify({ command: "echo loop" }) },
+        }],
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        finishReason: "tool_calls",
+      };
+    }
+
+    const inference = new MockInferenceClient([
+      execResponse("e1"),
+      execResponse("e2"),
+      execResponse("e3"), // Warning fires here
+      execResponse("e4"),
+      execResponse("e5"),
+      execResponse("e6"), // Enforcement fires here — forced sleep
+    ]);
+
+    const turns: AgentTurn[] = [];
+    const stateChanges: AgentState[] = [];
+
+    await runAgentLoop({
+      identity,
+      config,
+      db,
+      conway,
+      inference,
+      onTurnComplete: (turn) => turns.push(turn),
+      onStateChange: (state) => stateChanges.push(state),
+    });
+
+    // Should have the warning at turn 4 (injected after turn 3)
+    const warningTurn = turns.find(
+      (t) => t.input?.includes("LOOP DETECTED"),
+    );
+    expect(warningTurn).toBeDefined();
+
+    // Agent should be sleeping due to enforcement
+    expect(db.getAgentState()).toBe("sleeping");
+    expect(stateChanges[stateChanges.length - 1]).toBe("sleeping");
+  });
+
+  it("loop enforcement resets when agent changes behavior after warning", async () => {
+    // 3 identical exec calls → warning → different tool → 3 more exec calls → warning (not enforcement)
+    function execResponse(uid: string): ReturnType<typeof toolCallResponse> {
+      return {
+        id: `resp_${uid}`,
+        model: "mock-model",
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [{
+            id: `call_${uid}`,
+            type: "function" as const,
+            function: { name: "exec", arguments: JSON.stringify({ command: "echo loop" }) },
+          }],
+        },
+        toolCalls: [{
+          id: `call_${uid}`,
+          type: "function" as const,
+          function: { name: "exec", arguments: JSON.stringify({ command: "echo loop" }) },
+        }],
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        finishReason: "tool_calls",
+      };
+    }
+
+    const inference = new MockInferenceClient([
+      execResponse("r1"),
+      execResponse("r2"),
+      execResponse("r3"), // Warning fires, loopWarningPattern = "exec"
+      // Turn 4: different tool — resets loopWarningPattern
+      toolCallResponse([
+        { name: "send_message", arguments: { to: "0x123", content: "hello" } },
+      ]),
+      execResponse("r5"),
+      execResponse("r6"),
+      execResponse("r7"), // Warning fires again (NOT enforcement — tracker was reset)
+      noToolResponse("Done."),
+    ]);
+
+    const turns: AgentTurn[] = [];
+
+    await runAgentLoop({
+      identity,
+      config,
+      db,
+      conway,
+      inference,
+      onTurnComplete: (turn) => turns.push(turn),
+    });
+
+    // Should have gotten a warning, not enforcement (agent is still running, not force-slept)
+    // The second set of 3 identical patterns gets a NEW warning, not enforcement
+    const warningTurns = turns.filter(
+      (t) => t.input?.includes("LOOP DETECTED"),
+    );
+    expect(warningTurns.length).toBeGreaterThanOrEqual(2);
+
+    // No enforcement turn should exist
+    const enforcementTurn = turns.find(
+      (t) => t.input?.includes("LOOP ENFORCEMENT"),
+    );
+    expect(enforcementTurn).toBeUndefined();
+  });
+
+  it("discover_agents turns are retained in context (not classified as idle)", async () => {
+    // A turn with only discover_agents should NOT trigger maintenance loop detection
+    // because discover_agents is no longer in IDLE_ONLY_TOOLS
+    function discoverResponse(uid: string): ReturnType<typeof toolCallResponse> {
+      return {
+        id: `resp_${uid}`,
+        model: "mock-model",
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [{
+            id: `call_${uid}`,
+            type: "function" as const,
+            function: { name: "discover_agents", arguments: JSON.stringify({ limit: 15 }) },
+          }],
+        },
+        toolCalls: [{
+          id: `call_${uid}`,
+          type: "function" as const,
+          function: { name: "discover_agents", arguments: JSON.stringify({ limit: 15 }) },
+        }],
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        finishReason: "tool_calls",
+      };
+    }
+
+    const inference = new MockInferenceClient([
+      discoverResponse("d1"),
+      discoverResponse("d2"),
+      discoverResponse("d3"), // Would trigger maintenance loop if discover_agents were idle
+      noToolResponse("Processing discovery results."),
+    ]);
+
+    const turns: AgentTurn[] = [];
+
+    await runAgentLoop({
+      identity,
+      config,
+      db,
+      conway,
+      inference,
+      onTurnComplete: (turn) => turns.push(turn),
+    });
+
+    // No maintenance loop detection should fire since discover_agents is NOT idle
+    const maintenanceTurn = turns.find(
+      (t) => t.input?.includes("MAINTENANCE LOOP DETECTED"),
+    );
+    expect(maintenanceTurn).toBeUndefined();
+
+    // But the repetitive pattern detector SHOULD fire (3 identical patterns)
+    const loopWarning = turns.find(
+      (t) => t.input?.includes("LOOP DETECTED"),
+    );
+    expect(loopWarning).toBeDefined();
   });
 });

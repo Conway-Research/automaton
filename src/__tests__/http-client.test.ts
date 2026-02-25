@@ -31,7 +31,7 @@ function mockResponse(
 }
 
 beforeEach(() => {
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
@@ -62,9 +62,10 @@ describe("ResilientHttpClient", () => {
         },
       );
 
-      await expect(
-        client.request("https://api.example.com/test"),
-      ).rejects.toThrow();
+      const pending = client.request("https://api.example.com/test");
+      const assertion = expect(pending).rejects.toThrow();
+      await vi.runAllTimersAsync();
+      await assertion;
     });
   });
 
@@ -85,7 +86,9 @@ describe("ResilientHttpClient", () => {
         return Promise.resolve(mockResponse(200, { ok: true }));
       });
 
-      const resp = await client.request("https://api.example.com/test");
+      const pending = client.request("https://api.example.com/test");
+      await vi.runAllTimersAsync();
+      const resp = await pending;
       expect(resp.status).toBe(200);
       expect(callCount).toBe(2);
     });
@@ -106,7 +109,9 @@ describe("ResilientHttpClient", () => {
         return Promise.resolve(mockResponse(200, { ok: true }));
       });
 
-      const resp = await client.request("https://api.example.com/test");
+      const pending = client.request("https://api.example.com/test");
+      await vi.runAllTimersAsync();
+      const resp = await pending;
       expect(resp.status).toBe(200);
       expect(callCount).toBe(3);
     });
@@ -131,7 +136,9 @@ describe("ResilientHttpClient", () => {
         return Promise.resolve(mockResponse(200, { ok: true }));
       });
 
-      const resp = await client.request("https://api.example.com/test");
+      const pending = client.request("https://api.example.com/test");
+      await vi.runAllTimersAsync();
+      const resp = await pending;
       expect(resp.status).toBe(200);
       expect(callCount).toBe(4);
     });
@@ -204,9 +211,10 @@ describe("ResilientHttpClient", () => {
         return Promise.reject(new Error("Network failure"));
       });
 
-      await expect(
-        client.request("https://api.example.com/test"),
-      ).rejects.toThrow("Network failure");
+      const pending = client.request("https://api.example.com/test");
+      const assertion = expect(pending).rejects.toThrow("Network failure");
+      await vi.runAllTimersAsync();
+      await assertion;
       expect(callCount).toBe(3); // 1 initial + 2 retries
     });
 
@@ -223,7 +231,9 @@ describe("ResilientHttpClient", () => {
         return Promise.resolve(mockResponse(503));
       });
 
-      const resp = await client.request("https://api.example.com/test");
+      const pending = client.request("https://api.example.com/test");
+      await vi.runAllTimersAsync();
+      const resp = await pending;
       // After maxRetries exhausted, returns the last 503 response
       expect(resp.status).toBe(503);
       expect(callCount).toBe(3); // 1 initial + 2 retries
@@ -477,9 +487,10 @@ describe("ResilientHttpClient", () => {
         },
       );
 
-      await expect(
-        client.request("https://api.example.com/test", { timeout: 50 }),
-      ).rejects.toThrow();
+      const pending = client.request("https://api.example.com/test", { timeout: 50 });
+      const assertion = expect(pending).rejects.toThrow();
+      await vi.runAllTimersAsync();
+      await assertion;
     });
   });
 

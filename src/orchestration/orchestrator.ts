@@ -98,6 +98,8 @@ export class Orchestrator {
     inference: UnifiedInferenceClient;
     identity: AutomatonIdentity;
     config: any;
+    /** Check if a worker agent is still alive. Used to recover stale tasks. */
+    isWorkerAlive?: (address: string) => boolean;
   }) {}
 
   async tick(): Promise<OrchestratorTickResult> {
@@ -512,6 +514,25 @@ export class Orchestrator {
         phase: "idle",
         goalId: null,
       };
+    }
+
+    // Recover stale tasks: workers that died (process restart, sandbox crash)
+    // leave tasks stuck in 'assigned' forever. Detect and reset them.
+    if (this.params.isWorkerAlive) {
+      const assignedTasks = getTasksByGoal(this.params.db, goal.id)
+        .filter((t) => t.status === "assigned" && t.assignedTo);
+      for (const task of assignedTasks) {
+        const alive = this.params.isWorkerAlive(task.assignedTo!);
+        if (!alive) {
+          logger.warn("Recovering stale task from dead worker", {
+            taskId: task.id,
+            worker: task.assignedTo,
+          });
+          this.params.db.prepare(
+            "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL WHERE id = ?",
+          ).run(task.id);
+        }
+      }
     }
 
     const ready = getReadyTasks(this.params.db)

@@ -1827,7 +1827,8 @@ export function episodicGetRecent(db: DatabaseType, sessionId: string, limit: nu
 
 export function episodicSearch(db: DatabaseType, query: string, limit: number = 10): EpisodicMemoryEntry[] {
   try {
-    const rows = db.prepare("SELECT * FROM episodic_memory WHERE summary LIKE ? OR detail LIKE ? ORDER BY importance DESC, created_at DESC LIMIT ?").all(`%${query}%`, `%${query}%`, limit) as any[];
+    const escaped = query.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+    const rows = db.prepare("SELECT * FROM episodic_memory WHERE summary LIKE ? ESCAPE '\\' OR detail LIKE ? ESCAPE '\\' ORDER BY importance DESC, created_at DESC LIMIT ?").all(`%${escaped}%`, `%${escaped}%`, limit) as any[];
     return rows.map(deserializeEpisodicRow);
   } catch (error) { logger.error("episodicSearch failed", error instanceof Error ? error : undefined); return []; }
 }
@@ -1894,11 +1895,12 @@ export function semanticGet(db: DatabaseType, category: SemanticCategory, key: s
 
 export function semanticSearch(db: DatabaseType, query: string, category?: SemanticCategory): SemanticMemoryEntry[] {
   try {
+    const escaped = query.replace(/[%_\\]/g, (ch) => `\\${ch}`);
     if (category) {
-      const rows = db.prepare("SELECT * FROM semantic_memory WHERE category = ? AND (key LIKE ? OR value LIKE ?) ORDER BY confidence DESC, updated_at DESC").all(category, `%${query}%`, `%${query}%`) as any[];
+      const rows = db.prepare("SELECT * FROM semantic_memory WHERE category = ? AND (key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\') ORDER BY confidence DESC, updated_at DESC").all(category, `%${escaped}%`, `%${escaped}%`) as any[];
       return rows.map(deserializeSemanticRow);
     }
-    const rows = db.prepare("SELECT * FROM semantic_memory WHERE key LIKE ? OR value LIKE ? ORDER BY confidence DESC, updated_at DESC").all(`%${query}%`, `%${query}%`) as any[];
+    const rows = db.prepare("SELECT * FROM semantic_memory WHERE key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\' ORDER BY confidence DESC, updated_at DESC").all(`%${escaped}%`, `%${escaped}%`) as any[];
     return rows.map(deserializeSemanticRow);
   } catch (error) { logger.error("semanticSearch failed", error instanceof Error ? error : undefined); return []; }
 }
@@ -1953,7 +1955,8 @@ export function proceduralRecordOutcome(db: DatabaseType, name: string, success:
 
 export function proceduralSearch(db: DatabaseType, query: string): ProceduralMemoryEntry[] {
   try {
-    const rows = db.prepare("SELECT * FROM procedural_memory WHERE name LIKE ? OR description LIKE ? ORDER BY success_count DESC, updated_at DESC").all(`%${query}%`, `%${query}%`) as any[];
+    const escaped = query.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+    const rows = db.prepare("SELECT * FROM procedural_memory WHERE name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' ORDER BY success_count DESC, updated_at DESC").all(`%${escaped}%`, `%${escaped}%`) as any[];
     return rows.map(deserializeProceduralRow);
   } catch (error) { logger.error("proceduralSearch failed", error instanceof Error ? error : undefined); return []; }
 }
