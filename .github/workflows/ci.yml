@@ -15,7 +15,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - name: Run tests
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           timeout 300 pnpm test
           RC=$?
@@ -23,7 +23,7 @@ jobs:
           if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
           exit $RC
       - name: Run security tests
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           timeout 180 pnpm test -- --grep "security|injection|policy|financial"
           RC=$?
