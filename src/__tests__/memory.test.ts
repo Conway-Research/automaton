@@ -354,6 +354,28 @@ describe("SemanticMemoryManager", () => {
     expect(removed).toBe(2);
     expect(sm.getByCategory("domain")).toHaveLength(3);
   });
+
+  it("should escape SQL LIKE wildcards in search queries", () => {
+    sm.store({ category: "financial", key: "balance", value: "100% allocated", source: "s1" });
+    sm.store({ category: "financial", key: "status", value: "50 allocated", source: "s1" });
+    sm.store({ category: "environment", key: "file_name", value: "config", source: "s1" });
+    sm.store({ category: "environment", key: "filename", value: "other", source: "s1" });
+
+    // '%' in query should match literally, not as a wildcard
+    const pctResults = sm.search("100%");
+    expect(pctResults).toHaveLength(1);
+    expect(pctResults[0].value).toBe("100% allocated");
+
+    // '_' in query should match literally, not as single-char wildcard
+    const underResults = sm.search("file_name");
+    expect(underResults).toHaveLength(1);
+    expect(underResults[0].key).toBe("file_name");
+
+    // Category-scoped search should also escape wildcards
+    const catResults = sm.search("100%", "financial");
+    expect(catResults).toHaveLength(1);
+    expect(catResults[0].value).toBe("100% allocated");
+  });
 });
 
 // ─── Procedural Memory Tests ──────────────────────────────────

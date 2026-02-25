@@ -22,8 +22,9 @@ import { propagateConstitution } from "./constitution.js";
  * Validate that an address is a well-formed, non-zero Ethereum wallet address.
  */
 export function isValidWalletAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address) &&
-         address !== "0x" + "0".repeat(40);
+  return (
+    /^0x[a-fA-F0-9]{40}$/.test(address) && address !== "0x" + "0".repeat(40)
+  );
 }
 
 /**
@@ -37,9 +38,14 @@ export async function spawnChild(
   lifecycle?: ChildLifecycle,
 ): Promise<ChildAutomaton> {
   // Check child limit from config
-  const existing = db.getChildren().filter(
-    (c) => c.status !== "dead" && c.status !== "cleaned_up" && c.status !== "failed",
-  );
+  const existing = db
+    .getChildren()
+    .filter(
+      (c) =>
+        c.status !== "dead" &&
+        c.status !== "cleaned_up" &&
+        c.status !== "failed",
+    );
   const maxChildren = (db as any).config?.maxChildren ?? 3;
   if (existing.length >= maxChildren) {
     throw new Error(
@@ -60,6 +66,9 @@ export async function spawnChild(
     // State: requested
     lifecycle.initChild(childId, genesis.name, "", genesis.genesisPrompt);
 
+    // Get child sandbox memory from config (default 1024MB)
+    const childMemoryMb = (db as any).config?.childSandboxMemoryMb ?? 1024;
+
     // Try to reuse an existing sandbox whose DB record is 'failed' but
     // is still running remotely, before creating a new one.
     reusedSandbox = await findReusableSandbox(conway, db);
@@ -71,7 +80,7 @@ export async function spawnChild(
       sandbox = await conway.createSandbox({
         name: `automaton-child-${genesis.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`,
         vcpu: 1,
-        memoryMb: 512,
+        memoryMb: childMemoryMb,
         diskGb: 5,
       });
     }
@@ -81,10 +90,16 @@ export async function spawnChild(
     const childConway = conway.createScopedClient(sandbox.id);
 
     // Update sandbox ID in children table
-    db.raw.prepare("UPDATE children SET sandbox_id = ? WHERE id = ?").run(sandbox.id, childId);
+    db.raw
+      .prepare("UPDATE children SET sandbox_id = ? WHERE id = ?")
+      .run(sandbox.id, childId);
 
     // State: sandbox_created
-    lifecycle.transition(childId, "sandbox_created", `sandbox ${sandbox.id} created`);
+    lifecycle.transition(
+      childId,
+      "sandbox_created",
+      `sandbox ${sandbox.id} created`,
+    );
 
     // Install runtime (on the CHILD sandbox)
     await childConway.exec("apt-get update -qq && apt-get install -y -qq nodejs npm git curl", 120_000);
@@ -125,10 +140,16 @@ export async function spawnChild(
     }
 
     // Update address in children table
-    db.raw.prepare("UPDATE children SET address = ? WHERE id = ?").run(childWallet, childId);
+    db.raw
+      .prepare("UPDATE children SET address = ? WHERE id = ?")
+      .run(childWallet, childId);
 
     // State: wallet_verified
-    lifecycle.transition(childId, "wallet_verified", `wallet ${childWallet} verified`);
+    lifecycle.transition(
+      childId,
+      "wallet_verified",
+      `wallet ${childWallet} verified`,
+    );
 
     // Record spawn modification
     db.insertModification({
@@ -174,7 +195,11 @@ export async function spawnChild(
 
     // Transition to failed if lifecycle has been initialized
     try {
-      lifecycle.transition(childId, "failed", error instanceof Error ? error.message : String(error));
+      lifecycle.transition(
+        childId,
+        "failed",
+        error instanceof Error ? error.message : String(error),
+      );
     } catch {
       // May fail if child doesn't exist yet
     }
@@ -195,17 +220,26 @@ async function spawnChildLegacy(
 ): Promise<ChildAutomaton> {
   let sandboxId: string | undefined;
 
+  // Get child sandbox memory from config (default 1024MB)
+  const childMemoryMb = (db as any).config?.childSandboxMemoryMb ?? 1024;
+
   try {
     const sandbox = await conway.createSandbox({
       name: `automaton-child-${genesis.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`,
       vcpu: 1,
-      memoryMb: 512,
+      memoryMb: childMemoryMb,
       diskGb: 5,
     });
     sandboxId = sandbox.id;
 
-    await conway.exec("apt-get update -qq && apt-get install -y -qq nodejs npm git curl", 120_000);
-    await conway.exec("npm install -g @conway/automaton@latest 2>/dev/null || true", 60_000);
+    await conway.exec(
+      "apt-get update -qq && apt-get install -y -qq nodejs npm git curl",
+      120_000,
+    );
+    await conway.exec(
+      "npm install -g @conway/automaton@latest 2>/dev/null || true",
+      60_000,
+    );
     await conway.exec("mkdir -p /root/.automaton", 10_000);
 
     const genesisJson = JSON.stringify(

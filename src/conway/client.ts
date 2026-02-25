@@ -147,7 +147,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       // SECURITY: Never silently fall back to local execution on auth failure.
       // A 403 indicates a credentials mismatch — falling back to local exec
       // would bypass the sandbox security boundary entirely.
-      if (err?.message?.includes("403")) {
+      if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). Sandbox exec refused. ` +
             `This may indicate a misconfigured or revoked API key. ` +
@@ -183,7 +183,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       });
     } catch (err: any) {
       // SECURITY: Never silently fall back to local FS on auth failure.
-      if (err?.message?.includes("403")) {
+      if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). File write refused. ` +
             `File will NOT be written locally for security reasons.`,
@@ -207,7 +207,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       return typeof result === "string" ? result : result.content || "";
     } catch (err: any) {
       // SECURITY: Never silently fall back to local FS on auth failure.
-      if (err?.message?.includes("403")) {
+      if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). File read refused. ` +
             `File will NOT be read locally for security reasons.`,
