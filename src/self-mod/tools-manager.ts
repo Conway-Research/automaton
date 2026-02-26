@@ -12,6 +12,11 @@ import type {
 import { logModification } from "./audit-log.js";
 import { ulid } from "ulid";
 
+/** Escape a string for safe shell interpolation. */
+function escapeShellArg(arg: string): string {
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
 /**
  * Install an npm package globally in the sandbox.
  */
@@ -29,7 +34,7 @@ export async function installNpmPackage(
   }
 
   const result = await conway.exec(
-    `npm install -g ${packageName}`,
+    `npm install -g ${escapeShellArg(packageName)}`,
     120000,
   );
 

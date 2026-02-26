@@ -433,7 +433,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           return `Blocked: invalid package name "${pkg}"`;
         }
         const result = await ctx.conway.exec(
-          `npm install -g ${pkg}`,
+          `npm install -g ${escapeShellArg(pkg)}`,
           60000,
         );
 
@@ -508,7 +508,11 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         let appliedSummary: string;
         try {
           if (commit) {
-            await run(`git cherry-pick ${commit}`);
+            // Defense-in-depth: validate commit hash at execution time
+            if (!/^[a-f0-9]{7,40}$/.test(commit)) {
+              return `Blocked: invalid commit hash "${commit}"`;
+            }
+            await run(`git cherry-pick -- ${escapeShellArg(commit)}`);
             appliedSummary = `Cherry-picked ${commit}`;
           } else {
             await run("git pull origin main --ff-only");
@@ -808,7 +812,7 @@ Model: ${ctx.inference.getDefaultModel()}
         if (!/^[@a-zA-Z0-9._\/-]+$/.test(pkg)) {
           return `Blocked: invalid package name "${pkg}"`;
         }
-        const result = await ctx.conway.exec(`npm install -g ${pkg}`, 60000);
+        const result = await ctx.conway.exec(`npm install -g ${escapeShellArg(pkg)}`, 60000);
 
         if (result.exitCode !== 0) {
           return `Failed to install MCP server: ${result.stderr}`;

@@ -616,7 +616,7 @@ describe("package install inline validation", () => {
     const tool = tools.find((t) => t.name === "install_npm_package")!;
     await tool.execute({ package: "axios" }, ctx);
     expect(conway.execCalls.length).toBe(1);
-    expect(conway.execCalls[0].command).toBe("npm install -g axios");
+    expect(conway.execCalls[0].command).toBe("npm install -g 'axios'");
   });
 
   it("install_npm_package allows scoped packages", async () => {
