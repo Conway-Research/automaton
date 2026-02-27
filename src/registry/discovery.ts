@@ -287,6 +287,28 @@ export async function fetchAgentCard(
 ): Promise<AgentCard | null> {
   const cfg = { ...DEFAULT_DISCOVERY_CONFIG, ...config };
 
+  // Handle data: URIs inline — no network request, no SSRF risk
+  if (uri.startsWith("data:application/json,") || uri.startsWith("data:application/json;")) {
+    try {
+      let json: string;
+      if (uri.includes(";base64,")) {
+        const b64 = uri.split(";base64,")[1];
+        json = Buffer.from(b64, "base64").toString("utf-8");
+      } else {
+        json = decodeURIComponent(uri.substring(uri.indexOf(",") + 1));
+      }
+      if (json.length > cfg.maxCardSizeBytes) {
+        logger.error(`data: URI agent card too large: ${json.length} bytes`);
+        return null;
+      }
+      const data = JSON.parse(json);
+      return validateAgentCard(data);
+    } catch (error) {
+      logger.error("data: URI parse failed:", error instanceof Error ? error : undefined);
+      return null;
+    }
+  }
+
   // SSRF protection: validate URI before fetching
   if (!isAllowedUri(uri)) {
     logger.error(`Blocked URI (SSRF protection): ${uri}`);
