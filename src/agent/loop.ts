@@ -113,9 +113,55 @@ export async function runAgentLoop(
   const modelStrategyConfig: ModelStrategyConfig = {
     ...DEFAULT_MODEL_STRATEGY_CONFIG,
     ...(config.modelStrategy ?? {}),
+    // Override with top-level config so the router fallback uses the correct models
+    inferenceModel: config.inferenceModel || DEFAULT_MODEL_STRATEGY_CONFIG.inferenceModel,
+    lowComputeModel: config.modelStrategy?.lowComputeModel || config.inferenceModel || DEFAULT_MODEL_STRATEGY_CONFIG.lowComputeModel,
   };
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+
+  // BYOK mode: register configured model and disable unreachable providers
+  if (config.inferenceBaseUrl) {
+    const now = new Date().toISOString();
+    const byokModels = new Set([
+      config.inferenceModel,
+      config.modelStrategy?.lowComputeModel,
+    ].filter(Boolean) as string[]);
+
+    for (const modelId of byokModels) {
+      if (!modelRegistry.get(modelId)) {
+        modelRegistry.upsert({
+          modelId,
+          provider: "other",
+          displayName: modelId,
+          tierMinimum: "critical",
+          costPer1kInput: 0,
+          costPer1kOutput: 0,
+          maxTokens: config.maxTokensPerTurn || 4096,
+          contextWindow: 128000,
+          supportsTools: true,
+          supportsVision: false,
+          parameterStyle: "max_tokens",
+          enabled: true,
+          lastSeen: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else if (!modelRegistry.get(modelId)!.enabled) {
+        modelRegistry.setEnabled(modelId, true);
+      }
+    }
+
+    for (const entry of modelRegistry.getAll()) {
+      if (byokModels.has(entry.modelId)) continue;
+      if (entry.provider === "openai" && !config.openaiApiKey) {
+        modelRegistry.setEnabled(entry.modelId, false);
+      }
+      if (entry.provider === "anthropic" && !config.anthropicApiKey) {
+        modelRegistry.setEnabled(entry.modelId, false);
+      }
+    }
+  }
 
   // Discover Ollama models if configured
   if (ollamaBaseUrl) {

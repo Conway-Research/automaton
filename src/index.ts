@@ -280,7 +280,7 @@ async function run(): Promise<void> {
       if (!modelRegistry.get(modelId)) {
         modelRegistry.upsert({
           modelId,
-          provider: "conway",
+          provider: "other",
           displayName: modelId,
           tierMinimum: "critical",
           costPer1kInput: 0,
