@@ -288,7 +288,7 @@ export async function fetchAgentCard(
   const cfg = { ...DEFAULT_DISCOVERY_CONFIG, ...config };
 
   // Handle data: URIs inline — no network request, no SSRF risk
-  if (uri.startsWith("data:application/json")) {
+  if (uri.startsWith("data:application/json,") || uri.startsWith("data:application/json;")) {
     try {
       let json: string;
       if (uri.includes(";base64,")) {
