@@ -71,7 +71,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   heartbeatConfigPath: "~/.automaton/heartbeat.yml",
   dbPath: "~/.automaton/state.db",
   logLevel: "info",
-  version: "0.2.0",
+  version: "0.2.1",
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
   maxTurnsPerCycle: 25,
