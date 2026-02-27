@@ -118,7 +118,11 @@ function createReadSensitiveRule(): PolicyRule {
 
 /**
  * Deny paths containing traversal sequences after resolution.
- * Applies to: write_file, read_file, edit_own_file
+ *
+ * Only applies to edit_own_file, which modifies local agent source code.
+ * write_file and read_file operate on the remote Conway sandbox via API,
+ * so local cwd-based traversal checks are not meaningful for them and
+ * will false-positive on every absolute sandbox path (e.g. /home/conway/app.py).
  */
 function createTraversalDetectionRule(): PolicyRule {
   return {
@@ -127,7 +131,7 @@ function createTraversalDetectionRule(): PolicyRule {
     priority: 200,
     appliesTo: {
       by: "name",
-      names: ["write_file", "read_file", "edit_own_file"],
+      names: ["edit_own_file"],
     },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
       const filePath = (request.args.path as string | undefined);

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.0
+        version: 7.6.13
       better-sqlite3:
         specifier: ^11.0.0
         version: 11.10.0
@@ -20,6 +23,12 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      js-tiktoken:
+        specifier: ^1.0.21
+        version: 1.0.21
+      openai:
+        specifier: ^6.24.0
+        version: 6.24.0(ws@8.18.3)
       ora:
         specifier: ^8.0.0
         version: 8.2.0
@@ -39,9 +48,6 @@ importers:
         specifier: ^2.4.0
         version: 2.8.2
     devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.0
-        version: 7.6.13
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.33
@@ -797,6 +803,9 @@ packages:
     peerDependencies:
       ws: '*'
 
+  js-tiktoken@1.0.21:
+    resolution: {integrity: sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==}
+
   js-yaml@3.14.2:
     resolution: {integrity: sha512-PMSmkqxr106Xa156c2M265Z+FTrPl+oxd/rgOQy2tijQeK5TxQ43psO1ZCwhVOSdnn+RzkzlRz/eY4BgJBYVpg==}
     hasBin: true
@@ -854,6 +863,18 @@ packages:
   onetime@7.0.0:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
+
+  openai@6.24.0:
+    resolution: {integrity: sha512-WLR+qki3S4c9ZHilR42GDTxEpTrMFeWfcFNg1RMELW0ZCCBJMDDlqVV+QQEM5KN2hjUyZu45QpgJmln/0ykFRg==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   ora@8.2.0:
     resolution: {integrity: sha512-weP+BZ8MVNnlCm8c0Qdc1WSWq4Qn7I+9CJGm7Qali6g44e/PUzbjNqJX5NJ9ljlNMosfJvg1fKEGILklK9cwnw==}
@@ -1697,6 +1718,10 @@ snapshots:
     dependencies:
       ws: 8.18.3
 
+  js-tiktoken@1.0.21:
+    dependencies:
+      base64-js: 1.5.1
+
   js-yaml@3.14.2:
     dependencies:
       argparse: 1.0.10
@@ -1742,6 +1767,10 @@ snapshots:
   onetime@7.0.0:
     dependencies:
       mimic-function: 5.0.1
+
+  openai@6.24.0(ws@8.18.3):
+    optionalDependencies:
+      ws: 8.18.3
 
   ora@8.2.0:
     dependencies:

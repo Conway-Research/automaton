@@ -6,6 +6,7 @@
  * YAML frontmatter + Markdown instructions.
  */
 
+import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import type { Skill, AutomatonDatabase } from "../types.js";
@@ -104,7 +105,6 @@ function checkRequirements(skill: Skill): boolean {
         return false;
       }
       try {
-        const { execFileSync } = require("child_process");
         execFileSync("which", [bin], { stdio: "ignore" });
       } catch {
         return false;

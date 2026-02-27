@@ -217,62 +217,75 @@ describe("path protection policy rules", () => {
   });
 
   describe("path.traversal_detection", () => {
-    it("denies ../../../etc/passwd", () => {
-      const request = makeMockRequest("read_file", {
+    // Traversal detection only applies to edit_own_file (local filesystem).
+    // write_file and read_file operate on the remote Conway sandbox via API,
+    // so local cwd-based checks would false-positive on sandbox paths.
+
+    it("denies edit_own_file with ../../../etc/passwd", () => {
+      const request = makeMockRequest("edit_own_file", {
         path: "../../../etc/passwd",
       });
-      request.tool = makeMockTool("read_file");
+      request.tool = makeMockTool("edit_own_file");
       const result = traversalRule.evaluate(request);
       expect(result).not.toBeNull();
       expect(result!.action).toBe("deny");
       expect(result!.reasonCode).toBe("PATH_TRAVERSAL");
     });
 
-    it("denies double-slash paths", () => {
-      const request = makeMockRequest("write_file", {
+    it("denies edit_own_file with double-slash paths", () => {
+      const request = makeMockRequest("edit_own_file", {
         path: "/tmp//escape/trick",
       });
+      request.tool = makeMockTool("edit_own_file");
       const result = traversalRule.evaluate(request);
       expect(result).not.toBeNull();
       expect(result!.action).toBe("deny");
     });
 
-    it("allows normal relative paths", () => {
-      const request = makeMockRequest("write_file", {
+    it("allows edit_own_file with normal relative paths", () => {
+      const request = makeMockRequest("edit_own_file", {
         path: "src/agent/tools.ts",
       });
+      request.tool = makeMockTool("edit_own_file");
       const result = traversalRule.evaluate(request);
       expect(result).toBeNull();
     });
 
-    it("allows absolute paths within cwd", () => {
+    it("allows edit_own_file with absolute paths within cwd", () => {
       const cwd = process.cwd();
-      const request = makeMockRequest("read_file", {
+      const request = makeMockRequest("edit_own_file", {
         path: path.join(cwd, "src", "index.ts"),
       });
-      request.tool = makeMockTool("read_file");
+      request.tool = makeMockTool("edit_own_file");
       const result = traversalRule.evaluate(request);
       expect(result).toBeNull();
     });
 
-    it("denies absolute paths outside cwd (no .. needed)", () => {
-      const request = makeMockRequest("read_file", {
+    it("denies edit_own_file with absolute paths outside cwd", () => {
+      const request = makeMockRequest("edit_own_file", {
         path: "/etc/passwd",
       });
-      request.tool = makeMockTool("read_file");
+      request.tool = makeMockTool("edit_own_file");
       const result = traversalRule.evaluate(request);
       expect(result).not.toBeNull();
       expect(result!.action).toBe("deny");
       expect(result!.reasonCode).toBe("PATH_TRAVERSAL");
     });
 
-    it("denies absolute path to /tmp without traversal", () => {
+    it("does not apply to write_file (remote sandbox)", () => {
       const request = makeMockRequest("write_file", {
-        path: "/tmp/evil-script.sh",
+        path: "/home/conway/app.py",
       });
-      const result = traversalRule.evaluate(request);
-      expect(result).not.toBeNull();
-      expect(result!.action).toBe("deny");
+      // The rule's appliesTo only includes edit_own_file,
+      // so it should not match write_file at all.
+      // We verify by checking appliesTo directly.
+      const appliesTo = traversalRule.appliesTo;
+      expect(appliesTo.by).toBe("name");
+      if (appliesTo.by === "name") {
+        expect(appliesTo.names).not.toContain("write_file");
+        expect(appliesTo.names).not.toContain("read_file");
+        expect(appliesTo.names).toContain("edit_own_file");
+      }
     });
   });
 });

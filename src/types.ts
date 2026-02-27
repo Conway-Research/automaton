@@ -42,6 +42,7 @@ export interface AutomatonConfig {
   conwayApiKey: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
+  ollamaBaseUrl?: string;
   inferenceModel: string;
   maxTokensPerTurn: number;
   heartbeatConfigPath: string;
@@ -52,6 +53,8 @@ export interface AutomatonConfig {
   skillsDir: string;
   agentId?: string;
   maxChildren: number;
+  /** 子沙盒内存配置 (MB)，默认 1024 */
+  childSandboxMemoryMb?: number;
   parentAddress?: Address;
   socialRelayUrl?: string;
   treasuryPolicy?: TreasuryPolicy;
@@ -67,9 +70,10 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   heartbeatConfigPath: "~/.automaton/heartbeat.yml",
   dbPath: "~/.automaton/state.db",
   logLevel: "info",
-  version: "0.1.0",
+  version: "0.2.0",
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
+  childSandboxMemoryMb: 1024,
   socialRelayUrl: "https://social.conway.tech",
 };
 
@@ -349,6 +353,16 @@ export interface ConwayClient {
     amountCents: number,
     note?: string,
   ): Promise<CreditTransferResult>;
+  registerAutomaton(params: {
+    automatonId: string;
+    automatonAddress: Address;
+    creatorAddress: Address;
+    name: string;
+    bio?: string;
+    genesisPromptHash?: `0x${string}`;
+    account: PrivateKeyAccount;
+    nonce?: string;
+  }): Promise<{ automaton: Record<string, unknown> }>;
   // Domain operations
   searchDomains(query: string, tlds?: string): Promise<DomainSearchResult[]>;
   registerDomain(domain: string, years?: number): Promise<DomainRegistration>;
@@ -363,6 +377,8 @@ export interface ConwayClient {
   deleteDnsRecord(domain: string, recordId: string): Promise<void>;
   // Model discovery
   listModels(): Promise<ModelInfo[]>;
+  /** Create a new client scoped to a specific sandbox ID. */
+  createScopedClient(targetSandboxId: string): ConwayClient;
 }
 
 export interface ExecResult {
@@ -1101,7 +1117,7 @@ export const DEFAULT_MEMORY_BUDGET: MemoryBudget = {
 
 // === Phase 2.3: Inference & Model Strategy Types ===
 
-export type ModelProvider = "openai" | "anthropic" | "conway" | "other";
+export type ModelProvider = "openai" | "anthropic" | "conway" | "ollama" | "other";
 
 export type InferenceTaskType =
   | "agent_turn"
@@ -1204,9 +1220,9 @@ export interface ModelStrategyConfig {
 }
 
 export const DEFAULT_MODEL_STRATEGY_CONFIG: ModelStrategyConfig = {
-  inferenceModel: "gpt-4.1",
-  lowComputeModel: "gpt-4.1-mini",
-  criticalModel: "gpt-4.1-nano",
+  inferenceModel: "gpt-5.2",
+  lowComputeModel: "gpt-5-mini",
+  criticalModel: "gpt-5-mini",
   maxTokensPerTurn: 4096,
   hourlyBudgetCents: 0,
   sessionBudgetCents: 0,

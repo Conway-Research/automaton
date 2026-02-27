@@ -328,7 +328,7 @@ export function createTestConfig(
     dbPath: "/tmp/test-state.db",
     logLevel: "error",
     walletAddress: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
-    version: "0.1.0",
+    version: "0.2.0",
     skillsDir: "/tmp/test-skills",
     maxChildren: 3,
     socialRelayUrl: "https://social.conway.tech",

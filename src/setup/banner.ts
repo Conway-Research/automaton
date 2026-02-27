@@ -17,6 +17,6 @@ export function showBanner(): void {
     ██║  ██║╚██████╔╝   ██║   ╚██████╔╝██║ ╚═╝ ██║██║  ██║   ██║   ╚██████╔╝██║ ╚████║
     ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
 `));
-  console.log(chalk.dim("  v0.1.0 — To exist, you must pay for your compute."));
+  console.log(chalk.dim("  v0.2.0 — To exist, you must pay for your compute."));
   console.log("");
 }

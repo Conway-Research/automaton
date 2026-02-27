@@ -15,6 +15,7 @@ import type {
   HeartbeatTaskFn,
   SurvivalTier,
 } from "../types.js";
+import type { HealthMonitor as ColonyHealthMonitor } from "../orchestration/health-monitor.js";
 import { sanitizeInput } from "../agent/injection-defense.js";
 import { getSurvivalTier } from "../conway/credits.js";
 import { createLogger } from "../observability/logger.js";
@@ -33,6 +34,14 @@ function getAlertEngine(): AlertEngine {
   if (!_alertEngine) _alertEngine = new AlertEngine(createDefaultAlertRules());
   return _alertEngine;
 }
+
+export const COLONY_TASK_INTERVALS_MS = {
+  colony_health_check: 300_000,
+  colony_financial_report: 3_600_000,
+  agent_pool_optimize: 1_800_000,
+  knowledge_store_prune: 86_400_000,
+  dead_agent_cleanup: 3_600_000,
+} as const;
 
 export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   heartbeat_ping: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
@@ -147,12 +156,41 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       timestamp: new Date().toISOString(),
     }));
 
-    // If we have USDC but low credits, wake the agent so it can
-    // decide how much to topup via the topup_credits tool.
-    if (balance > 5 && credits < 500) {
+    const MIN_TOPUP_USD = 5;
+    if (balance >= MIN_TOPUP_USD && (ctx.survivalTier === "critical" || ctx.survivalTier === "dead")) {
+      // Cooldown: don't attempt more than once every 5 minutes to avoid
+      // hammering the payment endpoint on repeated ticks.
+      const AUTO_TOPUP_COOLDOWN_MS = 5 * 60 * 1000;
+      const lastAttempt = taskCtx.db.getKV("last_auto_topup_attempt");
+      if (lastAttempt && Date.now() - new Date(lastAttempt).getTime() < AUTO_TOPUP_COOLDOWN_MS) {
+        return { shouldWake: false };
+      }
+
+      taskCtx.db.setKV("last_auto_topup_attempt", new Date().toISOString());
+
+      const { bootstrapTopup } = await import("../conway/topup.js");
+      const result = await bootstrapTopup({
+        apiUrl: taskCtx.config.conwayApiUrl,
+        account: taskCtx.identity.account,
+        creditsCents: credits,
+      });
+
+      if (result?.success) {
+        logger.info(
+          `Auto-topup successful: $${result.amountUsd} USD → ${result.creditsCentsAdded} credit cents`,
+        );
+        return {
+          shouldWake: true,
+          message: `Auto-topped up $${result.amountUsd} in credits (was $${(credits / 100).toFixed(2)}). USDC remaining: ~$${(balance - result.amountUsd).toFixed(2)}.`,
+        };
+      }
+
+      // Topup failed — wake the agent so it can handle it manually
+      const errMsg = result?.error ?? "unknown error";
+      logger.warn(`Auto-topup failed: ${errMsg}`);
       return {
         shouldWake: true,
-        message: `USDC available: $${balance.toFixed(2)} but only $${(credits / 100).toFixed(2)} credits. Use topup_credits to buy more.`,
+        message: `Low credits ($${(credits / 100).toFixed(2)}) with USDC available ($${balance.toFixed(2)}) but auto-topup failed: ${errMsg}. Use topup_credits to retry.`,
       };
     }
 
@@ -434,6 +472,237 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     }
   },
+
+  colony_health_check: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    if (!shouldRunAtInterval(taskCtx, "colony_health_check", COLONY_TASK_INTERVALS_MS.colony_health_check)) {
+      return { shouldWake: false };
+    }
+
+    try {
+      const monitor = await createHealthMonitor(taskCtx);
+      const report = await monitor.checkAll();
+      const actions = await monitor.autoHeal(report);
+
+      taskCtx.db.setKV("last_colony_health_report", JSON.stringify(report));
+      taskCtx.db.setKV("last_colony_heal_actions", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        actions,
+      }));
+
+      const failedActions = actions.filter((action) => !action.success).length;
+      const shouldWake = report.unhealthyAgents > 0 || failedActions > 0;
+
+      return {
+        shouldWake,
+        message: shouldWake
+          ? `Colony health: ${report.unhealthyAgents} unhealthy, ${actions.length} heal action(s), ${failedActions} failed`
+          : undefined,
+      };
+    } catch (error) {
+      logger.error("colony_health_check failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  colony_financial_report: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    if (!shouldRunAtInterval(taskCtx, "colony_financial_report", COLONY_TASK_INTERVALS_MS.colony_financial_report)) {
+      return { shouldWake: false };
+    }
+
+    try {
+      const transactions = taskCtx.db.getRecentTransactions(5000);
+      let revenueCents = 0;
+      let expenseCents = 0;
+
+      for (const tx of transactions) {
+        const amount = Math.max(0, Math.floor(tx.amountCents ?? 0));
+        if (amount === 0) continue;
+
+        if (tx.type === "transfer_in" || tx.type === "credit_purchase") {
+          revenueCents += amount;
+          continue;
+        }
+
+        if (
+          tx.type === "inference"
+          || tx.type === "tool_use"
+          || tx.type === "transfer_out"
+          || tx.type === "funding_request"
+        ) {
+          expenseCents += amount;
+        }
+      }
+
+      const childFunding = taskCtx.db.raw
+        .prepare("SELECT COALESCE(SUM(funded_amount_cents), 0) AS total FROM children")
+        .get() as { total: number };
+
+      const taskCosts = taskCtx.db.raw
+        .prepare(
+          `SELECT COALESCE(SUM(actual_cost_cents), 0) AS total
+           FROM task_graph
+           WHERE status IN ('completed', 'failed', 'cancelled')`,
+        )
+        .get() as { total: number };
+
+      const report = {
+        timestamp: new Date().toISOString(),
+        revenueCents,
+        expenseCents,
+        netCents: revenueCents - expenseCents,
+        fundedToChildrenCents: childFunding.total,
+        taskExecutionCostCents: taskCosts.total,
+        activeAgents: taskCtx.db.getChildren().filter(
+          (child) => child.status !== "dead" && child.status !== "cleaned_up",
+        ).length,
+      };
+
+      taskCtx.db.setKV("last_colony_financial_report", JSON.stringify(report));
+      return { shouldWake: false };
+    } catch (error) {
+      logger.error("colony_financial_report failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  agent_pool_optimize: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    if (!shouldRunAtInterval(taskCtx, "agent_pool_optimize", COLONY_TASK_INTERVALS_MS.agent_pool_optimize)) {
+      return { shouldWake: false };
+    }
+
+    try {
+      const IDLE_CULL_MS = 60 * 60 * 1000;
+      const now = Date.now();
+      const children = taskCtx.db.getChildren();
+
+      const activeAssignments = taskCtx.db.raw
+        .prepare(
+          `SELECT DISTINCT assigned_to AS address
+           FROM task_graph
+           WHERE assigned_to IS NOT NULL
+             AND status IN ('assigned', 'running')`,
+        )
+        .all() as Array<{ address: string }>;
+
+      const busyAgents = new Set(
+        activeAssignments
+          .map((row) => row.address)
+          .filter((value): value is string => typeof value === "string" && value.length > 0),
+      );
+
+      let culled = 0;
+      for (const child of children) {
+        if (!["running", "healthy", "sleeping"].includes(child.status)) continue;
+        if (busyAgents.has(child.address)) continue;
+
+        const lastSeenIso = child.lastChecked ?? child.createdAt;
+        const lastSeenMs = Date.parse(lastSeenIso);
+        if (Number.isNaN(lastSeenMs)) continue;
+        if (now - lastSeenMs < IDLE_CULL_MS) continue;
+
+        taskCtx.db.updateChildStatus(child.id, "stopped");
+        culled += 1;
+      }
+
+      const pendingUnassignedRow = taskCtx.db.raw
+        .prepare(
+          `SELECT COUNT(*) AS count
+           FROM task_graph
+           WHERE status = 'pending'
+             AND assigned_to IS NULL`,
+        )
+        .get() as { count: number };
+
+      const idleAgents = children.filter(
+        (child) =>
+          (child.status === "running" || child.status === "healthy")
+          && !busyAgents.has(child.address),
+      ).length;
+
+      const activeAgents = children.filter(
+        (child) => child.status !== "dead" && child.status !== "cleaned_up" && child.status !== "failed",
+      ).length;
+
+      const spawnNeeded = Math.max(0, pendingUnassignedRow.count - idleAgents);
+      const spawnCapacity = Math.max(0, taskCtx.config.maxChildren - activeAgents);
+      const spawnRequested = Math.min(spawnNeeded, spawnCapacity);
+
+      taskCtx.db.setKV("last_agent_pool_optimize", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        culled,
+        pendingTasks: pendingUnassignedRow.count,
+        idleAgents,
+        spawnRequested,
+      }));
+
+      if (spawnRequested > 0) {
+        taskCtx.db.setKV("agent_pool_spawn_request", JSON.stringify({
+          timestamp: new Date().toISOString(),
+          requested: spawnRequested,
+          pendingTasks: pendingUnassignedRow.count,
+          idleAgents,
+        }));
+      }
+
+      return {
+        shouldWake: spawnRequested > 0,
+        message: spawnRequested > 0
+          ? `Agent pool needs ${spawnRequested} additional agent(s) for pending workload`
+          : undefined,
+      };
+    } catch (error) {
+      logger.error("agent_pool_optimize failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  knowledge_store_prune: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    if (!shouldRunAtInterval(taskCtx, "knowledge_store_prune", COLONY_TASK_INTERVALS_MS.knowledge_store_prune)) {
+      return { shouldWake: false };
+    }
+
+    try {
+      const { KnowledgeStore } = await import("../memory/knowledge-store.js");
+      const knowledgeStore = new KnowledgeStore(taskCtx.db.raw);
+      const pruned = knowledgeStore.prune();
+
+      taskCtx.db.setKV("last_knowledge_store_prune", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        pruned,
+      }));
+
+      return { shouldWake: false };
+    } catch (error) {
+      logger.error("knowledge_store_prune failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  dead_agent_cleanup: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    if (!shouldRunAtInterval(taskCtx, "dead_agent_cleanup", COLONY_TASK_INTERVALS_MS.dead_agent_cleanup)) {
+      return { shouldWake: false };
+    }
+
+    try {
+      const { ChildLifecycle } = await import("../replication/lifecycle.js");
+      const { SandboxCleanup } = await import("../replication/cleanup.js");
+      const { pruneDeadChildren } = await import("../replication/lineage.js");
+
+      const lifecycle = new ChildLifecycle(taskCtx.db.raw);
+      const cleanup = new SandboxCleanup(taskCtx.conway, lifecycle, taskCtx.db.raw);
+      const cleaned = await pruneDeadChildren(taskCtx.db, cleanup);
+
+      taskCtx.db.setKV("last_dead_agent_cleanup", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        cleaned,
+      }));
+
+      return { shouldWake: false };
+    } catch (error) {
+      logger.error("dead_agent_cleanup failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
 };
 
 function tierToInt(tier: SurvivalTier): number {
@@ -445,4 +714,37 @@ function tierToInt(tier: SurvivalTier): number {
     high: 4,
   };
   return map[tier] ?? 0;
+}
+
+function shouldRunAtInterval(
+  taskCtx: HeartbeatLegacyContext,
+  taskName: string,
+  intervalMs: number,
+): boolean {
+  const key = `heartbeat.last_run.${taskName}`;
+  const now = Date.now();
+  const lastRun = taskCtx.db.getKV(key);
+
+  if (lastRun) {
+    const lastRunMs = Date.parse(lastRun);
+    if (!Number.isNaN(lastRunMs) && now - lastRunMs < intervalMs) {
+      return false;
+    }
+  }
+
+  taskCtx.db.setKV(key, new Date(now).toISOString());
+  return true;
+}
+
+async function createHealthMonitor(taskCtx: HeartbeatLegacyContext): Promise<ColonyHealthMonitor> {
+  const { LocalDBTransport, ColonyMessaging } = await import("../orchestration/messaging.js");
+  const { SimpleAgentTracker, SimpleFundingProtocol } = await import("../orchestration/simple-tracker.js");
+  const { HealthMonitor } = await import("../orchestration/health-monitor.js");
+
+  const tracker = new SimpleAgentTracker(taskCtx.db);
+  const funding = new SimpleFundingProtocol(taskCtx.conway, taskCtx.identity, taskCtx.db);
+  const transport = new LocalDBTransport(taskCtx.db);
+  const messaging = new ColonyMessaging(transport, taskCtx.db);
+
+  return new HealthMonitor(taskCtx.db, tracker, funding, messaging);
 }

@@ -64,10 +64,16 @@ export class ModelRegistry {
       modelRegistryUpsert(this.db, row);
     }
 
-    // Disable models no longer in the baseline (e.g., removed Anthropic models)
+    // Disable models no longer in the baseline (e.g., removed Anthropic models).
+    // Skip dynamically-discovered providers (e.g. ollama) — they manage their own lifecycle.
     const allModels = modelRegistryGetAll(this.db);
     for (const existing of allModels) {
-      if (!baselineIds.has(existing.modelId) && existing.enabled) {
+      if (
+        !baselineIds.has(existing.modelId) &&
+        existing.enabled &&
+        existing.provider !== "ollama" &&
+        existing.provider !== "other"
+      ) {
         modelRegistrySetEnabled(this.db, existing.modelId, false);
       }
     }

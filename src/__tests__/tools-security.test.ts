@@ -272,6 +272,77 @@ describe("read_file sensitive file blocking", () => {
   });
 });
 
+// ─── read_file Fallback Shell Injection Prevention ───────────────
+
+describe("read_file fallback shell escaping", () => {
+  let tools: AutomatonTool[];
+  let ctx: ToolContext;
+  let db: AutomatonDatabase;
+  let conway: MockConwayClient;
+
+  beforeEach(() => {
+    tools = createBuiltinTools("test-sandbox-id");
+    db = createTestDb();
+    conway = new MockConwayClient();
+    ctx = {
+      identity: createTestIdentity(),
+      config: createTestConfig(),
+      db,
+      conway,
+      inference: new MockInferenceClient(),
+    };
+  });
+
+  afterEach(() => {
+    db.close();
+  });
+
+  it("escapes shell metacharacters in fallback cat command", async () => {
+    const readTool = tools.find((t) => t.name === "read_file")!;
+    // Make readFile throw so the fallback exec(cat) path is triggered
+    vi.spyOn(conway, "readFile").mockRejectedValue(new Error("API broken"));
+
+    await readTool.execute({ path: "/home/user/my file.txt" }, ctx);
+
+    expect(conway.execCalls.length).toBe(1);
+    // The path should be wrapped in single quotes by escapeShellArg
+    expect(conway.execCalls[0].command).toBe("cat '/home/user/my file.txt'");
+  });
+
+  it("prevents command injection via semicolons in fallback path", async () => {
+    const readTool = tools.find((t) => t.name === "read_file")!;
+    vi.spyOn(conway, "readFile").mockRejectedValue(new Error("API broken"));
+
+    await readTool.execute({ path: "foo; cat /etc/passwd" }, ctx);
+
+    expect(conway.execCalls.length).toBe(1);
+    // Semicolons inside single quotes are treated as literal characters
+    expect(conway.execCalls[0].command).toBe("cat 'foo; cat /etc/passwd'");
+  });
+
+  it("escapes single quotes in file path in fallback", async () => {
+    const readTool = tools.find((t) => t.name === "read_file")!;
+    vi.spyOn(conway, "readFile").mockRejectedValue(new Error("API broken"));
+
+    await readTool.execute({ path: "it's a file.txt" }, ctx);
+
+    expect(conway.execCalls.length).toBe(1);
+    // Single quotes are escaped using the '\'' technique
+    expect(conway.execCalls[0].command).toBe("cat 'it'\\''s a file.txt'");
+  });
+
+  it("prevents subshell injection via $() in fallback path", async () => {
+    const readTool = tools.find((t) => t.name === "read_file")!;
+    vi.spyOn(conway, "readFile").mockRejectedValue(new Error("API broken"));
+
+    await readTool.execute({ path: "$(whoami).txt" }, ctx);
+
+    expect(conway.execCalls.length).toBe(1);
+    // $() inside single quotes is treated as literal text
+    expect(conway.execCalls[0].command).toBe("cat '$(whoami).txt'");
+  });
+});
+
 // ─── exec Tool Self-Harm Patterns ───────────────────────────────
 
 describe("exec tool forbidden command patterns", () => {

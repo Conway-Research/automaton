@@ -215,7 +215,7 @@ export async function getUsdcBalanceDetailed(
   try {
     const client = createPublicClient({
       chain,
-      transport: http(),
+      transport: http(undefined, { timeout: 10_000 }),
     });
 
     const balance = await client.readContract({

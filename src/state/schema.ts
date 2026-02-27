@@ -5,7 +5,7 @@
  * The database IS the automaton's memory.
  */
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 10;
 
 export const CREATE_TABLES = `
   -- Schema version tracking
@@ -581,4 +581,93 @@ export const MIGRATION_V8 = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_metric_snapshots_at ON metric_snapshots(snapshot_at);
+`;
+
+// === Plan A: Orchestration + Memory ===
+
+export const MIGRATION_V9 = `
+  -- Schema version: 9
+  -- Tables: goals, task_graph, event_stream
+
+  CREATE TABLE goals (
+    id TEXT PRIMARY KEY,                    -- ULID
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',  -- active|completed|failed|paused
+    strategy TEXT,
+    expected_revenue_cents INTEGER DEFAULT 0,
+    actual_revenue_cents INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    deadline TEXT,
+    completed_at TEXT
+  );
+
+  CREATE TABLE task_graph (
+    id TEXT PRIMARY KEY,                    -- ULID
+    parent_id TEXT,                         -- parent task (decomposition)
+    goal_id TEXT NOT NULL REFERENCES goals(id),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending|assigned|running|completed|failed|blocked|cancelled
+    assigned_to TEXT,                       -- agent wallet address (0x...)
+    agent_role TEXT,                        -- predefined role name
+    priority INTEGER DEFAULT 50,           -- 0-100
+    dependencies TEXT DEFAULT '[]',        -- JSON array of task IDs
+    result TEXT,                           -- JSON TaskResult
+    estimated_cost_cents INTEGER DEFAULT 0,
+    actual_cost_cents INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    retry_count INTEGER DEFAULT 0,
+    timeout_ms INTEGER DEFAULT 300000,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT
+  );
+
+  CREATE INDEX idx_task_graph_goal ON task_graph(goal_id);
+  CREATE INDEX idx_task_graph_status ON task_graph(status);
+  CREATE INDEX idx_task_graph_assigned ON task_graph(assigned_to);
+
+  CREATE TABLE event_stream (
+    id TEXT PRIMARY KEY,                    -- ULID
+    type TEXT NOT NULL,                     -- EventType enum
+    agent_address TEXT NOT NULL,
+    goal_id TEXT,
+    task_id TEXT,
+    content TEXT NOT NULL,
+    token_count INTEGER NOT NULL,
+    compacted_to TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX idx_events_agent ON event_stream(agent_address, created_at);
+  CREATE INDEX idx_events_goal ON event_stream(goal_id, created_at);
+  CREATE INDEX idx_events_type ON event_stream(type, created_at);
+`;
+
+// Role column for children table (must be separate statement for SQLite ALTER)
+export const MIGRATION_V9_ALTER_CHILDREN_ROLE = `
+  ALTER TABLE children ADD COLUMN role TEXT DEFAULT 'generalist';
+`;
+
+export const MIGRATION_V10 = `
+  -- Schema version: 10
+  -- Tables: knowledge_store
+
+  CREATE TABLE knowledge_store (
+    id TEXT PRIMARY KEY,                    -- ULID
+    category TEXT NOT NULL,                 -- market|technical|social|financial|operational
+    key TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source TEXT NOT NULL,                   -- agent address that contributed
+    confidence REAL DEFAULT 1.0,
+    last_verified TEXT NOT NULL,
+    access_count INTEGER DEFAULT 0,
+    token_count INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT
+  );
+
+  CREATE INDEX idx_knowledge_category ON knowledge_store(category);
+  CREATE INDEX idx_knowledge_key ON knowledge_store(key);
 `;

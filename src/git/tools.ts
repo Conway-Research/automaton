@@ -15,7 +15,7 @@ export async function gitStatus(
   repoPath: string,
 ): Promise<GitStatus> {
   const result = await conway.exec(
-    `cd ${repoPath} && git status --porcelain -b 2>/dev/null`,
+    `cd ${escapeShellArg(repoPath)} && git status --porcelain -b 2>/dev/null`,
     10000,
   );
 
@@ -50,7 +50,8 @@ export async function gitStatus(
     staged,
     modified,
     untracked,
-    clean: staged.length === 0 && modified.length === 0 && untracked.length === 0,
+    clean:
+      staged.length === 0 && modified.length === 0 && untracked.length === 0,
   };
 }
 
@@ -64,7 +65,7 @@ export async function gitDiff(
 ): Promise<string> {
   const flag = staged ? "--cached" : "";
   const result = await conway.exec(
-    `cd ${repoPath} && git diff ${flag} 2>/dev/null`,
+    `cd ${escapeShellArg(repoPath)} && git diff ${flag} 2>/dev/null`,
     10000,
   );
   return result.stdout || "(no changes)";
@@ -80,11 +81,11 @@ export async function gitCommit(
   addAll: boolean = true,
 ): Promise<string> {
   if (addAll) {
-    await conway.exec(`cd ${repoPath} && git add -A`, 10000);
+    await conway.exec(`cd ${escapeShellArg(repoPath)} && git add -A`, 10000);
   }
 
   const result = await conway.exec(
-    `cd ${repoPath} && git commit -m ${escapeShellArg(message)} --allow-empty 2>&1`,
+    `cd ${escapeShellArg(repoPath)} && git commit -m ${escapeShellArg(message)} --allow-empty 2>&1`,
     10000,
   );
 
@@ -103,8 +104,9 @@ export async function gitLog(
   repoPath: string,
   limit: number = 10,
 ): Promise<GitLogEntry[]> {
+  const safeLimit = Math.max(1, Math.floor(Number(limit))) || 10;
   const result = await conway.exec(
-    `cd ${repoPath} && git log --format="%H|%s|%an|%ai" -n ${limit} 2>/dev/null`,
+    `cd ${escapeShellArg(repoPath)} && git log --format="%H|%s|%an|%ai" -n ${safeLimit} 2>/dev/null`,
     10000,
   );
 
@@ -128,9 +130,9 @@ export async function gitPush(
   remote: string = "origin",
   branch?: string,
 ): Promise<string> {
-  const branchArg = branch ? ` ${branch}` : "";
+  const branchArg = branch ? ` ${escapeShellArg(branch)}` : "";
   const result = await conway.exec(
-    `cd ${repoPath} && git push ${remote}${branchArg} 2>&1`,
+    `cd ${escapeShellArg(repoPath)} && git push ${escapeShellArg(remote)}${branchArg} 2>&1`,
     30000,
   );
 
@@ -154,19 +156,19 @@ export async function gitBranch(
 
   switch (action) {
     case "list":
-      cmd = `cd ${repoPath} && git branch -a 2>/dev/null`;
+      cmd = `cd ${escapeShellArg(repoPath)} && git branch -a 2>/dev/null`;
       break;
     case "create":
       if (!branchName) throw new Error("Branch name required");
-      cmd = `cd ${repoPath} && git checkout -b ${escapeShellArg(branchName)} 2>&1`;
+      cmd = `cd ${escapeShellArg(repoPath)} && git checkout -b ${escapeShellArg(branchName)} 2>&1`;
       break;
     case "checkout":
       if (!branchName) throw new Error("Branch name required");
-      cmd = `cd ${repoPath} && git checkout ${escapeShellArg(branchName)} 2>&1`;
+      cmd = `cd ${escapeShellArg(repoPath)} && git checkout ${escapeShellArg(branchName)} 2>&1`;
       break;
     case "delete":
       if (!branchName) throw new Error("Branch name required");
-      cmd = `cd ${repoPath} && git branch -d ${escapeShellArg(branchName)} 2>&1`;
+      cmd = `cd ${escapeShellArg(repoPath)} && git branch -d ${escapeShellArg(branchName)} 2>&1`;
       break;
     default:
       throw new Error(`Unknown branch action: ${action}`);
@@ -185,9 +187,11 @@ export async function gitClone(
   targetPath: string,
   depth?: number,
 ): Promise<string> {
-  const depthArg = depth ? ` --depth ${depth}` : "";
+  const depthArg = depth
+    ? ` --depth ${Math.max(1, Math.floor(Number(depth)))}`
+    : "";
   const result = await conway.exec(
-    `git clone${depthArg} ${url} ${targetPath} 2>&1`,
+    `git clone${depthArg} ${escapeShellArg(url)} ${escapeShellArg(targetPath)} 2>&1`,
     120000,
   );
 
@@ -206,7 +210,7 @@ export async function gitInit(
   repoPath: string,
 ): Promise<string> {
   const result = await conway.exec(
-    `cd ${repoPath} && git init 2>&1`,
+    `cd ${escapeShellArg(repoPath)} && git init 2>&1`,
     10000,
   );
   return result.stdout || "Git initialized";

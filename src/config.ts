@@ -120,6 +120,7 @@ export function createConfig(params: {
   apiKey: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
+  ollamaBaseUrl?: string;
   parentAddress?: Address;
   treasuryPolicy?: TreasuryPolicy;
 }): AutomatonConfig {
@@ -135,6 +136,7 @@ export function createConfig(params: {
     conwayApiKey: params.apiKey,
     openaiApiKey: params.openaiApiKey,
     anthropicApiKey: params.anthropicApiKey,
+    ollamaBaseUrl: params.ollamaBaseUrl,
     inferenceModel: DEFAULT_CONFIG.inferenceModel || "gpt-5.2",
     maxTokensPerTurn: DEFAULT_CONFIG.maxTokensPerTurn || 4096,
     heartbeatConfigPath:
@@ -142,7 +144,7 @@ export function createConfig(params: {
     dbPath: DEFAULT_CONFIG.dbPath || "~/.automaton/state.db",
     logLevel: (DEFAULT_CONFIG.logLevel as AutomatonConfig["logLevel"]) || "info",
     walletAddress: params.walletAddress,
-    version: DEFAULT_CONFIG.version || "0.1.0",
+    version: DEFAULT_CONFIG.version || "0.2.0",
     skillsDir: DEFAULT_CONFIG.skillsDir || "~/.automaton/skills",
     maxChildren: DEFAULT_CONFIG.maxChildren || 3,
     parentAddress: params.parentAddress,

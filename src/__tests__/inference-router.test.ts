@@ -233,13 +233,13 @@ describe("InferenceRouter", () => {
     it("returns cheaper model for low_compute tier", () => {
       const model = router.selectModel("low_compute", "agent_turn");
       expect(model).not.toBeNull();
-      expect(["gpt-5-mini", "gpt-4.1-mini"]).toContain(model!.modelId);
+      expect(model!.modelId).toBe("gpt-5-mini");
     });
 
     it("returns minimal model for critical tier", () => {
       const model = router.selectModel("critical", "agent_turn");
       expect(model).not.toBeNull();
-      expect(model!.modelId).toBe("gpt-4.1-nano");
+      expect(model!.modelId).toBe("gpt-5-mini");
     });
 
     it("returns null for dead tier", () => {
@@ -955,8 +955,8 @@ describe("Inference DB Helpers", () => {
 describe("DEFAULT_MODEL_STRATEGY_CONFIG", () => {
   it("has sensible defaults", () => {
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.inferenceModel).toBe("gpt-5.2");
-    expect(DEFAULT_MODEL_STRATEGY_CONFIG.lowComputeModel).toBe("gpt-4.1-mini");
-    expect(DEFAULT_MODEL_STRATEGY_CONFIG.criticalModel).toBe("gpt-4.1-nano");
+    expect(DEFAULT_MODEL_STRATEGY_CONFIG.lowComputeModel).toBe("gpt-5-mini");
+    expect(DEFAULT_MODEL_STRATEGY_CONFIG.criticalModel).toBe("gpt-5-mini");
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.enableModelFallback).toBe(true);
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.hourlyBudgetCents).toBe(0); // no limit
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.sessionBudgetCents).toBe(0); // no limit

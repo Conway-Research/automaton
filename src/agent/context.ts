@@ -15,9 +15,12 @@ import type {
   MemoryRetrievalResult,
 } from "../types.js";
 import { DEFAULT_TOKEN_BUDGET } from "../types.js";
+import { createTokenCounter } from "../memory/context-manager.js";
 
 const MAX_CONTEXT_TURNS = 20;
 const SUMMARY_THRESHOLD = 15;
+
+let tokenCounter: ReturnType<typeof createTokenCounter> | null = null;
 
 /** Maximum size for individual tool results in characters */
 export const MAX_TOOL_RESULT_SIZE = 10_000;
@@ -31,7 +34,21 @@ export { DEFAULT_TOKEN_BUDGET };
  * Conservative estimate: ~4 characters per token for English text.
  */
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+  const content = text ?? "";
+  const legacyEstimate = Math.ceil(content.length / 4);
+  try {
+    if (!tokenCounter) {
+      tokenCounter = createTokenCounter();
+    }
+    const tokens = tokenCounter.countTokens(content);
+    if (Number.isFinite(tokens) && tokens > 0) {
+      // Keep a conservative floor to avoid under-budgeting context.
+      return Math.max(tokens, legacyEstimate);
+    }
+  } catch {
+    // Fallback to conservative character heuristic if token counter is unavailable.
+  }
+  return legacyEstimate;
 }
 
 /**

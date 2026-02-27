@@ -42,6 +42,9 @@ import {
   MIGRATION_V6,
   MIGRATION_V7,
   MIGRATION_V8,
+  MIGRATION_V9,
+  MIGRATION_V9_ALTER_CHILDREN_ROLE,
+  MIGRATION_V10,
 } from "./schema.js";
 import type {
   RiskLevel,
@@ -603,6 +606,17 @@ function applyMigrations(db: DatabaseType): void {
       version: 8,
       apply: () => db.exec(MIGRATION_V8),
     },
+    {
+      version: 9,
+      apply: () => {
+        db.exec(MIGRATION_V9);
+        try { db.exec(MIGRATION_V9_ALTER_CHILDREN_ROLE); } catch { /* column may already exist */ }
+      },
+    },
+    {
+      version: 10,
+      apply: () => db.exec(MIGRATION_V10),
+    },
   ];
 
   for (const m of migrations) {
@@ -651,6 +665,77 @@ export interface SpendTrackingRow {
   category: SpendCategory;
   windowHour: string;       // ISO hour: '2026-02-19T14'
   windowDay: string;        // ISO date: '2026-02-19'
+}
+
+export type GoalStatus = "active" | "completed" | "failed" | "paused";
+export type TaskGraphStatus =
+  | "pending"
+  | "assigned"
+  | "running"
+  | "completed"
+  | "failed"
+  | "blocked"
+  | "cancelled";
+
+export interface GoalRow {
+  id: string;
+  title: string;
+  description: string;
+  status: GoalStatus;
+  strategy: string | null;
+  expectedRevenueCents: number;
+  actualRevenueCents: number;
+  createdAt: string;
+  deadline: string | null;
+  completedAt: string | null;
+}
+
+export interface TaskGraphRow {
+  id: string;
+  parentId: string | null;
+  goalId: string;
+  title: string;
+  description: string;
+  status: TaskGraphStatus;
+  assignedTo: string | null;
+  agentRole: string | null;
+  priority: number;
+  dependencies: string[];
+  result: unknown | null;
+  estimatedCostCents: number;
+  actualCostCents: number;
+  maxRetries: number;
+  retryCount: number;
+  timeoutMs: number;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface EventStreamRow {
+  id: string;
+  type: string;
+  agentAddress: string;
+  goalId: string | null;
+  taskId: string | null;
+  content: string;
+  tokenCount: number;
+  compactedTo: string | null;
+  createdAt: string;
+}
+
+export interface KnowledgeStoreRow {
+  id: string;
+  category: string;
+  key: string;
+  content: string;
+  source: string;
+  confidence: number;
+  lastVerified: string;
+  accessCount: number;
+  tokenCount: number;
+  createdAt: string;
+  expiresAt: string | null;
 }
 
 // ─── Policy Decision Helpers ────────────────────────────────────
@@ -754,6 +839,346 @@ export function pruneSpendRecords(db: DatabaseType, olderThan: string): number {
     .prepare("DELETE FROM spend_tracking WHERE created_at < ?")
     .run(olderThan);
   return result.changes;
+}
+
+// ─── Phase 0 + 1: Goals / Tasks / Events / Knowledge ───────────
+
+export function insertGoal(
+  db: DatabaseType,
+  row: {
+    title: string;
+    description: string;
+    status?: GoalStatus;
+    strategy?: string | null;
+    expectedRevenueCents?: number;
+    actualRevenueCents?: number;
+    deadline?: string | null;
+    completedAt?: string | null;
+  },
+): string {
+  const id = ulid();
+  const now = new Date().toISOString();
+  const status = row.status ?? "active";
+  const completedAt = row.completedAt ?? (status === "completed" ? now : null);
+  db.prepare(
+    `INSERT INTO goals (id, title, description, status, strategy, expected_revenue_cents, actual_revenue_cents, created_at, deadline, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    row.title,
+    row.description,
+    status,
+    row.strategy ?? null,
+    row.expectedRevenueCents ?? 0,
+    row.actualRevenueCents ?? 0,
+    now,
+    row.deadline ?? null,
+    completedAt,
+  );
+  return id;
+}
+
+export function getGoalById(db: DatabaseType, id: string): GoalRow | undefined {
+  const row = db
+    .prepare("SELECT * FROM goals WHERE id = ?")
+    .get(id) as any | undefined;
+  return row ? deserializeGoalRow(row) : undefined;
+}
+
+export function updateGoalStatus(db: DatabaseType, id: string, status: GoalStatus): void {
+  const completedAt = status === "completed" ? new Date().toISOString() : null;
+  db.prepare(
+    "UPDATE goals SET status = ?, completed_at = ? WHERE id = ?",
+  ).run(status, completedAt, id);
+}
+
+export function getActiveGoals(db: DatabaseType): GoalRow[] {
+  const rows = db
+    .prepare("SELECT * FROM goals WHERE status = 'active' ORDER BY created_at ASC")
+    .all() as any[];
+  return rows.map(deserializeGoalRow);
+}
+
+export function insertTask(
+  db: DatabaseType,
+  row: {
+    parentId?: string | null;
+    goalId: string;
+    title: string;
+    description: string;
+    status?: TaskGraphStatus;
+    assignedTo?: string | null;
+    agentRole?: string | null;
+    priority?: number;
+    dependencies?: string[];
+    result?: unknown | null;
+    estimatedCostCents?: number;
+    actualCostCents?: number;
+    maxRetries?: number;
+    retryCount?: number;
+    timeoutMs?: number;
+    startedAt?: string | null;
+    completedAt?: string | null;
+  },
+): string {
+  const id = ulid();
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO task_graph
+     (id, parent_id, goal_id, title, description, status, assigned_to, agent_role, priority,
+      dependencies, result, estimated_cost_cents, actual_cost_cents, max_retries, retry_count,
+      timeout_ms, created_at, started_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    row.parentId ?? null,
+    row.goalId,
+    row.title,
+    row.description,
+    row.status ?? "pending",
+    row.assignedTo ?? null,
+    row.agentRole ?? null,
+    row.priority ?? 50,
+    JSON.stringify(row.dependencies ?? []),
+    row.result == null ? null : JSON.stringify(row.result),
+    row.estimatedCostCents ?? 0,
+    row.actualCostCents ?? 0,
+    row.maxRetries ?? 3,
+    row.retryCount ?? 0,
+    row.timeoutMs ?? 300000,
+    now,
+    row.startedAt ?? null,
+    row.completedAt ?? null,
+  );
+  return id;
+}
+
+export function getTaskById(db: DatabaseType, id: string): TaskGraphRow | undefined {
+  const row = db
+    .prepare("SELECT * FROM task_graph WHERE id = ?")
+    .get(id) as any | undefined;
+  return row ? deserializeTaskGraphRow(row) : undefined;
+}
+
+export function updateTaskStatus(db: DatabaseType, id: string, status: TaskGraphStatus): void {
+  const now = new Date().toISOString();
+  if (status === "running") {
+    db.prepare(
+      "UPDATE task_graph SET status = ?, started_at = COALESCE(started_at, ?) WHERE id = ?",
+    ).run(status, now, id);
+    return;
+  }
+
+  if (status === "completed" || status === "failed" || status === "cancelled") {
+    db.prepare(
+      "UPDATE task_graph SET status = ?, completed_at = ? WHERE id = ?",
+    ).run(status, now, id);
+    return;
+  }
+
+  db.prepare(
+    "UPDATE task_graph SET status = ? WHERE id = ?",
+  ).run(status, id);
+}
+
+export function getReadyTasks(db: DatabaseType): TaskGraphRow[] {
+  const rows = db.prepare(
+    `SELECT t.*
+     FROM task_graph t
+     WHERE t.status = 'pending'
+       AND NOT EXISTS (
+         SELECT 1
+         FROM json_each(COALESCE(NULLIF(t.dependencies, ''), '[]')) dep
+         LEFT JOIN task_graph d ON d.id = dep.value
+         WHERE d.status IS NULL OR d.status != 'completed'
+       )
+     ORDER BY t.priority DESC, t.created_at ASC`,
+  ).all() as any[];
+  return rows.map(deserializeTaskGraphRow);
+}
+
+export function getTasksByGoal(db: DatabaseType, goalId: string): TaskGraphRow[] {
+  const rows = db
+    .prepare("SELECT * FROM task_graph WHERE goal_id = ? ORDER BY priority DESC, created_at ASC")
+    .all(goalId) as any[];
+  return rows.map(deserializeTaskGraphRow);
+}
+
+export function insertEvent(
+  db: DatabaseType,
+  row: {
+    type: string;
+    agentAddress: string;
+    goalId?: string | null;
+    taskId?: string | null;
+    content: string;
+    tokenCount: number;
+    compactedTo?: string | null;
+  },
+): string {
+  const id = ulid();
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO event_stream (id, type, agent_address, goal_id, task_id, content, token_count, compacted_to, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    row.type,
+    row.agentAddress,
+    row.goalId ?? null,
+    row.taskId ?? null,
+    row.content,
+    row.tokenCount,
+    row.compactedTo ?? null,
+    now,
+  );
+  return id;
+}
+
+export function getRecentEvents(db: DatabaseType, agentAddress: string, limit: number = 50): EventStreamRow[] {
+  const rows = db
+    .prepare("SELECT * FROM event_stream WHERE agent_address = ? ORDER BY created_at DESC LIMIT ?")
+    .all(agentAddress, limit) as any[];
+  return rows.map(deserializeEventStreamRow).reverse();
+}
+
+export function getEventsByGoal(db: DatabaseType, goalId: string, limit: number = 200): EventStreamRow[] {
+  const rows = db
+    .prepare("SELECT * FROM event_stream WHERE goal_id = ? ORDER BY created_at ASC LIMIT ?")
+    .all(goalId, limit) as any[];
+  return rows.map(deserializeEventStreamRow);
+}
+
+export function getEventsByType(
+  db: DatabaseType,
+  type: string,
+  since?: string,
+  limit: number = 200,
+): EventStreamRow[] {
+  if (since) {
+    const rows = db
+      .prepare("SELECT * FROM event_stream WHERE type = ? AND created_at >= ? ORDER BY created_at ASC LIMIT ?")
+      .all(type, since, limit) as any[];
+    return rows.map(deserializeEventStreamRow);
+  }
+  const rows = db
+    .prepare("SELECT * FROM event_stream WHERE type = ? ORDER BY created_at ASC LIMIT ?")
+    .all(type, limit) as any[];
+  return rows.map(deserializeEventStreamRow);
+}
+
+export function insertKnowledge(
+  db: DatabaseType,
+  row: {
+    category: string;
+    key: string;
+    content: string;
+    source: string;
+    confidence?: number;
+    lastVerified?: string;
+    accessCount?: number;
+    tokenCount: number;
+    expiresAt?: string | null;
+  },
+): string {
+  const id = ulid();
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO knowledge_store
+     (id, category, key, content, source, confidence, last_verified, access_count, token_count, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    row.category,
+    row.key,
+    row.content,
+    row.source,
+    row.confidence ?? 1.0,
+    row.lastVerified ?? now,
+    row.accessCount ?? 0,
+    row.tokenCount,
+    now,
+    row.expiresAt ?? null,
+  );
+  return id;
+}
+
+export function getKnowledgeByCategory(
+  db: DatabaseType,
+  category: string,
+  limit: number = 100,
+): KnowledgeStoreRow[] {
+  const now = new Date().toISOString();
+  const rows = db
+    .prepare(
+      "SELECT * FROM knowledge_store WHERE category = ? AND (expires_at IS NULL OR expires_at >= ?) ORDER BY confidence DESC, last_verified DESC LIMIT ?",
+    )
+    .all(category, now, limit) as any[];
+  return rows.map(deserializeKnowledgeStoreRow);
+}
+
+export function searchKnowledge(
+  db: DatabaseType,
+  query: string,
+  category?: string,
+  limit: number = 100,
+): KnowledgeStoreRow[] {
+  const now = new Date().toISOString();
+  const like = `%${query}%`;
+  if (category) {
+    const rows = db
+      .prepare(
+        "SELECT * FROM knowledge_store WHERE category = ? AND (key LIKE ? OR content LIKE ?) AND (expires_at IS NULL OR expires_at >= ?) ORDER BY confidence DESC, last_verified DESC LIMIT ?",
+      )
+      .all(category, like, like, now, limit) as any[];
+    return rows.map(deserializeKnowledgeStoreRow);
+  }
+  const rows = db
+    .prepare(
+      "SELECT * FROM knowledge_store WHERE (key LIKE ? OR content LIKE ?) AND (expires_at IS NULL OR expires_at >= ?) ORDER BY confidence DESC, last_verified DESC LIMIT ?",
+    )
+    .all(like, like, now, limit) as any[];
+  return rows.map(deserializeKnowledgeStoreRow);
+}
+
+export function updateKnowledge(
+  db: DatabaseType,
+  id: string,
+  updates: Partial<{
+    category: string;
+    key: string;
+    content: string;
+    source: string;
+    confidence: number;
+    lastVerified: string;
+    accessCount: number;
+    tokenCount: number;
+    expiresAt: string | null;
+  }>,
+): void {
+  const setClauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (updates.category !== undefined) { setClauses.push("category = ?"); params.push(updates.category); }
+  if (updates.key !== undefined) { setClauses.push("key = ?"); params.push(updates.key); }
+  if (updates.content !== undefined) { setClauses.push("content = ?"); params.push(updates.content); }
+  if (updates.source !== undefined) { setClauses.push("source = ?"); params.push(updates.source); }
+  if (updates.confidence !== undefined) { setClauses.push("confidence = ?"); params.push(updates.confidence); }
+  if (updates.lastVerified !== undefined) { setClauses.push("last_verified = ?"); params.push(updates.lastVerified); }
+  if (updates.accessCount !== undefined) { setClauses.push("access_count = ?"); params.push(updates.accessCount); }
+  if (updates.tokenCount !== undefined) { setClauses.push("token_count = ?"); params.push(updates.tokenCount); }
+  if (updates.expiresAt !== undefined) { setClauses.push("expires_at = ?"); params.push(updates.expiresAt); }
+
+  if (setClauses.length === 0) return;
+
+  params.push(id);
+  db.prepare(
+    `UPDATE knowledge_store SET ${setClauses.join(", ")} WHERE id = ?`,
+  ).run(...params);
+}
+
+export function deleteKnowledge(db: DatabaseType, id: string): void {
+  db.prepare("DELETE FROM knowledge_store WHERE id = ?").run(id);
 }
 
 // ─── Heartbeat Schedule Helpers (Phase 1.1) ─────────────────────
@@ -1402,7 +1827,8 @@ export function episodicGetRecent(db: DatabaseType, sessionId: string, limit: nu
 
 export function episodicSearch(db: DatabaseType, query: string, limit: number = 10): EpisodicMemoryEntry[] {
   try {
-    const rows = db.prepare("SELECT * FROM episodic_memory WHERE summary LIKE ? OR detail LIKE ? ORDER BY importance DESC, created_at DESC LIMIT ?").all(`%${query}%`, `%${query}%`, limit) as any[];
+    const escaped = query.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+    const rows = db.prepare("SELECT * FROM episodic_memory WHERE summary LIKE ? ESCAPE '\\' OR detail LIKE ? ESCAPE '\\' ORDER BY importance DESC, created_at DESC LIMIT ?").all(`%${escaped}%`, `%${escaped}%`, limit) as any[];
     return rows.map(deserializeEpisodicRow);
   } catch (error) { logger.error("episodicSearch failed", error instanceof Error ? error : undefined); return []; }
 }
@@ -1469,11 +1895,12 @@ export function semanticGet(db: DatabaseType, category: SemanticCategory, key: s
 
 export function semanticSearch(db: DatabaseType, query: string, category?: SemanticCategory): SemanticMemoryEntry[] {
   try {
+    const escaped = query.replace(/[%_\\]/g, (ch) => `\\${ch}`);
     if (category) {
-      const rows = db.prepare("SELECT * FROM semantic_memory WHERE category = ? AND (key LIKE ? OR value LIKE ?) ORDER BY confidence DESC, updated_at DESC").all(category, `%${query}%`, `%${query}%`) as any[];
+      const rows = db.prepare("SELECT * FROM semantic_memory WHERE category = ? AND (key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\') ORDER BY confidence DESC, updated_at DESC").all(category, `%${escaped}%`, `%${escaped}%`) as any[];
       return rows.map(deserializeSemanticRow);
     }
-    const rows = db.prepare("SELECT * FROM semantic_memory WHERE key LIKE ? OR value LIKE ? ORDER BY confidence DESC, updated_at DESC").all(`%${query}%`, `%${query}%`) as any[];
+    const rows = db.prepare("SELECT * FROM semantic_memory WHERE key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\' ORDER BY confidence DESC, updated_at DESC").all(`%${escaped}%`, `%${escaped}%`) as any[];
     return rows.map(deserializeSemanticRow);
   } catch (error) { logger.error("semanticSearch failed", error instanceof Error ? error : undefined); return []; }
 }
@@ -1528,7 +1955,8 @@ export function proceduralRecordOutcome(db: DatabaseType, name: string, success:
 
 export function proceduralSearch(db: DatabaseType, query: string): ProceduralMemoryEntry[] {
   try {
-    const rows = db.prepare("SELECT * FROM procedural_memory WHERE name LIKE ? OR description LIKE ? ORDER BY success_count DESC, updated_at DESC").all(`%${query}%`, `%${query}%`) as any[];
+    const escaped = query.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+    const rows = db.prepare("SELECT * FROM procedural_memory WHERE name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' ORDER BY success_count DESC, updated_at DESC").all(`%${escaped}%`, `%${escaped}%`) as any[];
     return rows.map(deserializeProceduralRow);
   } catch (error) { logger.error("proceduralSearch failed", error instanceof Error ? error : undefined); return []; }
 }
@@ -1805,6 +2233,75 @@ function deserializeModelRegistryRow(row: any): ModelRegistryRow {
     enabled: !!row.enabled,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function deserializeGoalRow(row: any): GoalRow {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: row.status as GoalStatus,
+    strategy: row.strategy ?? null,
+    expectedRevenueCents: row.expected_revenue_cents,
+    actualRevenueCents: row.actual_revenue_cents,
+    createdAt: row.created_at,
+    deadline: row.deadline ?? null,
+    completedAt: row.completed_at ?? null,
+  };
+}
+
+function deserializeTaskGraphRow(row: any): TaskGraphRow {
+  return {
+    id: row.id,
+    parentId: row.parent_id ?? null,
+    goalId: row.goal_id,
+    title: row.title,
+    description: row.description,
+    status: row.status as TaskGraphStatus,
+    assignedTo: row.assigned_to ?? null,
+    agentRole: row.agent_role ?? null,
+    priority: row.priority,
+    dependencies: safeJsonParse(row.dependencies || "[]", [] as string[], "taskGraph.dependencies"),
+    result: row.result ? safeJsonParse(row.result, null as unknown | null, "taskGraph.result") : null,
+    estimatedCostCents: row.estimated_cost_cents,
+    actualCostCents: row.actual_cost_cents,
+    maxRetries: row.max_retries,
+    retryCount: row.retry_count,
+    timeoutMs: row.timeout_ms,
+    createdAt: row.created_at,
+    startedAt: row.started_at ?? null,
+    completedAt: row.completed_at ?? null,
+  };
+}
+
+function deserializeEventStreamRow(row: any): EventStreamRow {
+  return {
+    id: row.id,
+    type: row.type,
+    agentAddress: row.agent_address,
+    goalId: row.goal_id ?? null,
+    taskId: row.task_id ?? null,
+    content: row.content,
+    tokenCount: row.token_count,
+    compactedTo: row.compacted_to ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+function deserializeKnowledgeStoreRow(row: any): KnowledgeStoreRow {
+  return {
+    id: row.id,
+    category: row.category,
+    key: row.key,
+    content: row.content,
+    source: row.source,
+    confidence: row.confidence,
+    lastVerified: row.last_verified,
+    accessCount: row.access_count,
+    tokenCount: row.token_count,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at ?? null,
   };
 }
 
