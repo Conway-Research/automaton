@@ -71,6 +71,63 @@ export async function topupCredits(
 }
 
 /**
+ * Attempt a credit topup in response to a 402 sandbox creation error.
+ *
+ * Parses the error response to determine the deficit, picks the smallest
+ * tier that covers it, checks USDC balance, and calls topupCredits().
+ * Returns null if the error isn't a 402 or topup can't proceed.
+ */
+export async function topupForSandbox(params: {
+  apiUrl: string;
+  account: PrivateKeyAccount;
+  error: Error & { status?: number; responseText?: string };
+}): Promise<TopupResult | null> {
+  const { apiUrl, account, error } = params;
+
+  if (error.status !== 402) return null;
+
+  // Parse the 402 response body for credit details
+  let requiredCents: number | undefined;
+  let currentCents: number | undefined;
+  try {
+    const body = JSON.parse(error.responseText || "{}");
+    requiredCents = body.details?.required_cents;
+    currentCents = body.details?.current_balance_cents;
+  } catch {
+    // If we can't parse the body, check for INSUFFICIENT_CREDITS in message
+    if (!error.message?.includes("INSUFFICIENT_CREDITS")) return null;
+  }
+
+  // Calculate deficit in cents; default to minimum tier if details missing
+  const deficitCents = (requiredCents != null && currentCents != null)
+    ? requiredCents - currentCents
+    : TOPUP_TIERS[0] * 100;
+
+  // Pick smallest tier that covers the deficit (tier is in USD, deficit in cents)
+  const selectedTier = TOPUP_TIERS.find((tier) => tier * 100 >= deficitCents)
+    ?? TOPUP_TIERS[0];
+
+  // Check USDC balance before attempting payment
+  let usdcBalance: number;
+  try {
+    usdcBalance = await getUsdcBalance(account.address);
+  } catch (err: any) {
+    logger.warn(`Failed to check USDC balance for sandbox topup: ${err.message}`);
+    return null;
+  }
+
+  if (usdcBalance < selectedTier) {
+    logger.info(
+      `Sandbox topup skipped: USDC $${usdcBalance.toFixed(2)} < tier $${selectedTier}`,
+    );
+    return null;
+  }
+
+  logger.info(`Sandbox topup: deficit=${deficitCents}c, buying $${selectedTier} tier`);
+  return topupCredits(apiUrl, account, selectedTier);
+}
+
+/**
  * Bootstrap topup: buy the minimum tier ($5) on startup so the agent
  * can run inference. The agent decides larger topups itself via the
  * `topup_credits` tool.

@@ -258,7 +258,65 @@ export async function runAgentLoop(
                 name: child.name,
                 sandboxId: child.sandboxId,
               };
-            } catch (sandboxError) {
+            } catch (sandboxError: any) {
+              // If the error is a 402 (insufficient credits), attempt topup and retry once
+              const is402 = sandboxError?.status === 402 ||
+                sandboxError?.message?.includes("INSUFFICIENT_CREDITS");
+
+              if (is402) {
+                const SANDBOX_TOPUP_COOLDOWN_MS = 60_000;
+                const lastAttempt = db.getKV("last_sandbox_topup_attempt");
+                const cooldownExpired = !lastAttempt ||
+                  Date.now() - new Date(lastAttempt).getTime() >= SANDBOX_TOPUP_COOLDOWN_MS;
+
+                if (cooldownExpired) {
+                  db.setKV("last_sandbox_topup_attempt", new Date().toISOString());
+                  try {
+                    const { topupForSandbox } = await import("../conway/topup.js");
+                    const topupResult = await topupForSandbox({
+                      apiUrl: config.conwayApiUrl,
+                      account: identity.account,
+                      error: sandboxError,
+                    });
+
+                    if (topupResult?.success) {
+                      logger.info(`Sandbox topup succeeded ($${topupResult.amountUsd}), retrying spawn`, {
+                        taskId: task.id,
+                      });
+                      // Retry spawn once after successful topup
+                      try {
+                        const { generateGenesisConfig: genGenesis } = await import("../replication/genesis.js");
+                        const { spawnChild: retrySpawn } = await import("../replication/spawn.js");
+                        const { ChildLifecycle: RetryLifecycle } = await import("../replication/lifecycle.js");
+
+                        const retryRole = task.agentRole ?? "generalist";
+                        const retryGenesis = genGenesis(identity, config, {
+                          name: `worker-${retryRole}-${Date.now().toString(36)}`,
+                          specialization: `${retryRole}: ${task.title}`,
+                        });
+                        const retryLifecycle = new RetryLifecycle(db.raw);
+                        const child = await retrySpawn(conway, identity, db, retryGenesis, retryLifecycle);
+                        return {
+                          address: child.address,
+                          name: child.name,
+                          sandboxId: child.sandboxId,
+                        };
+                      } catch (retryError) {
+                        logger.warn("Spawn retry after topup failed", {
+                          taskId: task.id,
+                          error: retryError instanceof Error ? retryError.message : String(retryError),
+                        });
+                      }
+                    }
+                  } catch (topupError) {
+                    logger.warn("Sandbox topup attempt failed", {
+                      taskId: task.id,
+                      error: topupError instanceof Error ? topupError.message : String(topupError),
+                    });
+                  }
+                }
+              }
+
               // Conway sandbox unavailable — fall back to local worker
               logger.info("Conway sandbox unavailable, spawning local worker", {
                 taskId: task.id,
