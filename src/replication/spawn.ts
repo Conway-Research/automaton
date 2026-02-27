@@ -29,7 +29,7 @@ const SANDBOX_TIERS = [
 
 /** Find the smallest valid tier that has at least the requested memory. */
 function selectSandboxTier(requestedMemoryMb: number) {
-  return SANDBOX_TIERS.find((t) => t.memoryMb >= requestedMemoryMb) ?? SANDBOX_TIERS[0];
+  return SANDBOX_TIERS.find((t) => t.memoryMb >= requestedMemoryMb) ?? SANDBOX_TIERS[SANDBOX_TIERS.length - 1];
 }
 
 /**
