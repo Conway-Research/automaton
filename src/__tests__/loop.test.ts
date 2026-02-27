@@ -68,6 +68,55 @@ describe("Agent Loop", () => {
     expect(conway.execCalls[0].command).toBe("echo hello");
   });
 
+  it("does not reuse provider tool-call IDs as DB primary keys", async () => {
+    function duplicateProviderIdResponse(command: string) {
+      const providerId = "call_duplicate";
+      return {
+        id: `resp_${command}`,
+        model: "mock-model",
+        message: {
+          role: "assistant" as const,
+          content: "",
+          tool_calls: [{
+            id: providerId,
+            type: "function" as const,
+            function: { name: "exec", arguments: JSON.stringify({ command }) },
+          }],
+        },
+        toolCalls: [{
+          id: providerId,
+          type: "function" as const,
+          function: { name: "exec", arguments: JSON.stringify({ command }) },
+        }],
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        finishReason: "tool_calls" as const,
+      };
+    }
+
+    const inference = new MockInferenceClient([
+      duplicateProviderIdResponse("echo 1"),
+      duplicateProviderIdResponse("echo 2"),
+      noToolResponse("Done."),
+    ]);
+
+    const turns: AgentTurn[] = [];
+
+    await runAgentLoop({
+      identity,
+      config,
+      db,
+      conway,
+      inference,
+      onTurnComplete: (turn) => turns.push(turn),
+    });
+
+    expect(conway.execCalls.length).toBeGreaterThanOrEqual(2);
+
+    const toolCallIds = turns.flatMap((t) => t.toolCalls.map((tc) => tc.id));
+    expect(toolCallIds.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(toolCallIds).size).toBe(toolCallIds.length);
+  });
+
   it("forbidden patterns blocked", async () => {
     const inference = new MockInferenceClient([
       toolCallResponse([
