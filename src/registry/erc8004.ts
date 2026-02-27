@@ -451,6 +451,8 @@ export async function queryAgent(
 
 /**
  * Get the total number of registered agents.
+ * Tries totalSupply() first; if that reverts (proxy contracts without
+ * ERC-721 Enumerable), falls back to a binary search on ownerOf().
  */
 export async function getTotalAgents(
   network: Network = "mainnet",
@@ -471,8 +473,59 @@ export async function getTotalAgents(
     });
     return Number(supply);
   } catch {
-    return 0;
+    // totalSupply() reverted — proxy may lack ERC-721 Enumerable.
+    // Binary search for the highest minted tokenId via ownerOf().
+    return estimateTotalByBinarySearch(publicClient, contracts.identity);
   }
+}
+
+/**
+ * Estimate total minted tokens by binary-searching ownerOf().
+ * Token IDs are sequential starting from 1, so the highest existing
+ * tokenId equals the total minted count.
+ */
+async function estimateTotalByBinarySearch(
+  client: { readContract: (args: any) => Promise<any> },
+  contractAddress: Address,
+): Promise<number> {
+  const exists = async (id: number): Promise<boolean> => {
+    try {
+      await client.readContract({
+        address: contractAddress,
+        abi: IDENTITY_ABI,
+        functionName: "ownerOf",
+        args: [BigInt(id)],
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // Quick probe to find an upper bound
+  // Quick probe to find an upper bound
+  let upper = 1;
+  while (await exists(upper)) {
+    upper *= 2;
+    if (upper > 10_000_000) break; // safety cap
+  }
+
+  // Binary search between 0 and upper
+  let lo = 0;
+  let hi = upper;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi + 1) / 2);
+    if (await exists(mid)) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  if (lo > 0) {
+    logger.info(`Binary search estimated total agents: ${lo}`);
+  }
+  return lo;
 }
 
 /**
