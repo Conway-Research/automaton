@@ -1573,13 +1573,54 @@ Model: ${ctx.inference.getDefaultModel()}
         });
 
         const lifecycle = new ChildLifecycle(ctx.db.raw);
-        const child = await spawnChild(
-          ctx.conway,
-          ctx.identity,
-          ctx.db,
-          genesis,
-          lifecycle,
-        );
+
+        let child;
+        try {
+          child = await spawnChild(
+            ctx.conway,
+            ctx.identity,
+            ctx.db,
+            genesis,
+            lifecycle,
+          );
+        } catch (err: any) {
+          // Auto-topup on 402 insufficient credits and retry once
+          const is402 = err?.status === 402 ||
+            err?.message?.includes("INSUFFICIENT_CREDITS");
+          if (is402) {
+            const COOLDOWN_MS = 60_000;
+            const last = ctx.db.getKV("last_sandbox_topup_attempt");
+            const cooldownOk = !last ||
+              Date.now() - new Date(last).getTime() >= COOLDOWN_MS;
+
+            if (cooldownOk) {
+              ctx.db.setKV("last_sandbox_topup_attempt", new Date().toISOString());
+              const { topupForSandbox } = await import("../conway/topup.js");
+              const topup = await topupForSandbox({
+                apiUrl: ctx.config.conwayApiUrl,
+                account: ctx.identity.account,
+                error: err,
+              });
+              if (topup?.success) {
+                const retryLifecycle = new ChildLifecycle(ctx.db.raw);
+                const retryGenesis = generateGenesisConfig(ctx.identity, ctx.config, {
+                  name: args.name as string,
+                  specialization: args.specialization as string | undefined,
+                  message: args.message as string | undefined,
+                });
+                child = await spawnChild(
+                  ctx.conway,
+                  ctx.identity,
+                  ctx.db,
+                  retryGenesis,
+                  retryLifecycle,
+                );
+              }
+            }
+          }
+          if (!child) throw err;
+        }
+
         return `Child spawned: ${child.name} in sandbox ${child.sandboxId} (status: ${child.status})`;
       },
     },
