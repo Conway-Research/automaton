@@ -113,7 +113,7 @@ describe("spawnChild", () => {
   it("validates wallet address before creating child record", async () => {
     // Mock exec to return valid wallet address on init
     vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
-      if (command.includes("automaton --init")) {
+      if (command.includes("--init")) {
         return { stdout: `Wallet initialized: ${validAddress}`, stderr: "", exitCode: 0 };
       }
       return { stdout: "ok", stderr: "", exitCode: 0 };
@@ -127,7 +127,7 @@ describe("spawnChild", () => {
 
   it("throws on zero address from init", async () => {
     vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
-      if (command.includes("automaton --init")) {
+      if (command.includes("--init")) {
         return { stdout: `Wallet: ${zeroAddress}`, stderr: "", exitCode: 0 };
       }
       return { stdout: "ok", stderr: "", exitCode: 0 };
@@ -139,7 +139,7 @@ describe("spawnChild", () => {
 
   it("throws when init returns no wallet address", async () => {
     vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
-      if (command.includes("automaton --init")) {
+      if (command.includes("--init")) {
         return { stdout: "initialization complete, no wallet", stderr: "", exitCode: 0 };
       }
       return { stdout: "ok", stderr: "", exitCode: 0 };
@@ -165,7 +165,7 @@ describe("spawnChild", () => {
     const deleteSpy = vi.spyOn(conway, "deleteSandbox");
 
     vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
-      if (command.includes("automaton --init")) {
+      if (command.includes("--init")) {
         return { stdout: `Wallet: ${zeroAddress}`, stderr: "", exitCode: 0 };
       }
       return { stdout: "ok", stderr: "", exitCode: 0 };

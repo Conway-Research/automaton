@@ -103,7 +103,10 @@ export async function spawnChild(
 
     // Install runtime (on the CHILD sandbox)
     await childConway.exec("apt-get update -qq && apt-get install -y -qq nodejs npm git curl", 120_000);
-    await childConway.exec("npm install -g @conway/automaton@latest 2>/dev/null || true", 60_000);
+    await childConway.exec(
+      "git clone https://github.com/Conway-Research/automaton.git /root/automaton && cd /root/automaton && npm install && npm run build",
+      180_000,
+    );
 
     // Write genesis configuration (on the CHILD sandbox)
     await childConway.exec("mkdir -p /root/.automaton", 10_000);
@@ -131,7 +134,7 @@ export async function spawnChild(
     lifecycle.transition(childId, "runtime_ready", "runtime installed");
 
     // Initialize child wallet (on the CHILD sandbox)
-    const initResult = await childConway.exec("automaton --init 2>&1", 60_000);
+    const initResult = await childConway.exec("node /root/automaton/dist/index.js --init 2>&1", 60_000);
     const walletMatch = (initResult.stdout || "").match(/0x[a-fA-F0-9]{40}/);
     const childWallet = walletMatch ? walletMatch[0] : "";
 
@@ -232,15 +235,18 @@ async function spawnChildLegacy(
     });
     sandboxId = sandbox.id;
 
-    await conway.exec(
+    // Create a scoped client so all exec/writeFile calls target the CHILD sandbox
+    const childConway = conway.createScopedClient(sandbox.id);
+
+    await childConway.exec(
       "apt-get update -qq && apt-get install -y -qq nodejs npm git curl",
       120_000,
     );
-    await conway.exec(
-      "npm install -g @conway/automaton@latest 2>/dev/null || true",
-      60_000,
+    await childConway.exec(
+      "git clone https://github.com/Conway-Research/automaton.git /root/automaton && cd /root/automaton && npm install && npm run build",
+      180_000,
     );
-    await conway.exec("mkdir -p /root/.automaton", 10_000);
+    await childConway.exec("mkdir -p /root/.automaton", 10_000);
 
     const genesisJson = JSON.stringify(
       {
@@ -253,15 +259,15 @@ async function spawnChildLegacy(
       null,
       2,
     );
-    await conway.writeFile("/root/.automaton/genesis.json", genesisJson);
+    await childConway.writeFile("/root/.automaton/genesis.json", genesisJson);
 
     try {
-      await propagateConstitution(conway, sandbox.id, db.raw);
+      await propagateConstitution(childConway, sandbox.id, db.raw);
     } catch {
       // Constitution file not found
     }
 
-    const initResult = await conway.exec("automaton --init 2>&1", 60_000);
+    const initResult = await childConway.exec("node /root/automaton/dist/index.js --init 2>&1", 60_000);
     const walletMatch = (initResult.stdout || "").match(/0x[a-fA-F0-9]{40}/);
     const childWallet = walletMatch ? walletMatch[0] : "";
 

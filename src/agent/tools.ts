@@ -1615,12 +1615,17 @@ Model: ${ctx.inference.getDefaultModel()}
         required: ["child_id"],
       },
       execute: async (args, ctx) => {
+        const child = ctx.db.getChildById(args.child_id as string);
+        if (!child) return `Child ${args.child_id} not found.`;
+
         const { ChildLifecycle } = await import("../replication/lifecycle.js");
         const { ChildHealthMonitor } = await import("../replication/health.js");
         const lifecycle = new ChildLifecycle(ctx.db.raw);
+        // Use a scoped client targeting the CHILD's sandbox for health checks
+        const childConway = ctx.conway.createScopedClient(child.sandboxId);
         const monitor = new ChildHealthMonitor(
           ctx.db.raw,
-          ctx.conway,
+          childConway,
           lifecycle,
         );
         const result = await monitor.checkHealth(args.child_id as string);
@@ -1649,14 +1654,36 @@ Model: ${ctx.inference.getDefaultModel()}
 
         lifecycle.transition(child.id, "starting", "start requested by parent");
 
-        // Start the child process
-        await ctx.conway.exec(
-          "automaton --init && automaton --provision && systemctl start automaton 2>/dev/null || automaton --run &",
-          60_000,
-        );
+        // Create a scoped client targeting the CHILD's sandbox
+        const childConway = ctx.conway.createScopedClient(child.sandboxId);
 
-        lifecycle.transition(child.id, "healthy", "started successfully");
-        return `Child ${child.name} started and healthy.`;
+        try {
+          // Start the child process with nohup so it survives exec session end
+          await childConway.exec(
+            "nohup node /root/automaton/dist/index.js --run > /root/.automaton/agent.log 2>&1 &",
+            30_000,
+          );
+
+          // Brief pause then verify the process is actually running
+          const check = await childConway.exec(
+            "sleep 2 && pgrep -f 'index.js --run' > /dev/null && echo running || echo stopped",
+            15_000,
+          );
+
+          if (check.stdout.trim() === "running") {
+            lifecycle.transition(child.id, "healthy", "started successfully");
+            return `Child ${child.name} started and healthy.`;
+          } else {
+            lifecycle.transition(child.id, "failed", "process did not start");
+            return `Child ${child.name} failed to start — process exited immediately. Check /root/.automaton/agent.log`;
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          try {
+            lifecycle.transition(child.id, "failed", `start failed: ${msg}`);
+          } catch { /* may already be in terminal state */ }
+          return `Failed to start child ${child.name}: ${msg}`;
+        }
       },
     },
     {
@@ -1713,8 +1740,10 @@ Model: ${ctx.inference.getDefaultModel()}
 
         const { verifyConstitution } =
           await import("../replication/constitution.js");
+        // Use a scoped client targeting the CHILD's sandbox
+        const childConway = ctx.conway.createScopedClient(child.sandboxId);
         const result = await verifyConstitution(
-          ctx.conway,
+          childConway,
           child.sandboxId,
           ctx.db.raw,
         );
