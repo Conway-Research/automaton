@@ -295,7 +295,7 @@ export async function fetchAgentCard(
         const b64 = uri.split(";base64,")[1];
         json = Buffer.from(b64, "base64").toString("utf-8");
       } else {
-        json = decodeURIComponent(uri.split(",")[1]);
+        json = decodeURIComponent(uri.substring(uri.indexOf(",") + 1));
       }
       if (json.length > cfg.maxCardSizeBytes) {
         logger.error(`data: URI agent card too large: ${json.length} bytes`);
