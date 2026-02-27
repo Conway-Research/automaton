@@ -110,8 +110,14 @@ export async function runAgentLoop(
   };
 
   // Initialize inference router (Phase 2.3)
+  // Merge: defaults < top-level config fields < nested modelStrategy
   const modelStrategyConfig: ModelStrategyConfig = {
     ...DEFAULT_MODEL_STRATEGY_CONFIG,
+    // Bridge top-level config fields for backward compatibility
+    // This ensures inferenceModel/maxTokensPerTurn work without nested modelStrategy
+    ...(config.inferenceModel ? { inferenceModel: config.inferenceModel } : {}),
+    ...(config.maxTokensPerTurn ? { maxTokensPerTurn: config.maxTokensPerTurn } : {}),
+    // Nested modelStrategy takes highest priority
     ...(config.modelStrategy ?? {}),
   };
   const modelRegistry = new ModelRegistry(db.raw);

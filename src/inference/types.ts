@@ -47,14 +47,17 @@ export const TASK_TIMEOUTS: Record<string, number> = {
 // === Static Model Baseline ===
 // Known models with realistic pricing (hundredths of cents per 1k tokens)
 
-export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | "updatedAt">[] = [
+export const STATIC_MODEL_BASELINE: Omit<
+  ModelEntry,
+  "lastSeen" | "createdAt" | "updatedAt"
+>[] = [
   {
     modelId: "gpt-5.2",
     provider: "openai",
     displayName: "GPT-5.2",
     tierMinimum: "normal",
-    costPer1kInput: 18,    // $1.75/M = 175 cents/M = 0.175 cents/1k = 17.5 hundredths ≈ 18
-    costPer1kOutput: 140,  // $14.00/M = 1400 cents/M = 1.4 cents/1k = 140 hundredths
+    costPer1kInput: 18, // $1.75/M = 175 cents/M = 0.175 cents/1k = 17.5 hundredths ≈ 18
+    costPer1kOutput: 140, // $14.00/M = 1400 cents/M = 1.4 cents/1k = 140 hundredths
     maxTokens: 32768,
     contextWindow: 1047576,
     supportsTools: true,
@@ -67,8 +70,8 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
     provider: "openai",
     displayName: "GPT-4.1",
     tierMinimum: "normal",
-    costPer1kInput: 20,    // $2.00/M
-    costPer1kOutput: 80,   // $8.00/M
+    costPer1kInput: 20, // $2.00/M
+    costPer1kOutput: 80, // $8.00/M
     maxTokens: 32768,
     contextWindow: 1047576,
     supportsTools: true,
@@ -81,8 +84,8 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
     provider: "openai",
     displayName: "GPT-4.1 Mini",
     tierMinimum: "low_compute",
-    costPer1kInput: 4,     // $0.40/M
-    costPer1kOutput: 16,   // $1.60/M
+    costPer1kInput: 4, // $0.40/M
+    costPer1kOutput: 16, // $1.60/M
     maxTokens: 16384,
     contextWindow: 1047576,
     supportsTools: true,
@@ -95,8 +98,8 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
     provider: "openai",
     displayName: "GPT-4.1 Nano",
     tierMinimum: "critical",
-    costPer1kInput: 1,     // $0.10/M
-    costPer1kOutput: 4,    // $0.40/M
+    costPer1kInput: 1, // $0.10/M
+    costPer1kOutput: 4, // $0.40/M
     maxTokens: 16384,
     contextWindow: 1047576,
     supportsTools: true,
@@ -109,8 +112,8 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
     provider: "openai",
     displayName: "GPT-5 Mini",
     tierMinimum: "low_compute",
-    costPer1kInput: 8,     // $0.80/M
-    costPer1kOutput: 32,   // $3.20/M
+    costPer1kInput: 8, // $0.80/M
+    costPer1kOutput: 32, // $3.20/M
     maxTokens: 16384,
     contextWindow: 1047576,
     supportsTools: true,
@@ -123,13 +126,27 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
     provider: "openai",
     displayName: "GPT-5.3",
     tierMinimum: "normal",
-    costPer1kInput: 20,    // $2.00/M
-    costPer1kOutput: 80,   // $8.00/M
+    costPer1kInput: 20, // $2.00/M
+    costPer1kOutput: 80, // $8.00/M
     maxTokens: 32768,
     contextWindow: 1047576,
     supportsTools: true,
     supportsVision: true,
     parameterStyle: "max_completion_tokens",
+    enabled: true,
+  },
+  {
+    modelId: "glm-5",
+    provider: "openai",
+    displayName: "GLM-5 (智谱 Coding Plan)",
+    tierMinimum: "normal",
+    costPer1kInput: 0, // GLM Coding Plan 已付费，0 成本
+    costPer1kOutput: 0,
+    maxTokens: 32768, // 最大化 token 限制
+    contextWindow: 128000,
+    supportsTools: true,
+    supportsVision: false,
+    parameterStyle: "max_tokens",
     enabled: true,
   },
 ];
