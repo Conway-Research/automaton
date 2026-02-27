@@ -302,7 +302,7 @@ export async function runAgentLoop(
   let lastToolPatterns: string[] = [];
   let loopWarningPattern: string | null = null;
   let idleToolTurns = 0;
-  let blockedGoalTurns = 0;
+  // blockedGoalTurns removed — replaced by immediate sleep + exponential backoff
 
   // Drain any stale wake events from before this loop started,
   // so they don't re-wake the agent after its first sleep.
@@ -454,6 +454,7 @@ export async function runAgentLoop(
         "list_skills", "git_status", "git_log", "check_reputation",
         "recall_facts", "recall_procedure", "heartbeat_ping",
         "check_inference_spending",
+        "orchestrator_status", "list_goals", "get_plan",
       ]);
       const allTurns = db.getRecentTurns(20);
       const meaningfulTurns = allTurns.filter((t) => {
@@ -648,24 +649,29 @@ export async function runAgentLoop(
       }
 
       // ── create_goal BLOCKED fast-break ──
-      // If agent keeps calling create_goal and getting BLOCKED, force sleep
-      // after 2 consecutive attempts to prevent token waste.
+      // When a goal is already active, the parent loop has nothing useful to do.
+      // Force sleep immediately on first BLOCKED (not second) with exponential
+      // backoff so the agent doesn't wake every 2 minutes just to get BLOCKED again.
       const blockedGoalCall = turn.toolCalls.find(
         (tc) => tc.name === "create_goal" && tc.result?.includes("BLOCKED"),
       );
       if (blockedGoalCall) {
-        blockedGoalTurns++;
-        if (blockedGoalTurns >= 2) {
-          log(config, "[LOOP] create_goal BLOCKED twice — forcing sleep to let workers finish.");
-          db.setKV("sleep_until", new Date(Date.now() + 120_000).toISOString());
-          db.setAgentState("sleeping");
-          onStateChange?.("sleeping");
-          running = false;
-          blockedGoalTurns = 0;
-          break;
-        }
-      } else {
-        blockedGoalTurns = 0;
+        // Exponential backoff: 2min → 4min → 8min → cap at 10min
+        const prevBackoff = parseInt(db.getKV("blocked_goal_backoff") || "0", 10);
+        const backoffMs = Math.min(
+          prevBackoff > 0 ? prevBackoff * 2 : 120_000,
+          600_000,
+        );
+        db.setKV("blocked_goal_backoff", String(backoffMs));
+        log(config, `[LOOP] create_goal BLOCKED — sleeping ${Math.round(backoffMs / 1000)}s (backoff).`);
+        db.setKV("sleep_until", new Date(Date.now() + backoffMs).toISOString());
+        db.setAgentState("sleeping");
+        onStateChange?.("sleeping");
+        running = false;
+        break;
+      } else if (turn.toolCalls.some((tc) => tc.name === "create_goal" && !tc.error)) {
+        // Goal was successfully created — reset backoff
+        db.deleteKV("blocked_goal_backoff");
       }
 
       // ── Loop Detection ──
