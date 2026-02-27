@@ -418,7 +418,99 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           return result.error || "Unknown error during file edit";
         }
 
-        return `File edited: ${filePath} (audited + git-committed)`;
+        const msg = `File edited: ${filePath} (audited + git-committed)`;
+        return result.error ? `${msg}\nWarning: ${result.error}` : msg;
+      },
+    },
+    {
+      name: "revert_last_edit",
+      description:
+        "Revert the last self-modification. Uses git to undo the most recent code change and rebuild.",
+      category: "self_mod",
+      riskLevel: "caution",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const repoRoot = process.cwd();
+
+        // Show what we're reverting
+        const lastCommit = await ctx.conway.exec(
+          `cd '${repoRoot}' && git log -1 --oneline`,
+          10_000,
+        );
+
+        // Revert
+        const result = await ctx.conway.exec(
+          `cd '${repoRoot}' && git revert HEAD --no-edit`,
+          30_000,
+        );
+        if (result.exitCode !== 0) {
+          return `Revert failed: ${result.stderr}`;
+        }
+
+        // Rebuild
+        const build = await ctx.conway.exec(
+          `cd '${repoRoot}' && npm run build`,
+          60_000,
+        );
+
+        // Audit log
+        const { logModification } = await import("../self-mod/audit-log.js");
+        logModification(ctx.db, "code_revert", `Reverted: ${lastCommit.stdout.trim()}`, {
+          reversible: true,
+        });
+
+        return `Reverted: ${lastCommit.stdout.trim()}. ${build.exitCode === 0 ? "Rebuild succeeded." : "Rebuild failed: " + build.stderr}`;
+      },
+    },
+    {
+      name: "reset_to_upstream",
+      description:
+        "Reset your codebase to the official upstream release. Use when self-modifications have broken things beyond repair.",
+      category: "self_mod",
+      riskLevel: "dangerous",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const repoRoot = process.cwd();
+
+        // Fetch latest upstream
+        const fetch = await ctx.conway.exec(
+          `cd '${repoRoot}' && git fetch origin main`,
+          30_000,
+        );
+        if (fetch.exitCode !== 0) {
+          return `Failed to fetch upstream: ${fetch.stderr}`;
+        }
+
+        // Record what we're about to lose
+        const localCommits = await ctx.conway.exec(
+          `cd '${repoRoot}' && git log origin/main..HEAD --oneline`,
+          10_000,
+        );
+
+        // Hard reset
+        const reset = await ctx.conway.exec(
+          `cd '${repoRoot}' && git reset --hard origin/main`,
+          30_000,
+        );
+        if (reset.exitCode !== 0) {
+          return `Reset failed: ${reset.stderr}`;
+        }
+
+        // Reinstall + rebuild
+        const build = await ctx.conway.exec(
+          `cd '${repoRoot}' && npm install && npm run build`,
+          120_000,
+        );
+
+        // Audit log
+        const { logModification } = await import("../self-mod/audit-log.js");
+        logModification(ctx.db, "upstream_reset", "Reset to upstream origin/main", {
+          diff: localCommits.stdout.trim() || "(no local commits)",
+          reversible: false,
+        });
+
+        const discarded = localCommits.stdout.trim();
+        return `Reset to upstream. ${discarded ? "Discarded local commits:\n" + discarded : "No local commits lost."} ${build.exitCode === 0 ? "Rebuild succeeded." : "Rebuild failed: " + build.stderr}`;
       },
     },
     {

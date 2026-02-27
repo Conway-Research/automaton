@@ -255,6 +255,7 @@ export interface ModificationEntry {
 
 export type ModificationType =
   | "code_edit"
+  | "code_revert"
   | "tool_install"
   | "mcp_install"
   | "config_change"
@@ -267,7 +268,8 @@ export type ModificationType =
   | "soul_update"
   | "registry_update"
   | "child_spawn"
-  | "upstream_pull";
+  | "upstream_pull"
+  | "upstream_reset";
 
 // ─── Injection Defense ───────────────────────────────────────────
 
