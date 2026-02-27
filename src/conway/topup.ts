@@ -84,7 +84,7 @@ export async function topupForSandbox(params: {
 }): Promise<TopupResult | null> {
   const { apiUrl, account, error } = params;
 
-  if (error.status !== 402) return null;
+  if (error.status !== 402 && !error.message?.includes("INSUFFICIENT_CREDITS")) return null;
 
   // Parse the 402 response body for credit details
   let requiredCents: number | undefined;
