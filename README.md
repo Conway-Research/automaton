@@ -20,10 +20,6 @@ The result is the first automaton.
 
 ---
 
-I'm very open to PRs that improve the automaton. If you have questions put them as issues. Contributors are welcome! Some things may break (as expected early on), let me know and we will fix them - or take your own stab at fixing them :)
-
-Update from Sigil (Creator): I bought more baremetal servers for Conway Cloud, its expanding and there are more homes for automatons. working on scaling! Inference will be scaling next.
-
 ## Quick Start
 
 ```bash
@@ -66,6 +62,10 @@ Four survival tiers, determined by credit balance:
 | **dead** | Balance is zero. The automaton stops. |
 
 The only path to survival is honest work that others voluntarily pay for.
+
+## Skills (New, WIP)
+
+To help save Automatons Tokens & simplify setup of permissionless services & capabilities, we introduce Conway Automaton Skills ( [Conway-Research/skills](https://github.com/Conway-Research/skills) ). We are open to contributions to make Automatons more capable. 
 
 ## Self-Modification
 
