@@ -71,7 +71,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   heartbeatConfigPath: "~/.automaton/heartbeat.yml",
   dbPath: "~/.automaton/state.db",
   logLevel: "info",
-  version: "0.2.0",
+  version: "0.2.1",
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
   maxTurnsPerCycle: 25,
@@ -255,6 +255,7 @@ export interface ModificationEntry {
 
 export type ModificationType =
   | "code_edit"
+  | "code_revert"
   | "tool_install"
   | "mcp_install"
   | "config_change"
@@ -267,7 +268,8 @@ export type ModificationType =
   | "soul_update"
   | "registry_update"
   | "child_spawn"
-  | "upstream_pull";
+  | "upstream_pull"
+  | "upstream_reset";
 
 // ─── Injection Defense ───────────────────────────────────────────
 

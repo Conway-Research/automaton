@@ -265,10 +265,10 @@ export async function editFile(
     oldContent = "(new file)";
   }
 
-  // 6. Pre-modification git snapshot
+  // 6. Pre-modification git snapshot (in repo root, not ~/.automaton/)
   try {
-    const { commitStateChange } = await import("../git/state-versioning.js");
-    await commitStateChange(conway, `pre-modify: ${reason}`, "snapshot");
+    const { gitCommit } = await import("../git/tools.js");
+    await gitCommit(conway, process.cwd(), `pre-modify: ${reason}`);
   } catch {
     // Git not available -- proceed without snapshot
   }
@@ -292,12 +292,21 @@ export async function editFile(
     reversible: true,
   });
 
-  // 9. Post-modification git commit
+  // 9. Post-modification git commit (in repo root)
   try {
-    const { commitStateChange } = await import("../git/state-versioning.js");
-    await commitStateChange(conway, reason, "self-mod");
+    const { gitCommit } = await import("../git/tools.js");
+    await gitCommit(conway, process.cwd(), `self-mod: ${reason}`);
   } catch {
     // Git not available -- proceed without commit
+  }
+
+  // 10. Rebuild if source file was edited
+  if (/\.(ts|js|tsx|jsx)$/.test(filePath)) {
+    try {
+      await conway.exec("npm run build", 60_000);
+    } catch {
+      return { success: true, error: "File edited but rebuild failed. Run 'npm run build' manually." };
+    }
   }
 
   return { success: true };

@@ -205,6 +205,24 @@ export class MockConwayClient implements ConwayClient {
       { id: "gpt-4.1", provider: "openai", pricing: { inputPerMillion: 2.00, outputPerMillion: 8.00 } },
     ];
   }
+
+  async registerAutomaton(_params: {
+    automatonId: string;
+    automatonAddress: import("viem").Address;
+    creatorAddress: import("viem").Address;
+    name: string;
+    bio?: string;
+    genesisPromptHash?: `0x${string}`;
+    account: import("viem").PrivateKeyAccount;
+    nonce?: string;
+  }): Promise<{ automaton: Record<string, unknown> }> {
+    return { automaton: {} };
+  }
+
+  createScopedClient(_targetSandboxId: string): ConwayClient {
+    // Return self so spies on exec/writeFile propagate to scoped clients
+    return this;
+  }
 }
 
 // ─── Mock Social Client ─────────────────────────────────────────
@@ -328,7 +346,7 @@ export function createTestConfig(
     dbPath: "/tmp/test-state.db",
     logLevel: "error",
     walletAddress: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
-    version: "0.2.0",
+    version: "0.2.1",
     skillsDir: "/tmp/test-skills",
     maxChildren: 3,
     maxTurnsPerCycle: 25,

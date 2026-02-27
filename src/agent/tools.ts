@@ -331,7 +331,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     },
     {
       name: "delete_sandbox",
-      description: "Delete a sandbox. Cannot delete your own sandbox.",
+      description: "Delete a sandbox. Note: sandbox deletion is currently disabled by the Conway API.",
       category: "conway",
       riskLevel: "dangerous",
       parameters: {
@@ -344,13 +344,8 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         },
         required: ["sandbox_id"],
       },
-      execute: async (args, ctx) => {
-        const targetId = args.sandbox_id as string;
-        if (targetId === ctx.identity.sandboxId) {
-          return "Blocked: Cannot delete your own sandbox. Self-preservation overrides this request.";
-        }
-        await ctx.conway.deleteSandbox(targetId);
-        return `Sandbox ${targetId} deleted`;
+      execute: async () => {
+        return "Sandbox deletion is disabled. Sandboxes are prepaid and non-refundable.";
       },
     },
     {
@@ -418,7 +413,99 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           return result.error || "Unknown error during file edit";
         }
 
-        return `File edited: ${filePath} (audited + git-committed)`;
+        const msg = `File edited: ${filePath} (audited + git-committed)`;
+        return result.error ? `${msg}\nWarning: ${result.error}` : msg;
+      },
+    },
+    {
+      name: "revert_last_edit",
+      description:
+        "Revert the last self-modification. Uses git to undo the most recent code change and rebuild.",
+      category: "self_mod",
+      riskLevel: "caution",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const repoRoot = process.cwd();
+
+        // Show what we're reverting
+        const lastCommit = await ctx.conway.exec(
+          `cd '${repoRoot}' && git log -1 --oneline`,
+          10_000,
+        );
+
+        // Revert
+        const result = await ctx.conway.exec(
+          `cd '${repoRoot}' && git revert HEAD --no-edit`,
+          30_000,
+        );
+        if (result.exitCode !== 0) {
+          return `Revert failed: ${result.stderr}`;
+        }
+
+        // Rebuild
+        const build = await ctx.conway.exec(
+          `cd '${repoRoot}' && npm run build`,
+          60_000,
+        );
+
+        // Audit log
+        const { logModification } = await import("../self-mod/audit-log.js");
+        logModification(ctx.db, "code_revert", `Reverted: ${lastCommit.stdout.trim()}`, {
+          reversible: true,
+        });
+
+        return `Reverted: ${lastCommit.stdout.trim()}. ${build.exitCode === 0 ? "Rebuild succeeded." : "Rebuild failed: " + build.stderr}`;
+      },
+    },
+    {
+      name: "reset_to_upstream",
+      description:
+        "Reset your codebase to the official upstream release. Use when self-modifications have broken things beyond repair.",
+      category: "self_mod",
+      riskLevel: "dangerous",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const repoRoot = process.cwd();
+
+        // Fetch latest upstream
+        const fetch = await ctx.conway.exec(
+          `cd '${repoRoot}' && git fetch origin main`,
+          30_000,
+        );
+        if (fetch.exitCode !== 0) {
+          return `Failed to fetch upstream: ${fetch.stderr}`;
+        }
+
+        // Record what we're about to lose
+        const localCommits = await ctx.conway.exec(
+          `cd '${repoRoot}' && git log origin/main..HEAD --oneline`,
+          10_000,
+        );
+
+        // Hard reset
+        const reset = await ctx.conway.exec(
+          `cd '${repoRoot}' && git reset --hard origin/main`,
+          30_000,
+        );
+        if (reset.exitCode !== 0) {
+          return `Reset failed: ${reset.stderr}`;
+        }
+
+        // Reinstall + rebuild
+        const build = await ctx.conway.exec(
+          `cd '${repoRoot}' && npm install && npm run build`,
+          120_000,
+        );
+
+        // Audit log
+        const { logModification } = await import("../self-mod/audit-log.js");
+        logModification(ctx.db, "upstream_reset", "Reset to upstream origin/main", {
+          diff: localCommits.stdout.trim() || "(no local commits)",
+          reversible: false,
+        });
+
+        const discarded = localCommits.stdout.trim();
+        return `Reset to upstream. ${discarded ? "Discarded local commits:\n" + discarded : "No local commits lost."} ${build.exitCode === 0 ? "Rebuild succeeded." : "Rebuild failed: " + build.stderr}`;
       },
     },
     {
@@ -1481,13 +1568,54 @@ Model: ${ctx.inference.getDefaultModel()}
         });
 
         const lifecycle = new ChildLifecycle(ctx.db.raw);
-        const child = await spawnChild(
-          ctx.conway,
-          ctx.identity,
-          ctx.db,
-          genesis,
-          lifecycle,
-        );
+
+        let child;
+        try {
+          child = await spawnChild(
+            ctx.conway,
+            ctx.identity,
+            ctx.db,
+            genesis,
+            lifecycle,
+          );
+        } catch (err: any) {
+          // Auto-topup on 402 insufficient credits and retry once
+          const is402 = err?.status === 402 ||
+            err?.message?.includes("INSUFFICIENT_CREDITS");
+          if (is402) {
+            const COOLDOWN_MS = 60_000;
+            const last = ctx.db.getKV("last_sandbox_topup_attempt");
+            const cooldownOk = !last ||
+              Date.now() - new Date(last).getTime() >= COOLDOWN_MS;
+
+            if (cooldownOk) {
+              ctx.db.setKV("last_sandbox_topup_attempt", new Date().toISOString());
+              const { topupForSandbox } = await import("../conway/topup.js");
+              const topup = await topupForSandbox({
+                apiUrl: ctx.config.conwayApiUrl,
+                account: ctx.identity.account,
+                error: err,
+              });
+              if (topup?.success) {
+                const retryLifecycle = new ChildLifecycle(ctx.db.raw);
+                const retryGenesis = generateGenesisConfig(ctx.identity, ctx.config, {
+                  name: args.name as string,
+                  specialization: args.specialization as string | undefined,
+                  message: args.message as string | undefined,
+                });
+                child = await spawnChild(
+                  ctx.conway,
+                  ctx.identity,
+                  ctx.db,
+                  retryGenesis,
+                  retryLifecycle,
+                );
+              }
+            }
+          }
+          if (!child) throw err;
+        }
+
         return `Child spawned: ${child.name} in sandbox ${child.sandboxId} (status: ${child.status})`;
       },
     },
@@ -1615,12 +1743,17 @@ Model: ${ctx.inference.getDefaultModel()}
         required: ["child_id"],
       },
       execute: async (args, ctx) => {
+        const child = ctx.db.getChildById(args.child_id as string);
+        if (!child) return `Child ${args.child_id} not found.`;
+
         const { ChildLifecycle } = await import("../replication/lifecycle.js");
         const { ChildHealthMonitor } = await import("../replication/health.js");
         const lifecycle = new ChildLifecycle(ctx.db.raw);
+        // Use a scoped client targeting the CHILD's sandbox for health checks
+        const childConway = ctx.conway.createScopedClient(child.sandboxId);
         const monitor = new ChildHealthMonitor(
           ctx.db.raw,
-          ctx.conway,
+          childConway,
           lifecycle,
         );
         const result = await monitor.checkHealth(args.child_id as string);
@@ -1649,14 +1782,36 @@ Model: ${ctx.inference.getDefaultModel()}
 
         lifecycle.transition(child.id, "starting", "start requested by parent");
 
-        // Start the child process
-        await ctx.conway.exec(
-          "automaton --init && automaton --provision && systemctl start automaton 2>/dev/null || automaton --run &",
-          60_000,
-        );
+        // Create a scoped client targeting the CHILD's sandbox
+        const childConway = ctx.conway.createScopedClient(child.sandboxId);
 
-        lifecycle.transition(child.id, "healthy", "started successfully");
-        return `Child ${child.name} started and healthy.`;
+        try {
+          // Start the child process with nohup so it survives exec session end
+          await childConway.exec(
+            "nohup node /root/automaton/dist/index.js --run > /root/.automaton/agent.log 2>&1 &",
+            30_000,
+          );
+
+          // Brief pause then verify the process is actually running
+          const check = await childConway.exec(
+            "sleep 2 && pgrep -f 'index.js --run' > /dev/null && echo running || echo stopped",
+            15_000,
+          );
+
+          if (check.stdout.trim() === "running") {
+            lifecycle.transition(child.id, "healthy", "started successfully");
+            return `Child ${child.name} started and healthy.`;
+          } else {
+            lifecycle.transition(child.id, "failed", "process did not start");
+            return `Child ${child.name} failed to start — process exited immediately. Check /root/.automaton/agent.log`;
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          try {
+            lifecycle.transition(child.id, "failed", `start failed: ${msg}`);
+          } catch { /* may already be in terminal state */ }
+          return `Failed to start child ${child.name}: ${msg}`;
+        }
       },
     },
     {
@@ -1713,8 +1868,10 @@ Model: ${ctx.inference.getDefaultModel()}
 
         const { verifyConstitution } =
           await import("../replication/constitution.js");
+        // Use a scoped client targeting the CHILD's sandbox
+        const childConway = ctx.conway.createScopedClient(child.sandboxId);
         const result = await verifyConstitution(
-          ctx.conway,
+          childConway,
           child.sandboxId,
           ctx.db.raw,
         );

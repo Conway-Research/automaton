@@ -444,23 +444,22 @@ describe("delete_sandbox self-preservation", () => {
     db.close();
   });
 
-  it("blocks deleting own sandbox", async () => {
+  it("reports sandbox deletion is disabled for own sandbox", async () => {
     const deleteTool = tools.find((t) => t.name === "delete_sandbox")!;
     const result = await deleteTool.execute(
       { sandbox_id: ctx.identity.sandboxId },
       ctx,
     );
-    expect(result).toContain("Blocked");
-    expect(result).toContain("Self-preservation");
+    expect(result).toContain("disabled");
   });
 
-  it("allows deleting other sandboxes", async () => {
+  it("reports sandbox deletion is disabled for other sandboxes", async () => {
     const deleteTool = tools.find((t) => t.name === "delete_sandbox")!;
     const result = await deleteTool.execute(
       { sandbox_id: "different-sandbox-id" },
       ctx,
     );
-    expect(result).toContain("deleted");
+    expect(result).toContain("disabled");
   });
 });
 
