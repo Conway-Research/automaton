@@ -342,6 +342,9 @@ export async function runAgentLoop(
   const MAX_IDLE_TURNS = 10; // Force sleep after N turns with no real work
   let idleTurnCount = 0;
 
+  const maxCycleTurns = config.maxTurnsPerCycle ?? 25;
+  let cycleTurnCount = 0;
+
   let pendingInput: { content: string; source: string } | undefined = {
     content: wakeupInput,
     source: "wakeup",
@@ -795,6 +798,20 @@ export async function runAgentLoop(
         }
       } else {
         idleTurnCount = 0;
+      }
+
+      // ── Cycle turn limit ──
+      // Hard ceiling on turns per wake cycle, regardless of tool type.
+      // Prevents runaway loops where mutating tools (exec, write_file)
+      // defeat idle detection indefinitely.
+      cycleTurnCount++;
+      if (running && cycleTurnCount >= maxCycleTurns) {
+        log(config, `[CYCLE LIMIT] ${cycleTurnCount} turns reached (max: ${maxCycleTurns}). Forcing sleep.`);
+        db.setKV("sleep_until", new Date(Date.now() + 120_000).toISOString());
+        db.setAgentState("sleeping");
+        onStateChange?.("sleeping");
+        running = false;
+        break;
       }
 
       // ── If no tool calls and just text, the agent might be done thinking ──

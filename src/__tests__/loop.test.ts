@@ -339,6 +339,83 @@ describe("Agent Loop", () => {
     expect(stateChanges).toContain("sleeping");
   });
 
+  it("cycle turn limit forces sleep after maxTurnsPerCycle", async () => {
+    // Set a low cycle limit
+    const lowLimitConfig = createTestConfig({ maxTurnsPerCycle: 3 });
+
+    // Create responses that would keep running indefinitely (all mutating tools)
+    const responses = Array.from({ length: 10 }, () =>
+      toolCallResponse([{ name: "exec", arguments: { command: "echo loop" } }]),
+    );
+    const inference = new MockInferenceClient(responses);
+
+    const turns: AgentTurn[] = [];
+
+    await runAgentLoop({
+      identity,
+      config: lowLimitConfig,
+      db,
+      conway,
+      inference,
+      onTurnComplete: (turn) => turns.push(turn),
+    });
+
+    // Should have stopped at or before the cycle limit (3 turns)
+    expect(turns.length).toBeLessThanOrEqual(3);
+    expect(db.getAgentState()).toBe("sleeping");
+    expect(db.getKV("sleep_until")).toBeDefined();
+  });
+
+  it("cycle limit sets 2-minute sleep duration", async () => {
+    const lowLimitConfig = createTestConfig({ maxTurnsPerCycle: 1 });
+
+    const inference = new MockInferenceClient([
+      toolCallResponse([{ name: "exec", arguments: { command: "echo test" } }]),
+    ]);
+
+    await runAgentLoop({
+      identity,
+      config: lowLimitConfig,
+      db,
+      conway,
+      inference,
+    });
+
+    const sleepUntil = db.getKV("sleep_until");
+    expect(sleepUntil).toBeDefined();
+    // Sleep should be ~2 minutes (120_000ms) from now
+    const sleepMs = new Date(sleepUntil!).getTime() - Date.now();
+    expect(sleepMs).toBeGreaterThan(100_000); // at least ~100s
+    expect(sleepMs).toBeLessThan(150_000); // at most ~150s
+  });
+
+  it("respects custom maxTurnsPerCycle from config", async () => {
+    // A limit of 5 should allow exactly 5 turns before forcing sleep
+    const limit5Config = createTestConfig({ maxTurnsPerCycle: 5 });
+
+    // Use varied tool names to avoid loop detection (fires after 3 identical patterns)
+    const toolNames = ["exec", "write_file", "git_status", "exec", "write_file", "exec", "write_file"];
+    const responses = toolNames.map((name) =>
+      toolCallResponse([{ name, arguments: name === "exec" ? { command: "echo work" } : { path: "/tmp/test" } }]),
+    );
+
+    const inference = new MockInferenceClient(responses);
+    const turns: AgentTurn[] = [];
+
+    await runAgentLoop({
+      identity,
+      config: limit5Config,
+      db,
+      conway,
+      inference,
+      onTurnComplete: (turn) => turns.push(turn),
+    });
+
+    // Should have stopped at the cycle limit of 5
+    expect(turns.length).toBeLessThanOrEqual(5);
+    expect(db.getAgentState()).toBe("sleeping");
+  });
+
   it("zero credits enters critical tier, not dead", async () => {
     conway.creditsCents = 0; // $0 -> critical tier (agent stays alive)
 

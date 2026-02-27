@@ -331,6 +331,7 @@ export function createTestConfig(
     version: "0.2.0",
     skillsDir: "/tmp/test-skills",
     maxChildren: 3,
+    maxTurnsPerCycle: 25,
     socialRelayUrl: "https://social.conway.tech",
     ...overrides,
   };
