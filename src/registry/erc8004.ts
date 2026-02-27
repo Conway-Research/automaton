@@ -503,14 +503,15 @@ async function estimateTotalByBinarySearch(
   };
 
   // Quick probe to find an upper bound
-  let upper = 1024;
+  // Quick probe to find an upper bound
+  let upper = 1;
   while (await exists(upper)) {
     upper *= 2;
     if (upper > 10_000_000) break; // safety cap
   }
 
-  // Binary search between upper/2 and upper
-  let lo = Math.floor(upper / 2);
+  // Binary search between 0 and upper
+  let lo = 0;
   let hi = upper;
   while (lo < hi) {
     const mid = Math.floor((lo + hi + 1) / 2);
