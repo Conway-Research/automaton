@@ -18,6 +18,20 @@ import type { ChildLifecycle } from "./lifecycle.js";
 import { ulid } from "ulid";
 import { propagateConstitution } from "./constitution.js";
 
+/** Valid Conway sandbox pricing tiers. */
+const SANDBOX_TIERS = [
+  { memoryMb: 512,  vcpu: 1, diskGb: 5 },
+  { memoryMb: 1024, vcpu: 1, diskGb: 10 },
+  { memoryMb: 2048, vcpu: 2, diskGb: 20 },
+  { memoryMb: 4096, vcpu: 2, diskGb: 40 },
+  { memoryMb: 8192, vcpu: 4, diskGb: 80 },
+];
+
+/** Find the smallest valid tier that has at least the requested memory. */
+function selectSandboxTier(requestedMemoryMb: number) {
+  return SANDBOX_TIERS.find((t) => t.memoryMb >= requestedMemoryMb) ?? SANDBOX_TIERS[0];
+}
+
 /**
  * Validate that an address is a well-formed, non-zero Ethereum wallet address.
  */
@@ -73,15 +87,17 @@ export async function spawnChild(
     // is still running remotely, before creating a new one.
     reusedSandbox = await findReusableSandbox(conway, db);
 
+    const tier = selectSandboxTier(childMemoryMb);
+
     let sandbox: { id: string };
     if (reusedSandbox) {
       sandbox = reusedSandbox;
     } else {
       sandbox = await conway.createSandbox({
         name: `automaton-child-${genesis.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`,
-        vcpu: 1,
-        memoryMb: childMemoryMb,
-        diskGb: 5,
+        vcpu: tier.vcpu,
+        memoryMb: tier.memoryMb,
+        diskGb: tier.diskGb,
       });
     }
     sandboxId = sandbox.id;
@@ -226,12 +242,14 @@ async function spawnChildLegacy(
   // Get child sandbox memory from config (default 1024MB)
   const childMemoryMb = (db as any).config?.childSandboxMemoryMb ?? 1024;
 
+  const legacyTier = selectSandboxTier(childMemoryMb);
+
   try {
     const sandbox = await conway.createSandbox({
       name: `automaton-child-${genesis.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`,
-      vcpu: 1,
-      memoryMb: childMemoryMb,
-      diskGb: 5,
+      vcpu: legacyTier.vcpu,
+      memoryMb: legacyTier.memoryMb,
+      diskGb: legacyTier.diskGb,
     });
     sandboxId = sandbox.id;
 
