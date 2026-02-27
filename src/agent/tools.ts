@@ -331,7 +331,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     },
     {
       name: "delete_sandbox",
-      description: "Delete a sandbox. Cannot delete your own sandbox.",
+      description: "Delete a sandbox. Note: sandbox deletion is currently disabled by the Conway API.",
       category: "conway",
       riskLevel: "dangerous",
       parameters: {
@@ -344,13 +344,8 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         },
         required: ["sandbox_id"],
       },
-      execute: async (args, ctx) => {
-        const targetId = args.sandbox_id as string;
-        if (targetId === ctx.identity.sandboxId) {
-          return "Blocked: Cannot delete your own sandbox. Self-preservation overrides this request.";
-        }
-        await ctx.conway.deleteSandbox(targetId);
-        return `Sandbox ${targetId} deleted`;
+      execute: async () => {
+        return "Sandbox deletion is disabled. Sandboxes are prepaid and non-refundable.";
       },
     },
     {

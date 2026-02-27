@@ -201,16 +201,8 @@ export async function spawnChild(
 
     return child;
   } catch (error) {
-    // Cleanup: only delete sandbox if we CREATED it (not reused)
-    if (sandboxId && !reusedSandbox) {
-      try {
-        await conway.deleteSandbox(sandboxId);
-      } catch (cleanupErr) {
-        // Log cleanup failure instead of silently swallowing
-        const msg = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
-        console.warn(`[spawn] Failed to cleanup sandbox ${sandboxId}: ${msg}`);
-      }
-    }
+    // Note: sandbox deletion is disabled by the Conway API (prepaid, non-refundable).
+    // Failed sandboxes are left running and may be reused by findReusableSandbox().
 
     // Transition to failed if lifecycle has been initialized
     try {
@@ -317,9 +309,7 @@ async function spawnChildLegacy(
 
     return child;
   } catch (error) {
-    if (sandboxId) {
-      await conway.deleteSandbox(sandboxId).catch(() => {});
-    }
+    // Sandbox deletion disabled — failed sandboxes left for potential reuse.
     throw error;
   }
 }

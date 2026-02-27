@@ -270,8 +270,9 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     };
   };
 
-  const deleteSandbox = async (targetId: string): Promise<void> => {
-    await request("DELETE", `/v1/sandboxes/${targetId}`);
+  const deleteSandbox = async (_targetId: string): Promise<void> => {
+    // Conway API no longer supports sandbox deletion.
+    // Sandboxes are prepaid and non-refundable — this is a no-op.
   };
 
   const listSandboxes = async (): Promise<SandboxInfo[]> => {

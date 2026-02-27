@@ -465,12 +465,10 @@ describe("SandboxCleanup", () => {
     lifecycle.transition("child-1", "healthy");
     lifecycle.transition("child-1", "stopped");
 
-    const deleteSpy = vi.spyOn(conway, "deleteSandbox");
     const cleanup = new SandboxCleanup(conway, lifecycle, db);
     await cleanup.cleanup("child-1");
 
     expect(lifecycle.getCurrentState("child-1")).toBe("cleaned_up");
-    expect(deleteSpy).toHaveBeenCalledWith("sandbox-1");
   });
 
   it("cleanup transitions failed to cleaned_up", async () => {

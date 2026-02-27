@@ -33,18 +33,12 @@ export class SandboxCleanup {
       .prepare("SELECT sandbox_id FROM children WHERE id = ?")
       .get(childId) as { sandbox_id: string } | undefined;
 
-    if (childRow?.sandbox_id) {
-      try {
-        await this.conway.deleteSandbox(childRow.sandbox_id);
-      } catch (error) {
-        logger.error(`Failed to destroy sandbox for ${childId}`, error instanceof Error ? error : undefined);
-        // Do not transition to cleaned_up if sandbox deletion failed;
-        // the sandbox is still running and consuming resources.
-        throw error;
-      }
-    }
-
-    this.lifecycle.transition(childId, "cleaned_up", "sandbox destroyed");
+    // Sandbox deletion is disabled by the Conway API (prepaid, non-refundable).
+    // Transition to cleaned_up so the child slot is freed for reuse.
+    const sandboxNote = childRow?.sandbox_id
+      ? `sandbox ${childRow.sandbox_id} released (deletion disabled)`
+      : "no sandbox to clean up";
+    this.lifecycle.transition(childId, "cleaned_up", sandboxNote);
   }
 
   /**

@@ -149,7 +149,7 @@ describe("spawnChild", () => {
       .rejects.toThrow("Child wallet address invalid");
   });
 
-  it("cleans up sandbox on exec failure", async () => {
+  it("propagates error on exec failure without calling deleteSandbox", async () => {
     const deleteSpy = vi.spyOn(conway, "deleteSandbox");
 
     // Make the first exec (apt-get install) fail
@@ -158,10 +158,11 @@ describe("spawnChild", () => {
     await expect(spawnChild(conway, identity, db, genesis))
       .rejects.toThrow();
 
-    expect(deleteSpy).toHaveBeenCalledWith("new-sandbox-id");
+    // Sandbox deletion is disabled — should not attempt cleanup
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it("cleans up sandbox when wallet validation fails", async () => {
+  it("propagates error on wallet validation failure without calling deleteSandbox", async () => {
     const deleteSpy = vi.spyOn(conway, "deleteSandbox");
 
     vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
@@ -174,7 +175,8 @@ describe("spawnChild", () => {
     await expect(spawnChild(conway, identity, db, genesis))
       .rejects.toThrow("Child wallet address invalid");
 
-    expect(deleteSpy).toHaveBeenCalledWith("new-sandbox-id");
+    // Sandbox deletion is disabled — should not attempt cleanup
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 
   it("does not mask original error if deleteSandbox also throws", async () => {
@@ -218,7 +220,7 @@ describe("SandboxCleanup", () => {
     vi.restoreAllMocks();
   });
 
-  it("does not transition to cleaned_up when sandbox deletion fails", async () => {
+  it("transitions to cleaned_up even though sandbox deletion is disabled", async () => {
     // Create a child and transition to stopped
     lifecycle.initChild("child-1", "test-child", "sandbox-1", "test prompt");
     lifecycle.transition("child-1", "sandbox_created", "created");
@@ -229,16 +231,12 @@ describe("SandboxCleanup", () => {
     lifecycle.transition("child-1", "healthy", "healthy");
     lifecycle.transition("child-1", "stopped", "stopped");
 
-    // Make deleteSandbox fail
-    vi.spyOn(conway, "deleteSandbox").mockRejectedValue(new Error("API unavailable"));
-
     const cleanup = new SandboxCleanup(conway, lifecycle, db.raw);
+    await cleanup.cleanup("child-1");
 
-    await expect(cleanup.cleanup("child-1")).rejects.toThrow("API unavailable");
-
-    // Child should still be in "stopped" state, NOT "cleaned_up"
+    // Sandbox deletion is disabled, but cleanup still transitions state
     const state = lifecycle.getCurrentState("child-1");
-    expect(state).toBe("stopped");
+    expect(state).toBe("cleaned_up");
   });
 
   it("transitions to cleaned_up when sandbox deletion succeeds", async () => {
