@@ -21,6 +21,10 @@ const INFERENCE_TIMEOUT_MS = 60_000;
 interface InferenceClientOptions {
   apiUrl: string;
   apiKey: string;
+  /** Base URL for a custom inference provider (e.g. https://api.z.ai/api/coding/paas/v4). When set, /chat/completions is appended and Bearer auth is used. */
+  inferenceBaseUrl?: string;
+  /** API key for the custom inference provider. Defaults to apiKey. */
+  inferenceApiKey?: string;
   defaultModel: string;
   maxTokens: number;
   lowComputeModel?: string;
@@ -36,7 +40,7 @@ type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama";
 export function createInferenceClient(
   options: InferenceClientOptions,
 ): InferenceClient {
-  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, getModelProvider } = options;
+  const { apiUrl, apiKey, inferenceBaseUrl, inferenceApiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, getModelProvider } = options;
   const httpClient = new ResilientHttpClient({
     baseTimeout: INFERENCE_TIMEOUT_MS,
     retryableStatuses: [429, 500, 502, 503, 504],
@@ -97,13 +101,16 @@ export function createInferenceClient(
       });
     }
 
+    const useCustomInference = backend === "conway" && !!inferenceBaseUrl;
     const openAiLikeApiUrl =
       backend === "openai" ? "https://api.openai.com" :
       backend === "ollama" ? (ollamaBaseUrl as string).replace(/\/$/, "") :
+      useCustomInference ? inferenceBaseUrl!.replace(/\/$/, "") :
       apiUrl;
     const openAiLikeApiKey =
       backend === "openai" ? (openaiApiKey as string) :
       backend === "ollama" ? "ollama" :
+      useCustomInference ? (inferenceApiKey || apiKey) :
       apiKey;
 
     return chatViaOpenAiCompatible({
@@ -112,6 +119,7 @@ export function createInferenceClient(
       apiUrl: openAiLikeApiUrl,
       apiKey: openAiLikeApiKey,
       backend,
+      useBearer: useCustomInference,
       httpClient,
     });
   };
@@ -193,14 +201,19 @@ async function chatViaOpenAiCompatible(params: {
   apiUrl: string;
   apiKey: string;
   backend: "conway" | "openai" | "ollama";
+  /** When true, the apiUrl already includes the version path — append /chat/completions only. */
+  useBearer?: boolean;
   httpClient: ResilientHttpClient;
 }): Promise<InferenceResponse> {
-  const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
+  const endpoint = params.useBearer
+    ? `${params.apiUrl}/chat/completions`
+    : `${params.apiUrl}/v1/chat/completions`;
+  const resp = await params.httpClient.request(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization:
-        params.backend === "openai" || params.backend === "ollama"
+        params.backend === "openai" || params.backend === "ollama" || params.useBearer
           ? `Bearer ${params.apiKey}`
           : params.apiKey,
     },

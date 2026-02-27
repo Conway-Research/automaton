@@ -268,6 +268,8 @@ async function run(): Promise<void> {
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
+    inferenceBaseUrl: config.inferenceBaseUrl,
+    inferenceApiKey: config.inferenceApiKey,
     defaultModel: config.inferenceModel,
     maxTokens: config.maxTokensPerTurn,
     lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",

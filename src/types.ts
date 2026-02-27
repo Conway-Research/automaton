@@ -40,6 +40,10 @@ export interface AutomatonConfig {
   sandboxId: string;
   conwayApiUrl: string;
   conwayApiKey: string;
+  /** Base URL for inference API (e.g. https://api.z.ai/api/coding/paas/v4). When set, inference calls use this instead of conwayApiUrl. */
+  inferenceBaseUrl?: string;
+  /** API key for inference provider. When set, used instead of conwayApiKey for inference calls. */
+  inferenceApiKey?: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
   ollamaBaseUrl?: string;
