@@ -105,7 +105,7 @@ export async function topupForSandbox(params: {
 
   // Pick smallest tier that covers the deficit (tier is in USD, deficit in cents)
   const selectedTier = TOPUP_TIERS.find((tier) => tier * 100 >= deficitCents)
-    ?? TOPUP_TIERS[0];
+    ?? TOPUP_TIERS[TOPUP_TIERS.length - 1];
 
   // Check USDC balance before attempting payment
   let usdcBalance: number;
