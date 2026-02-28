@@ -71,6 +71,7 @@ const logger = createLogger("loop");
 const MAX_TOOL_CALLS_PER_TURN = 10;
 const MAX_CONSECUTIVE_ERRORS = 5;
 const MAX_REPETITIVE_TURNS = 3;
+let localWorkerRecoveryDone = false;
 
 export interface AgentLoopOptions {
   identity: AutomatonIdentity;
@@ -347,6 +348,25 @@ export async function runAgentLoop(
       orchestrator = undefined;
       contextManager = undefined;
       compressionEngine = undefined;
+    }
+  }
+
+  // One-time per process: reset tasks assigned to local workers from a previous process.
+  // Local workers are in-process async tasks that die with the process,
+  // so any 'assigned' tasks with local:// addresses are stale after restart.
+  if (!localWorkerRecoveryDone) {
+    localWorkerRecoveryDone = true;
+    const staleLocalTasks = db.raw.prepare(
+      "SELECT id, assigned_to FROM task_graph WHERE status = 'assigned' AND assigned_to LIKE 'local://%'",
+    ).all() as { id: string; assigned_to: string }[];
+    for (const task of staleLocalTasks) {
+      logger.info("Resetting stale local worker task from previous process", {
+        taskId: task.id,
+        worker: task.assigned_to,
+      });
+      db.raw.prepare(
+        "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL WHERE id = ?",
+      ).run(task.id);
     }
   }
 

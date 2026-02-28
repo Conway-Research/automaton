@@ -522,6 +522,12 @@ export class Orchestrator {
       const assignedTasks = getTasksByGoal(this.params.db, goal.id)
         .filter((t) => t.status === "assigned" && t.assignedTo);
       for (const task of assignedTasks) {
+        // Local workers are in-process async tasks — they either complete
+        // (calling completeTask/failTask) or die with the process.
+        // Per-tick recovery only applies to remote sandbox workers.
+        if (task.assignedTo?.startsWith("local://")) {
+          continue;
+        }
         const alive = this.params.isWorkerAlive(task.assignedTo!);
         if (!alive) {
           logger.warn("Recovering stale task from dead worker", {
@@ -964,13 +970,26 @@ export class Orchestrator {
     }
 
     const phase = asPhase(parsed.phase);
-    return {
+    const state: OrchestratorState = {
       phase: phase ?? DEFAULT_STATE.phase,
       goalId: typeof parsed.goalId === "string" ? parsed.goalId : null,
       replanCount: typeof parsed.replanCount === "number" ? Math.max(0, Math.floor(parsed.replanCount)) : 0,
       failedTaskId: typeof parsed.failedTaskId === "string" ? parsed.failedTaskId : null,
       failedError: typeof parsed.failedError === "string" ? parsed.failedError : null,
     };
+
+    // Validate goalId still points to a goal the orchestrator should track.
+    // Reset only for user-initiated terminal states (completed, cancelled)
+    // or missing goals. "failed" goals are kept because the orchestrator's
+    // own replan/failure flow puts goals into "failed" status.
+    if (state.goalId) {
+      const goal = getGoalById(this.params.db, state.goalId);
+      if (!goal || ["completed", "cancelled"].includes(goal.status)) {
+        return { ...DEFAULT_STATE };
+      }
+    }
+
+    return state;
   }
 
   private saveState(state: OrchestratorState): void {
