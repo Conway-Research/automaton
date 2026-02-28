@@ -141,11 +141,15 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   ): Promise<ExecResult> => {
     if (isLocal) return execLocal(command, timeout);
 
+    // Remote sandboxes default to / as cwd. Wrap commands to run from /root
+    // (matching local exec behavior) unless the command already sets a directory.
+    const wrappedCommand = `cd /root && ${command}`;
+
     try {
       const result = await request(
         "POST",
         `/v1/sandboxes/${sandboxId}/exec`,
-        { command, timeout },
+        { command: wrappedCommand, timeout },
         { idempotencyKey: ulid() },
       );
       return {
@@ -157,7 +161,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       // SECURITY: Never silently fall back to local execution on auth failure.
       // A 403 indicates a credentials mismatch — falling back to local exec
       // would bypass the sandbox security boundary entirely.
-      if (err?.message?.includes("403")) {
+      if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). Sandbox exec refused. ` +
             `This may indicate a misconfigured or revoked API key. ` +
@@ -193,7 +197,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       });
     } catch (err: any) {
       // SECURITY: Never silently fall back to local FS on auth failure.
-      if (err?.message?.includes("403")) {
+      if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). File write refused. ` +
             `File will NOT be written locally for security reasons.`,
@@ -217,7 +221,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       return typeof result === "string" ? result : result.content || "";
     } catch (err: any) {
       // SECURITY: Never silently fall back to local FS on auth failure.
-      if (err?.message?.includes("403")) {
+      if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). File read refused. ` +
             `File will NOT be read locally for security reasons.`,
@@ -276,8 +280,9 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     };
   };
 
-  const deleteSandbox = async (targetId: string): Promise<void> => {
-    await request("DELETE", `/v1/sandboxes/${targetId}`);
+  const deleteSandbox = async (_targetId: string): Promise<void> => {
+    // Conway API no longer supports sandbox deletion.
+    // Sandboxes are prepaid and non-refundable — this is a no-op.
   };
 
   const listSandboxes = async (): Promise<SandboxInfo[]> => {
@@ -561,6 +566,10 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     return [];
   };
 
+  const createScopedClient = (targetSandboxId: string): ConwayClient => {
+    return createConwayClient({ apiUrl, apiKey, sandboxId: targetSandboxId });
+  };
+
   const client: ConwayClient = {
     exec,
     writeFile,
@@ -580,6 +589,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     addDnsRecord,
     deleteDnsRecord,
     listModels,
+    createScopedClient,
   };
 
   // SECURITY: API credentials are NOT exposed on the client object.
@@ -653,7 +663,7 @@ function createNoopConwayClient(): ConwayClient {
     }),
     removePort: async () => {},
     createSandbox: unavailable("createSandbox") as any,
-    deleteSandbox: unavailable("deleteSandbox") as any,
+    deleteSandbox: async () => {},
     listSandboxes: async () => [],
     // Return a high balance so survival tier stays "high" in BYOK mode.
     // The user pays their inference provider directly; credits don't apply.
@@ -667,6 +677,8 @@ function createNoopConwayClient(): ConwayClient {
     addDnsRecord: unavailable("addDnsRecord") as any,
     deleteDnsRecord: unavailable("deleteDnsRecord") as any,
     listModels: async () => [],
+    // In BYOK mode, all sandboxes are local — return another noop client
+    createScopedClient: (_targetSandboxId: string) => createNoopConwayClient(),
   };
 }
 

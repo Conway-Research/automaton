@@ -267,6 +267,17 @@ export async function runAgentLoop(
         messaging,
         inference: unifiedInference,
         identity,
+        isWorkerAlive: (address: string) => {
+          if (address.startsWith("local://")) {
+            return workerPool.hasWorker(address);
+          }
+          // Remote workers: check children table
+          const child = db.raw.prepare(
+            "SELECT status FROM children WHERE sandbox_id = ? OR address = ?",
+          ).get(address, address) as { status: string } | undefined;
+          if (!child) return false;
+          return !["failed", "dead", "cleaned_up"].includes(child.status);
+        },
         config: {
           ...config,
           spawnAgent: async (task: any) => {
@@ -332,6 +343,7 @@ export async function runAgentLoop(
   let consecutiveErrors = 0;
   let running = true;
   let lastToolPatterns: string[] = [];
+  let loopWarningPattern: string | null = null;
   let idleToolTurns = 0;
 
   // Drain any stale wake events from before this loop started,
@@ -371,6 +383,9 @@ export async function runAgentLoop(
 
   const MAX_IDLE_TURNS = 10; // Force sleep after N turns with no real work
   let idleTurnCount = 0;
+
+  const maxCycleTurns = config.maxTurnsPerCycle ?? 25;
+  let cycleTurnCount = 0;
 
   let pendingInput: { content: string; source: string } | undefined = {
     content: wakeupInput,
@@ -482,8 +497,9 @@ export async function runAgentLoop(
         "check_credits", "check_usdc_balance", "system_synopsis", "review_memory",
         "list_children", "check_child_status", "list_sandboxes", "list_models",
         "list_skills", "git_status", "git_log", "check_reputation",
-        "discover_agents", "recall_facts", "recall_procedure", "heartbeat_ping",
+        "recall_facts", "recall_procedure", "heartbeat_ping",
         "check_inference_spending",
+        "orchestrator_status", "list_goals", "get_plan",
       ]);
       const allTurns = db.getRecentTurns(20);
       const meaningfulTurns = allTurns.filter((t) => {
@@ -677,6 +693,32 @@ export async function runAgentLoop(
         // Memory failure must not block the agent loop
       }
 
+      // ── create_goal BLOCKED fast-break ──
+      // When a goal is already active, the parent loop has nothing useful to do.
+      // Force sleep immediately with exponential backoff so the agent doesn't
+      // wake every 2 minutes just to get BLOCKED again.
+      const blockedGoalCall = turn.toolCalls.find(
+        (tc) => tc.name === "create_goal" && tc.result?.includes("BLOCKED"),
+      );
+      if (blockedGoalCall) {
+        // Exponential backoff: 2min → 4min → 8min → cap at 10min
+        const prevBackoff = parseInt(db.getKV("blocked_goal_backoff") || "0", 10);
+        const backoffMs = Math.min(
+          prevBackoff > 0 ? prevBackoff * 2 : 120_000,
+          600_000,
+        );
+        db.setKV("blocked_goal_backoff", String(backoffMs));
+        log(config, `[LOOP] create_goal BLOCKED — sleeping ${Math.round(backoffMs / 1000)}s (backoff).`);
+        db.setKV("sleep_until", new Date(Date.now() + backoffMs).toISOString());
+        db.setAgentState("sleeping");
+        onStateChange?.("sleeping");
+        running = false;
+        break;
+      } else if (turn.toolCalls.some((tc) => tc.name === "create_goal" && !tc.error)) {
+        // Goal was successfully created — reset backoff
+        db.deleteKV("blocked_goal_backoff");
+      }
+
       // ── Loop Detection ──
       if (turn.toolCalls.length > 0) {
         const currentPattern = turn.toolCalls
@@ -688,6 +730,34 @@ export async function runAgentLoop(
         // Keep only the last MAX_REPETITIVE_TURNS entries
         if (lastToolPatterns.length > MAX_REPETITIVE_TURNS) {
           lastToolPatterns = lastToolPatterns.slice(-MAX_REPETITIVE_TURNS);
+        }
+
+        // Reset enforcement tracker if agent changed behavior
+        if (loopWarningPattern && currentPattern !== loopWarningPattern) {
+          loopWarningPattern = null;
+        }
+
+        // ── Loop Enforcement Escalation ──
+        // If we already warned about this pattern and the agent STILL repeats, force sleep.
+        if (
+          loopWarningPattern &&
+          currentPattern === loopWarningPattern &&
+          lastToolPatterns.length === MAX_REPETITIVE_TURNS &&
+          lastToolPatterns.every((p) => p === currentPattern)
+        ) {
+          log(config, `[LOOP] Enforcement: agent ignored loop warning, forcing sleep.`);
+          pendingInput = {
+            content:
+              `LOOP ENFORCEMENT: You were warned about repeating "${currentPattern}" but continued. ` +
+              `Forcing sleep to prevent credit waste. On next wake, try a DIFFERENT approach.`,
+            source: "system",
+          };
+          loopWarningPattern = null;
+          lastToolPatterns = [];
+          db.setAgentState("sleeping");
+          onStateChange?.("sleeping");
+          running = false;
+          break;
         }
 
         // Check if the same pattern repeated MAX_REPETITIVE_TURNS times
@@ -703,6 +773,7 @@ export async function runAgentLoop(
               `Pick ONE concrete task from your genesis prompt and execute it.`,
             source: "system",
           };
+          loopWarningPattern = currentPattern;
           lastToolPatterns = [];
         }
 
@@ -775,6 +846,20 @@ export async function runAgentLoop(
         }
       } else {
         idleTurnCount = 0;
+      }
+
+      // ── Cycle turn limit ──
+      // Hard ceiling on turns per wake cycle, regardless of tool type.
+      // Prevents runaway loops where mutating tools (exec, write_file)
+      // defeat idle detection indefinitely.
+      cycleTurnCount++;
+      if (running && cycleTurnCount >= maxCycleTurns) {
+        log(config, `[CYCLE LIMIT] ${cycleTurnCount} turns reached (max: ${maxCycleTurns}). Forcing sleep.`);
+        db.setKV("sleep_until", new Date(Date.now() + 120_000).toISOString());
+        db.setAgentState("sleeping");
+        onStateChange?.("sleeping");
+        running = false;
+        break;
       }
 
       // ── If no tool calls and just text, the agent might be done thinking ──

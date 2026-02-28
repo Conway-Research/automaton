@@ -144,7 +144,7 @@ export function createConfig(params: {
     dbPath: DEFAULT_CONFIG.dbPath || "~/.automaton/state.db",
     logLevel: (DEFAULT_CONFIG.logLevel as AutomatonConfig["logLevel"]) || "info",
     walletAddress: params.walletAddress,
-    version: DEFAULT_CONFIG.version || "0.2.0",
+    version: DEFAULT_CONFIG.version || "0.2.1",
     skillsDir: DEFAULT_CONFIG.skillsDir || "~/.automaton/skills",
     maxChildren: DEFAULT_CONFIG.maxChildren || 3,
     parentAddress: params.parentAddress,

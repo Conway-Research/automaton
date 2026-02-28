@@ -199,11 +199,19 @@ export class MockConwayClient implements ConwayClient {
 
   async deleteDnsRecord(_domain: string, _recordId: string): Promise<void> {}
 
+  async registerAutomaton(_params: any): Promise<{ automaton: Record<string, unknown> }> {
+    return { automaton: {} };
+  }
+
   async listModels(): Promise<ModelInfo[]> {
     return [
       { id: "gpt-4.1-nano", provider: "openai", pricing: { inputPerMillion: 0.10, outputPerMillion: 0.40 } },
       { id: "gpt-4.1", provider: "openai", pricing: { inputPerMillion: 2.00, outputPerMillion: 8.00 } },
     ];
+  }
+
+  createScopedClient(_targetSandboxId: string): ConwayClient {
+    return new MockConwayClient();
   }
 }
 
@@ -328,9 +336,10 @@ export function createTestConfig(
     dbPath: "/tmp/test-state.db",
     logLevel: "error",
     walletAddress: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
-    version: "0.2.0",
+    version: "0.2.1",
     skillsDir: "/tmp/test-skills",
     maxChildren: 3,
+    maxTurnsPerCycle: 25,
     socialRelayUrl: "https://social.conway.tech",
     ...overrides,
   };

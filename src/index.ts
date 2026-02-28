@@ -35,7 +35,7 @@ import { randomUUID } from "crypto";
 import { keccak256, toHex } from "viem";
 
 const logger = createLogger("main");
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

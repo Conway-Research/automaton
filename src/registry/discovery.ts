@@ -15,6 +15,7 @@ import type {
 } from "../types.js";
 import { DEFAULT_DISCOVERY_CONFIG } from "../types.js";
 import { queryAgent, getTotalAgents, getRegisteredAgentsByEvents } from "./erc8004.js";
+import { keccak256, toBytes } from "viem";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("registry.discovery");
 
@@ -158,7 +159,6 @@ function setCachedCard(
     const now = new Date().toISOString();
     const validUntil = new Date(Date.now() + ttlMs).toISOString();
     const cardJson = JSON.stringify(card);
-    const { keccak256, toBytes } = require("viem");
     const cardHash = keccak256(toBytes(cardJson));
 
     db.prepare(

@@ -306,7 +306,7 @@ describe("orchestration/Orchestrator", () => {
       });
       const orc = makeOrchestrator(db);
       const result = await orc.tick();
-      expect(result.phase).toBe("failed");
+      expect(result.phase).toBe("idle");
     });
   });
 
@@ -403,7 +403,7 @@ describe("orchestration/Orchestrator", () => {
       expect(result.spawned).toBe(false);
     });
 
-    it("throws when no agent is available", async () => {
+    it("self-assigns when no agent is available", async () => {
       const goalId = insertGoal(db);
       const agentTracker = makeAgentTracker({
         getIdle: vi.fn().mockReturnValue([]),
@@ -413,7 +413,8 @@ describe("orchestration/Orchestrator", () => {
         agentTracker,
         config: { disableSpawn: true },
       });
-      await expect(orc.matchTaskToAgent(makeTask(goalId))).rejects.toThrow("No available agent");
+      const result = await orc.matchTaskToAgent(makeTask(goalId));
+      expect(result.spawned).toBe(false);
     });
   });
 

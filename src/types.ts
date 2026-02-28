@@ -57,6 +57,9 @@ export interface AutomatonConfig {
   skillsDir: string;
   agentId?: string;
   maxChildren: number;
+  maxTurnsPerCycle?: number;
+  /** Child sandbox memory in MB, default 1024 */
+  childSandboxMemoryMb?: number;
   parentAddress?: Address;
   socialRelayUrl?: string;
   treasuryPolicy?: TreasuryPolicy;
@@ -72,9 +75,11 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   heartbeatConfigPath: "~/.automaton/heartbeat.yml",
   dbPath: "~/.automaton/state.db",
   logLevel: "info",
-  version: "0.2.0",
+  version: "0.2.1",
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
+  maxTurnsPerCycle: 25,
+  childSandboxMemoryMb: 1024,
   socialRelayUrl: "https://social.conway.tech",
 };
 
@@ -266,7 +271,9 @@ export type ModificationType =
   | "soul_update"
   | "registry_update"
   | "child_spawn"
-  | "upstream_pull";
+  | "upstream_pull"
+  | "code_revert"
+  | "upstream_reset";
 
 // ─── Injection Defense ───────────────────────────────────────────
 
@@ -378,6 +385,8 @@ export interface ConwayClient {
   deleteDnsRecord(domain: string, recordId: string): Promise<void>;
   // Model discovery
   listModels(): Promise<ModelInfo[]>;
+  /** Create a new client scoped to a specific sandbox ID. */
+  createScopedClient(targetSandboxId: string): ConwayClient;
 }
 
 export interface ExecResult {

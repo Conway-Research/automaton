@@ -82,19 +82,20 @@ export class SemanticMemoryManager {
    */
   search(query: string, category?: SemanticCategory): SemanticMemoryEntry[] {
     try {
+      const escaped = query.replace(/[%_]/g, (ch) => `\\${ch}`);
       if (category) {
         const rows = this.db.prepare(
           `SELECT * FROM semantic_memory
-           WHERE category = ? AND (key LIKE ? OR value LIKE ?)
+           WHERE category = ? AND (key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\')
            ORDER BY confidence DESC, updated_at DESC`,
-        ).all(category, `%${query}%`, `%${query}%`) as any[];
+        ).all(category, `%${escaped}%`, `%${escaped}%`) as any[];
         return rows.map(deserializeSemantic);
       }
       const rows = this.db.prepare(
         `SELECT * FROM semantic_memory
-         WHERE key LIKE ? OR value LIKE ?
+         WHERE key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\'
          ORDER BY confidence DESC, updated_at DESC`,
-      ).all(`%${query}%`, `%${query}%`) as any[];
+      ).all(`%${escaped}%`, `%${escaped}%`) as any[];
       return rows.map(deserializeSemantic);
     } catch (error) {
       logger.error("Failed to search", error instanceof Error ? error : undefined);
