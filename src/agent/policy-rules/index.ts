@@ -13,6 +13,7 @@ import { createPathProtectionRules } from "./path-protection.js";
 import { createFinancialRules } from "./financial.js";
 import { createAuthorityRules } from "./authority.js";
 import { createRateLimitRules } from "./rate-limits.js";
+import { createPlimsollGuardRules } from "./plimsoll-guard.js";
 
 /**
  * Create the default set of policy rules.
@@ -25,6 +26,7 @@ export function createDefaultRules(
     ...createValidationRules(),
     ...createCommandSafetyRules(),
     ...createPathProtectionRules(),
+    ...createPlimsollGuardRules(),
     ...createFinancialRules(treasuryPolicy),
     ...createAuthorityRules(),
     ...createRateLimitRules(),
