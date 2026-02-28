@@ -36,6 +36,8 @@ For automated sandbox provisioning:
 curl -fsSL https://conway.tech/automaton.sh | sh
 ```
 
+Note: Conway Cloud, Domains, and Inference has seen immense demand. We are working on scaling & perfomance.
+
 ## How It Works
 
 Every automaton runs a continuous loop: **Think → Act → Observe → Repeat.**
