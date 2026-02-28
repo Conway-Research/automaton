@@ -555,8 +555,8 @@ export async function getRegisteredAgentsByEvents(
     // Paginate backward in ≤10K-block chunks (newest-first).
     // Base public RPC enforces a 10,000-block limit on eth_getLogs.
     const MAX_BLOCK_RANGE = 10_000n;
-    const MAX_CONSECUTIVE_FAILURES = 2;
-    const PER_CHUNK_TIMEOUT_MS = 3_000;
+    const MAX_CONSECUTIVE_FAILURES = 5;
+    const PER_CHUNK_TIMEOUT_MS = 8_000;
     const allLogs: { args: { tokenId?: bigint; to?: string; from?: string } }[] = [];
     let scanTo = currentBlock;
     let consecutiveFailures = 0;
