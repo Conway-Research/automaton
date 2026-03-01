@@ -10,6 +10,7 @@ import pathLib from "path";
 import { createHash } from "crypto";
 import type { Database as DatabaseType } from "better-sqlite3";
 import type { ConwayClient } from "../types.js";
+import type { ComputeProvider, SshCredential } from "../providers/types.js";
 
 /**
  * Compute SHA-256 hash of content.
@@ -50,6 +51,40 @@ export async function propagateConstitution(
   // chmod 444 as defense-in-depth (not primary verification mechanism)
   try {
     await conway.exec("chmod 444 /root/.automaton/constitution.md", 5000);
+  } catch {
+    // Non-critical
+  }
+}
+
+/**
+ * Propagate the local constitution to a child VPS via SSH.
+ * Sovereign alternative to propagateConstitution.
+ */
+export async function propagateConstitutionSsh(
+  compute: ComputeProvider,
+  ip: string,
+  credential: SshCredential,
+  instanceId: string,
+  db: DatabaseType,
+): Promise<void> {
+  const constitutionPath = pathLib.join(
+    process.env.HOME || "/root",
+    ".automaton",
+    "constitution.md",
+  );
+
+  const constitution = fs.readFileSync(constitutionPath, "utf-8");
+  const hash = sha256(constitution);
+
+  await compute.sshWriteFile(ip, credential, "/root/.automaton/constitution.md", constitution);
+  await compute.sshWriteFile(ip, credential, "/root/.automaton/constitution.sha256", hash);
+
+  db.prepare(
+    "INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+  ).run(`constitution_hash:${instanceId}`, hash);
+
+  try {
+    await compute.sshExec(ip, credential, "chmod 444 /root/.automaton/constitution.md", 5000);
   } catch {
     // Non-critical
   }

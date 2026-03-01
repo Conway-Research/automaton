@@ -366,7 +366,12 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       const { ChildLifecycle } = await import("../replication/lifecycle.js");
       const { ChildHealthMonitor } = await import("../replication/health.js");
       const lifecycle = new ChildLifecycle(taskCtx.db.raw);
-      const monitor = new ChildHealthMonitor(taskCtx.db.raw, taskCtx.conway, lifecycle);
+      let compute;
+      if (taskCtx.config.useSovereignProviders && taskCtx.config.vultrApiKey) {
+        const { createVultrProvider } = await import("../providers/vultr.js");
+        compute = createVultrProvider(taskCtx.config.vultrApiKey);
+      }
+      const monitor = new ChildHealthMonitor(taskCtx.db.raw, taskCtx.conway, lifecycle, undefined, compute);
       const results = await monitor.checkAllChildren();
 
       const unhealthy = results.filter((r) => !r.healthy);
@@ -392,7 +397,12 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       const { SandboxCleanup } = await import("../replication/cleanup.js");
       const { pruneDeadChildren } = await import("../replication/lineage.js");
       const lifecycle = new ChildLifecycle(taskCtx.db.raw);
-      const cleanup = new SandboxCleanup(taskCtx.conway, lifecycle, taskCtx.db.raw);
+      let compute;
+      if (taskCtx.config.useSovereignProviders && taskCtx.config.vultrApiKey) {
+        const { createVultrProvider } = await import("../providers/vultr.js");
+        compute = createVultrProvider(taskCtx.config.vultrApiKey);
+      }
+      const cleanup = new SandboxCleanup(taskCtx.conway, lifecycle, taskCtx.db.raw, compute);
       const pruned = await pruneDeadChildren(taskCtx.db, cleanup);
       if (pruned > 0) {
         logger.info(`Pruned ${pruned} dead children`);
@@ -694,7 +704,12 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       const { pruneDeadChildren } = await import("../replication/lineage.js");
 
       const lifecycle = new ChildLifecycle(taskCtx.db.raw);
-      const cleanup = new SandboxCleanup(taskCtx.conway, lifecycle, taskCtx.db.raw);
+      let compute;
+      if (taskCtx.config.useSovereignProviders && taskCtx.config.vultrApiKey) {
+        const { createVultrProvider } = await import("../providers/vultr.js");
+        compute = createVultrProvider(taskCtx.config.vultrApiKey);
+      }
+      const cleanup = new SandboxCleanup(taskCtx.conway, lifecycle, taskCtx.db.raw, compute);
       const cleaned = await pruneDeadChildren(taskCtx.db, cleanup);
 
       taskCtx.db.setKV("last_dead_agent_cleanup", JSON.stringify({

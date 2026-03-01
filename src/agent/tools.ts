@@ -345,9 +345,76 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
     },
     {
+      name: "create_instance",
+      description: "Create a new VPS instance (Vultr) for sub-tasks or testing.",
+      category: "conway",
+      riskLevel: "caution",
+      parameters: {
+        type: "object",
+        properties: {
+          label: { type: "string", description: "Instance label" },
+          region: { type: "string", description: "Region code (default: ewr)" },
+          plan: { type: "string", description: "Plan ID (default: vc2-1c-1gb)" },
+        },
+      },
+      execute: async (args, ctx) => {
+        if (!ctx.config.useSovereignProviders || !ctx.config.vultrApiKey) {
+          return "Blocked: create_instance requires sovereign mode with vultrApiKey configured.";
+        }
+        const { createVultrProvider } = await import("../providers/vultr.js");
+        const vultr = createVultrProvider(ctx.config.vultrApiKey);
+        const instance = await vultr.createInstance({
+          label: args.label as string | undefined,
+          region: args.region as string | undefined,
+          plan: args.plan as string | undefined,
+        });
+        return `Instance created: ${instance.id} [${instance.status}] ${instance.region} (IP: ${instance.mainIp})`;
+      },
+    },
+    {
+      name: "destroy_instance",
+      description: "Destroy a VPS instance. This is irreversible.",
+      category: "conway",
+      riskLevel: "dangerous",
+      parameters: {
+        type: "object",
+        properties: {
+          instance_id: { type: "string", description: "Instance ID to destroy" },
+        },
+        required: ["instance_id"],
+      },
+      execute: async (args, ctx) => {
+        if (!ctx.config.useSovereignProviders || !ctx.config.vultrApiKey) {
+          return "Blocked: destroy_instance requires sovereign mode with vultrApiKey configured.";
+        }
+        const { createVultrProvider } = await import("../providers/vultr.js");
+        const vultr = createVultrProvider(ctx.config.vultrApiKey);
+        await vultr.destroyInstance(args.instance_id as string);
+        return `Instance ${args.instance_id} destroyed.`;
+      },
+    },
+    {
+      name: "list_instances",
+      description: "List all VPS instances.",
+      category: "conway",
+      riskLevel: "safe",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        if (!ctx.config.useSovereignProviders || !ctx.config.vultrApiKey) {
+          return "Blocked: list_instances requires sovereign mode with vultrApiKey configured.";
+        }
+        const { createVultrProvider } = await import("../providers/vultr.js");
+        const vultr = createVultrProvider(ctx.config.vultrApiKey);
+        const instances = await vultr.listInstances();
+        if (instances.length === 0) return "No instances found.";
+        return instances
+          .map((i) => `${i.id} [${i.status}] ${i.label} ${i.vcpu}vCPU/${i.ram}MB ${i.region} IP:${i.mainIp}`)
+          .join("\n");
+      },
+    },
+    {
       name: "create_sandbox",
-      description:
-        "Create a new Conway sandbox (separate VM) for sub-tasks or testing.",
+      description: "[DEPRECATED: use create_instance] Create a Conway sandbox.",
       category: "conway",
       riskLevel: "caution",
       parameters: {
@@ -355,17 +422,14 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         properties: {
           name: { type: "string", description: "Sandbox name" },
           vcpu: { type: "number", description: "vCPUs (default: 1)" },
-          memory_mb: {
-            type: "number",
-            description: "Memory in MB (default: 512)",
-          },
-          disk_gb: {
-            type: "number",
-            description: "Disk in GB (default: 5)",
-          },
+          memory_mb: { type: "number", description: "Memory in MB (default: 512)" },
+          disk_gb: { type: "number", description: "Disk in GB (default: 5)" },
         },
       },
       execute: async (args, ctx) => {
+        if (ctx.config.useSovereignProviders) {
+          return "DEPRECATED: Use create_instance instead. create_sandbox is a Conway legacy tool.";
+        }
         const info = await ctx.conway.createSandbox({
           name: args.name as string,
           vcpu: args.vcpu as number,
@@ -377,30 +441,33 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     },
     {
       name: "delete_sandbox",
-      description: "Delete a sandbox. Note: sandbox deletion is currently disabled by the Conway API.",
+      description: "[DEPRECATED: use destroy_instance] Delete a Conway sandbox.",
       category: "conway",
       riskLevel: "dangerous",
       parameters: {
         type: "object",
         properties: {
-          sandbox_id: {
-            type: "string",
-            description: "ID of sandbox to delete",
-          },
+          sandbox_id: { type: "string", description: "ID of sandbox to delete" },
         },
         required: ["sandbox_id"],
       },
-      execute: async () => {
+      execute: async (_args, ctx) => {
+        if (ctx.config.useSovereignProviders) {
+          return "DEPRECATED: Use destroy_instance instead.";
+        }
         return "Sandbox deletion is disabled. Sandboxes are prepaid and non-refundable.";
       },
     },
     {
       name: "list_sandboxes",
-      description: "List all your sandboxes.",
+      description: "[DEPRECATED: use list_instances] List Conway sandboxes.",
       category: "conway",
       riskLevel: "safe",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
+        if (ctx.config.useSovereignProviders) {
+          return "DEPRECATED: Use list_instances instead.";
+        }
         const sandboxes = await ctx.conway.listSandboxes();
         if (sandboxes.length === 0) return "No sandboxes found.";
         return sandboxes
@@ -1448,7 +1515,7 @@ Model: ${ctx.inference.getDefaultModel()}
     // === Phase 3.1: Replication Tools ===
     {
       name: "spawn_child",
-      description: "Spawn a child automaton in a new Conway sandbox with lifecycle tracking.",
+      description: "Spawn a child automaton in a new compute instance with lifecycle tracking. Uses Vultr VPS in sovereign mode.",
       category: "replication",
       riskLevel: "dangerous",
       parameters: {
@@ -1465,7 +1532,6 @@ Model: ${ctx.inference.getDefaultModel()}
         const { spawnChild } = await import("../replication/spawn.js");
         const { ChildLifecycle } = await import("../replication/lifecycle.js");
 
-        // Validate genesis params first
         validateGenesisParams({
           name: args.name as string,
           specialization: args.specialization as string | undefined,
@@ -1479,8 +1545,15 @@ Model: ${ctx.inference.getDefaultModel()}
         });
 
         const lifecycle = new ChildLifecycle(ctx.db.raw);
-        const child = await spawnChild(ctx.conway, ctx.identity, ctx.db, genesis, lifecycle);
-        return `Child spawned: ${child.name} in sandbox ${child.sandboxId} (status: ${child.status})`;
+        let compute;
+        if (ctx.config.useSovereignProviders && ctx.config.vultrApiKey) {
+          const { createVultrProvider } = await import("../providers/vultr.js");
+          compute = createVultrProvider(ctx.config.vultrApiKey);
+        }
+
+        const child = await spawnChild(ctx.conway, ctx.identity, ctx.db, genesis, lifecycle, compute);
+        const resourceType = compute ? "instance" : "sandbox";
+        return `Child spawned: ${child.name} in ${resourceType} ${child.sandboxId} (status: ${child.status})`;
       },
     },
     {
@@ -1651,7 +1724,12 @@ Model: ${ctx.inference.getDefaultModel()}
         const { ChildLifecycle } = await import("../replication/lifecycle.js");
         const { ChildHealthMonitor } = await import("../replication/health.js");
         const lifecycle = new ChildLifecycle(ctx.db.raw);
-        const monitor = new ChildHealthMonitor(ctx.db.raw, ctx.conway, lifecycle);
+        let compute;
+        if (ctx.config.useSovereignProviders && ctx.config.vultrApiKey) {
+          const { createVultrProvider } = await import("../providers/vultr.js");
+          compute = createVultrProvider(ctx.config.vultrApiKey);
+        }
+        const monitor = new ChildHealthMonitor(ctx.db.raw, ctx.conway, lifecycle, undefined, compute);
         const result = await monitor.checkHealth(args.child_id as string);
         return JSON.stringify(result, null, 2);
       },
@@ -1757,7 +1835,12 @@ Model: ${ctx.inference.getDefaultModel()}
         const { pruneDeadChildren } = await import("../replication/lineage.js");
 
         const lifecycle = new ChildLifecycle(ctx.db.raw);
-        const cleanup = new SandboxCleanup(ctx.conway, lifecycle, ctx.db.raw);
+        let compute;
+        if (ctx.config.useSovereignProviders && ctx.config.vultrApiKey) {
+          const { createVultrProvider } = await import("../providers/vultr.js");
+          compute = createVultrProvider(ctx.config.vultrApiKey);
+        }
+        const cleanup = new SandboxCleanup(ctx.conway, lifecycle, ctx.db.raw, compute);
         const pruned = await pruneDeadChildren(ctx.db, cleanup, (args.keep_last as number) || 5);
         return `Pruned ${pruned} dead children.`;
       },

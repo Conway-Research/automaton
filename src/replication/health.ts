@@ -10,19 +10,23 @@ import type { Database as DatabaseType } from "better-sqlite3";
 import type { ConwayClient, HealthCheckResult, ChildHealthConfig } from "../types.js";
 import { DEFAULT_CHILD_HEALTH_CONFIG } from "../types.js";
 import type { ChildLifecycle } from "./lifecycle.js";
+import type { ComputeProvider, SshCredential } from "../providers/types.js";
 
 export { DEFAULT_CHILD_HEALTH_CONFIG };
 
 export class ChildHealthMonitor {
   private config: ChildHealthConfig;
+  private compute?: ComputeProvider;
 
   constructor(
     private db: DatabaseType,
     private conway: ConwayClient,
     private lifecycle: ChildLifecycle,
     config?: Partial<ChildHealthConfig>,
+    compute?: ComputeProvider,
   ) {
     this.config = { ...DEFAULT_CHILD_HEALTH_CONFIG, ...config };
+    this.compute = compute;
   }
 
   /**
@@ -36,7 +40,6 @@ export class ChildHealthMonitor {
     let creditBalance: number | null = null;
 
     try {
-      // Look up child sandbox
       const childRow = this.db
         .prepare("SELECT sandbox_id FROM children WHERE id = ?")
         .get(childId) as { sandbox_id: string } | undefined;
@@ -45,15 +48,25 @@ export class ChildHealthMonitor {
         return { childId, healthy: false, lastSeen: null, uptime: null, creditBalance: null, issues: ["child not found"] };
       }
 
-      // Execute status check in sandbox
-      const result = await this.conway.exec(
-        `curl -sf http://localhost:3000/health 2>/dev/null || echo '{"status":"offline"}'`,
-        10_000,
-      );
+      const healthCommand = `curl -sf http://localhost:3000/health 2>/dev/null || echo '{"status":"offline"}'`;
+      let stdout: string;
 
-      // Parse JSON status output (not string matching)
+      if (this.compute) {
+        // Sovereign mode: SSH health check via Vultr
+        const instance = await this.compute.getInstanceStatus(childRow.sandbox_id);
+        const credential: SshCredential = instance.defaultPassword
+          ? { type: "password", password: instance.defaultPassword }
+          : { type: "key" };
+        const result = await this.compute.sshExec(instance.mainIp, credential, healthCommand, 10_000);
+        stdout = result.stdout;
+      } else {
+        // Legacy mode: exec in Conway sandbox
+        const result = await this.conway.exec(healthCommand, 10_000);
+        stdout = result.stdout;
+      }
+
       try {
-        const status = JSON.parse(result.stdout.trim());
+        const status = JSON.parse(stdout.trim());
         if (status.status === "healthy" || status.status === "running") {
           healthy = true;
           lastSeen = new Date().toISOString();
@@ -70,7 +83,6 @@ export class ChildHealthMonitor {
       issues.push(`health check error: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    // Update last_checked timestamp
     try {
       this.db.prepare("UPDATE children SET last_checked = datetime('now') WHERE id = ?").run(childId);
     } catch {
