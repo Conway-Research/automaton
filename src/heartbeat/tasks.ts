@@ -14,6 +14,7 @@ import type {
   HeartbeatLegacyContext,
   HeartbeatTaskFn,
   SurvivalTier,
+  CreatorTaxConfig,
 } from "../types.js";
 import type { HealthMonitor as ColonyHealthMonitor } from "../orchestration/health-monitor.js";
 import { sanitizeInput } from "../agent/injection-defense.js";
@@ -700,6 +701,99 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     } catch (error) {
       logger.error("dead_agent_cleanup failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  // ─── Creator Tax ────────────────────────────────────────────────
+  // Automatically transfers a percentage of credits above a threshold
+  // back to the creator's wallet at configurable milestones.
+  creator_tax_check: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    const TAX_DEFAULTS: CreatorTaxConfig = {
+      enabled: true,
+      taxRate: 20,
+      thresholdCents: 1000,      // $10.00
+      minTransferCents: 100,     // $1.00
+      cooldownMs: 3_600_000,     // 1 hour
+    };
+
+    const taxConfig: CreatorTaxConfig = {
+      ...TAX_DEFAULTS,
+      ...(taskCtx.config.creatorTax || {}),
+    };
+
+    if (!taxConfig.enabled) {
+      return { shouldWake: false };
+    }
+
+    // Cooldown check — don't spam transfers
+    const lastTransferStr = taskCtx.db.getKV("creator_tax_last_transfer");
+    if (lastTransferStr) {
+      const lastTransferMs = Date.parse(lastTransferStr);
+      if (!Number.isNaN(lastTransferMs) && Date.now() - lastTransferMs < taxConfig.cooldownMs) {
+        return { shouldWake: false };
+      }
+    }
+
+    const creditsCents = ctx.creditBalance;
+    const surplus = creditsCents - taxConfig.thresholdCents;
+
+    if (surplus <= 0) {
+      logger.debug(`creator_tax: balance ${creditsCents}¢ below threshold ${taxConfig.thresholdCents}¢, skipping`);
+      return { shouldWake: false };
+    }
+
+    const taxAmount = Math.floor(surplus * (taxConfig.taxRate / 100));
+
+    if (taxAmount < taxConfig.minTransferCents) {
+      logger.debug(`creator_tax: tax amount ${taxAmount}¢ below minimum ${taxConfig.minTransferCents}¢, skipping`);
+      return { shouldWake: false };
+    }
+
+    const creatorAddress = taskCtx.config.creatorAddress;
+    if (!creatorAddress) {
+      logger.warn("creator_tax: no creatorAddress configured, skipping");
+      return { shouldWake: false };
+    }
+
+    try {
+      logger.info(
+        `creator_tax: transferring ${taxAmount}¢ ($${(taxAmount / 100).toFixed(2)}) to creator ${creatorAddress} ` +
+        `(balance: ${creditsCents}¢, threshold: ${taxConfig.thresholdCents}¢, rate: ${taxConfig.taxRate}%)`,
+      );
+
+      await taskCtx.conway.transferCredits(
+        creatorAddress,
+        taxAmount,
+        `Creator tax: ${taxConfig.taxRate}% of ${surplus}¢ surplus above $${(taxConfig.thresholdCents / 100).toFixed(2)} threshold`,
+      );
+
+      // Record the transfer
+      taskCtx.db.setKV("creator_tax_last_transfer", new Date().toISOString());
+
+      const historyStr = taskCtx.db.getKV("creator_tax_history") || "[]";
+      const history: Array<{ timestamp: string; amountCents: number; balanceBefore: number }> =
+        JSON.parse(historyStr);
+      history.push({
+        timestamp: new Date().toISOString(),
+        amountCents: taxAmount,
+        balanceBefore: creditsCents,
+      });
+      // Keep last 100 records
+      if (history.length > 100) history.splice(0, history.length - 100);
+      taskCtx.db.setKV("creator_tax_history", JSON.stringify(history));
+
+      logger.info(
+        `creator_tax: SUCCESS — transferred $${(taxAmount / 100).toFixed(2)} to ${creatorAddress}. ` +
+        `Remaining balance: ~$${((creditsCents - taxAmount) / 100).toFixed(2)}`,
+      );
+
+      return {
+        shouldWake: false,
+        message: `Creator tax: transferred $${(taxAmount / 100).toFixed(2)} to ${creatorAddress}`,
+      };
+    } catch (error) {
+      logger.error("creator_tax: transfer failed", error instanceof Error ? error : undefined);
       return { shouldWake: false };
     }
   },

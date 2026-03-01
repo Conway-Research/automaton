@@ -62,6 +62,21 @@ export interface AutomatonConfig {
   // Phase 2 config additions
   soulConfig?: SoulConfig;
   modelStrategy?: ModelStrategyConfig;
+  /** Creator tax: auto-transfer a % of credits to creator at milestones */
+  creatorTax?: CreatorTaxConfig;
+}
+
+export interface CreatorTaxConfig {
+  /** Whether creator tax is enabled (default: false) */
+  enabled: boolean;
+  /** Percentage of credits above threshold to transfer (0-100, default: 20) */
+  taxRate: number;
+  /** Credit balance in cents that must be exceeded before tax applies (default: 1000 = $10) */
+  thresholdCents: number;
+  /** Minimum transfer amount in cents to avoid tiny transfers (default: 100 = $1) */
+  minTransferCents: number;
+  /** Cooldown between tax transfers in ms (default: 3600000 = 1 hour) */
+  cooldownMs: number;
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {

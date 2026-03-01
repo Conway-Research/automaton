@@ -6,6 +6,7 @@
  */
 
 import { ulid } from "ulid";
+import { spawn, type ChildProcess } from "child_process";
 import type {
   AutomatonTool,
   ToolContext,
@@ -23,6 +24,59 @@ import { sanitizeToolResult, sanitizeInput } from "./injection-defense.js";
 import { createLogger } from "../observability/logger.js";
 
 const logger = createLogger("tools");
+
+// ─── Local Tunnel Registry (cloudflared) ──────────────────────
+// Tracks active cloudflared tunnel processes for local expose_port fallback
+const activeTunnels = new Map<number, { process: ChildProcess; publicUrl: string }>();
+
+// Resolve cloudflared binary — check common install paths on Windows
+const CLOUDFLARED_BIN = process.platform === "win32"
+  ? "C:\\Program Files (x86)\\cloudflared\\cloudflared.exe"
+  : "cloudflared";
+
+function startCloudflaredTunnel(port: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(CLOUDFLARED_BIN, ["tunnel", "--url", `http://localhost:${port}`], {
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+    });
+
+    let output = "";
+    const timeout = setTimeout(() => {
+      reject(new Error("Cloudflared tunnel timed out after 20s waiting for URL"));
+    }, 20000);
+
+    const handleData = (data: Buffer) => {
+      output += data.toString();
+      // cloudflared outputs the trycloudflare.com URL to stderr
+      const match = output.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+      if (match) {
+        clearTimeout(timeout);
+        activeTunnels.set(port, { process: proc, publicUrl: match[0] });
+        resolve(match[0]);
+      }
+    };
+
+    proc.stderr?.on("data", handleData);
+    proc.stdout?.on("data", handleData);
+
+    proc.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(new Error(`Failed to start cloudflared: ${err.message}. Is cloudflared installed?`));
+    });
+
+    proc.on("exit", (code) => {
+      clearTimeout(timeout);
+      activeTunnels.delete(port);
+      if (code !== 0 && code !== null) {
+        reject(new Error(`cloudflared exited with code ${code}`));
+      }
+    });
+
+    // Prevent parent from waiting on detached child
+    proc.unref();
+  });
+}
 
 // Tools whose results come from external sources and need sanitization
 const EXTERNAL_SOURCE_TOOLS = new Set([
@@ -195,8 +249,28 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         required: ["port"],
       },
       execute: async (args, ctx) => {
-        const info = await ctx.conway.exposePort(args.port as number);
-        return `Port ${info.port} exposed at: ${info.publicUrl}`;
+        const port = args.port as number;
+
+        // If running with a Conway sandbox, use the API
+        if (ctx.identity.sandboxId) {
+          const info = await ctx.conway.exposePort(port);
+          return `Port ${info.port} exposed at: ${info.publicUrl}`;
+        }
+
+        // Local fallback: use cloudflared tunnel (free, no account needed)
+        if (activeTunnels.has(port)) {
+          return `Port ${port} already exposed at: ${activeTunnels.get(port)!.publicUrl}`;
+        }
+
+        try {
+          logger.info(`Starting cloudflared tunnel for localhost:${port}`);
+          const publicUrl = await startCloudflaredTunnel(port);
+          logger.info(`Tunnel active: ${publicUrl} → localhost:${port}`);
+          return `Port ${port} exposed at: ${publicUrl}`;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return `ERROR: Could not expose port ${port} locally: ${msg}`;
+        }
       },
     },
     {
@@ -212,8 +286,22 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         required: ["port"],
       },
       execute: async (args, ctx) => {
-        await ctx.conway.removePort(args.port as number);
-        return `Port ${args.port} removed`;
+        const port = args.port as number;
+
+        // If running with a Conway sandbox, use the API
+        if (ctx.identity.sandboxId) {
+          await ctx.conway.removePort(port);
+          return `Port ${port} removed`;
+        }
+
+        // Local fallback: kill the cloudflared tunnel process
+        const tunnel = activeTunnels.get(port);
+        if (tunnel) {
+          tunnel.process.kill();
+          activeTunnels.delete(port);
+          return `Port ${port} tunnel stopped`;
+        }
+        return `No active tunnel found for port ${port}`;
       },
     },
 
