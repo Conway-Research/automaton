@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { privateKeyToAccount } from "viem/accounts";
-import { getUsdcBalance, getUsdcBalanceDetailed } from "../src/conway/x402.js";
+import { getUsdcBalance, getUsdcBalanceDetailed } from "../src/wallet/x402.js";
 
 const WALLET_PATH = path.join(
   process.env.HOME || "/root",

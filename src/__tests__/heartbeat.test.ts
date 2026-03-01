@@ -363,10 +363,10 @@ describe("Heartbeat Tasks", () => {
       expect(result.shouldWake).toBe(false);
     });
 
-    it("wakes when has USDC but critically low credits", async () => {
+    it("records balance but does not wake (topup removed in sovereign mode)", async () => {
       const tickCtx = createMockTickContext(db, {
-        creditBalance: 0, // critical tier
-        usdcBalance: 10.0, // > 5
+        creditBalance: 0,
+        usdcBalance: 10.0,
         survivalTier: "critical",
       });
       const taskCtx: HeartbeatLegacyContext = {
@@ -378,8 +378,12 @@ describe("Heartbeat Tasks", () => {
 
       const result = await BUILTIN_TASKS.check_usdc_balance(tickCtx, taskCtx);
 
-      expect(result.shouldWake).toBe(true);
-      expect(result.message).toContain("USDC");
+      expect(result.shouldWake).toBe(false);
+      // Verify it persisted the balance check
+      const stored = db.getKV("last_usdc_check");
+      expect(stored).toBeTruthy();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.balance).toBe(10.0);
     });
 
     it("does not wake when USDC below threshold", async () => {

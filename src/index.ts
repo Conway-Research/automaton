@@ -63,8 +63,8 @@ Usage:
   automaton --help         Show this help
 
 Environment:
-  CONWAY_API_URL           Conway API URL (default: https://api.conway.tech)
-  CONWAY_API_KEY           Conway API key (overrides config)
+  CONWAY_API_URL           Legacy API URL (deprecated)
+  CONWAY_API_KEY           Legacy API key (deprecated, use BYOK config)
   OLLAMA_BASE_URL          Ollama base URL (overrides config, e.g. http://localhost:11434)
 `);
     process.exit(0);
