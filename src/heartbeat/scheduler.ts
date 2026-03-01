@@ -95,6 +95,7 @@ export class DurableScheduler {
         this.legacyContext.conway,
         this.config,
         this.legacyContext.identity.address,
+        this.legacyContext.config.useSovereignProviders,
       );
 
       // Get tasks that are due

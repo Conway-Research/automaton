@@ -706,6 +706,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     const model = taskCtx.config.inferenceModel;
 
     let lastError = "none";
+    let isForcedSleep = false;
     const errorJson = taskCtx.db.getKV("last_error");
     if (errorJson) {
       try {
@@ -714,6 +715,10 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
           lastError = parsed.consecutiveErrors > 1
             ? `${parsed.message.slice(0, 120)} (x${parsed.consecutiveErrors})`
             : parsed.message.slice(0, 150);
+          if (parsed.forcedSleep) {
+            isForcedSleep = true;
+            lastError += " [CRASH SLEEP]";
+          }
         }
       } catch { /* ignore parse errors */ }
     }
@@ -743,12 +748,12 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
     // Determine if error state warrants a warning prefix
     const hasError = lastError !== "none";
-    const titlePrefix = hasError ? "⚠️ " : "";
+    const titlePrefix = isForcedSleep ? "🛑 " : hasError ? "⚠️ " : "";
 
     const fields = [
-      { name: "State", value: state, inline: true },
-      { name: "Tier", value: tier, inline: true },
-      { name: "Model", value: model, inline: true },
+      { name: "State", value: state || "unknown", inline: true },
+      { name: "Tier", value: tier || "unknown", inline: true },
+      { name: "Model", value: model || "unset", inline: true },
       { name: "Uptime", value: `${uptimeHours}h ${uptimeMinutes}m`, inline: true },
       { name: "Turns", value: `${turnCount}`, inline: true },
       { name: "Children", value: `${activeChildren}/${children.length}`, inline: true },

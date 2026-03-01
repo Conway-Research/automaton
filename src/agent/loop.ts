@@ -437,11 +437,6 @@ export async function runAgentLoop(
         log(config, "[API_UNREACHABLE] Balance API unreachable, continuing in low-compute mode.");
         inference.setLowComputeMode(true);
       } else {
-        const tier = config.useSovereignProviders
-          ? getSurvivalTierFromUsdc(financial.usdcBalance)
-          : getSurvivalTier(financial.creditsCents);
-
-        // Re-evaluate tier
         const effectiveTier = config.useSovereignProviders
           ? getSurvivalTierFromUsdc(financial.usdcBalance)
           : getSurvivalTier(financial.creditsCents);
@@ -554,7 +549,9 @@ export async function runAgentLoop(
       pendingInput = undefined;
 
       // ── Inference Call (via router when available) ──
-      const survivalTier = getSurvivalTier(financial.creditsCents);
+      const survivalTier = config.useSovereignProviders
+        ? getSurvivalTierFromUsdc(financial.usdcBalance)
+        : getSurvivalTier(financial.creditsCents);
       log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
 
       const inferenceTools = toolsToInferenceFormat(tools);
@@ -770,6 +767,7 @@ export async function runAgentLoop(
         } else {
           idleToolTurns = 0;
         }
+
       }
 
       // Log the turn
@@ -807,6 +805,34 @@ export async function runAgentLoop(
         "enter_low_compute", "switch_model", "review_upstream_changes",
       ]);
       const didMutate = turn.toolCalls.some((tc) => MUTATING_TOOLS.has(tc.name));
+
+      // Detect mixed-pattern mutating loops: a single mutating tool dominates
+      // the rolling window even though per-turn patterns vary. Catches
+      // "stuck creating the same file" scenarios the exact-pattern check misses.
+      if (!pendingInput && lastToolPatterns.length >= MAX_REPETITIVE_TURNS) {
+        const toolFrequency = new Map<string, number>();
+        for (const pattern of lastToolPatterns) {
+          for (const tool of pattern.split(",")) {
+            if (MUTATING_TOOLS.has(tool)) {
+              toolFrequency.set(tool, (toolFrequency.get(tool) ?? 0) + 1);
+            }
+          }
+        }
+        for (const [tool, count] of toolFrequency) {
+          if (count >= MAX_REPETITIVE_TURNS) {
+            log(config, `[LOOP] Mutating tool loop: "${tool}" used ${count} times in ${lastToolPatterns.length} turns`);
+            pendingInput = {
+              content:
+                `REPETITIVE ACTION DETECTED: You have used "${tool}" ${count} times in your last ${lastToolPatterns.length} turns. ` +
+                `You may be stuck in a loop. STOP and evaluate: are you making the same change repeatedly? ` +
+                `If so, try a completely different approach or pick a different task from your genesis prompt.`,
+              source: "system",
+            };
+            lastToolPatterns = [];
+            break;
+          }
+        }
+      }
 
       if (!currentInput && !didMutate) {
         idleTurnCount++;
@@ -855,7 +881,7 @@ export async function runAgentLoop(
 
       consecutiveErrors = 0;
       // Clear error state on successful turn
-      if (db.getKV("last_error")) db.setKV("last_error", "");
+      if (db.getKV("last_error")) db.deleteKV("last_error");
     } catch (err: any) {
       consecutiveErrors++;
       log(config, `[ERROR] Turn failed: ${err.message}`);
@@ -889,6 +915,13 @@ export async function runAgentLoop(
           config,
           `[FATAL] ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Sleeping.`,
         );
+        // Update error state with forced sleep flag for heartbeat reporting
+        db.setKV("last_error", JSON.stringify({
+          message: err.message?.slice(0, 500) || "Unknown error",
+          consecutiveErrors,
+          forcedSleep: true,
+          timestamp: new Date().toISOString(),
+        }));
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         db.setKV(

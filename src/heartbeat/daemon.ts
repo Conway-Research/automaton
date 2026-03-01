@@ -131,13 +131,12 @@ export function createHeartbeatDaemon(
     if (running) return;
     running = true;
 
-    // Run first tick immediately
-    scheduler.tick().catch((err) => {
-      logger.error("First tick failed", err instanceof Error ? err : undefined);
-    });
-
-    // Schedule subsequent ticks
-    scheduleTick();
+    // Run first tick immediately, then schedule subsequent ticks after it completes
+    scheduler.tick()
+      .catch((err) => {
+        logger.error("First tick failed", err instanceof Error ? err : undefined);
+      })
+      .finally(() => scheduleTick());
 
     logger.info(`Daemon started. Tick interval: ${tickMs / 1000}s (from config)`);
   };
@@ -156,7 +155,7 @@ export function createHeartbeatDaemon(
 
   const forceRun = async (taskName: string): Promise<void> => {
     const context = await import("./tick-context.js").then((m) =>
-      m.buildTickContext(rawDb, conway, heartbeatConfig, identity.address),
+      m.buildTickContext(rawDb, conway, heartbeatConfig, identity.address, config.useSovereignProviders),
     );
     await scheduler.executeTask(taskName, context);
   };
