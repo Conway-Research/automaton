@@ -511,4 +511,171 @@ describe("Heartbeat Tasks", () => {
       // (conway.getCreditsBalance is only called during buildTickContext, not by tasks)
     });
   });
+
+  // ─── discord_heartbeat ─────────────────────────────────────
+
+  describe("discord_heartbeat", () => {
+    it("returns shouldWake false when no webhook URL configured", async () => {
+      const tickCtx = createMockTickContext(db);
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig(), // no discordWebhookUrl
+        db,
+        conway,
+      };
+
+      // Ensure env var is not set
+      const origEnv = process.env.DISCORD_WEBHOOK_URL;
+      delete process.env.DISCORD_WEBHOOK_URL;
+
+      const result = await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      // Should not have set any Discord KV since it short-circuited
+      expect(db.getKV("last_discord_heartbeat")).toBeUndefined();
+
+      // Restore env
+      if (origEnv !== undefined) process.env.DISCORD_WEBHOOK_URL = origEnv;
+    });
+
+    it("posts embed to webhook URL and records success", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: 5000,
+        usdcBalance: 2.5,
+        survivalTier: "normal",
+      });
+
+      // Mock fetch
+      const origFetch = globalThis.fetch;
+      let capturedBody: any = null;
+      globalThis.fetch = async (url: any, opts: any) => {
+        capturedBody = JSON.parse(opts.body);
+        return new Response(null, { status: 204 });
+      };
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      const result = await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      expect(db.getKV("last_discord_heartbeat")).toBeDefined();
+      expect(capturedBody).toBeDefined();
+      expect(capturedBody.embeds).toHaveLength(1);
+      expect(capturedBody.embeds[0].fields).toHaveLength(6);
+      expect(capturedBody.embeds[0].color).toBe(0x3b82f6); // blue for normal tier
+
+      // Restore fetch
+      globalThis.fetch = origFetch;
+    });
+
+    it("records error on webhook failure", async () => {
+      const tickCtx = createMockTickContext(db);
+
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = async () => new Response("Rate limited", { status: 429 });
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      const result = await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      const error = db.getKV("last_discord_error");
+      expect(error).toBeDefined();
+      const parsed = JSON.parse(error!);
+      expect(parsed.status).toBe(429);
+
+      globalThis.fetch = origFetch;
+    });
+
+    it("records error on network failure", async () => {
+      const tickCtx = createMockTickContext(db);
+
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = async () => { throw new Error("Network unreachable"); };
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      const result = await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      const error = db.getKV("last_discord_error");
+      expect(error).toBeDefined();
+      const parsed = JSON.parse(error!);
+      expect(parsed.error).toContain("Network unreachable");
+
+      globalThis.fetch = origFetch;
+    });
+
+    it("uses correct color for critical tier", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: 5,
+        usdcBalance: 0,
+        survivalTier: "critical",
+      });
+
+      const origFetch = globalThis.fetch;
+      let capturedBody: any = null;
+      globalThis.fetch = async (_url: any, opts: any) => {
+        capturedBody = JSON.parse(opts.body);
+        return new Response(null, { status: 204 });
+      };
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      expect(capturedBody.embeds[0].color).toBe(0xef4444); // red for critical
+      expect(capturedBody.embeds[0].title).toContain("🔴");
+
+      globalThis.fetch = origFetch;
+    });
+
+    it("reads webhook URL from env var when config is not set", async () => {
+      const tickCtx = createMockTickContext(db);
+
+      const origFetch = globalThis.fetch;
+      const origEnv = process.env.DISCORD_WEBHOOK_URL;
+      let fetchCalled = false;
+      globalThis.fetch = async () => {
+        fetchCalled = true;
+        return new Response(null, { status: 204 });
+      };
+      process.env.DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/env/token";
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig(), // no discordWebhookUrl in config
+        db,
+        conway,
+      };
+
+      await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      expect(fetchCalled).toBe(true);
+
+      globalThis.fetch = origFetch;
+      if (origEnv !== undefined) process.env.DISCORD_WEBHOOK_URL = origEnv;
+      else delete process.env.DISCORD_WEBHOOK_URL;
+    });
+  });
 });

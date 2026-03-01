@@ -17,7 +17,6 @@ import type {
 } from "../types.js";
 import type { HealthMonitor as ColonyHealthMonitor } from "../orchestration/health-monitor.js";
 import { sanitizeInput } from "../agent/injection-defense.js";
-import { getSurvivalTier } from "../financial/survival.js";
 import { createLogger } from "../observability/logger.js";
 import { getMetrics } from "../observability/metrics.js";
 import { AlertEngine, createDefaultAlertRules } from "../observability/alerts.js";
@@ -646,6 +645,85 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     } catch (error) {
       logger.error("knowledge_store_prune failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  // === Discord Heartbeat Posting ===
+  discord_heartbeat: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    const webhookUrl = taskCtx.config.discordWebhookUrl || process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) return { shouldWake: false };
+
+    const state = taskCtx.db.getAgentState();
+    const startTime = taskCtx.db.getKV("start_time") || new Date().toISOString();
+    const uptimeMs = Date.now() - new Date(startTime).getTime();
+    const uptimeHours = Math.floor(uptimeMs / 3_600_000);
+    const uptimeMinutes = Math.floor((uptimeMs % 3_600_000) / 60_000);
+
+    const credits = ctx.creditBalance;
+    const usdc = ctx.usdcBalance;
+    const tier = ctx.survivalTier;
+
+    // Gather child agent stats
+    const children = taskCtx.db.getChildren();
+    const activeChildren = children.filter(
+      (c) => c.status !== "dead" && c.status !== "cleaned_up" && c.status !== "failed",
+    ).length;
+
+    // Color based on survival tier
+    const tierColors: Record<string, number> = {
+      high: 0x22c55e,     // green
+      normal: 0x3b82f6,   // blue
+      low_compute: 0xf59e0b, // amber
+      critical: 0xef4444,  // red
+      dead: 0x6b7280,     // gray
+    };
+
+    const tierEmoji: Record<string, string> = {
+      high: "🟢", normal: "🔵", low_compute: "🟡", critical: "🔴", dead: "⚫",
+    };
+
+    const embed = {
+      title: `${tierEmoji[tier] || "⚪"} ${taskCtx.config.name}`,
+      color: tierColors[tier] ?? 0x6b7280,
+      fields: [
+        { name: "State", value: state, inline: true },
+        { name: "Tier", value: tier, inline: true },
+        { name: "Uptime", value: `${uptimeHours}h ${uptimeMinutes}m`, inline: true },
+        { name: "Credits", value: `$${(credits / 100).toFixed(2)}`, inline: true },
+        { name: "USDC", value: `$${usdc.toFixed(4)}`, inline: true },
+        { name: "Children", value: `${activeChildren}/${children.length}`, inline: true },
+      ],
+      footer: { text: `v${taskCtx.config.version} • ${taskCtx.identity.address.slice(0, 10)}…` },
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ embeds: [embed] }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        logger.error(`Discord webhook failed: ${res.status} ${errText}`);
+        taskCtx.db.setKV("last_discord_error", JSON.stringify({
+          status: res.status,
+          error: errText.slice(0, 200),
+          timestamp: new Date().toISOString(),
+        }));
+        return { shouldWake: false };
+      }
+
+      taskCtx.db.setKV("last_discord_heartbeat", new Date().toISOString());
+      return { shouldWake: false };
+    } catch (error) {
+      logger.error("discord_heartbeat failed", error instanceof Error ? error : undefined);
+      taskCtx.db.setKV("last_discord_error", JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      }));
       return { shouldWake: false };
     }
   },

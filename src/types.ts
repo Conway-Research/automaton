@@ -76,6 +76,8 @@ export interface AutomatonConfig {
   useSovereignProviders?: boolean;
   /** Protocol version for social relay signing: "conway" (backward compat) or "automaton" (new) */
   socialProtocolVersion?: "conway" | "automaton";
+  /** Discord webhook URL for heartbeat status updates. Also reads DISCORD_WEBHOOK_URL env var. */
+  discordWebhookUrl?: string;
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
