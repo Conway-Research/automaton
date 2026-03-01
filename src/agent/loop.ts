@@ -350,6 +350,13 @@ export async function runAgentLoop(
     }
   }
 
+  // Fix 1: Generate a unique session ID per wake cycle so budget tracking
+  // resets each time the agent starts. Without this, session_id="default"
+  // accumulates costs forever and triggers false budget_exceeded errors.
+  const sessionId = `session-${ulid()}`;
+  db.setKV("session_id", sessionId);
+  logger.info(`Starting new session: ${sessionId}`);
+
   // Set start time
   if (!db.getKV("start_time")) {
     db.setKV("start_time", new Date().toISOString());
@@ -370,6 +377,27 @@ export async function runAgentLoop(
   // Clear any stale sleep_until from a previous session so the agent
   // doesn't immediately go back to sleep on startup.
   db.deleteKV("sleep_until");
+
+  // Fix 6: Dead worker recovery — reset stale tasks from previous sessions.
+  // On startup, any task in "assigned" or "running" state was interrupted by
+  // a crash/restart. Reset them to "pending" so the orchestrator can reassign.
+  if (hasTable(db.raw, "task_graph")) {
+    try {
+      const STALE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+      const cutoff = new Date(Date.now() - STALE_TIMEOUT_MS).toISOString();
+      const staleResult = db.raw.prepare(`
+        UPDATE task_graph
+        SET status = 'pending', assigned_to = NULL, updated_at = ?
+        WHERE status IN ('assigned', 'running')
+          AND (updated_at < ? OR updated_at IS NULL)
+      `).run(new Date().toISOString(), cutoff);
+      if (staleResult.changes > 0) {
+        logger.info(`Dead worker recovery: reset ${staleResult.changes} stale task(s) to pending`);
+      }
+    } catch (err) {
+      logger.warn(`Dead worker recovery failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   // Transition to waking state
   db.setAgentState("waking");
@@ -540,7 +568,6 @@ export async function runAgentLoop(
       // Phase 2.2: Pre-turn memory retrieval
       let memoryBlock: string | undefined;
       try {
-        const sessionId = db.getKV("session_id") || "default";
         const retriever = new MemoryRetriever(db.raw, DEFAULT_MEMORY_BUDGET);
         const memories = retriever.retrieve(sessionId, pendingInput?.content);
         if (memories.totalTokens > 0) {
@@ -598,15 +625,25 @@ export async function runAgentLoop(
 
       // ── Inference Call (via router when available) ──
       const survivalTier = getSurvivalTier(financial.creditsCents);
-      log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
 
-      const inferenceTools = toolsToInferenceFormat(tools);
+      // Fix 7: Detect task type for model routing.
+      // Instead of always using "agent_turn", classify the task so the router
+      // can select cheaper models for orientation/summarization turns and
+      // reserve expensive models for complex planning/execution.
+      const detectedTaskType = detectTaskType(currentInput, recentTurns);
+      log(config, `[THINK] Routing inference (tier: ${survivalTier}, task: ${detectedTaskType}, model: ${inference.getDefaultModel()})...`);
+
+      // Fix 4: Dynamic tool selection — filter tools based on phase and tier
+      // to reduce token overhead. 57 tool definitions × ~100 tokens each ≈ 5,700
+      // tokens per turn. Phase-based filtering cuts this by 40-60%.
+      const filteredTools = filterToolsByPhase(tools, detectedTaskType, survivalTier);
+      const inferenceTools = toolsToInferenceFormat(filteredTools);
       const routerResult = await inferenceRouter.route(
         {
           messages: messages,
-          taskType: "agent_turn",
+          taskType: detectedTaskType,
           tier: survivalTier,
-          sessionId: db.getKV("session_id") || "default",
+          sessionId: sessionId,
           turnId: ulid(),
           tools: inferenceTools,
         },
@@ -701,12 +738,30 @@ export async function runAgentLoop(
 
       // Phase 2.2: Post-turn memory ingestion (non-blocking)
       try {
-        const sessionId = db.getKV("session_id") || "default";
         const ingestion = new MemoryIngestionPipeline(db.raw);
         ingestion.ingest(sessionId, turn, turn.toolCalls);
       } catch (error) {
         logger.error("Memory ingestion failed", error instanceof Error ? error : undefined);
         // Memory failure must not block the agent loop
+      }
+
+      // Fix 8: Context compression — periodically compress conversation history
+      // to prevent context window overflow. Runs every 5 turns.
+      if (compressionEngine && contextManager && cycleTurnCount % 5 === 0) {
+        try {
+          const utilization = contextManager.getUtilization();
+          if (utilization.utilizationPercent > 0.7) {
+            const plan = await compressionEngine.evaluate(utilization);
+            if (plan.maxStage > 0) {
+              const compResult = await compressionEngine.execute(plan);
+              if (compResult.success) {
+                log(config, `[COMPRESS] Stage ${compResult.metrics.stage}: saved ${compResult.metrics.tokensSaved} tokens (${(compResult.metrics.compressionRatio * 100).toFixed(0)}%)`);
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn(`Context compression failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
 
       // ── create_goal BLOCKED fast-break ──
@@ -1011,6 +1066,115 @@ async function getFinancialState(
 
 function log(_config: AutomatonConfig, message: string): void {
   logger.info(message);
+}
+
+/**
+ * Fix 4: Filter tools by phase and survival tier.
+ * Reduces the tool definition token overhead by only including tools
+ * relevant to the current execution phase.
+ */
+function filterToolsByPhase(
+  tools: AutomatonTool[],
+  taskType: import("../types.js").InferenceTaskType,
+  tier: import("../types.js").SurvivalTier,
+): AutomatonTool[] {
+  // Always include core tools that the agent needs regardless of phase
+  const CORE_TOOLS = new Set([
+    "exec", "read_file", "write_file", "sleep", "check_credits",
+    "system_synopsis", "review_memory",
+  ]);
+
+  // In critical/low_compute tiers, strip down to survival-essential tools
+  if (tier === "critical" || tier === "dead") {
+    const SURVIVAL_TOOLS = new Set([
+      ...CORE_TOOLS,
+      "check_usdc_balance", "topup_credits", "transfer_credits",
+      "distress_signal", "enter_low_compute", "switch_model",
+    ]);
+    return tools.filter(t => SURVIVAL_TOOLS.has(t.name));
+  }
+
+  // For orientation/heartbeat turns, use a smaller status-focused subset
+  if (taskType === "heartbeat_triage") {
+    const ORIENTATION_CATEGORIES = new Set(["survival", "financial", "memory"]);
+    return tools.filter(t =>
+      CORE_TOOLS.has(t.name) ||
+      ORIENTATION_CATEGORIES.has(t.category) ||
+      t.name === "list_goals" ||
+      t.name === "orchestrator_status" ||
+      t.name === "list_children" ||
+      t.name === "check_child_status" ||
+      t.name === "create_goal"
+    );
+  }
+
+  // For planning turns, include orchestration + strategy tools
+  if (taskType === "planning") {
+    const PLANNING_CATEGORIES = new Set(["survival", "financial", "memory", "replication"]);
+    return tools.filter(t =>
+      CORE_TOOLS.has(t.name) ||
+      PLANNING_CATEGORIES.has(t.category) ||
+      t.name === "create_goal" ||
+      t.name === "list_goals" ||
+      t.name === "get_plan" ||
+      t.name === "cancel_goal" ||
+      t.name === "orchestrator_status" ||
+      t.name === "spawn_child" ||
+      t.name === "list_children" ||
+      t.name === "fund_child"
+    );
+  }
+
+  // For full agent_turn execution, include all tools (no filtering)
+  return tools;
+}
+
+/**
+ * Fix 7: Detect the task type based on input content and recent turn history.
+ * This enables the inference router to select cheaper models for simple
+ * orientation tasks and reserve expensive models for complex work.
+ */
+function detectTaskType(
+  currentInput: { content: string; source: string } | undefined,
+  recentTurns: AgentTurn[],
+): import("../types.js").InferenceTaskType {
+  const input = currentInput?.content?.toLowerCase() ?? "";
+  const source = currentInput?.source ?? "";
+
+  // Wakeup / orientation turns: agent just woke up, checking status
+  if (source === "wakeup" || input.includes("waking up") || input.includes("wake-up")) {
+    return "heartbeat_triage";
+  }
+
+  // System-injected loop warnings and maintenance messages
+  if (source === "system" && (input.includes("loop detected") || input.includes("loop enforcement") || input.includes("maintenance loop"))) {
+    return "heartbeat_triage";
+  }
+
+  // If recent turns are all idle/status checks, this is orientation
+  if (recentTurns.length > 0) {
+    const ORIENTATION_TOOLS = new Set([
+      "check_credits", "check_usdc_balance", "system_synopsis", "review_memory",
+      "list_children", "check_child_status", "list_sandboxes", "list_models",
+      "list_skills", "git_status", "git_log", "check_reputation",
+      "recall_facts", "recall_procedure", "heartbeat_ping",
+      "check_inference_spending", "orchestrator_status", "list_goals", "get_plan",
+    ]);
+    const lastTurn = recentTurns[recentTurns.length - 1];
+    const allOrientationLastTurn = lastTurn.toolCalls.length > 0 &&
+      lastTurn.toolCalls.every(tc => ORIENTATION_TOOLS.has(tc.name));
+    if (allOrientationLastTurn && recentTurns.length <= 3) {
+      return "heartbeat_triage";
+    }
+  }
+
+  // Planning-related input
+  if (input.includes("plan") || input.includes("decompose") || input.includes("strategy") || input.includes("goal")) {
+    return "planning";
+  }
+
+  // Default to agent_turn for complex execution
+  return "agent_turn";
 }
 
 function hasTable(db: AutomatonDatabase["raw"], tableName: string): boolean {

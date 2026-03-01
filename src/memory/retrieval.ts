@@ -48,7 +48,26 @@ export class MemoryRetriever {
       // Fetch raw memories from each tier
       const workingEntries = this.working.getBySession(sessionId);
 
-      const episodicEntries = this.episodic.getRecent(sessionId, 20);
+      const rawEpisodicEntries = this.episodic.getRecent(sessionId, 20);
+
+      // Fix 3: Filter out negative episodic memories that cause "learned helplessness".
+      // Memories about budget exceeded, forced sleep, or repeated failures make the
+      // agent preemptively sleep instead of doing useful work.
+      const NEGATIVE_PATTERNS = [
+        /budget\s*(exceeded|limit|cap)/i,
+        /session\s*budget/i,
+        /sleep(ing)?\s*(for|until|\d)/i,
+        /forced?\s*sleep/i,
+        /loop\s*(detected|enforcement)/i,
+        /insufficient\s*(credits?|funds?|budget)/i,
+        /credits?\s*(critically|too)\s*low/i,
+        /cannot\s*afford/i,
+        /dying|going\s*to\s*die/i,
+      ];
+      const episodicEntries = rawEpisodicEntries.filter((entry) => {
+        const text = `${entry.summary} ${entry.outcome ?? ""}`.toLowerCase();
+        return !NEGATIVE_PATTERNS.some((pattern) => pattern.test(text));
+      });
 
       // For semantic and procedural, use current input as search query if available
       const semanticEntries = currentInput
