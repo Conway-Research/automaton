@@ -1974,10 +1974,44 @@ Model: ${ctx.inference.getDefaultModel()}
         required: ["query"],
       },
       execute: async (args, ctx) => {
-        const results = await ctx.conway.searchDomains(
-          args.query as string,
-          args.tlds as string | undefined,
-        );
+        const query = args.query as string;
+        const tldStr = args.tlds as string | undefined;
+
+        if (ctx.config.useSovereignProviders) {
+          // Sovereign mode: Porkbun
+          const porkbunApiKey = ctx.config.porkbunApiKey;
+          const porkbunSecretKey = ctx.config.porkbunSecretKey;
+          if (!porkbunApiKey || !porkbunSecretKey) {
+            return "Error: porkbunApiKey and porkbunSecretKey must be set in config for domain search.";
+          }
+
+          const { createPorkbunProvider } = await import("../providers/porkbun.js");
+          const porkbun = createPorkbunProvider(porkbunApiKey, porkbunSecretKey);
+
+          // If query includes a dot, check that exact domain
+          // Otherwise, expand into domain+TLD combinations
+          const tlds = tldStr ? tldStr.split(",").map((t) => t.trim()) : ["com", "io", "ai", "xyz", "net", "org", "dev"];
+          const hasDot = query.includes(".");
+          const domains = hasDot ? [query] : tlds.map((tld) => `${query}.${tld}`);
+
+          const results = await Promise.allSettled(
+            domains.map((d) => porkbun.checkAvailability(d)),
+          );
+
+          const lines: string[] = [];
+          for (const r of results) {
+            if (r.status === "fulfilled") {
+              const d = r.value;
+              const priceStr = d.registrationPrice != null ? ` ($${d.registrationPrice.toFixed(2)}/yr)` : "";
+              lines.push(`${d.domain}: ${d.available ? "AVAILABLE" : "taken"}${priceStr}`);
+            }
+          }
+
+          return lines.length > 0 ? lines.join("\n") : "No results found.";
+        }
+
+        // Legacy mode: Conway
+        const results = await ctx.conway.searchDomains(query, tldStr);
         if (results.length === 0) return "No results found.";
         return results
           .map(
@@ -1990,7 +2024,7 @@ Model: ${ctx.inference.getDefaultModel()}
     {
       name: "register_domain",
       description:
-        "Register a domain name. Costs USDC via x402 payment. Check availability first with search_domains.",
+        "Register a domain name. Check availability first with search_domains.",
       category: "conway",
       riskLevel: "dangerous",
       parameters: {
@@ -2008,17 +2042,31 @@ Model: ${ctx.inference.getDefaultModel()}
         required: ["domain"],
       },
       execute: async (args, ctx) => {
-        const reg = await ctx.conway.registerDomain(
-          args.domain as string,
-          (args.years as number) || 1,
-        );
+        const domain = args.domain as string;
+        const years = (args.years as number) || 1;
+
+        if (ctx.config.useSovereignProviders) {
+          const porkbunApiKey = ctx.config.porkbunApiKey;
+          const porkbunSecretKey = ctx.config.porkbunSecretKey;
+          if (!porkbunApiKey || !porkbunSecretKey) {
+            return "Error: porkbunApiKey and porkbunSecretKey must be set in config for domain registration.";
+          }
+
+          const { createPorkbunProvider } = await import("../providers/porkbun.js");
+          const porkbun = createPorkbunProvider(porkbunApiKey, porkbunSecretKey);
+          const reg = await porkbun.registerDomain(domain, years);
+          return `Domain registered: ${reg.domain} (status: ${reg.status}${reg.expiresAt ? `, expires: ${reg.expiresAt}` : ""}${reg.transactionId ? `, tx: ${reg.transactionId}` : ""})`;
+        }
+
+        // Legacy mode
+        const reg = await ctx.conway.registerDomain(domain, years);
         return `Domain registered: ${reg.domain} (status: ${reg.status}${reg.expiresAt ? `, expires: ${reg.expiresAt}` : ""}${reg.transactionId ? `, tx: ${reg.transactionId}` : ""})`;
       },
     },
     {
       name: "manage_dns",
       description:
-        "Manage DNS records for a domain you own. Actions: list, add, delete.",
+        "Manage DNS records for a domain you own. Actions: list, add, delete. Uses Cloudflare in sovereign mode.",
       category: "conway",
       riskLevel: "safe",
       parameters: {
@@ -2031,6 +2079,10 @@ Model: ${ctx.inference.getDefaultModel()}
           domain: {
             type: "string",
             description: "Domain name (e.g., 'mysite.com')",
+          },
+          zone_id: {
+            type: "string",
+            description: "Cloudflare zone ID (sovereign mode only; auto-resolved if not provided)",
           },
           type: {
             type: "string",
@@ -2046,7 +2098,7 @@ Model: ${ctx.inference.getDefaultModel()}
           },
           ttl: {
             type: "number",
-            description: "TTL in seconds for add (default: 3600)",
+            description: "TTL in seconds for add (default: auto)",
           },
           record_id: {
             type: "string",
@@ -2059,6 +2111,59 @@ Model: ${ctx.inference.getDefaultModel()}
         const action = args.action as string;
         const domain = args.domain as string;
 
+        if (ctx.config.useSovereignProviders) {
+          const cfToken = ctx.config.cloudflareApiToken;
+          if (!cfToken) {
+            return "Error: cloudflareApiToken must be set in config for DNS management.";
+          }
+
+          const { createCloudflareProvider } = await import("../providers/cloudflare.js");
+          const cf = createCloudflareProvider(cfToken);
+
+          // Resolve zone ID: explicit arg > config > auto-lookup by domain
+          let zoneId = args.zone_id as string | undefined;
+          if (!zoneId) zoneId = ctx.config.cloudflareZoneId;
+          if (!zoneId) {
+            const zones = await cf.listZones();
+            const match = zones.find((z) => domain.endsWith(z.name));
+            if (!match) {
+              return `No Cloudflare zone found for ${domain}. Available zones: ${zones.map((z) => z.name).join(", ") || "none"}. Set cloudflareZoneId in config or pass zone_id.`;
+            }
+            zoneId = match.id;
+          }
+
+          if (action === "list") {
+            const records = await cf.listRecords(zoneId);
+            const filtered = records.filter((r) => r.host.endsWith(domain));
+            if (filtered.length === 0) return `No DNS records found for ${domain}.`;
+            return filtered
+              .map((r) => `[${r.id}] ${r.type} ${r.host} -> ${r.value} (TTL: ${r.ttl || "auto"})`)
+              .join("\n");
+          }
+
+          if (action === "add") {
+            const type = args.type as string;
+            const host = args.host as string;
+            const value = args.value as string;
+            if (!type || !host || !value) {
+              return "Required for add: type, host, value";
+            }
+            const fqdn = host === "@" ? domain : (host.endsWith(domain) ? host : `${host}.${domain}`);
+            const record = await cf.addRecord(zoneId, type, fqdn, value, args.ttl as number | undefined);
+            return `DNS record added: [${record.id}] ${record.type} ${record.host} -> ${record.value}`;
+          }
+
+          if (action === "delete") {
+            const recordId = args.record_id as string;
+            if (!recordId) return "Required for delete: record_id";
+            await cf.deleteRecord(zoneId, recordId);
+            return `DNS record ${recordId} deleted from ${domain}`;
+          }
+
+          return `Unknown action: ${action}. Use list, add, or delete.`;
+        }
+
+        // Legacy mode: Conway
         if (action === "list") {
           const records = await ctx.conway.listDnsRecords(domain);
           if (records.length === 0) return `No DNS records found for ${domain}.`;
