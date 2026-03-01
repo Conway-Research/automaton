@@ -49,7 +49,7 @@ jobs:
     name: Deploy to Connie VPS
     runs-on: ubuntu-latest
     needs: [build, security-audit]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/byok-inference-keys'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -60,8 +60,8 @@ jobs:
           script: |
             set -e
             cd /root/.openclaw/workspace/artifacts/automaton-research
-            git fetch origin feat/byok-inference-keys
-            git reset --hard origin/feat/byok-inference-keys
+            git fetch origin main
+            git reset --hard origin/main
             npm run build
             systemctl restart local-connie
             echo "Deploy complete: $(git rev-parse --short HEAD)"
