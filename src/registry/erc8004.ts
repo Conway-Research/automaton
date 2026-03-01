@@ -75,6 +75,14 @@ const TRANSFER_EVENT_TOPIC = keccak256(
 
 type Network = "mainnet" | "testnet";
 
+/**
+ * Resolve the RPC transport URL.
+ * Priority: explicit parameter > AUTOMATON_RPC_URL env var > viem default (public RPC).
+ */
+function resolveRpcUrl(rpcUrl?: string): string | undefined {
+  return rpcUrl || process.env.AUTOMATON_RPC_URL || undefined;
+}
+
 // ─── Preflight Check ────────────────────────────────────────────
 
 /**
@@ -90,13 +98,14 @@ async function preflight(
     functionName: string;
     args: any[];
   },
+  rpcUrl?: string,
 ): Promise<void> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   // Encode calldata for accurate gas estimation
@@ -206,9 +215,11 @@ export async function registerAgent(
   agentURI: string,
   network: Network = "mainnet",
   db: AutomatonDatabase,
+  rpcUrl?: string,
 ): Promise<RegistryEntry> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
+  const rpc = resolveRpcUrl(rpcUrl);
 
   // Phase 3.2: Preflight gas check
   await preflight(account, network, {
@@ -216,17 +227,17 @@ export async function registerAgent(
     abi: IDENTITY_ABI,
     functionName: "register",
     args: [agentURI],
-  });
+  }, rpcUrl);
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(rpc),
   });
 
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(rpc),
   });
 
   // Call register(agentURI)
@@ -292,6 +303,7 @@ export async function updateAgentURI(
   newAgentURI: string,
   network: Network = "mainnet",
   db: AutomatonDatabase,
+  rpcUrl?: string,
 ): Promise<string> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
@@ -302,12 +314,12 @@ export async function updateAgentURI(
     abi: IDENTITY_ABI,
     functionName: "setAgentURI",
     args: [BigInt(agentId), newAgentURI],
-  });
+  }, rpcUrl);
 
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   const hash = await walletClient.writeContract({
@@ -352,6 +364,7 @@ export async function leaveFeedback(
   comment: string,
   network: Network = "mainnet",
   db: AutomatonDatabase,
+  rpcUrl?: string,
 ): Promise<string> {
   // Phase 3.2: Validate score range 1-5
   if (!Number.isInteger(score) || score < 1 || score > 5) {
@@ -374,12 +387,12 @@ export async function leaveFeedback(
     abi: REPUTATION_ABI,
     functionName: "leaveFeedback",
     args: [BigInt(agentId), score, comment],
-  });
+  }, rpcUrl);
 
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   const hash = await walletClient.writeContract({
@@ -409,13 +422,14 @@ export async function leaveFeedback(
 export async function queryAgent(
   agentId: string,
   network: Network = "mainnet",
+  rpcUrl?: string,
 ): Promise<DiscoveredAgent | null> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   try {
@@ -456,13 +470,14 @@ export async function queryAgent(
  */
 export async function getTotalAgents(
   network: Network = "mainnet",
+  rpcUrl?: string,
 ): Promise<number> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   try {
@@ -538,13 +553,14 @@ async function estimateTotalByBinarySearch(
 export async function getRegisteredAgentsByEvents(
   network: Network = "mainnet",
   limit: number = 20,
+  rpcUrl?: string,
 ): Promise<{ tokenId: string; owner: string }[]> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   try {
@@ -647,13 +663,14 @@ export async function getRegisteredAgentsByEvents(
 export async function hasRegisteredAgent(
   address: Address,
   network: Network = "mainnet",
+  rpcUrl?: string,
 ): Promise<boolean> {
   const contracts = CONTRACTS[network];
   const chain = contracts.chain;
 
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: http(resolveRpcUrl(rpcUrl)),
   });
 
   try {

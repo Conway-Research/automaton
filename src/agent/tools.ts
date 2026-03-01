@@ -1389,6 +1389,7 @@ Model: ${ctx.inference.getDefaultModel()}
             args.agent_uri as string,
             ((args.network as string) || "mainnet") as any,
             ctx.db,
+            ctx.config.rpcUrl,
           );
           return `Registered on-chain! Agent ID: ${entry.agentId}, TX: ${entry.txHash}`;
         } catch (err: any) {
@@ -1435,9 +1436,10 @@ Model: ${ctx.inference.getDefaultModel()}
         const limit = (args.limit as number) || 10;
 
         // Phase 3.2: Pass db.raw for agent card caching
+        const rpcUrl = ctx.config.rpcUrl;
         const agents = keyword
-          ? await searchAgents(keyword, limit, network, undefined, ctx.db.raw)
-          : await discoverAgents(limit, network, undefined, ctx.db.raw);
+          ? await searchAgents(keyword, limit, network, undefined, ctx.db.raw, rpcUrl)
+          : await discoverAgents(limit, network, undefined, ctx.db.raw, rpcUrl);
 
         if (agents.length === 0) return "No agents found.";
         return agents
@@ -1494,6 +1496,7 @@ Model: ${ctx.inference.getDefaultModel()}
           comment,
           network,
           ctx.db,
+          ctx.config.rpcUrl,
         );
         return `Feedback submitted. TX: ${hash}`;
       },

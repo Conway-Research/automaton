@@ -213,9 +213,10 @@ export async function getUsdcBalanceDetailed(
   }
 
   try {
+    const rpcUrl = process.env.AUTOMATON_RPC_URL || undefined;
     const client = createPublicClient({
       chain,
-      transport: http(undefined, { timeout: 10_000 }),
+      transport: http(rpcUrl, { timeout: 10_000 }),
     });
 
     const balance = await client.readContract({

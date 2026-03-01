@@ -303,6 +303,7 @@ async function configureGeneral(config: AutomatonConfig): Promise<void> {
   );
   config.maxChildren = await askNumber("Max child automatons", config.maxChildren);
   config.socialRelayUrl = (await askString("Social relay URL", config.socialRelayUrl)) || undefined;
+  config.rpcUrl = (await askString("RPC endpoint  (Base chain, e.g. https://mainnet.base.org)", config.rpcUrl)) || undefined;
 
   console.log("");
 }
