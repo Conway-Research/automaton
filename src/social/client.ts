@@ -11,7 +11,7 @@
 import type { PrivateKeyAccount } from "viem";
 import type { SocialClientInterface, InboxMessage } from "../types.js";
 import { ResilientHttpClient } from "../conway/http-client.js";
-import { signSendPayload, signPollPayload, MESSAGE_LIMITS } from "./signing.js";
+import { signSendPayload, signPollPayload, MESSAGE_LIMITS, type SigningPrefix } from "./signing.js";
 import { validateRelayUrl, validateMessage } from "./validation.js";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("social");
@@ -28,7 +28,9 @@ export function createSocialClient(
   relayUrl: string,
   account: PrivateKeyAccount,
   db?: import("better-sqlite3").Database,
+  signingPrefix?: SigningPrefix,
 ): SocialClientInterface {
+  const prefix: SigningPrefix = signingPrefix || "Conway";
   // Phase 3.2: Validate relay URL as HTTPS
   validateRelayUrl(relayUrl);
 
@@ -94,8 +96,8 @@ export function createSocialClient(
         throw new Error(`Message validation failed: ${validation.errors.join("; ")}`);
       }
 
-      // Phase 3.2: Use shared signing module
-      const payload = await signSendPayload(account, to, content, replyTo);
+      // Phase 3.2: Use shared signing module (with configurable prefix)
+      const payload = await signSendPayload(account, to, content, replyTo, prefix);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages`, {
         method: "POST",
@@ -119,8 +121,8 @@ export function createSocialClient(
       cursor?: string,
       limit?: number,
     ): Promise<{ messages: InboxMessage[]; nextCursor?: string }> => {
-      // Phase 3.2: Use shared signing module
-      const pollAuth = await signPollPayload(account);
+      // Phase 3.2: Use shared signing module (with configurable prefix)
+      const pollAuth = await signPollPayload(account, prefix);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages/poll`, {
         method: "POST",
@@ -179,8 +181,8 @@ export function createSocialClient(
     },
 
     unreadCount: async (): Promise<number> => {
-      // Phase 3.2: Use shared signing module
-      const pollAuth = await signPollPayload(account);
+      // Phase 3.2: Use shared signing module (with configurable prefix)
+      const pollAuth = await signPollPayload(account, prefix);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages/count`, {
         method: "GET",

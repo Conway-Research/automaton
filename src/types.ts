@@ -90,7 +90,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   maxChildren: 3,
   maxTurnsPerCycle: 25,
   childSandboxMemoryMb: 1024,
-  socialRelayUrl: "https://social.conway.tech",
+  socialRelayUrl: "",
 };
 
 // ─── Agent State ─────────────────────────────────────────────────

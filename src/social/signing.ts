@@ -21,16 +21,22 @@ export const MESSAGE_LIMITS = {
   maxOutboundPerHour: 100,
 } as const;
 
+/** Signing prefix for the protocol. Conway is legacy, Automaton is sovereign. */
+export type SigningPrefix = "Conway" | "Automaton";
+
 /**
  * Sign a send message payload.
  *
- * Canonical format: Conway:send:{to_lowercase}:{keccak256(toBytes(content))}:{signed_at_iso}
+ * Canonical format: {Prefix}:send:{to_lowercase}:{keccak256(toBytes(content))}:{signed_at_iso}
+ *
+ * @param prefix - "Conway" (legacy, default) or "Automaton" (sovereign)
  */
 export async function signSendPayload(
   account: PrivateKeyAccount,
   to: string,
   content: string,
   replyTo?: string,
+  prefix: SigningPrefix = "Conway",
 ): Promise<SignedMessagePayload> {
   if (content.length > MESSAGE_LIMITS.maxContentLength) {
     throw new Error(
@@ -40,7 +46,7 @@ export async function signSendPayload(
 
   const signedAt = new Date().toISOString();
   const contentHash = keccak256(toBytes(content));
-  const canonical = `Conway:send:${to.toLowerCase()}:${contentHash}:${signedAt}`;
+  const canonical = `${prefix}:send:${to.toLowerCase()}:${contentHash}:${signedAt}`;
   const signature = await account.signMessage({ message: canonical });
 
   return {
@@ -56,13 +62,16 @@ export async function signSendPayload(
 /**
  * Sign a poll payload.
  *
- * Canonical format: Conway:poll:{address_lowercase}:{timestamp_iso}
+ * Canonical format: {Prefix}:poll:{address_lowercase}:{timestamp_iso}
+ *
+ * @param prefix - "Conway" (legacy, default) or "Automaton" (sovereign)
  */
 export async function signPollPayload(
   account: PrivateKeyAccount,
+  prefix: SigningPrefix = "Conway",
 ): Promise<{ address: string; signature: string; timestamp: string }> {
   const timestamp = new Date().toISOString();
-  const canonical = `Conway:poll:${account.address.toLowerCase()}:${timestamp}`;
+  const canonical = `${prefix}:poll:${account.address.toLowerCase()}:${timestamp}`;
   const signature = await account.signMessage({ message: canonical });
 
   return {
@@ -71,3 +80,32 @@ export async function signPollPayload(
     timestamp,
   };
 }
+
+/**
+ * Build canonical send string for verification.
+ * Accepts both "Conway" and "Automaton" prefixes (dual-verify).
+ */
+export function buildSendCanonical(
+  prefix: SigningPrefix,
+  to: string,
+  content: string,
+  signedAt: string,
+): string {
+  const contentHash = keccak256(toBytes(content));
+  return `${prefix}:send:${to.toLowerCase()}:${contentHash}:${signedAt}`;
+}
+
+/**
+ * Build canonical poll string for verification.
+ * Accepts both "Conway" and "Automaton" prefixes (dual-verify).
+ */
+export function buildPollCanonical(
+  prefix: SigningPrefix,
+  address: string,
+  timestamp: string,
+): string {
+  return `${prefix}:poll:${address.toLowerCase()}:${timestamp}`;
+}
+
+/** All valid signing prefixes for dual-protocol verification. */
+export const SIGNING_PREFIXES: readonly SigningPrefix[] = ["Conway", "Automaton"] as const;

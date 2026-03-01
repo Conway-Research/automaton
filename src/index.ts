@@ -334,10 +334,14 @@ async function run(): Promise<void> {
   }
 
   // Create social client
+  // Signing prefix: "conway" → "Conway", "automaton" → "Automaton"
+  const signingPrefix = config.socialProtocolVersion === "automaton" ? "Automaton" as const : "Conway" as const;
   let social: SocialClientInterface | undefined;
   if (config.socialRelayUrl) {
-    social = createSocialClient(config.socialRelayUrl, account);
-    logger.info(`[${new Date().toISOString()}] Social relay: ${config.socialRelayUrl}`);
+    social = createSocialClient(config.socialRelayUrl, account, db.raw, signingPrefix);
+    logger.info(`[${new Date().toISOString()}] Social relay: ${config.socialRelayUrl} (protocol: ${signingPrefix})`);
+  } else {
+    logger.warn(`[${new Date().toISOString()}] Social relay not configured — messaging disabled. Set socialRelayUrl in config to enable.`);
   }
 
   // Initialize PolicyEngine + SpendTracker (Phase 1.4)

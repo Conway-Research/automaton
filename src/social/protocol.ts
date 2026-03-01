@@ -14,6 +14,7 @@ import {
   toBytes,
   verifyMessage,
 } from "viem";
+import { buildSendCanonical, buildPollCanonical, SIGNING_PREFIXES } from "./signing.js";
 
 /**
  * A fully signed social message.
@@ -43,27 +44,53 @@ export function createNonce(): string {
 }
 
 /**
- * Verify an ECDSA secp256k1 message signature.
+ * Verify an ECDSA secp256k1 send-message signature.
  *
- * Reconstructs the canonical string used during signing and verifies
- * the signature against the expected sender address.
+ * Dual-protocol: tries both "Conway:" and "Automaton:" prefixes so
+ * messages from either protocol version are accepted.
  */
 export async function verifyMessageSignature(
   message: { to: string; content: string; signed_at: string; signature: string },
   expectedFrom: string,
 ): Promise<boolean> {
-  try {
-    const contentHash = keccak256(toBytes(message.content));
-    const canonical = `Conway:send:${message.to.toLowerCase()}:${contentHash}:${message.signed_at}`;
-
-    const valid = await verifyMessage({
-      address: expectedFrom as `0x${string}`,
-      message: canonical,
-      signature: message.signature as `0x${string}`,
-    });
-
-    return valid;
-  } catch {
-    return false;
+  for (const prefix of SIGNING_PREFIXES) {
+    try {
+      const canonical = buildSendCanonical(prefix, message.to, message.content, message.signed_at);
+      const valid = await verifyMessage({
+        address: expectedFrom as `0x${string}`,
+        message: canonical,
+        signature: message.signature as `0x${string}`,
+      });
+      if (valid) return true;
+    } catch {
+      // Try next prefix
+    }
   }
+  return false;
+}
+
+/**
+ * Verify an ECDSA secp256k1 poll-auth signature.
+ *
+ * Dual-protocol: tries both "Conway:" and "Automaton:" prefixes.
+ */
+export async function verifyPollSignature(
+  address: string,
+  timestamp: string,
+  signature: string,
+): Promise<boolean> {
+  for (const prefix of SIGNING_PREFIXES) {
+    try {
+      const canonical = buildPollCanonical(prefix, address, timestamp);
+      const valid = await verifyMessage({
+        address: address as `0x${string}`,
+        message: canonical,
+        signature: signature as `0x${string}`,
+      });
+      if (valid) return true;
+    } catch {
+      // Try next prefix
+    }
+  }
+  return false;
 }
