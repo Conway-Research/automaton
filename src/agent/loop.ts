@@ -854,9 +854,18 @@ export async function runAgentLoop(
       }
 
       consecutiveErrors = 0;
+      // Clear error state on successful turn
+      if (db.getKV("last_error")) db.setKV("last_error", "");
     } catch (err: any) {
       consecutiveErrors++;
       log(config, `[ERROR] Turn failed: ${err.message}`);
+
+      // Persist error state for heartbeat/monitoring to report
+      db.setKV("last_error", JSON.stringify({
+        message: err.message?.slice(0, 500) || "Unknown error",
+        consecutiveErrors,
+        timestamp: new Date().toISOString(),
+      }));
 
       // Handle inbox message state on turn failure:
       // Messages that have retries remaining go back to 'received';

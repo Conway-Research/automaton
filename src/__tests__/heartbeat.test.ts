@@ -566,8 +566,15 @@ describe("Heartbeat Tasks", () => {
       expect(db.getKV("last_discord_heartbeat")).toBeDefined();
       expect(capturedBody).toBeDefined();
       expect(capturedBody.embeds).toHaveLength(1);
-      expect(capturedBody.embeds[0].fields).toHaveLength(6);
-      expect(capturedBody.embeds[0].color).toBe(0x3b82f6); // blue for normal tier
+      // 9 base fields: State, Tier, Model, Uptime, Turns, Children, Credits, USDC, Last Error
+      expect(capturedBody.embeds[0].fields.length).toBeGreaterThanOrEqual(9);
+      expect(capturedBody.embeds[0].color).toBe(0x3b82f6); // blue for normal tier (no errors)
+
+      // Verify diagnostic fields are present
+      const fieldNames = capturedBody.embeds[0].fields.map((f: any) => f.name);
+      expect(fieldNames).toContain("Model");
+      expect(fieldNames).toContain("Turns");
+      expect(fieldNames).toContain("Last Error");
 
       // Restore fetch
       globalThis.fetch = origFetch;
@@ -646,6 +653,87 @@ describe("Heartbeat Tasks", () => {
 
       expect(capturedBody.embeds[0].color).toBe(0xef4444); // red for critical
       expect(capturedBody.embeds[0].title).toContain("🔴");
+
+      globalThis.fetch = origFetch;
+    });
+
+    it("shows error diagnostics when last_error is set", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: 5000,
+        usdcBalance: 2.5,
+        survivalTier: "normal",
+      });
+
+      // Simulate a turn error persisted by the agent loop
+      db.setKV("last_error", JSON.stringify({
+        message: "API timeout connecting to inference provider",
+        consecutiveErrors: 3,
+        timestamp: new Date().toISOString(),
+      }));
+
+      const origFetch = globalThis.fetch;
+      let capturedBody: any = null;
+      globalThis.fetch = async (_url: any, opts: any) => {
+        capturedBody = JSON.parse(opts.body);
+        return new Response(null, { status: 204 });
+      };
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      const embed = capturedBody.embeds[0];
+      // When errors exist, title gets warning prefix and color becomes amber
+      expect(embed.title).toContain("⚠️");
+      expect(embed.color).toBe(0xf59e0b); // amber for error state
+      // Last Error field should include the error message and count
+      const errorField = embed.fields.find((f: any) => f.name === "Last Error");
+      expect(errorField.value).toContain("API timeout");
+      expect(errorField.value).toContain("x3");
+
+      globalThis.fetch = origFetch;
+    });
+
+    it("includes thinking from latest turn in embed", async () => {
+      const tickCtx = createMockTickContext(db);
+
+      // Insert a turn with thinking
+      db.insertTurn({
+        id: "test-turn-001",
+        timestamp: new Date().toISOString(),
+        state: "running",
+        thinking: "I should check the polymarket API for new opportunities and update our predictions.",
+        toolCalls: [],
+        tokenUsage: { input: 100, output: 50 },
+        costCents: 0.5,
+      });
+
+      const origFetch = globalThis.fetch;
+      let capturedBody: any = null;
+      globalThis.fetch = async (_url: any, opts: any) => {
+        capturedBody = JSON.parse(opts.body);
+        return new Response(null, { status: 204 });
+      };
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      const embed = capturedBody.embeds[0];
+      const thinkingField = embed.fields.find((f: any) => f.name === "🧠");
+      expect(thinkingField).toBeDefined();
+      expect(thinkingField.value).toContain("polymarket");
+      expect(thinkingField.inline).toBe(false);
 
       globalThis.fetch = origFetch;
     });

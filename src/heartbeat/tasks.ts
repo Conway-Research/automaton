@@ -670,6 +670,33 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       (c) => c.status !== "dead" && c.status !== "cleaned_up" && c.status !== "failed",
     ).length;
 
+    // Diagnostics: turn count, model, last error, latest thinking
+    const turnCount = taskCtx.db.getTurnCount();
+    const model = taskCtx.config.inferenceModel;
+
+    let lastError = "none";
+    const errorJson = taskCtx.db.getKV("last_error");
+    if (errorJson) {
+      try {
+        const parsed = JSON.parse(errorJson);
+        if (parsed.message) {
+          lastError = parsed.consecutiveErrors > 1
+            ? `${parsed.message.slice(0, 120)} (x${parsed.consecutiveErrors})`
+            : parsed.message.slice(0, 150);
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
+    // Latest thinking from most recent turn (what the agent is doing)
+    let latestThinking = "";
+    try {
+      const recentTurns = taskCtx.db.getRecentTurns(1);
+      if (recentTurns.length > 0 && recentTurns[0]!.thinking) {
+        latestThinking = recentTurns[0]!.thinking.slice(0, 200);
+        if (recentTurns[0]!.thinking.length > 200) latestThinking += "…";
+      }
+    } catch { /* ignore if turns unavailable */ }
+
     // Color based on survival tier
     const tierColors: Record<string, number> = {
       high: 0x22c55e,     // green
@@ -683,17 +710,31 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       high: "🟢", normal: "🔵", low_compute: "🟡", critical: "🔴", dead: "⚫",
     };
 
+    // Determine if error state warrants a warning prefix
+    const hasError = lastError !== "none";
+    const titlePrefix = hasError ? "⚠️ " : "";
+
+    const fields = [
+      { name: "State", value: state, inline: true },
+      { name: "Tier", value: tier, inline: true },
+      { name: "Model", value: model, inline: true },
+      { name: "Uptime", value: `${uptimeHours}h ${uptimeMinutes}m`, inline: true },
+      { name: "Turns", value: `${turnCount}`, inline: true },
+      { name: "Children", value: `${activeChildren}/${children.length}`, inline: true },
+      { name: "Credits", value: `$${(credits / 100).toFixed(2)}`, inline: true },
+      { name: "USDC", value: `$${usdc.toFixed(4)}`, inline: true },
+      { name: "Last Error", value: lastError, inline: true },
+    ];
+
+    // Add thinking as a full-width description field if available
+    if (latestThinking) {
+      fields.push({ name: "🧠", value: latestThinking, inline: false });
+    }
+
     const embed = {
-      title: `${tierEmoji[tier] || "⚪"} ${taskCtx.config.name}`,
-      color: tierColors[tier] ?? 0x6b7280,
-      fields: [
-        { name: "State", value: state, inline: true },
-        { name: "Tier", value: tier, inline: true },
-        { name: "Uptime", value: `${uptimeHours}h ${uptimeMinutes}m`, inline: true },
-        { name: "Credits", value: `$${(credits / 100).toFixed(2)}`, inline: true },
-        { name: "USDC", value: `$${usdc.toFixed(4)}`, inline: true },
-        { name: "Children", value: `${activeChildren}/${children.length}`, inline: true },
-      ],
+      title: `${titlePrefix}${tierEmoji[tier] || "⚪"} ${taskCtx.config.name}`,
+      color: hasError ? 0xf59e0b : (tierColors[tier] ?? 0x6b7280),
+      fields,
       footer: { text: `v${taskCtx.config.version} • ${taskCtx.identity.address.slice(0, 10)}…` },
       timestamp: new Date().toISOString(),
     };
