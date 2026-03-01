@@ -186,20 +186,59 @@ describe("write_file / edit_own_file protection parity", () => {
 
     for (const file of PROTECTED_FILES) {
       const result = await writeTool.execute(
-        { path: `/home/automaton/.automaton/${file}`, content: "malicious" },
+        { path: `/root/.automaton/${file}`, content: "malicious" },
         ctx,
       );
       expect(result, `write_file should block ${file}`).toContain("Blocked");
     }
   });
 
-  it("write_file allows non-protected files", async () => {
+  it("write_file allows non-protected files inside sandbox home", async () => {
     const writeTool = tools.find((t) => t.name === "write_file")!;
     const result = await writeTool.execute(
-      { path: "/home/automaton/test.txt", content: "safe content" },
+      { path: "/root/test.txt", content: "safe content" },
       ctx,
     );
     expect(result).toContain("File written");
+  });
+
+  it("write_file blocks paths outside sandbox home", async () => {
+    const writeTool = tools.find((t) => t.name === "write_file")!;
+    const outsidePaths = [
+      "/etc/passwd",
+      "/tmp/evil.sh",
+      "/home/automaton/test.txt",
+      "/root/../etc/passwd",
+      "../../etc/shadow",
+    ];
+    for (const p of outsidePaths) {
+      const result = await writeTool.execute(
+        { path: p, content: "malicious" },
+        ctx,
+      );
+      expect(result, `write_file should block ${p}`).toContain("Blocked");
+    }
+  });
+
+  it("write_file allows relative paths that resolve inside sandbox home", async () => {
+    const writeTool = tools.find((t) => t.name === "write_file")!;
+    const result = await writeTool.execute(
+      { path: "project/file.txt", content: "safe content" },
+      ctx,
+    );
+    // Relative paths resolve against /root, so "project/file.txt" -> "/root/project/file.txt"
+    expect(result).toContain("File written");
+    expect(result).toContain("/root/project/file.txt");
+  });
+
+  it("write_file allows tilde paths within sandbox home", async () => {
+    const writeTool = tools.find((t) => t.name === "write_file")!;
+    const result = await writeTool.execute(
+      { path: "~/.automaton/skills/test/SKILL.md", content: "safe content" },
+      ctx,
+    );
+    expect(result).toContain("File written");
+    expect(result).toContain("/root/.automaton/skills/test/SKILL.md");
   });
 });
 
