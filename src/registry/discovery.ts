@@ -218,9 +218,10 @@ export async function discoverAgents(
   network: Network = "mainnet",
   config?: Partial<DiscoveryConfig>,
   db?: import("better-sqlite3").Database,
+  rpcUrl?: string,
 ): Promise<DiscoveredAgent[]> {
   const cfg = { ...DEFAULT_DISCOVERY_CONFIG, ...config };
-  const total = await getTotalAgents(network);
+  const total = await getTotalAgents(network, rpcUrl);
   const agents: DiscoveredAgent[] = [];
 
   const overallStart = Date.now();
@@ -235,7 +236,7 @@ export async function discoverAgents(
       }
 
       try {
-        const agent = await queryAgent(i.toString(), network);
+        const agent = await queryAgent(i.toString(), network, rpcUrl);
         if (agent) {
           await enrichAgentWithCard(agent, cfg, db);
           agents.push(agent);
@@ -247,7 +248,7 @@ export async function discoverAgents(
   } else {
     // totalSupply returned 0 (likely reverted) — fall back to Transfer event scanning
     logger.info("totalSupply returned 0, falling back to Transfer event scanning");
-    const eventAgents = await getRegisteredAgentsByEvents(network, Math.min(limit, cfg.maxScanCount));
+    const eventAgents = await getRegisteredAgentsByEvents(network, Math.min(limit, cfg.maxScanCount), rpcUrl);
 
     for (const { tokenId, owner } of eventAgents) {
       if (Date.now() - overallStart > DISCOVERY_TIMEOUT_MS) {
@@ -257,7 +258,7 @@ export async function discoverAgents(
 
       try {
         // Try queryAgent first (gets tokenURI), fall back to event data only
-        const agent = await queryAgent(tokenId, network);
+        const agent = await queryAgent(tokenId, network, rpcUrl);
         if (agent) {
           // Use owner from event if queryAgent couldn't get it
           if (!agent.owner && owner) {
@@ -347,8 +348,9 @@ export async function searchAgents(
   network: Network = "mainnet",
   config?: Partial<DiscoveryConfig>,
   db?: import("better-sqlite3").Database,
+  rpcUrl?: string,
 ): Promise<DiscoveredAgent[]> {
-  const all = await discoverAgents(50, network, config, db);
+  const all = await discoverAgents(50, network, config, db, rpcUrl);
   const lower = keyword.toLowerCase();
 
   return all

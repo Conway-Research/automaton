@@ -62,6 +62,8 @@ export interface AutomatonConfig {
   // Phase 2 config additions
   soulConfig?: SoulConfig;
   modelStrategy?: ModelStrategyConfig;
+  /** Custom RPC endpoint for Base chain interactions (overrides default public RPC) */
+  rpcUrl?: string;
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
