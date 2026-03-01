@@ -9,6 +9,8 @@
  * This eliminates 4x redundant getCreditsBalance() calls per tick.
  */
 
+import fs from "fs";
+import path from "path";
 import type {
   TickContext,
   HeartbeatLegacyContext,
@@ -21,9 +23,38 @@ import { createLogger } from "../observability/logger.js";
 import { getMetrics } from "../observability/metrics.js";
 import { AlertEngine, createDefaultAlertRules } from "../observability/alerts.js";
 import { metricsInsertSnapshot, metricsPruneOld } from "../state/database.js";
+import { getAutomatonDir } from "../identity/wallet.js";
 import { ulid } from "ulid";
 
 const logger = createLogger("heartbeat.tasks");
+
+const DISCORD_LOG_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const DISCORD_LOG_TRIM_TO = 2 * 1024 * 1024;   // 2MB
+
+/** Append a JSONL entry to the Discord heartbeat diagnostic log. */
+function appendDiscordLog(entry: Record<string, unknown>, logPath?: string): void {
+  try {
+    const filePath = logPath || path.join(getAutomatonDir(), "discord-heartbeat.log");
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+
+    // Size guard — trim if over 5MB
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.size > DISCORD_LOG_MAX_BYTES) {
+        const buf = fs.readFileSync(filePath);
+        const trimmed = buf.subarray(buf.length - DISCORD_LOG_TRIM_TO);
+        // Find first newline to avoid partial JSON line
+        const firstNewline = trimmed.indexOf(0x0a);
+        fs.writeFileSync(filePath, trimmed.subarray(firstNewline + 1), { mode: 0o600 });
+      }
+    } catch { /* file may not exist yet */ }
+
+    fs.appendFileSync(filePath, JSON.stringify(entry) + "\n", { mode: 0o600 });
+  } catch (err) {
+    logger.error("Failed to write discord heartbeat log", err instanceof Error ? err : undefined);
+  }
+}
 
 // Module-level AlertEngine so cooldown state persists across ticks.
 // Creating a new instance per tick would reset the lastFired map,
@@ -739,6 +770,18 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       timestamp: new Date().toISOString(),
     };
 
+    // Base log entry for diagnostic feed
+    const logBase = {
+      ts: new Date().toISOString(),
+      state, tier, model,
+      turns: turnCount,
+      lastError,
+      thinking: latestThinking || undefined,
+      children: `${activeChildren}/${children.length}`,
+      credits: (credits / 100).toFixed(2),
+      usdc: usdc.toFixed(4),
+    };
+
     try {
       const res = await fetch(webhookUrl, {
         method: "POST",
@@ -754,10 +797,12 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
           error: errText.slice(0, 200),
           timestamp: new Date().toISOString(),
         }));
+        appendDiscordLog({ ...logBase, status: "failed", httpStatus: res.status, httpError: errText.slice(0, 200) });
         return { shouldWake: false };
       }
 
       taskCtx.db.setKV("last_discord_heartbeat", new Date().toISOString());
+      appendDiscordLog({ ...logBase, status: "sent" });
       return { shouldWake: false };
     } catch (error) {
       logger.error("discord_heartbeat failed", error instanceof Error ? error : undefined);
@@ -765,6 +810,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
       }));
+      appendDiscordLog({ ...logBase, status: "error", error: error instanceof Error ? error.message : String(error) });
       return { shouldWake: false };
     }
   },

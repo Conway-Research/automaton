@@ -738,6 +738,49 @@ describe("Heartbeat Tasks", () => {
       globalThis.fetch = origFetch;
     });
 
+    it("writes JSONL diagnostic log on successful post", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: 5000,
+        usdcBalance: 2.5,
+        survivalTier: "normal",
+      });
+
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = async () => new Response(null, { status: 204 });
+
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ discordWebhookUrl: "https://discord.com/api/webhooks/test/token" }),
+        db,
+        conway,
+      };
+
+      await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
+
+      // Read the log file
+      const { getAutomatonDir } = await import("../identity/wallet.js");
+      const logPath = `${getAutomatonDir()}/discord-heartbeat.log`;
+      const { existsSync, readFileSync, unlinkSync } = await import("fs");
+
+      expect(existsSync(logPath)).toBe(true);
+      const content = readFileSync(logPath, "utf-8");
+      const lines = content.trim().split("\n");
+      const lastLine = JSON.parse(lines[lines.length - 1]!);
+
+      expect(lastLine.status).toBe("sent");
+      expect(lastLine.state).toBeDefined();
+      expect(lastLine.tier).toBe("normal");
+      expect(lastLine.turns).toBeDefined();
+      expect(lastLine.model).toBeDefined();
+      expect(lastLine.credits).toBe("50.00");
+      expect(lastLine.usdc).toBe("2.5000");
+
+      // Clean up
+      try { unlinkSync(logPath); } catch { /* ok */ }
+
+      globalThis.fetch = origFetch;
+    });
+
     it("reads webhook URL from env var when config is not set", async () => {
       const tickCtx = createMockTickContext(db);
 
