@@ -54,5 +54,14 @@ jobs:
             done
 
             echo ""
+            echo "=== Crash Notify Script (webhook source) ==="
+            cat "$CONNIE_HOME/connie-crash-notify.sh" 2>/dev/null | grep -i "webhook\|discord\|curl" | sed 's|discord.com/api/webhooks/[^ "]*|discord.com/api/webhooks/REDACTED|gi' || echo "No crash notify script"
+            echo ""
+            echo "=== Other monitoring services ==="
+            systemctl list-units --type=service --state=running 2>/dev/null | grep -i "connie\|monitor\|watchdog" || echo "No other monitoring services"
+            echo ""
+            echo "=== Discord webhook in any config/script ==="
+            grep -r "discord.com/api/webhooks" "$CONNIE_HOME/" /root/ 2>/dev/null | sed 's|discord.com/api/webhooks/[^ "]*|discord.com/api/webhooks/FOUND|gi' | head -10 || echo "No webhook URLs found"
+            echo ""
             echo "=== Application Log (last 30 lines) ==="
             tail -30 /tmp/connie-research.log 2>/dev/null || echo "No app log"
