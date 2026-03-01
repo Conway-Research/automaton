@@ -289,10 +289,11 @@ describe("pruneDeadChildren", () => {
     }
 
     // Create a mock cleanup that tracks calls
-    const cleanupCalls: string[] = [];
+    const destroyComputeCalls: string[] = [];
     const mockCleanup = {
-      cleanup: vi.fn(async (childId: string) => {
-        cleanupCalls.push(childId);
+      cleanup: vi.fn(async () => { /* should not be called for dead children */ }),
+      destroyCompute: vi.fn(async (childId: string) => {
+        destroyComputeCalls.push(childId);
       }),
     } as any;
 
@@ -300,8 +301,9 @@ describe("pruneDeadChildren", () => {
 
     // 2 oldest should be removed (dead-0 and dead-1)
     expect(removed).toBe(2);
-    // cleanup.cleanup should have been called for "dead" children
-    expect(cleanupCalls).toContain("dead-0");
-    expect(cleanupCalls).toContain("dead-1");
+    // destroyCompute (not cleanup) should be called for "dead" children
+    expect(destroyComputeCalls).toContain("dead-0");
+    expect(destroyComputeCalls).toContain("dead-1");
+    expect(mockCleanup.cleanup).not.toHaveBeenCalled();
   });
 });

@@ -108,10 +108,15 @@ export async function pruneDeadChildren(
 
   for (const child of toRemove) {
     try {
-      // Clean up sandbox if cleanup is available and child is in cleanable state
-      if (cleanup && (child.status === "stopped" || child.status === "failed" || child.status === "dead")) {
+      // Destroy compute resource before deleting the DB record
+      if (cleanup) {
         try {
-          await cleanup.cleanup(child.id);
+          if (child.status === "stopped" || child.status === "failed") {
+            await cleanup.cleanup(child.id);
+          } else if (child.status === "dead") {
+            // Dead children can't go through lifecycle cleanup; destroy directly
+            await cleanup.destroyCompute(child.id);
+          }
         } catch {
           // Cleanup may fail; still delete the record
         }

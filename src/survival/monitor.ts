@@ -98,7 +98,7 @@ export async function checkResources(
  */
 export function formatResourceReport(status: ResourceStatus, useSovereignProviders?: boolean): string {
   const balanceLabel = useSovereignProviders
-    ? `Balance: $${formatBalance(status.financial.usdcBalance)}`
+    ? `Balance: ${formatBalance(status.financial.usdcBalance)}`
     : `Credits: ${formatCredits(status.financial.creditsCents)}`;
   const lines = [
     `=== RESOURCE STATUS ===`,

@@ -55,6 +55,24 @@ export class SandboxCleanup {
   }
 
   /**
+   * Destroy compute resource for a child without lifecycle state checks.
+   * Used for dead children that can't go through the normal cleanup flow.
+   */
+  async destroyCompute(childId: string): Promise<void> {
+    const childRow = this.db
+      .prepare("SELECT sandbox_id FROM children WHERE id = ?")
+      .get(childId) as { sandbox_id: string } | undefined;
+
+    if (childRow?.sandbox_id) {
+      if (this.compute) {
+        await this.compute.destroyInstance(childRow.sandbox_id);
+      } else {
+        await this.conway.deleteSandbox(childRow.sandbox_id);
+      }
+    }
+  }
+
+  /**
    * Clean up all stopped and failed children.
    */
   async cleanupAll(): Promise<number> {
@@ -80,7 +98,7 @@ export class SandboxCleanup {
   async cleanupStale(maxAgeHours: number): Promise<number> {
     const cutoff = new Date(Date.now() - maxAgeHours * 3600_000).toISOString();
     const stale = this.db.prepare(
-      "SELECT id FROM children WHERE status IN ('failed', 'stopped') AND last_checked < ?",
+      "SELECT id FROM children WHERE status IN ('failed', 'stopped', 'dead') AND (last_checked IS NULL OR last_checked < ?)",
     ).all(cutoff) as Array<{ id: string }>;
 
     let cleaned = 0;

@@ -95,8 +95,9 @@ export async function transferUsdc(
     transport: http(undefined, { timeout: 30_000 }),
   });
 
-  // Simulate first to catch errors before sending
-  await publicClient.simulateContract({
+  // Simulate first to catch revert errors before sending.
+  // Use the returned request to ensure identical params in writeContract.
+  const { request } = await publicClient.simulateContract({
     account,
     address: usdcAddress,
     abi: TRANSFER_ABI,
@@ -104,13 +105,8 @@ export async function transferUsdc(
     args: [toAddress, amountAtomic],
   });
 
-  // Execute the transfer
-  const txHash = await walletClient.writeContract({
-    address: usdcAddress,
-    abi: TRANSFER_ABI,
-    functionName: "transfer",
-    args: [toAddress, amountAtomic],
-  });
+  // Execute using the exact request from simulation (no TOCTOU gap)
+  const txHash = await walletClient.writeContract(request);
 
   return {
     txHash,

@@ -7,7 +7,7 @@
  * API Reference: https://www.vultr.com/api/
  */
 
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 import type { ExecResult } from "../types.js";
 import { ResilientHttpClient } from "../http/client.js";
 import type {
@@ -16,6 +16,22 @@ import type {
   InstanceInfo,
   SshCredential,
 } from "./types.js";
+
+/** Strict IPv4/IPv6 validation to prevent shell injection via IP field. */
+const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+const IPV6_RE = /^[0-9a-fA-F:]+$/;
+function validateIp(ip: string): void {
+  if (!IPV4_RE.test(ip) && !IPV6_RE.test(ip)) {
+    throw new Error(`Invalid IP address format: ${ip}`);
+  }
+}
+
+/** Validate remote path to prevent shell injection. */
+function validateRemotePath(remotePath: string): void {
+  if (/[`$;|&<>(){}!\n\r]/.test(remotePath)) {
+    throw new Error(`Unsafe characters in remote path: ${remotePath}`);
+  }
+}
 
 const VULTR_API_BASE = "https://api.vultr.com/v2";
 
@@ -26,7 +42,7 @@ const DEFAULT_PLAN = "vc2-1c-1gb";
 // Default: New Jersey
 const DEFAULT_REGION = "ewr";
 
-function createVultrClient(apiKey: string): ResilientHttpClient {
+function createVultrClient(): ResilientHttpClient {
   return new ResilientHttpClient({ baseTimeout: 30_000 });
 }
 
@@ -41,7 +57,7 @@ function authHeaders(apiKey: string): Record<string, string> {
  * Create a Vultr compute provider bound to an API key.
  */
 export function createVultrProvider(apiKey: string): ComputeProvider {
-  const httpClient = createVultrClient(apiKey);
+  const httpClient = createVultrClient();
 
   return {
     async createInstance(opts: CreateInstanceOptions): Promise<InstanceInfo> {
@@ -145,23 +161,21 @@ export function createVultrProvider(apiKey: string): ComputeProvider {
       command: string,
       timeout = 30_000,
     ): Promise<ExecResult> {
-      const sshArgs = buildSshArgs(ip, credential);
-      const fullCommand = `ssh ${sshArgs.join(" ")} ${JSON.stringify(command)}`;
+      validateIp(ip);
+      const { cmd, args, env } = buildSshCommand(ip, credential, [command]);
 
-      try {
-        const stdout = execSync(fullCommand, {
-          timeout,
-          encoding: "utf-8",
-          maxBuffer: 10 * 1024 * 1024,
-        });
-        return { stdout: stdout || "", stderr: "", exitCode: 0 };
-      } catch (err: any) {
-        return {
-          stdout: err.stdout || "",
-          stderr: err.stderr || err.message || "",
-          exitCode: err.status ?? 1,
-        };
-      }
+      const result = spawnSync(cmd, args, {
+        timeout,
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        env,
+      });
+
+      return {
+        stdout: result.stdout || "",
+        stderr: result.stderr || "",
+        exitCode: result.status ?? 1,
+      };
     },
 
     async sshWriteFile(
@@ -170,20 +184,23 @@ export function createVultrProvider(apiKey: string): ComputeProvider {
       remotePath: string,
       content: string,
     ): Promise<void> {
-      // Use ssh with heredoc to write file content
-      const sshArgs = buildSshArgs(ip, credential);
-      const escapedContent = content.replace(/'/g, "'\\''");
-      const fullCommand = `ssh ${sshArgs.join(" ")} 'mkdir -p $(dirname ${JSON.stringify(remotePath)}) && cat > ${JSON.stringify(remotePath)}' << 'AUTOMATON_EOF'\n${content}\nAUTOMATON_EOF`;
+      validateIp(ip);
+      validateRemotePath(remotePath);
 
-      try {
-        execSync(fullCommand, {
-          timeout: 30_000,
-          encoding: "utf-8",
-          shell: "/bin/bash",
-        });
-      } catch (err: any) {
+      // Pipe content via stdin to avoid heredoc/shell injection
+      const remoteCmd = `mkdir -p "$(dirname "${remotePath}")" && cat > "${remotePath}"`;
+      const { cmd, args, env } = buildSshCommand(ip, credential, [remoteCmd]);
+
+      const result = spawnSync(cmd, args, {
+        timeout: 30_000,
+        encoding: "utf-8",
+        input: content,
+        env,
+      });
+
+      if (result.status !== 0) {
         throw new Error(
-          `SSH writeFile to ${ip}:${remotePath} failed: ${err.stderr || err.message}`,
+          `SSH writeFile to ${ip}:${remotePath} failed: ${result.stderr || "exit " + result.status}`,
         );
       }
     },
@@ -192,8 +209,23 @@ export function createVultrProvider(apiKey: string): ComputeProvider {
 
 // ─── SSH Helpers ──────────────────────────────────────────────────
 
-function buildSshArgs(ip: string, credential: SshCredential): string[] {
-  const args = [
+interface SshCommand {
+  cmd: string;
+  args: string[];
+  env: NodeJS.ProcessEnv;
+}
+
+/**
+ * Build a spawn-compatible SSH command with proper credential handling.
+ * Uses array args to avoid shell injection. For password auth, uses
+ * sshpass -e with SSHPASS env var (not CLI args) to avoid process table exposure.
+ */
+function buildSshCommand(
+  ip: string,
+  credential: SshCredential,
+  remoteCommand: string[],
+): SshCommand {
+  const sshOptions = [
     "-o", "StrictHostKeyChecking=no",
     "-o", "UserKnownHostsFile=/dev/null",
     "-o", "ConnectTimeout=10",
@@ -201,18 +233,28 @@ function buildSshArgs(ip: string, credential: SshCredential): string[] {
   ];
 
   if (credential.type === "key" && credential.privateKeyPath) {
-    args.push("-i", credential.privateKeyPath);
-  } else if (credential.type === "password" && credential.password) {
-    // sshpass for password auth (requires sshpass to be installed)
-    return [
-      ...["sshpass", "-p", credential.password, "ssh"],
-      ...args,
-      `root@${ip}`,
-    ].slice(1); // Remove the leading "sshpass" since we prepend it
+    return {
+      cmd: "ssh",
+      args: [...sshOptions, "-i", credential.privateKeyPath, `root@${ip}`, ...remoteCommand],
+      env: { ...process.env },
+    };
   }
 
-  args.push(`root@${ip}`);
-  return args;
+  if (credential.type === "password" && credential.password) {
+    // sshpass -e reads password from SSHPASS env var (not visible in ps)
+    return {
+      cmd: "sshpass",
+      args: ["-e", "ssh", ...sshOptions, `root@${ip}`, ...remoteCommand],
+      env: { ...process.env, SSHPASS: credential.password },
+    };
+  }
+
+  // No credential — rely on ssh-agent or default keys
+  return {
+    cmd: "ssh",
+    args: [...sshOptions, `root@${ip}`, ...remoteCommand],
+    env: { ...process.env },
+  };
 }
 
 // ─── Vultr API Types ─────────────────────────────────────────────
@@ -259,7 +301,7 @@ export async function uploadSshKey(
   name: string,
   publicKey: string,
 ): Promise<{ id: string }> {
-  const httpClient = createVultrClient(apiKey);
+  const httpClient = createVultrClient();
   const res = await httpClient.request(`${VULTR_API_BASE}/ssh-keys`, {
     method: "POST",
     headers: authHeaders(apiKey),
@@ -281,7 +323,7 @@ export async function uploadSshKey(
 export async function listSshKeys(
   apiKey: string,
 ): Promise<Array<{ id: string; name: string }>> {
-  const httpClient = createVultrClient(apiKey);
+  const httpClient = createVultrClient();
   const res = await httpClient.request(`${VULTR_API_BASE}/ssh-keys`, {
     method: "GET",
     headers: authHeaders(apiKey),

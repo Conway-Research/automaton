@@ -624,7 +624,7 @@ export async function runAgentLoop(
             policyEngine,
             spendTracker ? {
               inputSource: currentInputSource,
-              turnToolCallCount: turn.toolCalls.filter(t => t.name === "transfer_credits").length,
+              turnToolCallCount: turn.toolCalls.filter(t => t.name === "transfer_credits" || t.name === "transfer_usdc").length,
               sessionSpend: spendTracker,
             } : undefined,
           );
@@ -792,8 +792,8 @@ export async function runAgentLoop(
       // (no mutations — only read/check/list/info tools), count as idle.
       // Use a blocklist of mutating tools rather than an allowlist of safe ones.
       const MUTATING_TOOLS = new Set([
-        "exec", "write_file", "edit_own_file", "transfer_credits", "topup_credits", "fund_child",
-        "spawn_child", "start_child", "delete_sandbox", "create_sandbox",
+        "exec", "write_file", "edit_own_file", "transfer_credits", "transfer_usdc", "topup_credits", "fund_child",
+        "spawn_child", "start_child", "delete_sandbox", "create_sandbox", "create_instance", "destroy_instance",
         "install_npm_package", "install_mcp_server", "install_skill",
         "create_skill", "remove_skill", "install_skill_from_git",
         "install_skill_from_url", "pull_upstream", "git_commit", "git_push",

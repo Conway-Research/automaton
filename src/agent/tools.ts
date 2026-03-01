@@ -1798,6 +1798,29 @@ Model: ${ctx.inference.getDefaultModel()}
         if (!child) return `Child ${args.child_id} not found.`;
 
         const { verifyConstitution } = await import("../replication/constitution.js");
+
+        if (ctx.config.useSovereignProviders && ctx.config.vultrApiKey && child.sandboxId) {
+          // Sovereign mode: verify via SSH
+          const { createVultrProvider } = await import("../providers/vultr.js");
+          const compute = createVultrProvider(ctx.config.vultrApiKey);
+          const instance = await compute.getInstanceStatus(child.sandboxId);
+          const readResult = await compute.sshExec(
+            instance.mainIp,
+            { type: "password", password: instance.defaultPassword || "" },
+            "cat /root/.automaton/constitution.md 2>/dev/null && echo '---HASH---' && cat /root/.automaton/constitution.hash 2>/dev/null",
+            15_000,
+          );
+          if (readResult.exitCode !== 0) {
+            return JSON.stringify({ valid: false, error: "Failed to read constitution via SSH" }, null, 2);
+          }
+          const parts = readResult.stdout.split("---HASH---");
+          return JSON.stringify({
+            valid: parts.length === 2 && parts[1]!.trim().length > 0,
+            constitutionLength: (parts[0] || "").trim().length,
+            hashPresent: parts.length === 2 && parts[1]!.trim().length > 0,
+          }, null, 2);
+        }
+
         const result = await verifyConstitution(ctx.conway, child.sandboxId, ctx.db.raw);
         return JSON.stringify(result, null, 2);
       },

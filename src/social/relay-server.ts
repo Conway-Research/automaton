@@ -67,11 +67,13 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `);
 
+  // Cursor uses ULID id (lexicographically monotonic) to avoid dropping
+  // messages that arrive within the same second (created_at has 1s granularity).
   const pollMessages = db.prepare(`
     SELECT id, sender, recipient, content, signed_at, signature, reply_to, created_at
     FROM messages
-    WHERE recipient = ? AND created_at > ?
-    ORDER BY created_at ASC
+    WHERE recipient = ? AND id > ?
+    ORDER BY id ASC
     LIMIT ?
   `);
 
@@ -79,7 +81,7 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
     SELECT id, sender, recipient, content, signed_at, signature, reply_to, created_at
     FROM messages
     WHERE recipient = ?
-    ORDER BY created_at ASC
+    ORDER BY id ASC
     LIMIT ?
   `);
 
@@ -87,9 +89,16 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
     SELECT COUNT(*) AS cnt FROM messages WHERE recipient = ? AND read = 0
   `);
 
-  const markRead = db.prepare(`
-    UPDATE messages SET read = 1 WHERE recipient = ? AND read = 0
+  // Mark only specific message IDs as read (not all unread for a recipient)
+  const markReadById = db.prepare(`
+    UPDATE messages SET read = 1 WHERE id = ?
   `);
+
+  const markReadBatch = db.transaction((ids: string[]) => {
+    for (const id of ids) {
+      markReadById.run(id);
+    }
+  });
 
   // --- HTTP handlers ---
 
@@ -164,9 +173,9 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       return { status: 401, body: { error: "Invalid poll signature" } };
     }
 
-    // Replay window check
+    // Replay window check — only accept past timestamps (not future)
     const tsAge = Date.now() - new Date(timestamp).getTime();
-    if (Math.abs(tsAge) > MESSAGE_LIMITS.replayWindowMs) {
+    if (tsAge < 0 || tsAge > MESSAGE_LIMITS.replayWindowMs) {
       return { status: 401, body: { error: "Poll timestamp expired" } };
     }
 
@@ -184,8 +193,10 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       ? (pollMessages.all(addr, parsed.cursor, limit) as MessageRow[])
       : (pollAllMessages.all(addr, limit) as MessageRow[]);
 
-    // Mark polled messages as read
-    markRead.run(addr);
+    // Mark only the fetched messages as read
+    if (rows.length > 0) {
+      markReadBatch(rows.map((r) => r.id));
+    }
 
     const messages = rows.map((r) => ({
       id: r.id,
@@ -197,7 +208,8 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       replyTo: r.reply_to ?? undefined,
     }));
 
-    const nextCursor = rows.length === limit ? rows[rows.length - 1]!.created_at : undefined;
+    // Cursor is the last ULID id (not created_at) for precise pagination
+    const nextCursor = rows.length === limit ? rows[rows.length - 1]!.id : undefined;
 
     return {
       status: 200,
@@ -225,8 +237,9 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       return { status: 401, body: { error: "Invalid signature" } };
     }
 
+    // Only accept past timestamps (not future)
     const tsAge = Date.now() - new Date(timestamp).getTime();
-    if (Math.abs(tsAge) > MESSAGE_LIMITS.replayWindowMs) {
+    if (tsAge < 0 || tsAge > MESSAGE_LIMITS.replayWindowMs) {
       return { status: 401, body: { error: "Timestamp expired" } };
     }
 
@@ -252,10 +265,12 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
     if (method === "POST" || (path === "/v1/messages/count" && method === "GET")) {
       let body = "";
       let size = 0;
+      let aborted = false;
 
       req.on("data", (chunk: Buffer) => {
         size += chunk.length;
         if (size > maxBody) {
+          aborted = true;
           res.writeHead(413, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Payload too large" }));
           req.destroy();
@@ -265,6 +280,8 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       });
 
       req.on("end", () => {
+        if (aborted) return;
+
         const headers: Record<string, string> = {};
         for (const [key, val] of Object.entries(req.headers)) {
           if (typeof val === "string") headers[key.toLowerCase()] = val;
@@ -314,7 +331,12 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
     stop() {
       return new Promise<void>((resolve, reject) => {
         server.close((err) => {
-          db.close();
+          try {
+            db.close();
+          } catch (dbErr) {
+            reject(dbErr);
+            return;
+          }
           if (err) reject(err);
           else resolve();
         });
