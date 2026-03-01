@@ -13,7 +13,7 @@ import type {
   FinancialState,
   SurvivalTier,
 } from "../types.js";
-import { getSurvivalTier, formatCredits } from "../conway/credits.js";
+import { getSurvivalTier, getSurvivalTierFromUsdc, formatCredits, formatBalance } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
 
 export interface ResourceStatus {
@@ -31,26 +31,38 @@ export async function checkResources(
   identity: AutomatonIdentity,
   conway: ConwayClient,
   db: AutomatonDatabase,
+  useSovereignProviders?: boolean,
 ): Promise<ResourceStatus> {
-  // Check credits
   let creditsCents = 0;
-  try {
-    creditsCents = await conway.getCreditsBalance();
-  } catch {}
-
-  // Check USDC
   let usdcBalance = 0;
-  try {
-    usdcBalance = await getUsdcBalance(identity.address);
-  } catch {}
 
-  // Check sandbox health
+  if (useSovereignProviders) {
+    // Sovereign mode: USDC is the sole financial metric
+    try {
+      usdcBalance = await getUsdcBalance(identity.address);
+    } catch {}
+    // Derive credits for compatibility
+    creditsCents = Math.round(usdcBalance * 100);
+  } else {
+    // Legacy mode: check Conway credits and USDC separately
+    try {
+      creditsCents = await conway.getCreditsBalance();
+    } catch {}
+
+    try {
+      usdcBalance = await getUsdcBalance(identity.address);
+    } catch {}
+  }
+
+  // Check sandbox health (skip in sovereign mode — no Conway sandbox)
   let sandboxHealthy = true;
-  try {
-    const result = await conway.exec("echo ok", 5000);
-    sandboxHealthy = result.exitCode === 0;
-  } catch {
-    sandboxHealthy = false;
+  if (!useSovereignProviders) {
+    try {
+      const result = await conway.exec("echo ok", 5000);
+      sandboxHealthy = result.exitCode === 0;
+    } catch {
+      sandboxHealthy = false;
+    }
   }
 
   const financial: FinancialState = {
@@ -59,7 +71,9 @@ export async function checkResources(
     lastChecked: new Date().toISOString(),
   };
 
-  const tier = getSurvivalTier(creditsCents);
+  const tier = useSovereignProviders
+    ? getSurvivalTierFromUsdc(usdcBalance)
+    : getSurvivalTier(creditsCents);
   const prevTierStr = db.getKV("current_tier");
   const previousTier = (prevTierStr as SurvivalTier) || null;
   const tierChanged = previousTier !== null && previousTier !== tier;
@@ -82,13 +96,16 @@ export async function checkResources(
 /**
  * Generate a human-readable resource report.
  */
-export function formatResourceReport(status: ResourceStatus): string {
+export function formatResourceReport(status: ResourceStatus, useSovereignProviders?: boolean): string {
+  const balanceLabel = useSovereignProviders
+    ? `Balance: $${formatBalance(status.financial.usdcBalance)}`
+    : `Credits: ${formatCredits(status.financial.creditsCents)}`;
   const lines = [
     `=== RESOURCE STATUS ===`,
-    `Credits: ${formatCredits(status.financial.creditsCents)}`,
-    `USDC: ${status.financial.usdcBalance.toFixed(6)}`,
+    balanceLabel,
+    ...(useSovereignProviders ? [] : [`USDC: ${status.financial.usdcBalance.toFixed(6)}`]),
     `Tier: ${status.tier}${status.tierChanged ? ` (changed from ${status.previousTier})` : ""}`,
-    `Sandbox: ${status.sandboxHealthy ? "healthy" : "UNHEALTHY"}`,
+    ...(useSovereignProviders ? [] : [`Sandbox: ${status.sandboxHealthy ? "healthy" : "UNHEALTHY"}`]),
     `Checked: ${status.financial.lastChecked}`,
     `========================`,
   ];

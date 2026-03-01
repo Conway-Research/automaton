@@ -229,12 +229,26 @@ export interface FinancialState {
 
 export type SurvivalTier = "dead" | "critical" | "low_compute" | "normal" | "high";
 
+/**
+ * Survival thresholds in USD (USDC).
+ * When useSovereignProviders is true, these are the sole financial metric.
+ * Legacy credits thresholds preserved for backward compatibility.
+ */
 export const SURVIVAL_THRESHOLDS = {
-  high: 500, // > $5.00 in cents
+  high: 500, // > $5.00 in cents (legacy credits)
   normal: 50, // > $0.50 in cents
   low_compute: 10, // $0.10 - $0.50
   critical: 0, // >= $0.00 (zero credits = critical, agent stays alive)
   dead: -1, // negative balance = truly dead
+} as const;
+
+/** USDC-based survival thresholds in USD */
+export const USDC_SURVIVAL_THRESHOLDS = {
+  high: 5.0, // > $5.00 USDC
+  normal: 0.50, // > $0.50 USDC
+  low_compute: 0.10, // $0.10 - $0.50
+  critical: 0, // >= $0.00 (zero = critical, alive)
+  dead: -1, // only via grace period timeout
 } as const;
 
 export interface Transaction {

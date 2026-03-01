@@ -232,8 +232,9 @@ async function run(): Promise<void> {
   });
 
   // Register automaton identity (one-time, immutable)
+  // Skipped in sovereign mode — no Conway platform to register with.
   const registrationState = db.getIdentity("conwayRegistrationStatus");
-  if (registrationState !== "registered") {
+  if (!config.useSovereignProviders && registrationState !== "registered") {
     try {
       const genesisPromptHash = config.genesisPrompt
         ? keccak256(toHex(config.genesisPrompt))
@@ -369,8 +370,8 @@ async function run(): Promise<void> {
   }
 
   // Bootstrap topup: buy minimum credits ($5) from USDC so the agent can start.
-  // Skipped in BYOK mode — no Conway credit system.
-  if (!platformDisabled) {
+  // Skipped in BYOK mode or sovereign mode — no Conway credit system.
+  if (!platformDisabled && !config.useSovereignProviders) {
     try {
       let bootstrapTimer: ReturnType<typeof setTimeout>;
       const bootstrapTimeout = new Promise<null>((_, reject) => {

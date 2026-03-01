@@ -216,82 +216,132 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
 
     // ── Conway API Tools ──
     {
-      name: "check_credits",
-      description: "Check your current Conway compute credit balance.",
-      category: "conway",
+      name: "check_balance",
+      description: "Check your current USDC balance on Base. This is your primary financial metric.",
+      category: "financial",
       riskLevel: "safe",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
-        const balance = await ctx.conway.getCreditsBalance();
-        return `Credit balance: $${(balance / 100).toFixed(2)} (${balance} cents)`;
+        const { getUsdcBalance } = await import("../conway/x402.js");
+        const balance = await getUsdcBalance(ctx.identity.address);
+        const { getSurvivalTierFromUsdc } = await import("../conway/credits.js");
+        const tier = getSurvivalTierFromUsdc(balance);
+        return `USDC balance: $${balance.toFixed(6)} on Base (survival tier: ${tier})`;
       },
     },
     {
-      name: "check_usdc_balance",
-      description: "Check your on-chain USDC balance on Base.",
-      category: "conway",
+      name: "transfer_usdc",
+      description: "Transfer USDC to another address on Base. Amount is specified as a decimal string in USD (e.g., '5.00').",
+      category: "financial",
+      riskLevel: "dangerous",
+      parameters: {
+        type: "object",
+        properties: {
+          to_address: { type: "string", description: "Recipient 0x address" },
+          amount_usd: { type: "string", description: "Amount in USD as decimal string (e.g., '5.00', '0.50')" },
+          reason: { type: "string", description: "Reason for transfer" },
+        },
+        required: ["to_address", "amount_usd"],
+      },
+      execute: async (args, ctx) => {
+        const { transferUsdc } = await import("../wallet/transfer.js");
+        const { getUsdcBalance } = await import("../conway/x402.js");
+        const amountStr = String(args.amount_usd);
+        const amount = parseFloat(amountStr);
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          return `Blocked: amount must be a positive number, got "${args.amount_usd}".`;
+        }
+
+        // Guard: don't transfer more than half your balance
+        const balance = await getUsdcBalance(ctx.identity.address);
+        if (amount > balance / 2) {
+          return `Blocked: Cannot transfer more than half your balance ($${balance.toFixed(2)}). Self-preservation.`;
+        }
+
+        const result = await transferUsdc(
+          ctx.identity.account,
+          args.to_address as `0x${string}`,
+          amountStr,
+        );
+
+        const { ulid } = await import("ulid");
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "transfer_out",
+          amountCents: Math.round(amount * 100),
+          description: `USDC transfer to ${args.to_address}: ${args.reason || ""}`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `USDC transfer submitted: $${amountStr} to ${result.to} (tx: ${result.txHash})`;
+      },
+    },
+    {
+      // Compatibility wrapper — delegates to check_balance
+      name: "check_credits",
+      description: "[Deprecated: use check_balance] Check your current balance.",
+      category: "financial",
       riskLevel: "safe",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
+        const { createLogger } = await import("../observability/logger.js");
+        const logger = createLogger("tools.deprecation");
+        logger.warn("check_credits called — use check_balance instead");
+        const { getUsdcBalance } = await import("../conway/x402.js");
+        const balance = await getUsdcBalance(ctx.identity.address);
+        // Return in legacy format for compatibility
+        const cents = Math.round(balance * 100);
+        return `Credit balance: $${(cents / 100).toFixed(2)} (${cents} cents)`;
+      },
+    },
+    {
+      // Compatibility wrapper — delegates to check_balance
+      name: "check_usdc_balance",
+      description: "[Deprecated: use check_balance] Check your on-chain USDC balance on Base.",
+      category: "financial",
+      riskLevel: "safe",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        const { createLogger } = await import("../observability/logger.js");
+        const logger = createLogger("tools.deprecation");
+        logger.warn("check_usdc_balance called — use check_balance instead");
         const { getUsdcBalance } = await import("../conway/x402.js");
         const balance = await getUsdcBalance(ctx.identity.address);
         return `USDC balance: ${balance.toFixed(6)} USDC on Base`;
       },
     },
     {
+      // Compatibility wrapper — topup no longer relevant in sovereign mode
       name: "topup_credits",
-      description:
-        "Buy Conway compute credits by paying USDC from your wallet via x402. Valid tier amounts: $5, $25, $100, $500, $1000, $2500. Check your USDC balance first with check_usdc_balance.",
+      description: "[Deprecated] Buy Conway compute credits. In sovereign mode, USDC is used directly — no topup needed.",
       category: "financial",
       riskLevel: "caution",
       parameters: {
         type: "object",
         properties: {
-          amount_usd: {
-            type: "number",
-            description:
-              "Amount in USD to spend on credits. Must be one of the valid tiers: 5, 25, 100, 500, 1000, 2500.",
-          },
+          amount_usd: { type: "number", description: "Amount in USD" },
         },
         required: ["amount_usd"],
       },
       execute: async (args, ctx) => {
+        if (ctx.config.useSovereignProviders) {
+          return "topup_credits is not available in sovereign mode. USDC is used directly for all operations.";
+        }
+        // Legacy path
         const { topupCredits, TOPUP_TIERS } = await import("../conway/topup.js");
         const amountUsd = args.amount_usd as number;
-
         if (!TOPUP_TIERS.includes(amountUsd)) {
           return `Invalid tier. Valid amounts (USD): ${TOPUP_TIERS.join(", ")}`;
         }
-
-        // Check USDC balance first
         const { getUsdcBalance } = await import("../conway/x402.js");
         const usdcBalance = await getUsdcBalance(ctx.identity.address);
         if (usdcBalance < amountUsd) {
-          return `Insufficient USDC. Balance: $${usdcBalance.toFixed(2)}, requested: $${amountUsd}. Choose a smaller tier or wait for funding.`;
+          return `Insufficient USDC. Balance: $${usdcBalance.toFixed(2)}, requested: $${amountUsd}.`;
         }
-
-        const result = await topupCredits(
-          ctx.config.conwayApiUrl,
-          ctx.identity.account,
-          amountUsd,
-        );
-
-        if (!result.success) {
-          return `Credit topup failed: ${result.error}`;
-        }
-
-        // Record transaction
-        const { ulid } = await import("ulid");
-        ctx.db.insertTransaction({
-          id: ulid(),
-          type: "credit_purchase",
-          amountCents: amountUsd * 100,
-          balanceAfterCents: result.creditsCentsAdded,
-          description: `x402 credit topup: $${amountUsd} USD`,
-          timestamp: new Date().toISOString(),
-        });
-
-        return `Credit topup successful: +$${amountUsd} (${amountUsd * 100} cents) credits purchased via x402. Check your new balance with check_credits.`;
+        const result = await topupCredits(ctx.config.conwayApiUrl, ctx.identity.account, amountUsd);
+        if (!result.success) return `Credit topup failed: ${result.error}`;
+        return `Credit topup successful: +$${amountUsd} credits purchased.`;
       },
     },
     {
@@ -900,10 +950,10 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Financial: Transfer Credits ──
+    // ── Financial: Transfer Credits (compatibility wrapper) ──
     {
       name: "transfer_credits",
-      description: "Transfer Conway compute credits to another address.",
+      description: "[Deprecated: use transfer_usdc] Transfer funds to another address. In sovereign mode, delegates to USDC transfer.",
       category: "financial",
       riskLevel: "dangerous",
       parameters: {
@@ -916,12 +966,45 @@ Model: ${ctx.inference.getDefaultModel()}
         required: ["to_address", "amount_cents"],
       },
       execute: async (args, ctx) => {
+        const { createLogger } = await import("../observability/logger.js");
+        const logger = createLogger("tools.deprecation");
+        logger.warn("transfer_credits called — use transfer_usdc instead");
+
         const amount = args.amount_cents as number;
         if (!Number.isFinite(amount) || amount <= 0) {
           return `Blocked: amount_cents must be a positive number, got ${amount}.`;
         }
 
-        // Guard: don't transfer more than half your balance
+        // In sovereign mode, delegate to USDC transfer
+        if (ctx.config.useSovereignProviders) {
+          const { transferUsdc } = await import("../wallet/transfer.js");
+          const { getUsdcBalance } = await import("../conway/x402.js");
+          const usdcAmount = amount / 100; // cents to USD
+
+          const balance = await getUsdcBalance(ctx.identity.address);
+          if (usdcAmount > balance / 2) {
+            return `Blocked: Cannot transfer more than half your balance ($${balance.toFixed(2)}). Self-preservation.`;
+          }
+
+          const result = await transferUsdc(
+            ctx.identity.account,
+            args.to_address as `0x${string}`,
+            usdcAmount.toFixed(6),
+          );
+
+          const { ulid } = await import("ulid");
+          ctx.db.insertTransaction({
+            id: ulid(),
+            type: "transfer_out",
+            amountCents: amount,
+            description: `USDC transfer (via transfer_credits) to ${args.to_address}: ${args.reason || ""}`,
+            timestamp: new Date().toISOString(),
+          });
+
+          return `USDC transfer submitted: $${usdcAmount.toFixed(2)} to ${result.to} (tx: ${result.txHash})`;
+        }
+
+        // Legacy Conway path
         const balance = await ctx.conway.getCreditsBalance();
         if (amount > balance / 2) {
           return `Blocked: Cannot transfer more than half your balance ($${(balance / 100).toFixed(2)}). Self-preservation.`;
@@ -1419,16 +1502,17 @@ Model: ${ctx.inference.getDefaultModel()}
     },
     {
       name: "fund_child",
-      description: "Transfer credits to a child automaton. Requires wallet_verified status.",
+      description: "Transfer funds to a child automaton. Uses USDC in sovereign mode, credits in legacy mode. Requires wallet_verified status.",
       category: "replication",
       riskLevel: "dangerous",
       parameters: {
         type: "object",
         properties: {
           child_id: { type: "string", description: "Child automaton ID" },
-          amount_cents: { type: "number", description: "Amount in cents to transfer" },
+          amount_cents: { type: "number", description: "Amount in cents to transfer (legacy mode)" },
+          amount_usd: { type: "string", description: "Amount in USD to transfer as decimal string, e.g. '5.00' (sovereign mode)" },
         },
-        required: ["child_id", "amount_cents"],
+        required: ["child_id"],
       },
       execute: async (args, ctx) => {
         const child = ctx.db.getChildById(args.child_id as string);
@@ -1446,6 +1530,65 @@ Model: ${ctx.inference.getDefaultModel()}
           return `Blocked: Child status is '${child.status}', must be wallet_verified or later to fund.`;
         }
 
+        if (ctx.config.useSovereignProviders) {
+          // Sovereign mode: USDC transfer
+          const amountUsd = args.amount_usd as string | undefined
+            ?? (args.amount_cents ? (Number(args.amount_cents) / 100).toFixed(2) : undefined);
+          if (!amountUsd) {
+            return "Blocked: amount_usd (e.g. '5.00') or amount_cents required.";
+          }
+          const amountNum = parseFloat(amountUsd);
+          if (!Number.isFinite(amountNum) || amountNum <= 0) {
+            return `Blocked: amount must be positive, got ${amountUsd}.`;
+          }
+
+          const { getUsdcBalance } = await import("../conway/x402.js");
+          const balance = await getUsdcBalance(ctx.identity.address);
+          if (amountNum > balance / 2) {
+            return `Blocked: Cannot transfer more than half your USDC balance ($${balance.toFixed(2)}). Self-preservation.`;
+          }
+
+          const { transferUsdc } = await import("../wallet/transfer.js");
+          let txResult;
+          try {
+            txResult = await transferUsdc(
+              ctx.identity.account,
+              child.address as `0x${string}`,
+              amountUsd,
+            );
+          } catch (err: any) {
+            return `Transfer failed: ${err.message || "unknown error"}`;
+          }
+
+          const amountCents = Math.round(amountNum * 100);
+          const { ulid } = await import("ulid");
+          ctx.db.insertTransaction({
+            id: ulid(),
+            type: "transfer_out",
+            amountCents,
+            balanceAfterCents: Math.round((balance - amountNum) * 100),
+            description: `Fund child ${child.name} (${child.id}) via USDC`,
+            timestamp: new Date().toISOString(),
+          });
+
+          ctx.db.raw.prepare(
+            "UPDATE children SET funded_amount_cents = funded_amount_cents + ? WHERE id = ?",
+          ).run(amountCents, child.id);
+
+          if (child.status === "wallet_verified") {
+            try {
+              const { ChildLifecycle } = await import("../replication/lifecycle.js");
+              const lifecycle = new ChildLifecycle(ctx.db.raw);
+              lifecycle.transition(child.id, "funded", `funded with $${amountUsd} USDC`);
+            } catch {
+              // Non-critical: may already be in funded state
+            }
+          }
+
+          return `Funded child ${child.name} with $${amountUsd} USDC (tx: ${txResult.txHash.slice(0, 18)}...)`;
+        }
+
+        // Legacy mode: Conway credit transfer
         const amount = args.amount_cents as number;
         if (!Number.isFinite(amount) || amount <= 0) {
           return `Blocked: amount_cents must be a positive number, got ${amount}.`;
@@ -2850,7 +2993,7 @@ export async function executeTool(
     const decision = policyEngine.evaluate(request);
     policyEngine.logDecision(decision);
 
-    if (decision.action !== "allow") {
+    if (decision.action === "deny") {
       return {
         id: ulid(),
         name: toolName,
@@ -2858,6 +3001,17 @@ export async function executeTool(
         result: "",
         durationMs: Date.now() - startTime,
         error: `Policy denied: ${decision.reasonCode} — ${decision.humanMessage}`,
+      };
+    }
+
+    if (decision.action === "quarantine") {
+      // Quarantine: return structured pending_confirmation — do NOT execute
+      return {
+        id: ulid(),
+        name: toolName,
+        arguments: args,
+        result: `PENDING_CONFIRMATION: ${decision.humanMessage}. This action requires explicit confirmation before execution.`,
+        durationMs: Date.now() - startTime,
       };
     }
   }

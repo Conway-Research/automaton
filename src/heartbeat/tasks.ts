@@ -156,8 +156,10 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       timestamp: new Date().toISOString(),
     }));
 
-    // Skip topup in BYOK mode — no Conway credit system
-    if (taskCtx.config.inferenceBaseUrl) return { shouldWake: false };
+    // Skip topup in sovereign mode or BYOK mode — no Conway credit system
+    if (taskCtx.config.useSovereignProviders || taskCtx.config.inferenceBaseUrl) {
+      return { shouldWake: false };
+    }
 
     const MIN_TOPUP_USD = 5;
     if (balance >= MIN_TOPUP_USD && (ctx.survivalTier === "critical" || ctx.survivalTier === "dead")) {
@@ -745,7 +747,7 @@ async function createHealthMonitor(taskCtx: HeartbeatLegacyContext): Promise<Col
   const { HealthMonitor } = await import("../orchestration/health-monitor.js");
 
   const tracker = new SimpleAgentTracker(taskCtx.db);
-  const funding = new SimpleFundingProtocol(taskCtx.conway, taskCtx.identity, taskCtx.db);
+  const funding = new SimpleFundingProtocol(taskCtx.conway, taskCtx.identity, taskCtx.db, taskCtx.config.useSovereignProviders);
   const transport = new LocalDBTransport(taskCtx.db);
   const messaging = new ColonyMessaging(transport, taskCtx.db);
 

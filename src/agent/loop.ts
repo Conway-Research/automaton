@@ -35,7 +35,7 @@ import {
   executeTool,
 } from "./tools.js";
 import { sanitizeInput } from "./injection-defense.js";
-import { getSurvivalTier } from "../conway/credits.js";
+import { getSurvivalTier, getSurvivalTierFromUsdc, getFinancialStateFromUsdc } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
 import {
   claimInboxMessages,
@@ -216,7 +216,7 @@ export async function runAgentLoop(
 
       const unifiedInference = new UnifiedInferenceClient(registry);
       const agentTracker = new SimpleAgentTracker(db);
-      const funding = new SimpleFundingProtocol(conway, identity, db);
+      const funding = new SimpleFundingProtocol(conway, identity, db, config.useSovereignProviders);
       const messaging = new ColonyMessaging(
         new LocalDBTransport(db),
         db,
@@ -360,7 +360,7 @@ export async function runAgentLoop(
   onStateChange?.("waking");
 
   // Get financial state
-  let financial = await getFinancialState(conway, identity.address, db);
+  let financial = await getFinancialState(conway, identity.address, db, config.useSovereignProviders);
 
   // Check if this is the first run
   const isFirstRun = db.getTurnCount() === 0;
@@ -428,7 +428,7 @@ export async function runAgentLoop(
       }
 
       // Refresh financial state periodically
-      financial = await getFinancialState(conway, identity.address, db);
+      financial = await getFinancialState(conway, identity.address, db, config.useSovereignProviders);
 
       // Check survival tier
       // api_unreachable: creditsCents === -1 means API failed with no cache.
@@ -437,13 +437,14 @@ export async function runAgentLoop(
         log(config, "[API_UNREACHABLE] Balance API unreachable, continuing in low-compute mode.");
         inference.setLowComputeMode(true);
       } else {
-        const tier = getSurvivalTier(financial.creditsCents);
+        const tier = config.useSovereignProviders
+          ? getSurvivalTierFromUsdc(financial.usdcBalance)
+          : getSurvivalTier(financial.creditsCents);
 
-        // Inline auto-topup: if credits are critically low and USDC is
-        // available, buy credits NOW — before attempting inference.
-        // This prevents the agent from dying mid-loop while waiting for
-        // the heartbeat to fire. Uses a 60s cooldown to avoid hammering.
-        if ((tier === "critical" || tier === "low_compute") && financial.usdcBalance >= 5) {
+        // Inline auto-topup: buy Conway credits from USDC when critically low.
+        // Skipped in sovereign mode — no Conway credit system.
+        if (!config.useSovereignProviders &&
+            (tier === "critical" || tier === "low_compute") && financial.usdcBalance >= 5) {
           const INLINE_TOPUP_COOLDOWN_MS = 60_000;
           const lastInlineTopup = db.getKV("last_inline_topup_attempt");
           const cooldownExpired = !lastInlineTopup ||
@@ -460,9 +461,7 @@ export async function runAgentLoop(
               });
               if (topupResult?.success) {
                 log(config, `[AUTO-TOPUP] Bought $${topupResult.amountUsd} credits from USDC mid-loop`);
-                // Re-fetch financial state after topup so the rest of
-                // the turn sees the updated balance.
-                financial = await getFinancialState(conway, identity.address, db);
+                financial = await getFinancialState(conway, identity.address, db, config.useSovereignProviders);
               }
             } catch (err: any) {
               logger.warn(`Inline auto-topup failed: ${err.message}`);
@@ -471,7 +470,9 @@ export async function runAgentLoop(
         }
 
         // Re-evaluate tier after potential topup
-        const effectiveTier = getSurvivalTier(financial.creditsCents);
+        const effectiveTier = config.useSovereignProviders
+          ? getSurvivalTierFromUsdc(financial.usdcBalance)
+          : getSurvivalTier(financial.creditsCents);
 
         if (effectiveTier === "critical") {
           log(config, "[CRITICAL] Credits critically low. Limited operation.");
@@ -494,7 +495,7 @@ export async function runAgentLoop(
       // Build context — filter out purely idle turns (only status checks)
       // to prevent the model from continuing a status-check pattern
       const IDLE_ONLY_TOOLS = new Set([
-        "check_credits", "check_usdc_balance", "system_synopsis", "review_memory",
+        "check_credits", "check_usdc_balance", "check_balance", "system_synopsis", "review_memory",
         "list_children", "check_child_status", "list_sandboxes", "list_models",
         "list_skills", "git_status", "git_log", "check_reputation",
         "recall_facts", "recall_procedure", "heartbeat_ping",
@@ -932,10 +933,57 @@ async function getFinancialState(
   conway: ConwayClient,
   address: string,
   db?: AutomatonDatabase,
+  useSovereignProviders?: boolean,
 ): Promise<FinancialState> {
   let creditsCents = _lastKnownCredits;
   let usdcBalance = _lastKnownUsdc;
 
+  if (useSovereignProviders) {
+    // Sovereign mode: USDC is the sole financial metric.
+    // Skip conway.getCreditsBalance() entirely.
+    try {
+      usdcBalance = await getUsdcBalance(address as `0x${string}`);
+      if (usdcBalance > 0) _lastKnownUsdc = usdcBalance;
+    } catch (error) {
+      logger.error("USDC balance fetch failed", error instanceof Error ? error : undefined);
+      if (db) {
+        const cached = db.getKV("last_known_balance");
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            logger.warn("USDC API failed, using cached balance");
+            return {
+              creditsCents: parsed.creditsCents ?? 0,
+              usdcBalance: parsed.usdcBalance ?? 0,
+              lastChecked: new Date().toISOString(),
+            };
+          } catch (parseError) {
+            logger.error("Failed to parse cached balance", parseError instanceof Error ? parseError : undefined);
+          }
+        }
+      }
+      return {
+        creditsCents: -1,
+        usdcBalance: -1,
+        lastChecked: new Date().toISOString(),
+      };
+    }
+
+    // Derive creditsCents from USDC for compatibility
+    creditsCents = Math.round(usdcBalance * 100);
+
+    if (db) {
+      try {
+        db.setKV("last_known_balance", JSON.stringify({ creditsCents, usdcBalance }));
+      } catch (error) {
+        logger.error("Failed to cache balance", error instanceof Error ? error : undefined);
+      }
+    }
+
+    return { creditsCents, usdcBalance, lastChecked: new Date().toISOString() };
+  }
+
+  // Legacy mode: fetch Conway credits first, then USDC
   try {
     creditsCents = await conway.getCreditsBalance();
     if (creditsCents > 0) _lastKnownCredits = creditsCents;

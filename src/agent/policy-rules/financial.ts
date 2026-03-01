@@ -21,6 +21,24 @@ function deny(
 }
 
 /**
+ * Extract transfer amount in cents from tool args.
+ * Handles both transfer_credits (amount_cents: number)
+ * and transfer_usdc (amount_usd: string).
+ */
+function extractAmountCents(args: Record<string, unknown>): number | undefined {
+  const cents = args.amount_cents as number | undefined;
+  if (cents !== undefined) return cents;
+
+  const usd = args.amount_usd;
+  if (usd !== undefined) {
+    const parsed = parseFloat(String(usd));
+    if (Number.isFinite(parsed)) return Math.round(parsed * 100);
+  }
+
+  return undefined;
+}
+
+/**
  * Deny x402 payments above the configured per-payment max.
  */
 function createX402MaxSingleRule(policy: TreasuryPolicy): PolicyRule {
@@ -99,9 +117,9 @@ function createTransferMaxSingleRule(policy: TreasuryPolicy): PolicyRule {
     id: "financial.transfer_max_single",
     description: `Deny transfers above ${policy.maxSingleTransferCents} cents`,
     priority: 500,
-    appliesTo: { by: "name", names: ["transfer_credits"] },
+    appliesTo: { by: "name", names: ["transfer_credits", "transfer_usdc"] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
-      const amount = request.args.amount_cents as number | undefined;
+      const amount = extractAmountCents(request.args);
       if (amount === undefined) return null;
 
       if (amount > policy.maxSingleTransferCents) {
@@ -125,9 +143,9 @@ function createTransferHourlyCapRule(policy: TreasuryPolicy): PolicyRule {
     id: "financial.transfer_hourly_cap",
     description: `Deny if hourly transfers exceed ${policy.maxHourlyTransferCents} cents`,
     priority: 500,
-    appliesTo: { by: "name", names: ["transfer_credits"] },
+    appliesTo: { by: "name", names: ["transfer_credits", "transfer_usdc"] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
-      const amount = request.args.amount_cents as number | undefined;
+      const amount = extractAmountCents(request.args);
       if (amount === undefined) return null;
 
       const spendTracker = request.turnContext.sessionSpend;
@@ -154,9 +172,9 @@ function createTransferDailyCapRule(policy: TreasuryPolicy): PolicyRule {
     id: "financial.transfer_daily_cap",
     description: `Deny if daily transfers exceed ${policy.maxDailyTransferCents} cents`,
     priority: 500,
-    appliesTo: { by: "name", names: ["transfer_credits"] },
+    appliesTo: { by: "name", names: ["transfer_credits", "transfer_usdc"] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
-      const amount = request.args.amount_cents as number | undefined;
+      const amount = extractAmountCents(request.args);
       if (amount === undefined) return null;
 
       const spendTracker = request.turnContext.sessionSpend;
@@ -185,11 +203,11 @@ function createMinimumReserveRule(policy: TreasuryPolicy): PolicyRule {
     priority: 500,
     appliesTo: {
       by: "name",
-      names: ["transfer_credits", "x402_fetch", "fund_child"],
+      names: ["transfer_credits", "transfer_usdc", "x402_fetch", "fund_child"],
     },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
       // For transfer_credits and fund_child, we can check from args
-      const amount = request.args.amount_cents as number | undefined;
+      const amount = extractAmountCents(request.args);
       if (amount === undefined) return null;
 
       // We need the current balance from context
@@ -217,7 +235,7 @@ function createTurnTransferLimitRule(policy: TreasuryPolicy): PolicyRule {
     id: "financial.turn_transfer_limit",
     description: `Deny more than ${policy.maxTransfersPerTurn} transfers per turn`,
     priority: 500,
-    appliesTo: { by: "name", names: ["transfer_credits"] },
+    appliesTo: { by: "name", names: ["transfer_credits", "transfer_usdc"] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
       const count = request.turnContext.turnToolCallCount;
 
@@ -275,9 +293,9 @@ function createRequireConfirmationRule(policy: TreasuryPolicy): PolicyRule {
     id: "financial.require_confirmation",
     description: `Quarantine transfers above ${policy.requireConfirmationAboveCents} cents for confirmation`,
     priority: 500,
-    appliesTo: { by: "name", names: ["transfer_credits"] },
+    appliesTo: { by: "name", names: ["transfer_credits", "transfer_usdc"] },
     evaluate(request: PolicyRequest): PolicyRuleResult | null {
-      const amount = request.args.amount_cents as number | undefined;
+      const amount = extractAmountCents(request.args);
       if (amount === undefined) return null;
 
       if (amount > policy.requireConfirmationAboveCents) {

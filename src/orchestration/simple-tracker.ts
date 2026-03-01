@@ -6,6 +6,7 @@ import type {
   ConwayClient,
 } from "../types.js";
 import type { AgentTracker, FundingProtocol } from "./types.js";
+import type { Address } from "viem";
 
 const IDLE_STATUSES = new Set<ChildStatus>(["running", "healthy"]);
 
@@ -83,6 +84,7 @@ export class SimpleFundingProtocol implements FundingProtocol {
     private readonly conway: ConwayClient,
     private readonly identity: AutomatonIdentity,
     private readonly db: AutomatonDatabase,
+    private readonly useSovereignProviders?: boolean,
   ) {}
 
   async fundChild(childAddress: string, amountCents: number): Promise<{ success: boolean }> {
@@ -91,6 +93,28 @@ export class SimpleFundingProtocol implements FundingProtocol {
       return { success: true };
     }
 
+    if (this.useSovereignProviders) {
+      // Sovereign mode: transfer USDC directly
+      try {
+        const { transferUsdc } = await import("../wallet/transfer.js");
+        const amountUsd = (transferAmount / 100).toFixed(2);
+        await transferUsdc(
+          this.identity.account,
+          childAddress as Address,
+          amountUsd,
+        );
+
+        this.db.raw.prepare(
+          "UPDATE children SET funded_amount_cents = funded_amount_cents + ? WHERE address = ?",
+        ).run(transferAmount, childAddress);
+
+        return { success: true };
+      } catch {
+        return { success: false };
+      }
+    }
+
+    // Legacy mode: Conway credit transfer
     try {
       const result = await this.conway.transferCredits(
         childAddress,
@@ -119,6 +143,16 @@ export class SimpleFundingProtocol implements FundingProtocol {
       return { success: true, amountCents: 0 };
     }
 
+    if (this.useSovereignProviders) {
+      // Sovereign mode: cannot unilaterally recall USDC from a child's wallet.
+      // The child must send it back via social messaging or a recall protocol.
+      // For now, just update local tracking.
+      this.db.raw.prepare(
+        "UPDATE children SET funded_amount_cents = MAX(0, funded_amount_cents - ?) WHERE address = ?",
+      ).run(amountCents, childAddress);
+      return { success: true, amountCents };
+    }
+
     try {
       const result = await this.conway.transferCredits(
         this.identity.address,
@@ -140,14 +174,18 @@ export class SimpleFundingProtocol implements FundingProtocol {
     }
   }
 
-  // TODO: The Conway API only exposes getCreditsBalance() for the calling agent's own
-  // balance. There is no API to query a child agent's balance remotely. This method
-  // returns the locally tracked funded_amount_cents as an upper-bound estimate.
-  // This is an approximation — the child may have spent credits on inference since
-  // funding. When the Conway API adds per-agent balance queries, replace this with
-  // a direct API call. Alternatively, child agents could report their balance via
-  // messaging (status_report with credit_balance field).
   async getBalance(childAddress: string): Promise<number> {
+    if (this.useSovereignProviders) {
+      // In sovereign mode, try to check on-chain USDC balance directly
+      try {
+        const { getUsdcBalance } = await import("../conway/x402.js");
+        const usdcBalance = await getUsdcBalance(childAddress as Address);
+        return Math.round(usdcBalance * 100);
+      } catch {
+        // Fall back to locally tracked amount
+      }
+    }
+
     const row = this.db.raw
       .prepare("SELECT funded_amount_cents FROM children WHERE address = ?")
       .get(childAddress) as { funded_amount_cents: number } | undefined;

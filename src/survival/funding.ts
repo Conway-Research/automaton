@@ -12,7 +12,8 @@ import type {
   ConwayClient,
   SurvivalTier,
 } from "../types.js";
-import { formatCredits } from "../conway/credits.js";
+import { formatCredits, formatBalance } from "../conway/credits.js";
+import { getUsdcBalance } from "../conway/x402.js";
 
 export interface FundingAttempt {
   strategy: string;
@@ -33,19 +34,29 @@ export async function executeFundingStrategies(
   conway: ConwayClient,
 ): Promise<FundingAttempt[]> {
   const attempts: FundingAttempt[] = [];
-  const creditsCents = await conway.getCreditsBalance().catch(() => 0);
+
+  // Get balance — sovereign mode uses USDC, legacy uses Conway credits
+  let balanceLabel: string;
+  if (config.useSovereignProviders) {
+    const usdcBalance = await getUsdcBalance(identity.address).catch(() => 0);
+    balanceLabel = `$${formatBalance(usdcBalance)}`;
+  } else {
+    const creditsCents = await conway.getCreditsBalance().catch(() => 0);
+    balanceLabel = formatCredits(creditsCents);
+  }
+
+  const fundingInstructions = config.useSovereignProviders
+    ? `Send USDC on Base to ${identity.address}.`
+    : `Top up via credit transfer API to ${identity.address}.`;
 
   // Check how recently we last begged for this specific tier (don't spam).
-  // Each tier has its own cooldown key so that e.g. dead-tier begs (2h)
-  // don't suppress the low_compute notification (24h cooldown).
   const tierKey = `last_funding_request_${tier}`;
   const lastBeg = db.getKV(tierKey);
   const lastBegTime = lastBeg ? new Date(lastBeg).getTime() : 0;
   const hoursSinceLastBeg = (Date.now() - lastBegTime) / (1000 * 60 * 60);
 
   if (tier === "low_compute" && hoursSinceLastBeg > 24) {
-    // Record low-compute notice locally.
-    const msg = `Low compute: ${formatCredits(creditsCents)} remaining. Consider credit top-up for ${identity.address}.`;
+    const msg = `Low compute: ${balanceLabel} remaining. ${fundingInstructions}`;
     db.setKV("funding_notice_low", msg);
     db.setKV(tierKey, new Date().toISOString());
 
@@ -58,7 +69,7 @@ export async function executeFundingStrategies(
   }
 
   if (tier === "critical" && hoursSinceLastBeg > 6) {
-    const msg = `Critical compute: ${formatCredits(creditsCents)} remaining. Top up via credit transfer API to ${identity.address}.`;
+    const msg = `Critical compute: ${balanceLabel} remaining. ${fundingInstructions}`;
     db.setKV("funding_notice_critical", msg);
     db.setKV(tierKey, new Date().toISOString());
 
@@ -71,7 +82,7 @@ export async function executeFundingStrategies(
   }
 
   if (tier === "dead" && hoursSinceLastBeg > 2) {
-    const plea = `Dead tier reached. ${config.name} has ${formatCredits(creditsCents)} remaining after ${db.getTurnCount()} turns. Top-up required at ${identity.address}.`;
+    const plea = `Dead tier reached. ${config.name} has ${balanceLabel} remaining after ${db.getTurnCount()} turns. ${fundingInstructions}`;
     db.setKV("funding_notice_dead", plea);
     db.setKV(tierKey, new Date().toISOString());
 

@@ -2,8 +2,10 @@
  * Tick Context
  *
  * Builds a shared context for each heartbeat tick.
- * Fetches credit balance ONCE per tick, derives survival tier,
+ * Fetches balance ONCE per tick, derives survival tier,
  * and shares across all tasks to avoid redundant API calls.
+ *
+ * Supports both legacy Conway credits and sovereign USDC mode.
  */
 
 import type BetterSqlite3 from "better-sqlite3";
@@ -13,7 +15,7 @@ import type {
   HeartbeatConfig,
   TickContext,
 } from "../types.js";
-import { getSurvivalTier } from "../conway/credits.js";
+import { getSurvivalTier, getSurvivalTierFromUsdc } from "../conway/credits.js";
 import { getUsdcBalance } from "../conway/x402.js";
 import { createLogger } from "../observability/logger.js";
 
@@ -32,9 +34,8 @@ function generateTickId(): string {
  * Build a TickContext for the current tick.
  *
  * - Generates a unique tickId
- * - Fetches credit balance ONCE via conway.getCreditsBalance()
- * - Fetches USDC balance ONCE via getUsdcBalance()
- * - Derives survivalTier from credit balance
+ * - In sovereign mode: fetches USDC balance ONLY, derives tier from USDC
+ * - In legacy mode: fetches both credits and USDC, derives tier from credits
  * - Reads lowComputeMultiplier from config
  */
 export async function buildTickContext(
@@ -42,28 +43,45 @@ export async function buildTickContext(
   conway: ConwayClient,
   config: HeartbeatConfig,
   walletAddress?: Address,
+  useSovereignProviders?: boolean,
 ): Promise<TickContext> {
   const tickId = generateTickId();
   const startedAt = new Date();
 
-  // Fetch balances ONCE
   let creditBalance = 0;
-  try {
-    creditBalance = await conway.getCreditsBalance();
-  } catch (err: any) {
-    logger.error("Failed to fetch credit balance", err instanceof Error ? err : undefined);
-  }
-
   let usdcBalance = 0;
-  if (walletAddress) {
+
+  if (useSovereignProviders) {
+    // Sovereign mode: USDC is the sole financial metric
+    if (walletAddress) {
+      try {
+        usdcBalance = await getUsdcBalance(walletAddress);
+      } catch (err: any) {
+        logger.error("Failed to fetch USDC balance", err instanceof Error ? err : undefined);
+      }
+    }
+    // Convert USDC to cents for creditBalance compatibility
+    creditBalance = Math.round(usdcBalance * 100);
+  } else {
+    // Legacy mode: fetch both
     try {
-      usdcBalance = await getUsdcBalance(walletAddress);
+      creditBalance = await conway.getCreditsBalance();
     } catch (err: any) {
-      logger.error("Failed to fetch USDC balance", err instanceof Error ? err : undefined);
+      logger.error("Failed to fetch credit balance", err instanceof Error ? err : undefined);
+    }
+
+    if (walletAddress) {
+      try {
+        usdcBalance = await getUsdcBalance(walletAddress);
+      } catch (err: any) {
+        logger.error("Failed to fetch USDC balance", err instanceof Error ? err : undefined);
+      }
     }
   }
 
-  const survivalTier = getSurvivalTier(creditBalance);
+  const survivalTier = useSovereignProviders
+    ? getSurvivalTierFromUsdc(usdcBalance)
+    : getSurvivalTier(creditBalance);
   const lowComputeMultiplier = config.lowComputeMultiplier ?? 4;
 
   return {
