@@ -42,6 +42,28 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
   const maxBody = opts.maxBodyBytes ?? MESSAGE_LIMITS.maxTotalSize;
   const db = new Database(opts.dbPath);
 
+  // Per-sender rate limiting (in-memory, keyed by lowercase address)
+  const sendTimestamps = new Map<string, number[]>();
+  function checkSenderRateLimit(sender: string): boolean {
+    const key = sender.toLowerCase();
+    const now = Date.now();
+    const hourAgo = now - 3600_000;
+    let timestamps = sendTimestamps.get(key);
+    if (!timestamps) {
+      timestamps = [];
+      sendTimestamps.set(key, timestamps);
+    }
+    // Prune entries older than 1 hour
+    while (timestamps.length > 0 && timestamps[0]! < hourAgo) {
+      timestamps.shift();
+    }
+    if (timestamps.length >= MESSAGE_LIMITS.maxOutboundPerHour) {
+      return false; // rate limited
+    }
+    timestamps.push(now);
+    return true;
+  }
+
   // WAL mode for concurrent reads
   db.pragma("journal_mode = WAL");
 
@@ -58,6 +80,7 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       read INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient, read, created_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON messages(recipient, id);
     CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
   `);
 
@@ -137,6 +160,11 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       return { status: 401, body: { error: "Invalid signature" } };
     }
 
+    // Server-side rate limiting per sender
+    if (!checkSenderRateLimit(payload.from)) {
+      return { status: 429, body: { error: "Rate limit exceeded" } };
+    }
+
     const id = ulid();
     insertMsg.run(
       id,
@@ -173,9 +201,9 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       return { status: 401, body: { error: "Invalid poll signature" } };
     }
 
-    // Replay window check — only accept past timestamps (not future)
+    // Replay window check — allow 60s clock skew grace (matching message validation)
     const tsAge = Date.now() - new Date(timestamp).getTime();
-    if (tsAge < 0 || tsAge > MESSAGE_LIMITS.replayWindowMs) {
+    if (tsAge < -60_000 || tsAge > MESSAGE_LIMITS.replayWindowMs) {
       return { status: 401, body: { error: "Poll timestamp expired" } };
     }
 
@@ -237,9 +265,9 @@ export function createRelayServer(opts: RelayServerOptions): RelayServer {
       return { status: 401, body: { error: "Invalid signature" } };
     }
 
-    // Only accept past timestamps (not future)
+    // Replay window check — allow 60s clock skew grace (matching message validation)
     const tsAge = Date.now() - new Date(timestamp).getTime();
-    if (tsAge < 0 || tsAge > MESSAGE_LIMITS.replayWindowMs) {
+    if (tsAge < -60_000 || tsAge > MESSAGE_LIMITS.replayWindowMs) {
       return { status: 401, body: { error: "Timestamp expired" } };
     }
 

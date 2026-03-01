@@ -21,7 +21,14 @@ import type {
 const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 const IPV6_RE = /^[0-9a-fA-F:]+$/;
 function validateIp(ip: string): void {
-  if (!IPV4_RE.test(ip) && !IPV6_RE.test(ip)) {
+  if (IPV4_RE.test(ip)) {
+    const octets = ip.split(".");
+    if (octets.some((o) => Number(o) > 255)) {
+      throw new Error(`Invalid IPv4 address (octet > 255): ${ip}`);
+    }
+    return;
+  }
+  if (!IPV6_RE.test(ip)) {
     throw new Error(`Invalid IP address format: ${ip}`);
   }
 }

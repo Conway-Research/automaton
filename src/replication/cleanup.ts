@@ -70,6 +70,9 @@ export class SandboxCleanup {
         await this.conway.deleteSandbox(childRow.sandbox_id);
       }
     }
+
+    // Mark as cleaned_up directly in DB (dead children can't use lifecycle transitions)
+    this.db.prepare("UPDATE children SET status = 'cleaned_up' WHERE id = ?").run(childId);
   }
 
   /**
