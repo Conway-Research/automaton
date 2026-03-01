@@ -14,30 +14,45 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             echo "=== Service Status ==="
-            systemctl status local-connie --no-pager -l 2>&1 | head -30
+            systemctl status local-connie --no-pager -l 2>&1 | head -20
+
+            # Get the HOME used by the service
+            CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
+            echo "Connie HOME: $CONNIE_HOME"
+
             echo ""
             echo "=== Git Status ==="
             cd /root/.openclaw/workspace/artifacts/automaton-research
             git log --oneline -3
+
             echo ""
-            echo "=== Discord Heartbeat Log (last 10 entries) ==="
-            tail -10 /root/.automaton/discord-heartbeat.log 2>/dev/null || echo "No log file yet"
+            echo "=== Discord Heartbeat Log ==="
+            tail -10 "$CONNIE_HOME/.automaton/discord-heartbeat.log" 2>/dev/null || echo "No log file yet"
+            echo "(also checking /root)"
+            tail -5 /root/.automaton/discord-heartbeat.log 2>/dev/null || echo "No log at /root either"
+
             echo ""
-            echo "=== Automaton Config (webhook check) ==="
-            cat /root/.automaton/automaton.json 2>/dev/null | python3 -c "import sys,json; c=json.load(sys.stdin); print('discordWebhookUrl:', 'SET' if c.get('discordWebhookUrl') else 'NOT SET'); print('useSovereignProviders:', c.get('useSovereignProviders', 'NOT SET')); print('vultrApiKey:', 'SET' if c.get('vultrApiKey') else 'NOT SET')" 2>/dev/null || echo "Config not found or parse error"
+            echo "=== Automaton Config ==="
+            python3 -c "
+            import json, os, glob
+            for p in ['$CONNIE_HOME/.automaton/automaton.json', '/root/.automaton/automaton.json']:
+                if os.path.exists(p):
+                    c = json.load(open(p))
+                    print(f'Config at: {p}')
+                    print(f'  discordWebhookUrl: {\"SET\" if c.get(\"discordWebhookUrl\") else \"NOT SET\"}')
+                    print(f'  useSovereignProviders: {c.get(\"useSovereignProviders\", \"NOT SET\")}')
+                    print(f'  vultrApiKey: {\"SET\" if c.get(\"vultrApiKey\") else \"NOT SET\"}')
+                    print(f'  inferenceModel: {c.get(\"inferenceModel\", \"NOT SET\")}')
+                    print(f'  name: {c.get(\"name\", \"NOT SET\")}')
+            " 2>/dev/null || echo "Config parse error"
+
             echo ""
-            echo "=== env.conf contents (redacted) ==="
-            cat /etc/systemd/system/local-connie.service.d/env.conf 2>/dev/null | sed 's/=.*/=REDACTED/' || echo "No env.conf"
+            echo "=== EnvironmentFile contents ==="
+            for f in $(grep 'EnvironmentFile' /etc/systemd/system/local-connie.service.d/env.conf 2>/dev/null | sed 's/EnvironmentFile=//; s/-//'); do
+              echo "File: $f"
+              cat "$f" 2>/dev/null | grep -i "DISCORD\|WEBHOOK" | sed 's/=.*/=SET/' || echo "  No discord/webhook vars"
+            done
+
             echo ""
-            echo "=== systemd service unit ==="
-            cat /etc/systemd/system/local-connie.service 2>/dev/null | head -30
-            echo ""
-            echo "=== Find webhook/discord config ==="
-            grep -ri "discord" /root/.automaton/ 2>/dev/null | head -10 || echo "No discord refs in .automaton"
-            grep -ri "DISCORD\|webhook" /etc/systemd/system/local-connie* 2>/dev/null | sed 's/discord.com\/api\/webhooks\/[^ ]*/discord.com\/api\/webhooks\/REDACTED/gi' | head -10 || echo "No webhook in service files"
-            echo ""
-            echo "=== Process environment (DISCORD) ==="
-            cat /proc/$(pgrep -f "dist/index.js" | head -1)/environ 2>/dev/null | tr '\0' '\n' | grep -i DISCORD | sed 's/=.*/=SET/' || echo "Not in process env"
-            echo ""
-            echo "=== Recent Automaton Logs (stdout) ==="
-            journalctl -u local-connie --no-pager -n 30 2>/dev/null || echo "No journalctl logs"
+            echo "=== Application Log (last 30 lines) ==="
+            tail -30 /tmp/connie-research.log 2>/dev/null || echo "No app log"
