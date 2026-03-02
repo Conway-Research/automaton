@@ -906,8 +906,17 @@ export async function runAgentLoop(
       }
 
       consecutiveErrors = 0;
-      // Clear error state on successful turn
-      db.deleteKV("last_error");
+      // Mark error resolved (don't delete — heartbeat needs to see it)
+      const prevError = db.getKV("last_error");
+      if (prevError) {
+        try {
+          const parsed = JSON.parse(prevError);
+          if (!parsed.resolvedAt) {
+            parsed.resolvedAt = new Date().toISOString();
+            db.setKV("last_error", JSON.stringify(parsed));
+          }
+        } catch { db.deleteKV("last_error"); }
+      }
     } catch (err: any) {
       consecutiveErrors++;
       log(config, `[ERROR] Turn failed: ${err.message}`);

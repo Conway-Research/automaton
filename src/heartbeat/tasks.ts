@@ -716,9 +716,24 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       try {
         const parsed = JSON.parse(errorJson);
         if (parsed.message) {
-          lastError = parsed.consecutiveErrors > 1
-            ? `${parsed.message.slice(0, 120)} (x${parsed.consecutiveErrors})`
-            : parsed.message.slice(0, 150);
+          // Show resolved errors with age, active errors without
+          if (parsed.resolvedAt) {
+            const agoMs = Date.now() - new Date(parsed.resolvedAt).getTime();
+            const agoMin = Math.floor(agoMs / 60_000);
+            // Only suppress after 60 minutes
+            if (agoMin < 60) {
+              lastError = parsed.consecutiveErrors > 1
+                ? `${parsed.message.slice(0, 100)} (x${parsed.consecutiveErrors}, fixed ${agoMin}m ago)`
+                : `${parsed.message.slice(0, 120)} (fixed ${agoMin}m ago)`;
+            } else {
+              // Stale resolved error — clean it up
+              taskCtx.db.deleteKV("last_error");
+            }
+          } else {
+            lastError = parsed.consecutiveErrors > 1
+              ? `${parsed.message.slice(0, 120)} (x${parsed.consecutiveErrors})`
+              : parsed.message.slice(0, 150);
+          }
           if (parsed.forcedSleep) {
             isForcedSleep = true;
             lastError += " [CRASH SLEEP]";
