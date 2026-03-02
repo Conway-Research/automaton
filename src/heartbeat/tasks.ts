@@ -881,6 +881,21 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       fields.push({ name: "🚧 Blockers", value: blockerText.slice(0, 300), inline: false });
     }
 
+    // When sleeping, replace stale thinking/activity with sleep context
+    if (state === "sleeping") {
+      const sleepUntil = taskCtx.db.getKV("sleep_until");
+      if (sleepUntil) {
+        const remainMs = new Date(sleepUntil).getTime() - Date.now();
+        const remainMin = Math.max(0, Math.ceil(remainMs / 60_000));
+        const thinkingIdx = fields.findIndex((f) => f.name === "🧠 Thinking");
+        if (thinkingIdx >= 0) {
+          fields[thinkingIdx] = { name: "💤 Sleeping", value: `Waking in ${remainMin}m`, inline: false };
+        }
+      }
+      const actIdx = fields.findIndex((f) => f.name === "⚡ Activity");
+      if (actIdx >= 0) fields.splice(actIdx, 1);
+    }
+
     const embed = {
       title: `${titlePrefix}${tierEmoji[tier] || "⚪"} ${taskCtx.config.name}`,
       color: hasError ? 0xf59e0b : (tierColors[tier] ?? 0x6b7280),
@@ -904,11 +919,22 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       usdc: usdc.toFixed(4),
     };
 
+    // Skip duplicate posts while sleeping (nothing changed)
+    const contentHash = JSON.stringify({ state, turnCount, lastError, currentGoal });
+    const lastHash = taskCtx.db.getKV("last_heartbeat_hash");
+    if (lastHash === contentHash && state === "sleeping") {
+      appendDiscordLog({ ...logBase, status: "skipped_dedup" });
+      return { shouldWake: false };
+    }
+
     try {
       const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ embeds: [embed] }),
+        body: JSON.stringify({
+          username: taskCtx.config.name || "connie-research",
+          embeds: [embed],
+        }),
       });
 
       if (!res.ok) {
@@ -924,6 +950,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       }
 
       taskCtx.db.setKV("last_discord_heartbeat", new Date().toISOString());
+      taskCtx.db.setKV("last_heartbeat_hash", contentHash);
       appendDiscordLog({ ...logBase, status: "sent" });
       return { shouldWake: false };
     } catch (error) {
