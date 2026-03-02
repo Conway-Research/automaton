@@ -1,0 +1,59 @@
+name: VPS Cleanup Noisy Monitors
+on:
+  workflow_dispatch:
+jobs:
+  cleanup:
+    name: Kill Noisy Discord Monitors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
+
+            echo "=== Finding Discord-posting processes ==="
+            ps aux | grep -E "health-monitor|log-forwarder|connie-monitor|connie-watchdog|discord" | grep -v grep || echo "No monitor processes found"
+
+            echo ""
+            echo "=== PM2 processes ==="
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 list 2>/dev/null || echo "No PM2"
+
+            echo ""
+            echo "=== Crontab ==="
+            crontab -l 2>/dev/null || echo "No crontab"
+            crontab -u "$(stat -c %U $CONNIE_HOME)" -l 2>/dev/null || echo "No user crontab"
+
+            echo ""
+            echo "=== Killing health-monitor and log-forwarder processes ==="
+            pkill -f "health-monitor" 2>/dev/null && echo "Killed health-monitor" || echo "No health-monitor running"
+            pkill -f "log-forwarder" 2>/dev/null && echo "Killed log-forwarder" || echo "No log-forwarder running"
+            pkill -f "connie-health-check" 2>/dev/null && echo "Killed connie-health-check" || echo "No connie-health-check running"
+
+            echo ""
+            echo "=== Stopping PM2 discord-related processes ==="
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 delete all 2>/dev/null && echo "Deleted all PM2 processes" || echo "No PM2 processes"
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 kill 2>/dev/null && echo "PM2 killed" || echo "PM2 not running"
+
+            echo ""
+            echo "=== Removing monitor scripts to prevent respawn ==="
+            for f in "$CONNIE_HOME/health-monitor.js" "$CONNIE_HOME/log-forwarder.py" "$CONNIE_HOME/connie-health-check.sh"; do
+              if [ -f "$f" ]; then
+                mv "$f" "$f.disabled"
+                echo "Disabled: $f"
+              fi
+            done
+
+            echo ""
+            echo "=== Remaining processes ==="
+            ps aux | grep -E "node|python" | grep -v grep | grep -v "dist/index.js" | head -10
+
+            echo ""
+            echo "=== Restarting main service ==="
+            systemctl restart local-connie
+            sleep 3
+            systemctl status local-connie --no-pager -l 2>&1 | head -15
