@@ -747,7 +747,8 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
 
     {
       name: "modify_heartbeat",
-      description: "Add, update, or remove a heartbeat entry.",
+      description:
+        "Add, update, or remove a heartbeat schedule entry. IMPORTANT: Only built-in tasks (discord_heartbeat, upstream_check, etc.) actually execute. Custom task names are stored but silently skipped. To run code periodically, use exec during your work sessions.",
       category: "self_mod",
       riskLevel: "caution",
       parameters: {
