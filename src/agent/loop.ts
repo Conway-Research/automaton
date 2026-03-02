@@ -599,7 +599,7 @@ export async function runAgentLoop(
         state: db.getAgentState(),
         input: currentInput?.content,
         inputSource: currentInput?.source as any,
-        thinking: response.message.content || "",
+        thinking: (response.message.content || "").replace(/<\/?think>/gi, "").trim(),
         toolCalls: [],
         tokenUsage: response.usage,
         costCents: routerResult.costCents,

@@ -15,29 +15,49 @@ jobs:
           script: |
             CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
 
-            echo "=== Current crontab ==="
+            echo "=== All custom systemd services ==="
+            systemctl list-units --type=service --state=running --no-pager 2>/dev/null | grep -i "connie\|monitor\|watchdog\|polymarket\|alert" || echo "No matching services"
+
+            echo ""
+            echo "=== All systemd services in /etc/systemd/system ==="
+            ls -la /etc/systemd/system/*connie* /etc/systemd/system/*monitor* /etc/systemd/system/*watchdog* /etc/systemd/system/*polymarket* 2>/dev/null || echo "No custom unit files"
+
+            echo ""
+            echo "=== All node/python processes ==="
+            ps aux | grep -E "node|python" | grep -v grep | head -20
+
+            echo ""
+            echo "=== PM2 processes ==="
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 list 2>/dev/null || echo "PM2 not running"
+
+            echo ""
+            echo "=== Crontab ==="
             crontab -l 2>/dev/null || echo "No crontab"
 
             echo ""
-            echo "=== Removing cron jobs that post to Discord ==="
-            crontab -l 2>/dev/null | grep -v "connie-health-check\|health-monitor\|log-forwarder\|discord" | crontab - 2>/dev/null && echo "Cleaned crontab" || echo "No crontab to clean"
+            echo "=== Files that could be monitors ==="
+            find "$CONNIE_HOME" -maxdepth 2 -name "*monitor*" -o -name "*watchdog*" -o -name "*discord*" 2>/dev/null | head -20
 
             echo ""
-            echo "=== Crontab after cleanup ==="
-            crontab -l 2>/dev/null || echo "Empty crontab"
+            echo "=== Application error log (last 30 FATAL/ERROR lines) ==="
+            grep -E "FATAL|ERROR|error|failed" /tmp/connie-research.log 2>/dev/null | tail -30
 
             echo ""
-            echo "=== Killing monitor processes ==="
-            # Save our PID to exclude from kills (pkill -f would match script text in SSH shell)
+            echo "=== Killing ALL non-essential node/python processes ==="
             MYPID=$$
-            for pat in "health-monitor.js" "log-forwarder.py" "connie-health-check.sh"; do
-              PIDS=$(pgrep -f "$pat" 2>/dev/null | grep -v "^${MYPID}$" || true)
-              if [ -n "$PIDS" ]; then
-                echo "$PIDS" | xargs kill 2>/dev/null && echo "Killed $pat (PIDs: $PIDS)" || echo "Failed to kill $pat"
-              else
-                echo "No $pat processes"
+            CONNIE_PID=$(systemctl show local-connie --property=MainPID --value 2>/dev/null || echo "0")
+            echo "Connie main PID: $CONNIE_PID"
+            for pid in $(pgrep -x node 2>/dev/null || true); do
+              if [ "$pid" != "$CONNIE_PID" ] && [ "$pid" != "$MYPID" ]; then
+                CMD=$(ps -p "$pid" -o args= 2>/dev/null || true)
+                echo "Killing node PID $pid: $CMD"
+                kill "$pid" 2>/dev/null || true
               fi
             done
+
+            echo ""
+            echo "=== Removing cron jobs ==="
+            crontab -l 2>/dev/null | grep -v "connie-health-check\|health-monitor\|log-forwarder\|discord\|monitor\|watchdog" | crontab - 2>/dev/null && echo "Cleaned crontab" || echo "No crontab to clean"
 
             echo ""
             echo "=== Stopping PM2 ==="
@@ -47,13 +67,8 @@ jobs:
 
             echo ""
             echo "=== Disabling monitor scripts ==="
-            for f in "$CONNIE_HOME/health-monitor.js" "$CONNIE_HOME/log-forwarder.py" "$CONNIE_HOME/connie-health-check.sh" "/root/connie-health-check.sh"; do
-              if [ -f "$f" ]; then
-                mv "$f" "$f.disabled"
-                echo "Disabled: $f"
-              else
-                echo "Not found: $f"
-              fi
+            for f in $(find "$CONNIE_HOME" -maxdepth 2 \( -name "*monitor*" -o -name "*watchdog*" \) -not -name "*.disabled" 2>/dev/null); do
+              mv "$f" "$f.disabled" && echo "Disabled: $f" || echo "Failed to disable: $f"
             done
 
             echo ""
