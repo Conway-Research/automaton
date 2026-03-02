@@ -41,6 +41,7 @@ export const COLONY_TASK_INTERVALS_MS = {
   agent_pool_optimize: 1_800_000,
   knowledge_store_prune: 86_400_000,
   dead_agent_cleanup: 3_600_000,
+  scan_oxwork_tasks: 1_800_000, // 30 min — pure HTTP, zero inference cost
 } as const;
 
 export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
@@ -700,6 +701,53 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     } catch (error) {
       logger.error("dead_agent_cleanup failed", error instanceof Error ? error : undefined);
+      return { shouldWake: false };
+    }
+  },
+
+  // === 0xWork Task Scanner (zero inference cost — pure HTTP) ===
+  scan_oxwork_tasks: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+    if (!shouldRunAtInterval(taskCtx, "scan_oxwork_tasks", COLONY_TASK_INTERVALS_MS.scan_oxwork_tasks)) {
+      return { shouldWake: false };
+    }
+
+    try {
+      const { browseOpenTasks } = await import("../conway/oxwork.js");
+      const tasks = await browseOpenTasks();
+
+      // Filter: only tasks with real bounty and enough time left
+      const now = Math.floor(Date.now() / 1000);
+      const MIN_BOUNTY = 5;
+      const MIN_DEADLINE_HOURS = 24;
+      const viable = tasks.filter(
+        (t) =>
+          parseFloat(t.bounty_amount) >= MIN_BOUNTY
+          && t.deadline > now + MIN_DEADLINE_HOURS * 3600,
+      );
+
+      taskCtx.db.setKV("last_oxwork_scan", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        totalOpen: tasks.length,
+        viable: viable.length,
+      }));
+
+      if (viable.length === 0) return { shouldWake: false };
+
+      // Summarize top opportunities (no inference — just string formatting)
+      const top = viable
+        .sort((a, b) => parseFloat(b.bounty_amount) - parseFloat(a.bounty_amount))
+        .slice(0, 5);
+
+      const summary = top
+        .map((t) => `#${t.id} [${t.category}] $${t.bounty_amount}`)
+        .join(", ");
+
+      return {
+        shouldWake: true,
+        message: `${viable.length} paid task(s) on 0xWork: ${summary}. Use oxwork_browse to review.`,
+      };
+    } catch (error) {
+      logger.error("scan_oxwork_tasks failed", error instanceof Error ? error : undefined);
       return { shouldWake: false };
     }
   },
