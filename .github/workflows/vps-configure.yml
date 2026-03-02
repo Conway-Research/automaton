@@ -158,6 +158,30 @@ jobs:
             fi
 
             echo ""
+            echo "=== Deploying latest code ==="
+            # Find the source repo and pull + rebuild
+            REPO=$(dirname $(grep 'ExecStart=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*node //' | sed 's|/dist/.*||'))
+            if [ -d "$REPO/.git" ]; then
+              cd "$REPO"
+              echo "Repo: $REPO"
+              echo "Current: $(git log -1 --oneline)"
+              git fetch origin main --quiet 2>/dev/null || true
+              BEHIND=$(git log HEAD..origin/main --oneline 2>/dev/null | wc -l)
+              echo "Behind origin/main: $BEHIND commits"
+              if [ "$BEHIND" -gt 0 ]; then
+                git pull origin main --ff-only 2>&1 || echo "Pull failed (non-ff)"
+                npm install --ignore-scripts 2>&1 | tail -3
+                npm run build 2>&1 | tail -5
+                echo "Deployed: $(git log -1 --oneline)"
+              else
+                echo "Already up to date"
+              fi
+              cd /
+            else
+              echo "Repo not found at $REPO"
+            fi
+
+            echo ""
             echo "=== Restarting service ==="
             systemctl restart local-connie
             sleep 3
