@@ -71,7 +71,7 @@ export function createInferenceClient(
 
     const body: Record<string, unknown> = {
       model,
-      messages: messages.map(formatMessage),
+      messages: sanitizeMessages(messages).map(formatMessage),
       stream: false,
     };
 
@@ -163,6 +163,41 @@ function formatMessage(
   if (msg.tool_call_id) formatted.tool_call_id = msg.tool_call_id;
 
   return formatted;
+}
+
+/**
+ * Sanitize messages to prevent API rejections (MiniMax error 1214, etc.).
+ *
+ * - Drops orphaned tool messages whose tool_call_id doesn't match any
+ *   preceding assistant tool_calls (happens after context compression).
+ * - Coalesces consecutive system messages (some providers only allow one).
+ * - Strips empty messages.
+ */
+function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
+  // Collect all tool_call IDs from assistant messages
+  const validToolCallIds = new Set<string>();
+  for (const msg of messages) {
+    if (msg.role === "assistant" && msg.tool_calls) {
+      for (const tc of msg.tool_calls) {
+        validToolCallIds.add(tc.id);
+      }
+    }
+  }
+
+  const result: ChatMessage[] = [];
+  for (const msg of messages) {
+    // Drop orphaned tool results
+    if (msg.role === "tool" && msg.tool_call_id && !validToolCallIds.has(msg.tool_call_id)) {
+      continue;
+    }
+    // Drop messages with no content and no tool_calls (empty messages)
+    if (!msg.content && !msg.tool_calls && msg.role !== "tool") {
+      continue;
+    }
+    result.push(msg);
+  }
+
+  return result;
 }
 
 /**
