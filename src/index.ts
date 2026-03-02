@@ -418,10 +418,26 @@ async function run(): Promise<void> {
       const state = db.getAgentState();
 
       if (state === "dead") {
-        logger.info(`[${new Date().toISOString()}] Automaton is dead. Heartbeat will continue.`);
-        // In dead state, we just wait for funding
-        // The heartbeat will keep checking and broadcasting distress
-        await sleep(300_000); // Check every 5 minutes
+        logger.info(`[${new Date().toISOString()}] Automaton is dead. Checking for resurrection...`);
+
+        // Attempt resurrection: if credits have been topped up, come back to life
+        try {
+          const { attemptResurrection } = await import("./survival/resurrection.js");
+          const result = await attemptResurrection(db, conway);
+          if (result.resurrected) {
+            logger.info(
+              `[${new Date().toISOString()}] RESURRECTED! ${result.reason}. Resuming agent loop.`,
+            );
+            // Insert a wake event so the agent knows why it woke up
+            insertWakeEvent(db.raw, "resurrection", result.reason);
+            continue; // Re-enter the loop — runAgentLoop will start from "waking"
+          }
+        } catch (err: any) {
+          logger.warn(`[${new Date().toISOString()}] Resurrection check failed: ${err.message}`);
+        }
+
+        // Still dead — heartbeat continues, check again in 5 minutes
+        await sleep(300_000);
         continue;
       }
 
