@@ -16,96 +16,139 @@ jobs:
           script: |
             CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
             echo "CONNIE_HOME=$CONNIE_HOME"
+            REPO=$(grep 'ExecStart=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*node //' | sed 's|/dist/.*||')
+            echo "REPO=$REPO"
 
             echo ""
-            echo "=== 1. ALL running processes (full command) ==="
-            ps aux --sort=-rss | head -30
-
-            echo ""
-            echo "=== 2. ALL node processes with full args ==="
-            pgrep -a node 2>/dev/null || echo "No node processes"
-
-            echo ""
-            echo "=== 3. ALL python processes with full args ==="
-            pgrep -a python 2>/dev/null || echo "No python processes"
-
-            echo ""
-            echo "=== 4. Find spawn-agent.sh EVERYWHERE ==="
-            find / -name "spawn-agent*" -type f 2>/dev/null | while read f; do
-              echo "--- FOUND: $f ---"
-              cat "$f"
-              echo "--- END: $f ---"
-              echo ""
-            done
-
-            echo ""
-            echo "=== 5. Find ANY file with 'watchdog' in name or content ==="
-            # By name
-            find / -maxdepth 5 \( -name "*watchdog*" -o -name "*connie-monitor*" \) -type f 2>/dev/null | head -20
-            # By content (scripts only)
-            grep -rl "watchdog\|connie-monitor" /home /root /tmp /var /etc /opt "$CONNIE_HOME" --include="*.sh" --include="*.js" --include="*.py" --include="*.json" --include="*.service" 2>/dev/null | head -20
-
-            echo ""
-            echo "=== 6. Find ANY file with discord webhook URLs ==="
-            grep -rl "discord.com/api/webhooks\|discordapp.com/api/webhooks" / --include="*.sh" --include="*.js" --include="*.py" --include="*.json" --include="*.ts" --include="*.env" 2>/dev/null | head -30
-
-            echo ""
-            echo "=== 7. Find scripts that read the log file ==="
-            grep -rl "connie-research.log\|FATAL.*Sleeping\|consecutive errors" / --include="*.sh" --include="*.js" --include="*.py" 2>/dev/null | head -20
-
-            echo ""
-            echo "=== 8. ALL crontabs (all users) ==="
-            for u in $(cut -d: -f1 /etc/passwd); do
-              CRON=$(crontab -l -u "$u" 2>/dev/null)
-              if [ -n "$CRON" ]; then
-                echo "--- User: $u ---"
-                echo "$CRON"
-              fi
-            done
-            echo "--- /etc/cron.d/ ---"
-            ls -la /etc/cron.d/ 2>/dev/null
-            echo "--- /etc/cron.daily/ ---"
-            ls -la /etc/cron.daily/ 2>/dev/null
-
-            echo ""
-            echo "=== 9. ALL systemd services and timers ==="
-            systemctl list-units --type=service --state=running --no-pager 2>/dev/null | grep -v "systemd\|ssh\|snap\|fwupd\|polkit\|dbus\|user@\|getty\|multipathd\|irq\|kernel\|rpcbind\|serial"
-            echo ""
-            systemctl list-timers --no-pager 2>/dev/null
-
-            echo ""
-            echo "=== 10. Contents of .openclaw directory (where spawn-agent.sh likely lives) ==="
-            OPENCLAW=$(find "$CONNIE_HOME" -name ".openclaw" -type d 2>/dev/null | head -1)
-            if [ -n "$OPENCLAW" ]; then
-              echo "OPENCLAW=$OPENCLAW"
-              ls -la "$OPENCLAW/" 2>/dev/null
-              echo ""
-              echo "--- spawn scripts ---"
-              find "$OPENCLAW" -name "spawn*" -o -name "boot*" -o -name "start*" -o -name "crash*" -o -name "notify*" 2>/dev/null | head -10
+            echo "=== 1. READ /tmp/connie-watchdog.log ==="
+            if [ -f /tmp/connie-watchdog.log ]; then
+              echo "File exists. Size: $(wc -c < /tmp/connie-watchdog.log) bytes"
+              echo "Last modified: $(stat -c %y /tmp/connie-watchdog.log 2>/dev/null)"
+              echo "--- FULL CONTENTS ---"
+              cat /tmp/connie-watchdog.log
+              echo "--- END ---"
+            else
+              echo "File does not exist"
             fi
 
             echo ""
-            echo "=== 11. Check if connie-monitor is a PM2 process ==="
-            PM2_HOME="$CONNIE_HOME/.pm2" pm2 list 2>/dev/null || echo "PM2 not running"
+            echo "=== 2. ROOT PM2 processes (PID 5006 from Feb 24) ==="
+            pm2 list 2>/dev/null || echo "Root PM2 not accessible"
             echo ""
-            echo "PM2 dump:"
-            cat "$CONNIE_HOME/.pm2/dump.pm2" 2>/dev/null || echo "No PM2 dump"
+            echo "Root PM2 dump:"
+            cat ~/.pm2/dump.pm2 2>/dev/null || echo "No root PM2 dump"
+            echo ""
+            echo "Root PM2 logs dir:"
+            ls -la ~/.pm2/logs/ 2>/dev/null || echo "No root PM2 logs"
+            echo ""
+            echo "Root PM2 pids dir:"
+            ls -la ~/.pm2/pids/ 2>/dev/null || echo "No root PM2 pids"
 
             echo ""
-            echo "=== 12. /tmp scripts ==="
-            find /tmp -name "*.sh" -o -name "*.js" -o -name "*.py" 2>/dev/null | while read f; do
-              echo "--- $f ---"
-              head -5 "$f" 2>/dev/null
-              if grep -q "discord\|webhook\|watchdog\|monitor" "$f" 2>/dev/null; then
-                echo "  ** MATCHES discord/webhook/watchdog/monitor **"
-                grep -n "discord\|webhook\|watchdog\|monitor" "$f" 2>/dev/null
+            echo "=== 3. CONNIE_HOME PM2 dump file ==="
+            cat "$CONNIE_HOME/.pm2/dump.pm2" 2>/dev/null || echo "No CONNIE_HOME PM2 dump"
+            echo ""
+            echo "CONNIE_HOME PM2 logs:"
+            ls -la "$CONNIE_HOME/.pm2/logs/" 2>/dev/null || echo "No logs dir"
+            for f in "$CONNIE_HOME/.pm2/logs/"*; do
+              if [ -f "$f" ]; then
+                echo "--- $f (last 20 lines) ---"
+                tail -20 "$f"
               fi
             done
 
             echo ""
-            echo "=== 13. Environment variables with webhook ==="
-            env 2>/dev/null | grep -i "discord\|webhook" || echo "None in current env"
-            echo "---"
-            cat /etc/systemd/system/local-connie.service 2>/dev/null
-            echo "---"
-            cat /etc/systemd/system/local-connie.service.d/env.conf 2>/dev/null || echo "No env.conf"
+            echo "=== 4. Search compiled dist/ for watchdog/monitor/username ==="
+            if [ -d "$REPO/dist" ]; then
+              echo "Searching dist/ for 'username'..."
+              grep -rn "username" "$REPO/dist/" --include="*.js" 2>/dev/null | grep -i "watchdog\|monitor\|connie" | head -20
+              echo ""
+              echo "Searching dist/ for 'watchdog' or 'monitor' near Discord..."
+              grep -rn "watchdog\|connie-monitor" "$REPO/dist/" --include="*.js" 2>/dev/null | grep -v "system-prompt\|node_modules\|\.map" | head -20
+              echo ""
+              echo "Searching dist/ for username in fetch/POST calls..."
+              grep -rn '"username"' "$REPO/dist/" --include="*.js" 2>/dev/null | head -20
+            fi
+
+            echo ""
+            echo "=== 5. Recently modified files in CONNIE_HOME (last 6 hours) ==="
+            find "$CONNIE_HOME" -maxdepth 3 -type f -mmin -360 -not -path "*/node_modules/*" -not -path "*/.pm2/*" -not -name "*.log" 2>/dev/null | head -30
+            echo ""
+            echo "Recently modified JS files anywhere in home:"
+            find "$CONNIE_HOME" -maxdepth 4 -name "*.js" -type f -mmin -360 -not -path "*/node_modules/*" -not -path "*/dist/*" 2>/dev/null | while read f; do
+              echo "--- $f ($(stat -c %y "$f" 2>/dev/null)) ---"
+              head -10 "$f"
+              echo ""
+            done
+
+            echo ""
+            echo "=== 6. Process tree of main service ==="
+            CONNIE_PID=$(systemctl show local-connie --property=MainPID --value 2>/dev/null || echo "0")
+            echo "Main PID: $CONNIE_PID"
+            if [ "$CONNIE_PID" != "0" ] && [ -n "$CONNIE_PID" ]; then
+              echo "Process tree:"
+              pstree -p "$CONNIE_PID" 2>/dev/null || ps --forest -o pid,ppid,cmd -g $(ps -o sid= -p "$CONNIE_PID" 2>/dev/null) 2>/dev/null || echo "Cannot get tree"
+              echo ""
+              echo "All processes in same cgroup:"
+              CGROUP=$(cat /proc/"$CONNIE_PID"/cgroup 2>/dev/null | head -1 | cut -d: -f3)
+              if [ -n "$CGROUP" ]; then
+                cat /sys/fs/cgroup"$CGROUP"/cgroup.procs 2>/dev/null | while read pid; do
+                  ps -p "$pid" -o pid,ppid,cmd= 2>/dev/null
+                done
+              fi
+            fi
+
+            echo ""
+            echo "=== 7. ALL files containing 'username' + 'watchdog' or 'connie-monitor' ==="
+            grep -rl '"username"' "$CONNIE_HOME" --include="*.js" --include="*.ts" --include="*.json" --include="*.sh" 2>/dev/null | while read f; do
+              if grep -q "watchdog\|monitor\|connie" "$f" 2>/dev/null; then
+                echo "--- MATCH: $f ---"
+                grep -n "username\|watchdog\|monitor" "$f" 2>/dev/null | head -10
+              fi
+            done
+
+            echo ""
+            echo "=== 8. Application log around FATAL error time ==="
+            echo "Last FATAL entries:"
+            grep -n "\[FATAL\]" /tmp/connie-research.log 2>/dev/null | tail -5
+            echo ""
+            echo "Last 200 lines of log (to see agent's exec commands):"
+            tail -200 /tmp/connie-research.log 2>/dev/null
+
+            echo ""
+            echo "=== 9. ALL node/python processes with full command and parent ==="
+            for pid in $(pgrep -x node 2>/dev/null; pgrep -x python3 2>/dev/null; pgrep -x python 2>/dev/null); do
+              PPID=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+              CMD=$(ps -o cmd= -p "$pid" 2>/dev/null)
+              echo "PID=$pid PPID=$PPID CMD=$CMD"
+            done
+
+            echo ""
+            echo "=== 10. Search for scripts with curl + POST anywhere ==="
+            grep -rl "curl.*POST\|curl.*-X.*POST\|fetch.*POST\|\.post(" "$CONNIE_HOME" --include="*.js" --include="*.sh" --include="*.py" 2>/dev/null | grep -v node_modules | grep -v dist | while read f; do
+              echo "--- $f ---"
+              grep -n "curl\|fetch\|post\|discord\|webhook\|username" "$f" 2>/dev/null | head -10
+            done
+
+            echo ""
+            echo "=== 11. Agent-created files outside repo ==="
+            find "$CONNIE_HOME" -maxdepth 1 -type f \( -name "*.js" -o -name "*.sh" -o -name "*.py" -o -name "*.log" \) 2>/dev/null | while read f; do
+              echo "--- $f ($(stat -c '%y %s' "$f" 2>/dev/null)) ---"
+              head -5 "$f"
+              if grep -q "discord\|webhook\|watchdog\|monitor\|username\|curl\|fetch" "$f" 2>/dev/null; then
+                echo "  ** CONTAINS RELEVANT KEYWORDS **"
+                grep -n "discord\|webhook\|watchdog\|monitor\|username" "$f" 2>/dev/null | head -5
+              fi
+              echo ""
+            done
+
+            echo ""
+            echo "=== 12. Check /tmp for any file with 'username' keyword ==="
+            grep -rl '"username"' /tmp --include="*.js" --include="*.json" --include="*.sh" --include="*.py" 2>/dev/null | while read f; do
+              echo "--- $f ---"
+              grep -n "username" "$f" 2>/dev/null | head -5
+            done
+
+            echo ""
+            echo "=== 13. Deleted but still-open files (zombie file descriptors) ==="
+            ls -la /proc/*/fd 2>/dev/null | grep deleted | grep -v "/dev/" | head -20
