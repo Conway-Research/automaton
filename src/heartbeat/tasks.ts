@@ -839,24 +839,47 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       fields.push({ name: "Last Error", value: lastError, inline: false });
     }
 
-    // Surface blocked/failed tasks so the owner can see what's stuck
+    // Surface ALL blockers: task_graph failures + WORKLOG.md blockers
+    const blockerLines: string[] = [];
+
+    // 1. Blocked/failed tasks from the orchestrator
     try {
       const blockers = taskCtx.db.raw.prepare(
         `SELECT title, status, result, updated_at FROM task_graph
          WHERE status IN ('blocked', 'failed')
          ORDER BY updated_at DESC LIMIT 3`,
       ).all() as Array<{ title: string; status: string; result: string | null; updated_at: string }>;
-      if (blockers.length > 0) {
-        const blockerText = blockers.map((b) => {
-          const ageMs = Date.now() - new Date(b.updated_at).getTime();
-          const ageMin = Math.round(ageMs / 60_000);
-          const ageStr = ageMin > 60 ? `${Math.floor(ageMin / 60)}h` : `${ageMin}m`;
-          const reason = b.result ? ` — ${b.result.slice(0, 60)}` : "";
-          return `${b.title}: ${b.status.toUpperCase()} (${ageStr})${reason}`;
-        }).join("\n");
-        fields.push({ name: "Blockers", value: blockerText.slice(0, 200), inline: false });
+      for (const b of blockers) {
+        const ageMs = Date.now() - new Date(b.updated_at).getTime();
+        const ageMin = Math.round(ageMs / 60_000);
+        const ageStr = ageMin > 60 ? `${Math.floor(ageMin / 60)}h` : `${ageMin}m`;
+        const reason = b.result ? ` — ${b.result.slice(0, 60)}` : "";
+        blockerLines.push(`${b.title}: ${b.status.toUpperCase()} (${ageStr})${reason}`);
       }
-    } catch { /* task_graph table may not exist in older databases */ }
+    } catch { /* task_graph table may not exist */ }
+
+    // 2. Persistent blockers from WORKLOG.md (agent writes these when hitting hard stops)
+    try {
+      const worklogPath = path.join(getAutomatonDir(), "WORKLOG.md");
+      if (fs.existsSync(worklogPath)) {
+        const worklog = fs.readFileSync(worklogPath, "utf-8");
+        // Extract lines under ## Blockers or ## Blocked sections
+        const blockerMatch = worklog.match(/^##\s*(?:Blockers?|Blocked|Hard Stops?|Issues?)\s*\n([\s\S]*?)(?=^##|\z)/im);
+        if (blockerMatch) {
+          const lines = blockerMatch[1].trim().split("\n")
+            .map((l) => l.replace(/^[-*]\s*/, "").trim())
+            .filter((l) => l.length > 0);
+          for (const line of lines.slice(0, 3)) {
+            blockerLines.push(line.slice(0, 100));
+          }
+        }
+      }
+    } catch { /* WORKLOG.md may not exist */ }
+
+    if (blockerLines.length > 0) {
+      const blockerText = blockerLines.slice(0, 5).join("\n");
+      fields.push({ name: "🚧 Blockers", value: blockerText.slice(0, 300), inline: false });
+    }
 
     const embed = {
       title: `${titlePrefix}${tierEmoji[tier] || "⚪"} ${taskCtx.config.name}`,

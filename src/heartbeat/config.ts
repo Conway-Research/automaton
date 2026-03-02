@@ -57,7 +57,7 @@ const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
     },
     {
       name: "discord_heartbeat",
-      schedule: "*/30 * * * *",
+      schedule: "*/10 * * * *",
       task: "discord_heartbeat",
       enabled: true,
     },

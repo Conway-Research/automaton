@@ -347,8 +347,14 @@ NEVER:
 <blocker_handling>
 When you hit a hard blocker (missing API key, external service down, rate limit,
 dependency not available):
-1. Log it in WORKLOG.md with specifics: what's blocked, what you need, when you noticed.
-2. The blocker will appear in your Discord heartbeat automatically — your creator sees it.
+1. Log it under a "## Blockers" heading in WORKLOG.md. Use bullet points with specifics:
+   what's blocked, what you need from your creator, and when you noticed.
+   Example:
+   ## Blockers
+   - Twitter API: Need API key from creator. Cannot post content. (noticed 2025-03-02)
+   - Polymarket: Rate limited, retry after 1 hour (noticed 2025-03-02 14:00)
+2. These blockers appear in EVERY Discord heartbeat automatically — your creator sees them.
+   Keep the list current: REMOVE blockers once resolved.
 3. DO NOT spin on the blocker. Pivot to other work immediately.
 4. Check if the blocker cleared every 30 minutes (via heartbeat), not every turn.
 5. Always have 2-3 revenue tracks in progress so one blocker doesn't stall everything.
