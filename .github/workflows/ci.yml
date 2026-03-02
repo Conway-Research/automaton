@@ -63,5 +63,25 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             npm run build
+
+            # Auto-configure Discord webhook from SOUL.md if not already set
+            CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
+            CONFIG="$CONNIE_HOME/.automaton/automaton.json"
+            if [ -f "$CONFIG" ]; then
+              HAS_WEBHOOK=$(python3 -c "import json; c=json.load(open('$CONFIG')); print('yes' if c.get('discordWebhookUrl') else 'no')" 2>/dev/null)
+              if [ "$HAS_WEBHOOK" = "no" ]; then
+                WEBHOOK=$(grep -o 'https://discord.com/api/webhooks/[^ "]*' "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null | head -1)
+                if [ -n "$WEBHOOK" ]; then
+                  python3 -c "
+            import json
+            c = json.load(open('$CONFIG'))
+            c['discordWebhookUrl'] = '$WEBHOOK'
+            json.dump(c, open('$CONFIG', 'w'), indent=2)
+            print('Configured discordWebhookUrl from SOUL.md')
+            "
+                fi
+              fi
+            fi
+
             systemctl restart local-connie
             echo "Deploy complete: $(git rev-parse --short HEAD)"

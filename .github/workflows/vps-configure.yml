@@ -1,0 +1,64 @@
+name: VPS Configure
+on:
+  workflow_dispatch:
+jobs:
+  configure:
+    name: Configure Connie VPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
+            CONFIG="$CONNIE_HOME/.automaton/automaton.json"
+
+            echo "=== Current config ==="
+            python3 -c "
+            import json
+            c = json.load(open('$CONFIG'))
+            for k in ['discordWebhookUrl', 'useSovereignProviders', 'vultrApiKey', 'inferenceModel', 'name']:
+                v = c.get(k)
+                if k in ['discordWebhookUrl', 'vultrApiKey']:
+                    print(f'{k}: {\"SET\" if v else \"NOT SET\"}')
+                else:
+                    print(f'{k}: {v}')
+            "
+
+            echo ""
+            echo "=== Configuring Discord webhook ==="
+            WEBHOOK=$(grep -o 'https://discord.com/api/webhooks/[^ "]*' "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null | head -1)
+            if [ -n "$WEBHOOK" ]; then
+              python3 -c "
+            import json
+            c = json.load(open('$CONFIG'))
+            c['discordWebhookUrl'] = '$WEBHOOK'
+            json.dump(c, open('$CONFIG', 'w'), indent=2)
+            print('Set discordWebhookUrl from SOUL.md')
+            "
+            else
+              echo "No webhook URL found in SOUL.md"
+            fi
+
+            echo ""
+            echo "=== Restarting service ==="
+            systemctl restart local-connie
+            sleep 3
+            systemctl status local-connie --no-pager -l 2>&1 | head -15
+
+            echo ""
+            echo "=== Updated config ==="
+            python3 -c "
+            import json
+            c = json.load(open('$CONFIG'))
+            for k in ['discordWebhookUrl', 'useSovereignProviders', 'vultrApiKey', 'inferenceModel', 'name']:
+                v = c.get(k)
+                if k in ['discordWebhookUrl', 'vultrApiKey']:
+                    print(f'{k}: {\"SET\" if v else \"NOT SET\"}')
+                else:
+                    print(f'{k}: {v}')
+            "
