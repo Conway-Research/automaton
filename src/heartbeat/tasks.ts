@@ -742,15 +742,53 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       } catch { /* ignore parse errors */ }
     }
 
-    // Latest thinking from most recent turn (what the agent is doing)
+    // Latest thinking and recent activity from last few turns
     let latestThinking = "";
+    let recentActivity = "";
+    let currentGoal = "";
+    let revenue = "";
     try {
-      const recentTurns = taskCtx.db.getRecentTurns(1);
+      const recentTurns = taskCtx.db.getRecentTurns(5);
+      // Thinking from most recent turn
       if (recentTurns.length > 0 && recentTurns[0]!.thinking) {
         latestThinking = recentTurns[0]!.thinking.slice(0, 200);
         if (recentTurns[0]!.thinking.length > 200) latestThinking += "…";
       }
+      // Recent tool calls across last 5 turns (what she's been doing)
+      const toolLines: string[] = [];
+      for (const turn of recentTurns) {
+        for (const tc of turn.toolCalls) {
+          if (tc.name === "check_balance" || tc.name === "orchestrator_status") continue;
+          const status = tc.error ? "FAIL" : "ok";
+          const argSnippet = tc.arguments && typeof tc.arguments === "object"
+            ? Object.values(tc.arguments).join(" ").slice(0, 40)
+            : "";
+          toolLines.push(`${tc.name}(${argSnippet ? argSnippet.slice(0, 30) : ""}) → ${status}`);
+        }
+      }
+      if (toolLines.length > 0) {
+        recentActivity = toolLines.slice(0, 5).join("\n");
+      }
     } catch { /* ignore if turns unavailable */ }
+
+    // Active goal from orchestrator
+    try {
+      const goalRow = taskCtx.db.raw.prepare(
+        "SELECT title, status FROM goals WHERE status = 'active' ORDER BY created_at DESC LIMIT 1",
+      ).get() as { title: string; status: string } | undefined;
+      if (goalRow) {
+        currentGoal = goalRow.title.slice(0, 100);
+      }
+    } catch { /* goals table may not exist */ }
+
+    // Revenue from KV
+    try {
+      const revenueVal = taskCtx.db.getKV("total_revenue_usd");
+      if (revenueVal) {
+        const parsed = parseFloat(revenueVal);
+        if (!isNaN(parsed)) revenue = `$${parsed.toFixed(2)}`;
+      }
+    } catch { /* ignore */ }
 
     // Color based on survival tier
     const tierColors: Record<string, number> = {
@@ -778,12 +816,27 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       { name: "Children", value: `${activeChildren}/${children.length}`, inline: true },
       { name: "Credits", value: `$${(credits / 100).toFixed(2)}`, inline: true },
       { name: "USDC", value: `$${usdc.toFixed(4)}`, inline: true },
-      { name: "Last Error", value: lastError, inline: true },
+      { name: "Revenue", value: revenue || "—", inline: true },
     ];
 
-    // Add thinking as a full-width description field if available
+    // Current goal — what she's trying to accomplish
+    if (currentGoal) {
+      fields.push({ name: "🎯 Goal", value: currentGoal, inline: false });
+    }
+
+    // Recent tool calls — what she's been doing
+    if (recentActivity) {
+      fields.push({ name: "⚡ Activity", value: recentActivity, inline: false });
+    }
+
+    // Latest thinking — what's on her mind
     if (latestThinking) {
-      fields.push({ name: "🧠", value: latestThinking, inline: false });
+      fields.push({ name: "🧠 Thinking", value: latestThinking, inline: false });
+    }
+
+    // Last error (only show if there is one)
+    if (lastError !== "none") {
+      fields.push({ name: "Last Error", value: lastError, inline: false });
     }
 
     // Surface blocked/failed tasks so the owner can see what's stuck
@@ -820,6 +873,9 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       turns: turnCount,
       lastError,
       thinking: latestThinking || undefined,
+      goal: currentGoal || undefined,
+      activity: recentActivity || undefined,
+      revenue: revenue || undefined,
       children: `${activeChildren}/${children.length}`,
       credits: (credits / 100).toFixed(2),
       usdc: usdc.toFixed(4),

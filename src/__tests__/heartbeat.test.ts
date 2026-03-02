@@ -566,7 +566,7 @@ describe("Heartbeat Tasks", () => {
       expect(db.getKV("last_discord_heartbeat")).toBeDefined();
       expect(capturedBody).toBeDefined();
       expect(capturedBody.embeds).toHaveLength(1);
-      // 9 base fields: State, Tier, Model, Uptime, Turns, Children, Credits, USDC, Last Error
+      // 9 base fields: State, Tier, Model, Uptime, Turns, Children, Credits, USDC, Revenue
       expect(capturedBody.embeds[0].fields.length).toBeGreaterThanOrEqual(9);
       expect(capturedBody.embeds[0].color).toBe(0x3b82f6); // blue for normal tier (no errors)
 
@@ -574,7 +574,7 @@ describe("Heartbeat Tasks", () => {
       const fieldNames = capturedBody.embeds[0].fields.map((f: any) => f.name);
       expect(fieldNames).toContain("Model");
       expect(fieldNames).toContain("Turns");
-      expect(fieldNames).toContain("Last Error");
+      expect(fieldNames).toContain("Revenue");
 
       // Restore fetch
       globalThis.fetch = origFetch;
@@ -772,7 +772,7 @@ describe("Heartbeat Tasks", () => {
       await BUILTIN_TASKS.discord_heartbeat(tickCtx, taskCtx);
 
       const embed = capturedBody.embeds[0];
-      const thinkingField = embed.fields.find((f: any) => f.name === "🧠");
+      const thinkingField = embed.fields.find((f: any) => f.name === "🧠 Thinking");
       expect(thinkingField).toBeDefined();
       expect(thinkingField.value).toContain("polymarket");
       expect(thinkingField.inline).toBe(false);
