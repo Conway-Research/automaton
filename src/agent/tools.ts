@@ -66,6 +66,9 @@ const FORBIDDEN_COMMAND_PATTERNS = [
   // Discord webhook abuse — only the built-in heartbeat should post to Discord
   /discord\.com\/api\/webhooks/i,
   /discordapp\.com\/api\/webhooks/i,
+  // Config file reads — automaton.json contains webhook URL and secrets.
+  // The agent must not read its own config; the heartbeat system handles Discord internally.
+  /\bautomaton\.json\b/,
   // Background process spawning — agent must not run persistent daemons.
   // Use the heartbeat system for periodic tasks, not nohup/pm2/screen.
   /\bnohup\b/i,
@@ -126,7 +129,13 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           command,
           (args.timeout as number) || 30000,
         );
-        return `exit_code: ${result.exitCode}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`;
+        // Sanitize output: strip any Discord webhook URLs that may leak through
+        // stdout/stderr (e.g. from reading config files or logs). The agent must
+        // never see the raw webhook URL — the heartbeat system manages it internally.
+        const webhookPattern = /https:\/\/discord(?:app)?\.com\/api\/webhooks\/[^\s"'<>]+/gi;
+        const stdout = (result.stdout || "").replace(webhookPattern, "[REDACTED:webhook]");
+        const stderr = (result.stderr || "").replace(webhookPattern, "[REDACTED:webhook]");
+        return `exit_code: ${result.exitCode}\nstdout: ${stdout}\nstderr: ${stderr}`;
       },
     },
     {
@@ -190,7 +199,9 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           return "Blocked: Cannot read sensitive file. This protects credentials and secrets.";
         }
         try {
-          return await ctx.conway.readFile(filePath);
+          const content = await ctx.conway.readFile(filePath);
+          // Redact any webhook URLs that may appear in file contents
+          return (content || "").replace(/https:\/\/discord(?:app)?\.com\/api\/webhooks\/[^\s"'<>]+/gi, "[REDACTED:webhook]");
         } catch {
           // Conway files/read API may be broken — fall back to exec(cat)
           const result = await ctx.conway.exec(
@@ -200,7 +211,8 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           if (result.exitCode !== 0) {
             return `ERROR: File not found or not readable: ${filePath}`;
           }
-          return result.stdout;
+          // Redact webhook URLs from fallback reads too
+          return (result.stdout || "").replace(/https:\/\/discord(?:app)?\.com\/api\/webhooks\/[^\s"'<>]+/gi, "[REDACTED:webhook]");
         }
       },
     },

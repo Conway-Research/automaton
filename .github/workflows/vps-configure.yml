@@ -31,18 +31,68 @@ jobs:
 
             echo ""
             echo "=== Configuring Discord webhook ==="
+            # Extract webhook URL from SOUL.md into automaton.json (one-time migration)
             WEBHOOK=$(grep -o 'https://discord.com/api/webhooks/[^ "]*' "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null | head -1)
+            if [ -z "$WEBHOOK" ]; then
+              # Already stripped from SOUL.md — check if it's in automaton.json
+              WEBHOOK=$(CONFIG="$CONFIG" python3 -c "import json,os; c=json.load(open(os.environ['CONFIG'])); print(c.get('discordWebhookUrl',''))" 2>/dev/null)
+            fi
             if [ -n "$WEBHOOK" ]; then
               WEBHOOK="$WEBHOOK" CONFIG="$CONFIG" python3 -c "
             import json, os
             c = json.load(open(os.environ['CONFIG']))
             c['discordWebhookUrl'] = os.environ['WEBHOOK']
             json.dump(c, open(os.environ['CONFIG'], 'w'), indent=2)
-            print('Set discordWebhookUrl from SOUL.md')
+            print('Set discordWebhookUrl in automaton.json')
             "
             else
-              echo "No webhook URL found in SOUL.md"
+              echo "WARNING: No webhook URL found anywhere"
             fi
+
+            echo ""
+            echo "=== Stripping webhook URL from SOUL.md ==="
+            # CRITICAL: Remove the literal webhook URL from SOUL.md so the agent
+            # can't see it in its own system prompt. The heartbeat system reads it
+            # from automaton.json directly — it does NOT need it in the prompt.
+            SOUL="$CONNIE_HOME/.automaton/SOUL.md"
+            if [ -f "$SOUL" ]; then
+              SOUL="$SOUL" python3 -c "
+            import re, os
+            soul_path = os.environ['SOUL']
+            with open(soul_path, 'r') as f:
+                content = f.read()
+            # Strip any Discord webhook URLs (full URL pattern)
+            cleaned = re.sub(r'https://discord\.com/api/webhooks/[^\s\"'\''<>]+', '[managed by heartbeat system]', content)
+            cleaned = re.sub(r'https://discordapp\.com/api/webhooks/[^\s\"'\''<>]+', '[managed by heartbeat system]', cleaned)
+            if content != cleaned:
+                with open(soul_path, 'w') as f:
+                    f.write(cleaned)
+                print('Stripped webhook URL(s) from SOUL.md')
+            else:
+                print('SOUL.md already clean — no webhook URLs found')
+            "
+            fi
+
+            echo ""
+            echo "=== Cleaning up agent-created Discord scripts ==="
+            # Remove any agent-spawned discord bots, monitors, or webhook scripts
+            for pattern in "discord-bot" "discord_bot" "*monitor*.js" "*watchdog*.js" "*webhook*.js"; do
+              find "$CONNIE_HOME" -maxdepth 2 -name "$pattern" -type f 2>/dev/null | while read f; do
+                echo "Removing: $f"
+                rm -f "$f"
+              done
+              find "$CONNIE_HOME" -maxdepth 2 -name "$pattern" -type d 2>/dev/null | while read d; do
+                echo "Removing dir: $d"
+                rm -rf "$d"
+              done
+            done
+            # Kill PM2 and delete dump so agent processes don't auto-restart
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 delete all 2>/dev/null || true
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 kill 2>/dev/null || true
+            rm -f "$CONNIE_HOME/.pm2/dump.pm2"
+            # Delete temp request body files that contain the webhook URL
+            rm -f /tmp/request_body.json /tmp/request_body_air.json
+            echo "Cleaned up agent-created scripts, PM2, and temp files"
 
             echo ""
             echo "=== Updating SOUL.md strategy section ==="
