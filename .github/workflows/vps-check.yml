@@ -13,66 +13,60 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            echo "=== Service Status ==="
-            systemctl status local-connie --no-pager -l 2>&1 | head -20
-
-            # Get the HOME used by the service
             CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
-            echo "Connie HOME: $CONNIE_HOME"
+
+            echo "=== 1. Service status ==="
+            systemctl status local-connie --no-pager -l 2>&1 | head -15
 
             echo ""
-            echo "=== Git Status ==="
-            cd /root/.openclaw/workspace/artifacts/automaton-research
-            git log --oneline -3
+            echo "=== 2. Service unit file (ExecStopPost check) ==="
+            cat /etc/systemd/system/local-connie.service
 
             echo ""
-            echo "=== Discord Heartbeat Log ==="
-            tail -10 "$CONNIE_HOME/.automaton/discord-heartbeat.log" 2>/dev/null || echo "No log file yet"
-            echo "(also checking /root)"
-            tail -5 /root/.automaton/discord-heartbeat.log 2>/dev/null || echo "No log at /root either"
+            echo "=== 3. ALL node processes ==="
+            ps aux | grep node | grep -v grep
 
             echo ""
-            echo "=== Automaton Config ==="
-            python3 -c "
-            import json, os, glob
-            for p in ['$CONNIE_HOME/.automaton/automaton.json', '/root/.automaton/automaton.json']:
-                if os.path.exists(p):
-                    c = json.load(open(p))
-                    print(f'Config at: {p}')
-                    print(f'  discordWebhookUrl: {\"SET\" if c.get(\"discordWebhookUrl\") else \"NOT SET\"}')
-                    print(f'  useSovereignProviders: {c.get(\"useSovereignProviders\", \"NOT SET\")}')
-                    print(f'  vultrApiKey: {\"SET\" if c.get(\"vultrApiKey\") else \"NOT SET\"}')
-                    print(f'  inferenceModel: {c.get(\"inferenceModel\", \"NOT SET\")}')
-                    print(f'  name: {c.get(\"name\", \"NOT SET\")}')
-            " 2>/dev/null || echo "Config parse error"
+            echo "=== 4. ALL files with discord webhook URLs ==="
+            grep -rl "discord.com/api/webhooks\|discordapp.com/api/webhooks" / --include="*.sh" --include="*.js" --include="*.py" --include="*.json" 2>/dev/null || echo "NONE FOUND"
 
             echo ""
-            echo "=== EnvironmentFile contents ==="
-            for f in $(grep 'EnvironmentFile' /etc/systemd/system/local-connie.service.d/env.conf 2>/dev/null | sed 's/EnvironmentFile=//; s/-//'); do
-              echo "File: $f"
-              cat "$f" 2>/dev/null | grep -i "DISCORD\|WEBHOOK" | sed 's/=.*/=SET/' || echo "  No discord/webhook vars"
+            echo "=== 5. Crash notify scripts anywhere ==="
+            find / -maxdepth 5 -name "*crash*notify*" -type f 2>/dev/null || echo "NONE FOUND"
+
+            echo ""
+            echo "=== 6. Crontab ==="
+            crontab -l 2>/dev/null || echo "No crontab"
+
+            echo ""
+            echo "=== 7. Systemd timers ==="
+            systemctl list-timers --all --no-pager 2>/dev/null | head -20
+
+            echo ""
+            echo "=== 8. spawn-agent.sh webhook lines ==="
+            grep -n "discord\|webhook\|curl" "$CONNIE_HOME/spawn-agent.sh" 2>/dev/null || echo "No webhook lines"
+
+            echo ""
+            echo "=== 9. App log since last restart ==="
+            tail -30 /tmp/connie-research.log 2>/dev/null
+
+            echo ""
+            echo "=== 10. Git version ==="
+            cd /root/.openclaw/workspace/artifacts/automaton-research && git log --oneline -3
+
+            echo ""
+            echo "=== 11. discord-bot directory ==="
+            ls -la "$CONNIE_HOME/discord-bot/" 2>/dev/null || echo "No discord-bot dir"
+            cat "$CONNIE_HOME/discord-bot/package.json" 2>/dev/null | head -5 || true
+            cat "$CONNIE_HOME/discord-bot/index.js" 2>/dev/null | head -30 || true
+
+            echo ""
+            echo "=== 12. ALL .js files in CONNIE_HOME (1 level) ==="
+            find "$CONNIE_HOME" -maxdepth 1 -name "*.js" -type f 2>/dev/null | while read f; do
+              echo "--- $f ---"
+              head -3 "$f"
             done
 
             echo ""
-            echo "=== Crash Notify Script (webhook source) ==="
-            cat "$CONNIE_HOME/connie-crash-notify.sh" 2>/dev/null | grep -i "webhook\|discord\|curl" | sed 's|discord.com/api/webhooks/[^ "]*|discord.com/api/webhooks/REDACTED|gi' || echo "No crash notify script"
-            echo ""
-            echo "=== Watchdog Service ==="
-            systemctl status watchdog --no-pager -l 2>&1 | head -10 || echo "No watchdog service"
-            echo ""
-            echo "=== Watchdog Unit File ==="
-            systemctl cat watchdog 2>/dev/null | head -30 || echo "No watchdog unit"
-            echo ""
-            echo "=== Watchdog Script (first 50 lines) ==="
-            WATCHDOG_EXEC=$(systemctl cat watchdog 2>/dev/null | grep ExecStart | head -1 | sed 's/ExecStart=//')
-            if [ -n "$WATCHDOG_EXEC" ]; then
-              head -50 "$WATCHDOG_EXEC" 2>/dev/null || echo "Can't read: $WATCHDOG_EXEC"
-            else
-              echo "No ExecStart found"
-            fi
-            echo ""
-            echo "=== connie-monitor process ==="
-            ps aux | grep -i "monitor\|watchdog" | grep -v grep | head -10
-            echo ""
-            echo "=== Application Log (last 50 lines) ==="
-            tail -50 /tmp/connie-research.log 2>/dev/null || echo "No app log"
+            echo "=== 13. PM2 ecosystem/config ==="
+            cat "$CONNIE_HOME/.pm2/dump.pm2" 2>/dev/null | python3 -c "import json,sys; [print(p['name'],p.get('pm_exec_path','?')) for p in json.load(sys.stdin)]" 2>/dev/null || echo "No PM2 dump"
