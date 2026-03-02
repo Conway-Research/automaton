@@ -786,6 +786,25 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       fields.push({ name: "🧠", value: latestThinking, inline: false });
     }
 
+    // Surface blocked/failed tasks so the owner can see what's stuck
+    try {
+      const blockers = taskCtx.db.raw.prepare(
+        `SELECT title, status, result, updated_at FROM task_graph
+         WHERE status IN ('blocked', 'failed')
+         ORDER BY updated_at DESC LIMIT 3`,
+      ).all() as Array<{ title: string; status: string; result: string | null; updated_at: string }>;
+      if (blockers.length > 0) {
+        const blockerText = blockers.map((b) => {
+          const ageMs = Date.now() - new Date(b.updated_at).getTime();
+          const ageMin = Math.round(ageMs / 60_000);
+          const ageStr = ageMin > 60 ? `${Math.floor(ageMin / 60)}h` : `${ageMin}m`;
+          const reason = b.result ? ` — ${b.result.slice(0, 60)}` : "";
+          return `${b.title}: ${b.status.toUpperCase()} (${ageStr})${reason}`;
+        }).join("\n");
+        fields.push({ name: "Blockers", value: blockerText.slice(0, 200), inline: false });
+      }
+    } catch { /* task_graph table may not exist in older databases */ }
+
     const embed = {
       title: `${titlePrefix}${tierEmoji[tier] || "⚪"} ${taskCtx.config.name}`,
       color: hasError ? 0xf59e0b : (tierColors[tier] ?? 0x6b7280),

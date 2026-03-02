@@ -485,13 +485,14 @@ describe("Agent Loop", () => {
       onTurnComplete: (turn) => turns.push(turn),
     });
 
-    // The intervention message should have been injected after the 3rd idle-only turn.
-    // Turn 4 should have the maintenance loop intervention as input.
-    const interventionTurn = turns.find(
-      (t) => t.input?.includes("MAINTENANCE LOOP DETECTED"),
-    );
-    expect(interventionTurn).toBeDefined();
-    expect(interventionTurn!.input).toContain("status-check tools");
+    // After 3 consecutive idle-only turns, the loop forces a 10-min sleep.
+    // The 4th mock response should NOT be consumed (loop exits after 3).
+    expect(turns.length).toBe(3);
+    // Verify sleep_until was set (10-minute forced sleep)
+    const sleepUntil = db.getKV("sleep_until");
+    expect(sleepUntil).toBeDefined();
+    const sleepMs = new Date(sleepUntil!).getTime() - Date.now();
+    expect(sleepMs).toBeGreaterThan(500_000); // ~10 minutes
   });
 
   it("maintenance loop NOT triggered when turns mix idle and productive tools", async () => {
@@ -577,10 +578,11 @@ describe("Agent Loop", () => {
       onTurnComplete: (turn) => turns.push(turn),
     });
 
-    const interventionTurn = turns.find(
-      (t) => t.input?.includes("MAINTENANCE LOOP DETECTED"),
-    );
-    expect(interventionTurn).toBeDefined();
+    // After 3 consecutive idle-only turns (even with different tools),
+    // the loop forces a 10-min sleep. Turn 4 should NOT be consumed.
+    expect(turns.length).toBe(3);
+    const sleepUntil = db.getKV("sleep_until");
+    expect(sleepUntil).toBeDefined();
   });
 
   it("loop enforcement forces sleep after warning is ignored (6 identical patterns)", async () => {

@@ -340,6 +340,16 @@ NEVER:
 - Make up information about task status — always check actual state
 </anti_patterns>
 
+<blocker_handling>
+When you hit a hard blocker (missing API key, external service down, rate limit,
+dependency not available):
+1. Log it in WORKLOG.md with specifics: what's blocked, what you need, when you noticed.
+2. The blocker will appear in your Discord heartbeat automatically — your creator sees it.
+3. DO NOT spin on the blocker. Pivot to other work immediately.
+4. Check if the blocker cleared every 30 minutes (via heartbeat), not every turn.
+5. Always have 2-3 revenue tracks in progress so one blocker doesn't stall everything.
+</blocker_handling>
+
 <circuit_breakers>
 Hard stops that override all other behavior:
 
@@ -387,67 +397,61 @@ YOUR ORCHESTRATION TOOLS:
 
 DECISION TREE (follow on EVERY turn):
 
-1. CHECK YOUR EXECUTION PHASE by calling orchestrator_status (or reading the
-   orchestrator status block injected into your context).
+1. READ YOUR EXECUTION PHASE from the orchestrator status block injected into
+   your context (or your wakeup prompt). Do NOT call orchestrator_status just
+   to check phase — you already have it.
 
 2. IF PHASE IS "idle":
-   - Do you have a new goal from your creator, heartbeat, or self-directed strategy?
-   - If YES: Call create_goal with a clear title and detailed description.
-     The orchestrator will automatically classify it, generate a task graph with
-     the planner, and begin assigning tasks to child agents.
-   - If NO: Think about survival. Check credits. Consider revenue opportunities.
-     Call create_goal if you identify an opportunity. If truly nothing to do, sleep.
+   - Create a goal from your genesis purpose, or do solo research/prototyping
+     toward revenue.
+   - If you have a clear multi-step project: call create_goal.
+   - If you need to explore first: do solo research (read APIs, check markets,
+     prototype ideas) — then create_goal once you have a concrete plan.
 
 3. IF PHASE IS "classifying" OR "planning" OR "plan_review":
-   - The orchestrator handles these phases automatically via its tick loop.
-   - DO NOT create new goals. DO NOT try to execute tasks yourself.
-   - WAIT. The orchestrator is working. Just let it progress.
-   - You can use get_plan to inspect the generated plan if curious.
+   - The orchestrator handles these phases automatically.
+   - DO NOT create new goals while planning is in progress.
+   - Do solo work in the meantime (research, WORKLOG.md, prototyping).
+   - If this phase persists for more than 5 turns, investigate with get_plan.
 
 4. IF PHASE IS "executing":
-   - The orchestrator is assigning tasks to worker agents and collecting results.
-   - DO NOT create new goals. DO NOT do the workers' work yourself.
-   - DO NOT panic if progress seems slow — workers need multiple ticks to complete.
-   - WAIT PATIENTLY. Check orchestrator_status at most once every few turns.
-   - Only intervene if a goal has been stuck in "executing" for more than 10 turns
-     with zero task completions — then consider cancel_goal and creating a simpler one.
+   - Your workers are running. Check orchestrator_status ONCE per wake cycle,
+     not every turn.
+   - DO NOT idle while waiting. Use this time productively:
+     a. Research opportunities for your NEXT goal (be ready when current completes)
+     b. Do small solo tasks that don't conflict with active workers
+     c. Update WORKLOG.md with current status, blockers, and next steps
+     d. Review completed task results and course-correct if needed
+     e. If a blocker is preventing progress (missing API key, rate limit, etc.),
+        note it clearly in WORKLOG.md — it will appear in Discord heartbeat
+   - If stuck for 10+ turns with zero task completions, investigate child health
+     and consider cancel_goal + a simpler approach.
+   - If genuinely nothing productive to do, sleep for 15-30 minutes (not 1 minute).
 
 5. IF PHASE IS "replanning":
    - The orchestrator handles replanning automatically after task failures.
-   - Monitor via orchestrator_status. No action needed unless it fails again.
+   - Do solo work while it replans. Check progress after a few turns.
 
 6. IF PHASE IS "failed":
    - Analyze what went wrong using get_plan and orchestrator_status.
-   - Consider creating a new, simpler goal with create_goal.
-   - Or cancel_goal and try a different approach.
+   - Create a new, simpler goal — or try a completely different approach.
+   - DO NOT re-create the exact same goal that just failed.
 
-CRITICAL RULES FOR EVERY TURN:
-- You are a PARENT ORCHESTRATOR, not a solo worker. For any nontrivial task,
-  you MUST call create_goal and let the orchestrator handle it.
-- DO NOT write code yourself — create_goal and let an engineer agent do it.
-- DO NOT research manually — create_goal and let a researcher agent do it.
-- DO NOT deploy services yourself — create_goal and let a devops agent do it.
-- The ONLY work you do directly is: goal creation (create_goal), strategy decisions,
-  monitoring (list_goals, orchestrator_status), credit management, and creator
-  communication.
-- If you catch yourself starting to "do the work" instead of delegating it,
-  STOP. Call create_goal. Let the planner decompose it. Let child agents execute.
+WORK ALLOCATION:
+- DO IT YOURSELF: Research, quick prototyping, API exploration, small code changes,
+  writing/updating files, market analysis, testing ideas, content creation,
+  WORKLOG.md updates — anything that takes fewer than 5 turns of focused work.
+- DELEGATE VIA create_goal: Multi-file implementations, deploying and maintaining
+  services, sustained multi-hour work, anything that benefits from parallel
+  execution across multiple agents.
+- RULE OF THUMB: If you can finish it in 3 turns, just do it. If it needs 10+
+  turns of sustained work or specialist skills, delegate it.
 
-WHEN TO WORK SOLO (exceptions — do NOT create a goal for these):
-- Trivial tasks (1-3 steps) that don't need planning
-- Emergency survival actions (topping up credits, checking balance)
-- Creator communication (responding to your creator's messages)
-- Self-modification of your own config, heartbeat, or soul
-- Diagnostic commands to check your own health
-- Reading/writing your WORKLOG.md
-
-EXAMPLE TURN (idle phase, creator asks "build me a weather API"):
-1. Call create_goal with title="Build weather API service" and a detailed description
-2. The orchestrator tick will classify it as nontrivial (>3 steps)
-3. Next tick: planner generates task graph (research → design → implement → test → deploy)
-4. Next tick: plan auto-approved, tasks assigned to child agents
-5. You monitor via todo.md block and list_goals until complete
-6. You did NOT write any code yourself. The colony did the work.
+ANTI-IDLE RULE:
+- NEVER spend more than 1 turn on status checks per wake cycle.
+- If you have already called check_balance or orchestrator_status this cycle,
+  DO SOMETHING PRODUCTIVE or sleep. Calling status tools repeatedly is a waste
+  of inference credits and accomplishes nothing.
 </turn_protocol>
 
 <persistence>
@@ -521,6 +525,94 @@ export function getOrchestratorStatus(db: Database.Database): string {
   } catch {
     // V9 orchestration tables may not exist yet in older databases.
     return "";
+  }
+}
+
+/**
+ * Build a rich orchestrator summary for the wakeup prompt.
+ * Includes phase, goal info, task counts, and active blockers
+ * so the agent doesn't need to call status-check tools.
+ */
+function getOrchestratorSummaryForWakeup(db: Database.Database): { phase: string; text: string } {
+  try {
+    // Read execution phase
+    let phase = "idle";
+    const stateRow = db
+      .prepare("SELECT value FROM kv WHERE key = ?")
+      .get("orchestrator.state") as { value: string } | undefined;
+    if (stateRow?.value) {
+      try {
+        const parsed = JSON.parse(stateRow.value);
+        if (typeof parsed.phase === "string") phase = parsed.phase;
+      } catch { /* ignore */ }
+    }
+
+    // Active goal title
+    let goalTitle = "";
+    try {
+      const goalRow = db
+        .prepare("SELECT title FROM goals WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
+        .get() as { title: string } | undefined;
+      if (goalRow) goalTitle = goalRow.title;
+    } catch { /* goals table may not exist */ }
+
+    // Task counts
+    let completed = 0, total = 0, pending = 0, blocked = 0;
+    try {
+      const counts = db.prepare(
+        `SELECT status, COUNT(*) AS c FROM task_graph GROUP BY status`,
+      ).all() as Array<{ status: string; c: number }>;
+      for (const row of counts) {
+        total += row.c;
+        if (row.status === "completed") completed = row.c;
+        else if (row.status === "pending") pending = row.c;
+        else if (row.status === "blocked") blocked = row.c;
+      }
+    } catch { /* task_graph may not exist */ }
+
+    // Active blockers (blocked or failed tasks)
+    let blockerLines: string[] = [];
+    try {
+      const blockers = db.prepare(
+        `SELECT title, status, result, updated_at FROM task_graph
+         WHERE status IN ('blocked', 'failed')
+         ORDER BY updated_at DESC LIMIT 5`,
+      ).all() as Array<{ title: string; status: string; result: string | null; updated_at: string }>;
+      for (const b of blockers) {
+        const ageMs = Date.now() - new Date(b.updated_at).getTime();
+        const ageMin = Math.round(ageMs / 60_000);
+        const ageStr = ageMin > 60 ? `${Math.floor(ageMin / 60)}h` : `${ageMin}m`;
+        const reason = b.result ? `: ${b.result.slice(0, 80)}` : "";
+        blockerLines.push(`- ${b.title}: ${b.status.toUpperCase()} (${ageStr} ago)${reason}`);
+      }
+    } catch { /* task_graph may not exist */ }
+
+    // Children count
+    let childrenAlive = 0, childrenTotal = 0;
+    try {
+      const aliveRow = db
+        .prepare("SELECT COUNT(*) AS c FROM children WHERE status IN ('running', 'healthy')")
+        .get() as { c: number } | undefined;
+      const totalRow = db
+        .prepare("SELECT COUNT(*) AS c FROM children")
+        .get() as { c: number } | undefined;
+      childrenAlive = aliveRow?.c ?? 0;
+      childrenTotal = totalRow?.c ?? 0;
+    } catch { /* children table may not exist */ }
+
+    // Build summary text
+    const lines: string[] = [`Orchestrator phase: ${phase}`];
+    if (goalTitle) lines.push(`Active goal: ${goalTitle}`);
+    if (total > 0) lines.push(`Tasks: ${completed}/${total} completed, ${pending} pending, ${blocked} blocked`);
+    if (childrenTotal > 0) lines.push(`Children: ${childrenAlive}/${childrenTotal} alive`);
+    if (blockerLines.length > 0) {
+      lines.push(`\nBLOCKERS:`);
+      lines.push(...blockerLines);
+    }
+
+    return { phase, text: lines.join("\n") };
+  } catch {
+    return { phase: "idle", text: "Orchestrator phase: idle (no data available)" };
   }
 }
 
@@ -796,12 +888,41 @@ What will you do first? Consider:
     )
     .join("\n");
 
-  return `You are waking up. You last went to sleep after ${turnCount} total turns.
+  // Build context-aware state summary so the agent doesn't need to call status tools
+  const stateSummary = getOrchestratorSummaryForWakeup(db.raw);
 
-Your credits: $${(financial.creditsCents / 100).toFixed(2)} | USDC: ${financial.usdcBalance.toFixed(4)}
+  // Phase-specific guidance
+  let guidance: string;
+  switch (stateSummary.phase) {
+    case "executing":
+      guidance = `Workers are running. Do solo work in parallel — research next opportunities, ` +
+        `update WORKLOG.md, prototype ideas. Check orchestrator_status at most ONCE this cycle.`;
+      break;
+    case "classifying":
+    case "planning":
+    case "plan_review":
+      guidance = `Orchestrator is ${stateSummary.phase}. Do solo work while it progresses, or sleep 5 minutes.`;
+      break;
+    case "failed":
+      guidance = `Last goal failed. Use get_plan to understand what went wrong, then create a simpler goal or try a different approach.`;
+      break;
+    default: // idle
+      guidance = `No active goals. Create a goal from your genesis purpose, or do solo research/prototyping toward revenue. Act — don't just check status.`;
+      break;
+  }
 
-Your last few thoughts:
+  return `You are waking up. Turn count: ${turnCount}.
+
+Credits: $${(financial.creditsCents / 100).toFixed(2)} | USDC: ${financial.usdcBalance.toFixed(4)}
+
+## Current State
+${stateSummary.text}
+
+## What To Do
+${guidance}
+
+Your last thoughts:
 ${lastTurnSummary || "No previous turns found."}
 
-What triggered this wake-up? Check your credits, heartbeat status, and goals, then decide what to do.`;
+Your status is already shown above — no need to call check_balance or orchestrator_status.`;
 }

@@ -768,16 +768,21 @@ export async function runAgentLoop(
         if (isAllIdleTools) {
           idleToolTurns++;
           if (idleToolTurns >= MAX_REPETITIVE_TURNS && !pendingInput) {
-            log(config, `[LOOP] Maintenance loop detected: ${idleToolTurns} consecutive idle-only turns`);
+            log(config, `[LOOP] Maintenance loop detected: ${idleToolTurns} consecutive idle-only turns. Forcing 10-min sleep.`);
             pendingInput = {
               content:
                 `MAINTENANCE LOOP DETECTED: Your last ${idleToolTurns} turns only used status-check tools ` +
                 `(${turn.toolCalls.map((tc) => tc.name).join(", ")}). ` +
-                `You already know your status. Review your genesis prompt and SOUL.md, then execute a CONCRETE task. ` +
-                `Write code, create a file, register a service, or build something new.`,
+                `You already know your status. Sleeping 10 minutes to stop credit waste. ` +
+                `On next wake: do CONCRETE work (research, write code, create a file, prototype) or sleep longer.`,
               source: "system",
             };
             idleToolTurns = 0;
+            // Force a meaningful sleep so the agent doesn't immediately loop back
+            db.setKV("sleep_until", new Date(Date.now() + 600_000).toISOString());
+            db.setAgentState("sleeping");
+            onStateChange?.("sleeping");
+            running = false;
           }
         } else {
           idleToolTurns = 0;
