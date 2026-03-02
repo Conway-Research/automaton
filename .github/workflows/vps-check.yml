@@ -15,49 +15,60 @@ jobs:
           script: |
             CONNIE_HOME=$(grep 'Environment=HOME=' /etc/systemd/system/local-connie.service 2>/dev/null | sed 's/.*HOME=//')
 
-            echo "=== 1. /tmp/request_body.json ==="
-            cat /tmp/request_body.json 2>/dev/null || echo "not found"
+            echo "=== 1. Service Status ==="
+            systemctl status local-connie --no-pager -l 2>&1 | head -12
 
             echo ""
-            echo "=== 2. /tmp/request_body_air.json ==="
-            cat /tmp/request_body_air.json 2>/dev/null || echo "not found"
+            echo "=== 2. Agent State (from DB) ==="
+            DB="$CONNIE_HOME/.automaton/state.db"
+            if [ -f "$DB" ]; then
+              sqlite3 "$DB" "SELECT key, value FROM kv WHERE key IN ('agent_state', 'sleep_until', 'orchestrator.state', 'soul_content_hash', 'current_tier') ORDER BY key;" 2>/dev/null || echo "DB query failed"
+            else
+              echo "No state.db found"
+            fi
 
             echo ""
-            echo "=== 3. polymarket-api server.js (first 50 lines) ==="
-            head -50 "$CONNIE_HOME/polymarket-api/server.js" 2>/dev/null || echo "not found"
+            echo "=== 3. Active Goals ==="
+            if [ -f "$DB" ]; then
+              sqlite3 "$DB" "SELECT id, title, status, created_at FROM goals ORDER BY created_at DESC LIMIT 5;" 2>/dev/null || echo "No goals table"
+            fi
 
             echo ""
-            echo "=== 4. polymarket-api - grep discord/webhook/monitor ==="
-            grep -rn "discord\|webhook\|monitor\|watchdog\|FATAL\|crash\|notify\|curl.*POST" "$CONNIE_HOME/polymarket-api/" 2>/dev/null | head -20 || echo "none"
+            echo "=== 4. Task Graph (recent) ==="
+            if [ -f "$DB" ]; then
+              sqlite3 "$DB" "SELECT title, status, updated_at FROM task_graph ORDER BY updated_at DESC LIMIT 10;" 2>/dev/null || echo "No task_graph table"
+            fi
 
             echo ""
-            echo "=== 5. discord-bot directory ==="
-            find "$CONNIE_HOME/discord-bot/" -type f 2>/dev/null | head -10
-            cat "$CONNIE_HOME/discord-bot/bot.js" 2>/dev/null | head -40 || echo "no bot.js"
-            cat "$CONNIE_HOME/discord-bot/index.js" 2>/dev/null | head -40 || echo "no index.js"
+            echo "=== 5. WORKLOG.md ==="
+            cat "$CONNIE_HOME/.automaton/WORKLOG.md" 2>/dev/null | head -60 || echo "No WORKLOG.md"
 
             echo ""
-            echo "=== 6. PM2 processes (fresh) ==="
-            PM2_HOME="$CONNIE_HOME/.pm2" pm2 list 2>/dev/null || echo "PM2 not available"
-            echo "--- PM2 dump ---"
-            cat "$CONNIE_HOME/.pm2/dump.pm2" 2>/dev/null || echo "no dump"
+            echo "=== 6. SOUL.md (first 40 lines) ==="
+            head -40 "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null || echo "No SOUL.md"
 
             echo ""
-            echo "=== 7. GREP ALL JS FILES FOR DISCORD POSTING ==="
-            grep -rln "discord\.com/api/webhooks\|discordWebhookUrl\|DISCORD_WEBHOOK\|connie-monitor\|connie-watchdog" "$CONNIE_HOME" --include="*.js" 2>/dev/null || echo "NONE"
+            echo "=== 7. Webhook URL check ==="
+            # Verify webhook is NOT in SOUL.md (should be stripped)
+            if grep -q "discord.com/api/webhooks" "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null; then
+              echo "WARNING: Webhook URL still in SOUL.md!"
+            else
+              echo "OK: No webhook URL in SOUL.md"
+            fi
+            # Verify webhook IS in automaton.json
+            python3 -c "import json; c=json.load(open('$CONNIE_HOME/.automaton/automaton.json')); print('automaton.json webhook:', 'SET' if c.get('discordWebhookUrl') else 'NOT SET')" 2>/dev/null
 
             echo ""
-            echo "=== 8. WHO WRITES /tmp/request_body ==="
-            grep -rn "request_body" "$CONNIE_HOME" --include="*.js" --include="*.sh" 2>/dev/null | head -10
+            echo "=== 8. Recent Errors ==="
+            grep -E "\[FATAL\]|\[ERROR\]" /tmp/connie-research.log 2>/dev/null | tail -10 || echo "No errors"
 
             echo ""
-            echo "=== 9. Kill PM2 and delete temp files ==="
-            PM2_HOME="$CONNIE_HOME/.pm2" pm2 delete all 2>/dev/null || true
-            PM2_HOME="$CONNIE_HOME/.pm2" pm2 kill 2>/dev/null || true
-            rm -f /tmp/request_body.json /tmp/request_body_air.json
-            rm -f "$CONNIE_HOME/.pm2/dump.pm2"
-            echo "Cleaned PM2 and temp files"
+            echo "=== 9. App Log (last 60 lines) ==="
+            tail -60 /tmp/connie-research.log 2>/dev/null || echo "No log file"
 
             echo ""
-            echo "=== 10. App log last 15 lines ==="
-            tail -15 /tmp/connie-research.log 2>/dev/null
+            echo "=== 10. Rogue Process Check ==="
+            PM2_HOME="$CONNIE_HOME/.pm2" pm2 list 2>/dev/null | head -10 || echo "No PM2"
+            echo "--- Node processes ---"
+            CONNIE_PID=$(systemctl show local-connie --property=MainPID --value 2>/dev/null || echo "0")
+            ps aux | grep "[n]ode" | grep -v "PID $CONNIE_PID" | head -5 || echo "No rogue node processes"
