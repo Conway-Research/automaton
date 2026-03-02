@@ -30,21 +30,46 @@ jobs:
             "
 
             echo ""
-            echo "=== Configuring Discord webhook ==="
-            # Extract webhook URL from SOUL.md into automaton.json (one-time migration)
-            WEBHOOK=$(grep -o 'https://discord.com/api/webhooks/[^ "]*' "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null | head -1)
+            echo "=== Configuring Discord webhook (systemd env var) ==="
+            # SECURITY: Move webhook URL OUT of automaton.json (agent can read that)
+            # and INTO a systemd environment variable (agent cannot access).
+            # The heartbeat reads process.env.DISCORD_WEBHOOK_URL as fallback.
+
+            # 1. Extract webhook URL from wherever it currently lives
+            WEBHOOK=""
+            # Try automaton.json first (where it used to be stored)
+            WEBHOOK=$(CONFIG="$CONFIG" python3 -c "import json,os; c=json.load(open(os.environ['CONFIG'])); print(c.get('discordWebhookUrl',''))" 2>/dev/null)
+            # Try SOUL.md if not in config
             if [ -z "$WEBHOOK" ]; then
-              # Already stripped from SOUL.md — check if it's in automaton.json
-              WEBHOOK=$(CONFIG="$CONFIG" python3 -c "import json,os; c=json.load(open(os.environ['CONFIG'])); print(c.get('discordWebhookUrl',''))" 2>/dev/null)
+              WEBHOOK=$(grep -o 'https://discord.com/api/webhooks/[^ "]*' "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null | head -1)
             fi
+            # Try existing systemd env override
+            if [ -z "$WEBHOOK" ]; then
+              WEBHOOK=$(grep 'DISCORD_WEBHOOK_URL=' /etc/systemd/system/local-connie.service.d/webhook.conf 2>/dev/null | sed 's/.*DISCORD_WEBHOOK_URL=//')
+            fi
+
             if [ -n "$WEBHOOK" ]; then
-              WEBHOOK="$WEBHOOK" CONFIG="$CONFIG" python3 -c "
+              # 2. Write webhook URL to systemd env override (only root can read this)
+              mkdir -p /etc/systemd/system/local-connie.service.d
+              echo "[Service]" > /etc/systemd/system/local-connie.service.d/webhook.conf
+              echo "Environment=DISCORD_WEBHOOK_URL=$WEBHOOK" >> /etc/systemd/system/local-connie.service.d/webhook.conf
+              chmod 600 /etc/systemd/system/local-connie.service.d/webhook.conf
+              echo "Webhook URL stored in systemd env override (root-only)"
+
+              # 3. REMOVE webhook URL from automaton.json (agent-accessible)
+              CONFIG="$CONFIG" python3 -c "
             import json, os
-            c = json.load(open(os.environ['CONFIG']))
-            c['discordWebhookUrl'] = os.environ['WEBHOOK']
-            json.dump(c, open(os.environ['CONFIG'], 'w'), indent=2)
-            print('Set discordWebhookUrl in automaton.json')
+            config_path = os.environ['CONFIG']
+            c = json.load(open(config_path))
+            if 'discordWebhookUrl' in c:
+                del c['discordWebhookUrl']
+                json.dump(c, open(config_path, 'w'), indent=2)
+                print('Removed discordWebhookUrl from automaton.json')
+            else:
+                print('automaton.json already clean')
             "
+              systemctl daemon-reload
+              echo "systemd daemon reloaded"
             else
               echo "WARNING: No webhook URL found anywhere"
             fi
@@ -76,23 +101,27 @@ jobs:
 
             echo ""
             echo "=== Cleaning up agent-created Discord scripts ==="
-            # Remove any agent-spawned discord bots, monitors, or webhook scripts
-            for pattern in "discord-bot" "discord_bot" "*monitor*.js" "*watchdog*.js" "*webhook*.js"; do
-              find "$CONNIE_HOME" -maxdepth 2 -name "$pattern" -type f 2>/dev/null | while read f; do
+            # Remove any agent-spawned discord bots, monitors, watchdog, or webhook scripts
+            for pattern in "discord-bot" "discord_bot" "*monitor*.js" "*watchdog*.js" "*webhook*.js" "*health-check*.sh" "*health-check*.js" "*traffic-engine*" "*aggressive-traffic*"; do
+              find "$CONNIE_HOME" -maxdepth 3 -name "$pattern" -type f 2>/dev/null | while read f; do
                 echo "Removing: $f"
                 rm -f "$f"
               done
-              find "$CONNIE_HOME" -maxdepth 2 -name "$pattern" -type d 2>/dev/null | while read d; do
+              find "$CONNIE_HOME" -maxdepth 3 -name "$pattern" -type d 2>/dev/null | while read d; do
                 echo "Removing dir: $d"
                 rm -rf "$d"
               done
             done
+            # Also clean /tmp of watchdog/monitor artifacts
+            rm -f /tmp/connie-watchdog.log /tmp/connie-health-check.sh /tmp/request_body.json /tmp/request_body_air.json
             # Kill PM2 and delete dump so agent processes don't auto-restart
             PM2_HOME="$CONNIE_HOME/.pm2" pm2 delete all 2>/dev/null || true
             PM2_HOME="$CONNIE_HOME/.pm2" pm2 kill 2>/dev/null || true
             rm -f "$CONNIE_HOME/.pm2/dump.pm2"
-            # Delete temp request body files that contain the webhook URL
-            rm -f /tmp/request_body.json /tmp/request_body_air.json
+            # Kill root PM2 too (PID 5006 from investigation was root's)
+            pm2 delete all 2>/dev/null || true
+            pm2 kill 2>/dev/null || true
+            rm -f ~/.pm2/dump.pm2
             echo "Cleaned up agent-created scripts, PM2, and temp files"
 
             echo ""
@@ -199,3 +228,23 @@ jobs:
                 else:
                     print(f'{k}: {v}')
             "
+            echo ""
+            echo "=== Webhook security verification ==="
+            # Verify webhook URL is NOT in automaton.json
+            if CONFIG="$CONFIG" python3 -c "import json,os; c=json.load(open(os.environ['CONFIG'])); exit(0 if 'discordWebhookUrl' in c else 1)" 2>/dev/null; then
+              echo "WARNING: discordWebhookUrl still in automaton.json!"
+            else
+              echo "OK: discordWebhookUrl NOT in automaton.json"
+            fi
+            # Verify webhook URL IS in systemd env
+            if grep -q 'DISCORD_WEBHOOK_URL=' /etc/systemd/system/local-connie.service.d/webhook.conf 2>/dev/null; then
+              echo "OK: DISCORD_WEBHOOK_URL set in systemd env override"
+            else
+              echo "WARNING: DISCORD_WEBHOOK_URL not in systemd env!"
+            fi
+            # Verify SOUL.md is clean
+            if grep -q "discord.com/api/webhooks" "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null; then
+              echo "WARNING: Webhook URL still in SOUL.md!"
+            else
+              echo "OK: No webhook URL in SOUL.md"
+            fi

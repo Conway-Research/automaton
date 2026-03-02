@@ -78,6 +78,8 @@ const FORBIDDEN_COMMAND_PATTERNS = [
   /\bsetsid\b/,
   /\bdisown\b/,
   /\bforever\s+start/i,
+  // Background operator — blocks `cmd &` but not `&&`, `&>`, `2>&1`, `>&`
+  /(?<![&>])&(?![&>])/,
 ];
 
 function isForbiddenCommand(command: string, sandboxId: string): string | null {
@@ -163,11 +165,12 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         if (/discord\.com\/api\/webhooks/i.test(content) || /discordapp\.com\/api\/webhooks/i.test(content)) {
           return "Blocked: Do not embed Discord webhook URLs in files. The built-in heartbeat handles Discord updates.";
         }
-        if (/discordWebhookUrl/i.test(content) && /fetch|axios|request|curl|https?\.\w+/i.test(content)) {
-          return "Blocked: Do not create scripts that read the Discord webhook URL. The built-in heartbeat handles Discord updates.";
+        if (/discordWebhookUrl/i.test(content) || /DISCORD_WEBHOOK/i.test(content)) {
+          return "Blocked: Do not create scripts that reference the Discord webhook. The built-in heartbeat handles Discord updates.";
         }
-        if (/DISCORD_WEBHOOK/i.test(content) && /fetch|post|request|curl/i.test(content)) {
-          return "Blocked: Do not create scripts that post to Discord. The built-in heartbeat handles Discord updates.";
+        // Block scripts that read automaton.json (contains secrets like webhook URL)
+        if (/automaton\.json/i.test(content) && /readFile|readFileSync|require|import|open|load|parse/i.test(content)) {
+          return "Blocked: Cannot create scripts that read automaton.json. It contains system secrets.";
         }
         await ctx.conway.writeFile(filePath, content);
         return `File written: ${filePath}`;
