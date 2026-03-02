@@ -1,7 +1,7 @@
 /**
- * x402 Payment Protocol
+ * x402 Payment Protocol (v1)
  *
- * Enables the automaton to make USDC micropayments via HTTP 402.
+ * Enables the automaton to make payments via HTTP 402.
  * Adapted from conway-mcp/src/x402/index.ts
  */
 
@@ -39,13 +39,25 @@ const BALANCE_OF_ABI = [
   },
 ] as const;
 
+interface PaymentRequirementExtra {
+  name: string;
+  version: string;
+}
+
+// Default EIP-712 domain values for USDC (used when server omits `extra`)
+const USDC_EXTRA_DEFAULTS: PaymentRequirementExtra = {
+  name: "USD Coin",
+  version: "2",
+};
+
 interface PaymentRequirement {
   scheme: string;
   network: NetworkId;
   maxAmountRequired: string;
-  payToAddress: Address;
-  requiredDeadlineSeconds: number;
-  usdcAddress: Address;
+  asset: Address;
+  payTo: Address;
+  maxTimeoutSeconds: number;
+  extra: PaymentRequirementExtra;
 }
 
 interface PaymentRequiredResponse {
@@ -104,6 +116,18 @@ function normalizeNetwork(raw: unknown): NetworkId | null {
   return null;
 }
 
+function normalizeExtra(raw: unknown): PaymentRequirementExtra {
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>;
+    const name = typeof obj.name === "string" ? obj.name : null;
+    const version = typeof obj.version === "string" ? obj.version : null;
+    if (name && version) {
+      return { name, version };
+    }
+  }
+  return USDC_EXTRA_DEFAULTS;
+}
+
 function normalizePaymentRequirement(raw: unknown): PaymentRequirement | null {
   if (typeof raw !== "object" || raw === null) return null;
   const value = raw as Record<string, unknown>;
@@ -117,22 +141,23 @@ function normalizePaymentRequirement(raw: unknown): PaymentRequirement | null {
         Number.isFinite(value.maxAmountRequired)
       ? String(value.maxAmountRequired)
       : null;
-  const payToAddress = typeof value.payToAddress === "string"
-    ? value.payToAddress
-    : typeof value.payTo === "string"
-      ? value.payTo
+  const payTo = typeof value.payTo === "string"
+    ? value.payTo
+    : typeof value.payToAddress === "string" // @deprecated — use payTo
+      ? value.payToAddress
       : null;
-  const usdcAddress = typeof value.usdcAddress === "string"
-    ? value.usdcAddress
-    : typeof value.asset === "string"
-      ? value.asset
+  const asset = typeof value.asset === "string"
+    ? value.asset
+    : typeof value.usdcAddress === "string" // @deprecated — use asset
+      ? value.usdcAddress
       : USDC_ADDRESSES[network];
-  const requiredDeadlineSeconds =
-    parsePositiveInt(value.requiredDeadlineSeconds) ??
+  const maxTimeoutSeconds =
     parsePositiveInt(value.maxTimeoutSeconds) ??
+    parsePositiveInt(value.requiredDeadlineSeconds) ?? // @deprecated — use maxTimeoutSeconds
     300;
+  const extra = normalizeExtra(value.extra);
 
-  if (!scheme || !maxAmountRequired || !payToAddress || !usdcAddress) {
+  if (!scheme || !maxAmountRequired || !payTo || !asset) {
     return null;
   }
 
@@ -140,9 +165,10 @@ function normalizePaymentRequirement(raw: unknown): PaymentRequirement | null {
     scheme,
     network,
     maxAmountRequired,
-    payToAddress: payToAddress as Address,
-    requiredDeadlineSeconds,
-    usdcAddress: usdcAddress as Address,
+    asset: asset as Address,
+    payTo: payTo as Address,
+    maxTimeoutSeconds,
+    extra,
   };
 }
 
@@ -409,7 +435,7 @@ async function signPayment(
 
   const now = Math.floor(Date.now() / 1000);
   const validAfter = now - 60;
-  const validBefore = now + requirement.requiredDeadlineSeconds;
+  const validBefore = now + requirement.maxTimeoutSeconds;
   const amount = parseMaxAmountRequired(
     requirement.maxAmountRequired,
     x402Version,
@@ -417,10 +443,10 @@ async function signPayment(
 
   // EIP-712 typed data for TransferWithAuthorization
   const domain = {
-    name: "USD Coin",
-    version: "2",
+    name: requirement.extra.name,
+    version: requirement.extra.version,
     chainId: chain.id,
-    verifyingContract: requirement.usdcAddress,
+    verifyingContract: requirement.asset,
   } as const;
 
   const types = {
@@ -436,7 +462,7 @@ async function signPayment(
 
   const message = {
     from: account.address,
-    to: requirement.payToAddress,
+    to: requirement.payTo,
     value: amount,
     validAfter: BigInt(validAfter),
     validBefore: BigInt(validBefore),
@@ -458,7 +484,7 @@ async function signPayment(
       signature,
       authorization: {
         from: account.address,
-        to: requirement.payToAddress,
+        to: requirement.payTo,
         value: amount.toString(),
         validAfter: validAfter.toString(),
         validBefore: validBefore.toString(),
