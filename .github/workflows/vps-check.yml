@@ -19,56 +19,67 @@ jobs:
             systemctl status local-connie --no-pager -l 2>&1 | head -12
 
             echo ""
-            echo "=== 2. Agent State (from DB) ==="
-            DB="$CONNIE_HOME/.automaton/state.db"
-            if [ -f "$DB" ]; then
-              sqlite3 "$DB" "SELECT key, value FROM kv WHERE key IN ('agent_state', 'sleep_until', 'orchestrator.state', 'soul_content_hash', 'current_tier') ORDER BY key;" 2>/dev/null || echo "DB query failed"
+            echo "=== 2. Find state.db ==="
+            DB=$(find "$CONNIE_HOME" -name "state.db" -type f 2>/dev/null | head -1)
+            if [ -z "$DB" ]; then
+              echo "state.db not found anywhere under $CONNIE_HOME"
+              # Try reading dbPath from config
+              DB_FROM_CONFIG=$(python3 -c "import json; c=json.load(open('$CONNIE_HOME/.automaton/automaton.json')); p=c.get('dbPath',''); print(p.replace('~','$CONNIE_HOME'))" 2>/dev/null)
+              if [ -n "$DB_FROM_CONFIG" ] && [ -f "$DB_FROM_CONFIG" ]; then
+                DB="$DB_FROM_CONFIG"
+                echo "Found via config: $DB"
+              fi
             else
-              echo "No state.db found"
+              echo "Found: $DB"
             fi
 
             echo ""
-            echo "=== 3. Active Goals ==="
-            if [ -f "$DB" ]; then
+            echo "=== 3. Agent State ==="
+            if [ -n "$DB" ] && [ -f "$DB" ]; then
+              sqlite3 "$DB" "SELECT key, value FROM kv WHERE key IN ('agent_state', 'sleep_until', 'orchestrator.state', 'current_tier', 'forcedSleep') ORDER BY key;" 2>/dev/null || echo "Query failed"
+            else
+              echo "No DB available"
+            fi
+
+            echo ""
+            echo "=== 4. Recent Goals ==="
+            if [ -n "$DB" ] && [ -f "$DB" ]; then
               sqlite3 "$DB" "SELECT id, title, status, created_at FROM goals ORDER BY created_at DESC LIMIT 5;" 2>/dev/null || echo "No goals table"
             fi
 
             echo ""
-            echo "=== 4. Task Graph (recent) ==="
-            if [ -f "$DB" ]; then
+            echo "=== 5. Task Graph ==="
+            if [ -n "$DB" ] && [ -f "$DB" ]; then
               sqlite3 "$DB" "SELECT title, status, updated_at FROM task_graph ORDER BY updated_at DESC LIMIT 10;" 2>/dev/null || echo "No task_graph table"
             fi
 
             echo ""
-            echo "=== 5. WORKLOG.md ==="
-            cat "$CONNIE_HOME/.automaton/WORKLOG.md" 2>/dev/null | head -60 || echo "No WORKLOG.md"
+            echo "=== 6. Recent Turns (last 5) ==="
+            if [ -n "$DB" ] && [ -f "$DB" ]; then
+              sqlite3 "$DB" "SELECT id, substr(thought, 1, 120) as thought, tool_calls, created_at FROM turns ORDER BY created_at DESC LIMIT 5;" 2>/dev/null || echo "No turns table"
+            fi
 
             echo ""
-            echo "=== 6. SOUL.md (first 40 lines) ==="
-            head -40 "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null || echo "No SOUL.md"
+            echo "=== 7. WORKLOG.md ==="
+            find "$CONNIE_HOME" -name "WORKLOG.md" -type f 2>/dev/null | while read f; do
+              echo "--- $f ---"
+              head -40 "$f"
+            done
+            echo "(end)"
 
             echo ""
-            echo "=== 7. Webhook URL check ==="
-            # Verify webhook is NOT in SOUL.md (should be stripped)
+            echo "=== 8. Webhook Security ==="
             if grep -q "discord.com/api/webhooks" "$CONNIE_HOME/.automaton/SOUL.md" 2>/dev/null; then
               echo "WARNING: Webhook URL still in SOUL.md!"
             else
               echo "OK: No webhook URL in SOUL.md"
             fi
-            # Verify webhook IS in automaton.json
             python3 -c "import json; c=json.load(open('$CONNIE_HOME/.automaton/automaton.json')); print('automaton.json webhook:', 'SET' if c.get('discordWebhookUrl') else 'NOT SET')" 2>/dev/null
 
             echo ""
-            echo "=== 8. Recent Errors ==="
-            grep -E "\[FATAL\]|\[ERROR\]" /tmp/connie-research.log 2>/dev/null | tail -10 || echo "No errors"
+            echo "=== 9. Recent Errors ==="
+            grep -E "\[FATAL\]|\[ERROR\]" /tmp/connie-research.log 2>/dev/null | tail -5 || echo "No errors"
 
             echo ""
-            echo "=== 9. App Log (last 60 lines) ==="
-            tail -60 /tmp/connie-research.log 2>/dev/null || echo "No log file"
-
-            echo ""
-            echo "=== 10. Rogue Process Check ==="
-            PM2_HOME="$CONNIE_HOME/.pm2" pm2 list 2>/dev/null | head -10 || echo "No PM2"
-            echo "--- Node processes ---"
-            CONNIE_PID=$(systemctl show local-connie --property=MainPID --value 2>/dev/null || echo "0")
-            ps aux | grep "[n]ode" | grep -v "PID $CONNIE_PID" | head -5 || echo "No rogue node processes"
+            echo "=== 10. App Log (last 80 lines) ==="
+            tail -80 /tmp/connie-research.log 2>/dev/null || echo "No log file"
