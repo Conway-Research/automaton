@@ -984,7 +984,7 @@ export class Orchestrator {
     // own replan/failure flow puts goals into "failed" status.
     if (state.goalId) {
       const goal = getGoalById(this.params.db, state.goalId);
-      if (!goal || ["completed", "cancelled"].includes(goal.status)) {
+      if (!goal || (["completed", "cancelled"].includes(goal.status) && state.phase !== "complete")) {
         return { ...DEFAULT_STATE };
       }
     }
