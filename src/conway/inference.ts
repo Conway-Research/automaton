@@ -25,6 +25,8 @@ interface InferenceClientOptions {
   maxTokens: number;
   lowComputeModel?: string;
   openaiApiKey?: string;
+  /** Custom OpenAI API base URL (e.g., for GLM Coding Plan: https://open.bigmodel.cn/api/coding/paas/v4) */
+  openaiApiBaseUrl?: string;
   anthropicApiKey?: string;
   ollamaBaseUrl?: string;
   /** Optional registry lookup — if provided, used before name heuristics */
@@ -36,7 +38,14 @@ type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama";
 export function createInferenceClient(
   options: InferenceClientOptions,
 ): InferenceClient {
-  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, getModelProvider } = options;
+  const {
+    apiUrl,
+    apiKey,
+    openaiApiKey,
+    anthropicApiKey,
+    ollamaBaseUrl,
+    getModelProvider,
+  } = options;
   const httpClient = new ResilientHttpClient({
     baseTimeout: INFERENCE_TIMEOUT_MS,
     retryableStatuses: [429, 500, 502, 503, 504],
@@ -98,13 +107,17 @@ export function createInferenceClient(
     }
 
     const openAiLikeApiUrl =
-      backend === "openai" ? "https://api.openai.com" :
-      backend === "ollama" ? (ollamaBaseUrl as string).replace(/\/$/, "") :
-      apiUrl;
+      backend === "openai"
+        ? options.openaiApiBaseUrl || "https://api.openai.com"
+        : backend === "ollama"
+          ? (ollamaBaseUrl as string).replace(/\/$/, "")
+          : apiUrl;
     const openAiLikeApiKey =
-      backend === "openai" ? (openaiApiKey as string) :
-      backend === "ollama" ? "ollama" :
-      apiKey;
+      backend === "openai"
+        ? (openaiApiKey as string)
+        : backend === "ollama"
+          ? "ollama"
+          : apiKey;
 
     return chatViaOpenAiCompatible({
       model,
@@ -141,9 +154,7 @@ export function createInferenceClient(
   };
 }
 
-function formatMessage(
-  msg: ChatMessage,
-): Record<string, unknown> {
+function formatMessage(msg: ChatMessage): Record<string, unknown> {
   const formatted: Record<string, unknown> = {
     role: msg.role,
     content: msg.content,
@@ -182,9 +193,14 @@ function resolveInferenceBackend(
 
   // Heuristic fallback (model not in registry yet)
   if (keys.anthropicApiKey && /^claude/i.test(model)) return "anthropic";
-  if (keys.openaiApiKey && /^(gpt-[3-9]|gpt-4|gpt-5|o[1-9][-\s.]|o[1-9]$|chatgpt)/i.test(model)) return "openai";
+  // GLM models (智谱): glm-* - 使用 OpenAI 兼容 API
+  if (keys.openaiApiKey && /^glm/i.test(model)) return "openai";
+  if (
+    keys.openaiApiKey &&
+    /^(gpt-[3-9]|gpt-4|gpt-5|o[1-9][-\s.]|o[1-9]$|chatgpt)/i.test(model)
+  )
+    return "openai";
   return "conway";
-
 }
 
 async function chatViaOpenAiCompatible(params: {
@@ -195,7 +211,14 @@ async function chatViaOpenAiCompatible(params: {
   backend: "conway" | "openai" | "ollama";
   httpClient: ResilientHttpClient;
 }): Promise<InferenceResponse> {
-  const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
+  // GLM Coding Plan uses /chat/completions instead of /v1/chat/completions
+  const isGlmApi =
+    params.apiUrl.includes("bigmodel.cn") ||
+    params.apiUrl.includes("/v4") ||
+    params.apiUrl.includes("/paas");
+  const endpoint = isGlmApi ? "/chat/completions" : "/v1/chat/completions";
+
+  const resp = await params.httpClient.request(`${params.apiUrl}${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -215,7 +238,7 @@ async function chatViaOpenAiCompatible(params: {
     );
   }
 
-  const data = await resp.json() as any;
+  const data = (await resp.json()) as any;
   const choice = data.choices?.[0];
 
   if (!choice) {
@@ -229,15 +252,16 @@ async function chatViaOpenAiCompatible(params: {
     totalTokens: data.usage?.total_tokens || 0,
   };
 
-  const toolCalls: InferenceToolCall[] | undefined =
-    message.tool_calls?.map((tc: any) => ({
+  const toolCalls: InferenceToolCall[] | undefined = message.tool_calls?.map(
+    (tc: any) => ({
       id: tc.id,
       type: "function" as const,
       function: {
         name: tc.function.name,
         arguments: tc.function.arguments,
       },
-    }));
+    }),
+  );
 
   return {
     id: data.id || "",
@@ -269,7 +293,9 @@ async function chatViaAnthropic(params: {
     messages:
       transformed.messages.length > 0
         ? transformed.messages
-        : (() => { throw new Error("Cannot send empty message array to Anthropic API"); })(),
+        : (() => {
+            throw new Error("Cannot send empty message array to Anthropic API");
+          })(),
   };
 
   if (transformed.system) {
@@ -289,23 +315,26 @@ async function chatViaAnthropic(params: {
     body.tool_choice = { type: "auto" };
   }
 
-  const resp = await params.httpClient.request("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": params.anthropicApiKey,
-      "anthropic-version": "2023-06-01",
+  const resp = await params.httpClient.request(
+    "https://api.anthropic.com/v1/messages",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": params.anthropicApiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+      timeout: INFERENCE_TIMEOUT_MS,
     },
-    body: JSON.stringify(body),
-    timeout: INFERENCE_TIMEOUT_MS,
-  });
+  );
 
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(`Inference error (anthropic): ${resp.status}: ${text}`);
   }
 
-  const data = await resp.json() as any;
+  const data = (await resp.json()) as any;
   const content = Array.isArray(data.content) ? data.content : [];
   const textBlocks = content.filter((c: any) => c?.type === "text");
   const toolUseBlocks = content.filter((c: any) => c?.type === "tool_use");
@@ -353,9 +382,10 @@ async function chatViaAnthropic(params: {
   };
 }
 
-function transformMessagesForAnthropic(
-  messages: ChatMessage[],
-): { system?: string; messages: Array<Record<string, unknown>> } {
+function transformMessagesForAnthropic(messages: ChatMessage[]): {
+  system?: string;
+  messages: Array<Record<string, unknown>>;
+} {
   const systemParts: string[] = [];
   const transformed: Array<Record<string, unknown>> = [];
 

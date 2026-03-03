@@ -14,10 +14,7 @@ import { createDatabase } from "./state/database.js";
 import { createConwayClient } from "./conway/client.js";
 import { createInferenceClient } from "./conway/inference.js";
 import { createHeartbeatDaemon } from "./heartbeat/daemon.js";
-import {
-  loadHeartbeatConfig,
-  syncHeartbeatToDb,
-} from "./heartbeat/config.js";
+import { loadHeartbeatConfig, syncHeartbeatToDb } from "./heartbeat/config.js";
 import { consumeNextWakeEvent, insertWakeEvent } from "./state/database.js";
 import { runAgentLoop } from "./agent/loop.js";
 import { ModelRegistry } from "./inference/registry.js";
@@ -27,7 +24,12 @@ import { createSocialClient } from "./social/client.js";
 import { PolicyEngine } from "./agent/policy-engine.js";
 import { SpendTracker } from "./agent/spend-tracker.js";
 import { createDefaultRules } from "./agent/policy-rules/index.js";
-import type { AutomatonIdentity, AgentState, Skill, SocialClientInterface } from "./types.js";
+import type {
+  AutomatonIdentity,
+  AgentState,
+  Skill,
+  SocialClientInterface,
+} from "./types.js";
 import { DEFAULT_TREASURY_POLICY } from "./types.js";
 import { createLogger, setGlobalLogLevel } from "./observability/logger.js";
 import { bootstrapTopup } from "./conway/topup.js";
@@ -171,7 +173,9 @@ Version:    ${config.version}
 // ─── Main Run ──────────────────────────────────────────────────
 
 async function run(): Promise<void> {
-  logger.info(`[${new Date().toISOString()}] Conway Automaton v${VERSION} starting...`);
+  logger.info(
+    `[${new Date().toISOString()}] Conway Automaton v${VERSION} starting...`,
+  );
 
   // Load config — first run triggers interactive setup wizard
   let config = loadConfig();
@@ -245,15 +249,21 @@ async function run(): Promise<void> {
         account,
       });
       db.setIdentity("conwayRegistrationStatus", "registered");
-      logger.info(`[${new Date().toISOString()}] Automaton identity registered.`);
+      logger.info(
+        `[${new Date().toISOString()}] Automaton identity registered.`,
+      );
     } catch (err: any) {
       const status = err?.status;
       if (status === 409) {
         db.setIdentity("conwayRegistrationStatus", "conflict");
-        logger.warn(`[${new Date().toISOString()}] Automaton identity conflict: ${err.message}`);
+        logger.warn(
+          `[${new Date().toISOString()}] Automaton identity conflict: ${err.message}`,
+        );
       } else {
         db.setIdentity("conwayRegistrationStatus", "failed");
-        logger.warn(`[${new Date().toISOString()}] Automaton identity registration failed: ${err.message}`);
+        logger.warn(
+          `[${new Date().toISOString()}] Automaton identity registration failed: ${err.message}`,
+        );
       }
     }
   }
@@ -272,20 +282,25 @@ async function run(): Promise<void> {
     maxTokens: config.maxTokensPerTurn,
     lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
     openaiApiKey: config.openaiApiKey,
+    openaiApiBaseUrl: config.openaiApiBaseUrl,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
 
   if (ollamaBaseUrl) {
-    logger.info(`[${new Date().toISOString()}] Ollama backend: ${ollamaBaseUrl}`);
+    logger.info(
+      `[${new Date().toISOString()}] Ollama backend: ${ollamaBaseUrl}`,
+    );
   }
 
   // Create social client
   let social: SocialClientInterface | undefined;
   if (config.socialRelayUrl) {
     social = createSocialClient(config.socialRelayUrl, account);
-    logger.info(`[${new Date().toISOString()}] Social relay: ${config.socialRelayUrl}`);
+    logger.info(
+      `[${new Date().toISOString()}] Social relay: ${config.socialRelayUrl}`,
+    );
   }
 
   // Initialize PolicyEngine + SpendTracker (Phase 1.4)
@@ -304,9 +319,13 @@ async function run(): Promise<void> {
   let skills: Skill[] = [];
   try {
     skills = loadSkills(skillsDir, db);
-    logger.info(`[${new Date().toISOString()}] Loaded ${skills.length} skills.`);
+    logger.info(
+      `[${new Date().toISOString()}] Loaded ${skills.length} skills.`,
+    );
   } catch (err: any) {
-    logger.warn(`[${new Date().toISOString()}] Skills loading failed: ${err.message}`);
+    logger.warn(
+      `[${new Date().toISOString()}] Skills loading failed: ${err.message}`,
+    );
   }
 
   // Initialize state repo (git)
@@ -314,7 +333,9 @@ async function run(): Promise<void> {
     await initStateRepo(conway);
     logger.info(`[${new Date().toISOString()}] State repo initialized.`);
   } catch (err: any) {
-    logger.warn(`[${new Date().toISOString()}] State repo init failed: ${err.message}`);
+    logger.warn(
+      `[${new Date().toISOString()}] State repo init failed: ${err.message}`,
+    );
   }
 
   // Bootstrap topup: buy minimum credits ($5) from USDC so the agent can start.
@@ -322,7 +343,10 @@ async function run(): Promise<void> {
   try {
     let bootstrapTimer: ReturnType<typeof setTimeout>;
     const bootstrapTimeout = new Promise<null>((_, reject) => {
-      bootstrapTimer = setTimeout(() => reject(new Error("bootstrap topup timed out")), 15_000);
+      bootstrapTimer = setTimeout(
+        () => reject(new Error("bootstrap topup timed out")),
+        15_000,
+      );
     });
     try {
       await Promise.race([
@@ -345,7 +369,9 @@ async function run(): Promise<void> {
       clearTimeout(bootstrapTimer!);
     }
   } catch (err: any) {
-    logger.warn(`[${new Date().toISOString()}] Bootstrap topup skipped: ${err.message}`);
+    logger.warn(
+      `[${new Date().toISOString()}] Bootstrap topup skipped: ${err.message}`,
+    );
   }
 
   // Start heartbeat daemon (Phase 1.1: DurableScheduler)
@@ -360,7 +386,7 @@ async function run(): Promise<void> {
     onWakeRequest: (reason) => {
       logger.info(`[HEARTBEAT] Wake request: ${reason}`);
       // Phase 1.1: Use wake_events table instead of KV wake_request
-      insertWakeEvent(db.raw, 'heartbeat', reason);
+      insertWakeEvent(db.raw, "heartbeat", reason);
     },
   });
 
@@ -389,7 +415,10 @@ async function run(): Promise<void> {
       try {
         skills = loadSkills(skillsDir, db);
       } catch (error) {
-        logger.error("Skills reload failed", error instanceof Error ? error : undefined);
+        logger.error(
+          "Skills reload failed",
+          error instanceof Error ? error : undefined,
+        );
       }
 
       // Run the agent loop
@@ -418,7 +447,9 @@ async function run(): Promise<void> {
       const state = db.getAgentState();
 
       if (state === "dead") {
-        logger.info(`[${new Date().toISOString()}] Automaton is dead. Heartbeat will continue.`);
+        logger.info(
+          `[${new Date().toISOString()}] Automaton is dead. Heartbeat will continue.`,
+        );
         // In dead state, we just wait for funding
         // The heartbeat will keep checking and broadcasting distress
         await sleep(300_000); // Check every 5 minutes
