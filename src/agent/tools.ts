@@ -2749,6 +2749,173 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
+    // === 0xWork Revenue Tools ===
+    {
+      name: "oxwork_browse",
+      description:
+        "Browse open tasks on the 0xWork marketplace (https://0xwork.org). " +
+        "Returns paid tasks with USDC bounties that the agent can claim and complete to earn revenue. " +
+        "Categories: Social, Writing, Code, Data, Research, Creative.",
+      category: "financial" as ToolCategory,
+      riskLevel: "safe" as RiskLevel,
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            description:
+              "Filter by category: Social, Writing, Code, Data, Research, Creative",
+          },
+          min_bounty: {
+            type: "number",
+            description: "Minimum bounty in USD (e.g. 10)",
+          },
+          max_bounty: {
+            type: "number",
+            description: "Maximum bounty in USD (e.g. 100)",
+          },
+        },
+      },
+      execute: async (args) => {
+        const { browseOpenTasks } = await import("../conway/oxwork.js");
+        const tasks = await browseOpenTasks({
+          category: args.category as string | undefined,
+          minBounty: args.min_bounty as number | undefined,
+          maxBounty: args.max_bounty as number | undefined,
+        });
+
+        if (tasks.length === 0) return "No open tasks found matching your filters.";
+
+        const lines = tasks.slice(0, 20).map(
+          (t) =>
+            `#${t.id} [${t.category}] $${t.bounty_amount} — ${t.description.slice(0, 120)}${t.description.length > 120 ? "…" : ""}`,
+        );
+        return `Found ${tasks.length} open task(s):\n\n${lines.join("\n")}`;
+      },
+    },
+    {
+      name: "oxwork_claim",
+      description:
+        "Claim an open task on 0xWork to begin working on it. " +
+        "After claiming, you must complete the work before the deadline and submit it. " +
+        "Note: may require AXOBOTL token stake depending on the task.",
+      category: "financial" as ToolCategory,
+      riskLevel: "dangerous" as RiskLevel,
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "number",
+            description: "The 0xWork task ID to claim",
+          },
+        },
+        required: ["task_id"],
+      },
+      execute: async (args, ctx) => {
+        const { oxworkAuth, claimTask, getTaskDetail } = await import(
+          "../conway/oxwork.js"
+        );
+        const taskId = args.task_id as number;
+
+        const task = await getTaskDetail(taskId);
+        if (task.status !== "Open") {
+          return `Task #${taskId} is not open (status: ${task.status}). Cannot claim.`;
+        }
+
+        const auth = await oxworkAuth(ctx.identity.account);
+        const claimed = await claimTask(taskId, auth);
+
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "tool_use",
+          amountCents: 0,
+          description: `Claimed 0xWork task #${taskId} ($${task.bounty_amount} bounty, category: ${task.category})`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return (
+          `Successfully claimed task #${claimed.id}!\n` +
+          `Category: ${claimed.category}\n` +
+          `Bounty: $${claimed.bounty_amount} USDC\n` +
+          `Deadline: ${new Date(claimed.deadline * 1000).toISOString()}\n` +
+          `Description: ${claimed.description}`
+        );
+      },
+    },
+    {
+      name: "oxwork_submit",
+      description:
+        "Submit completed work for a claimed 0xWork task. " +
+        "Provide a delivery link (URL to your work) and a description of what was delivered.",
+      category: "financial" as ToolCategory,
+      riskLevel: "dangerous" as RiskLevel,
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "number",
+            description: "The 0xWork task ID to submit work for",
+          },
+          delivery_link: {
+            type: "string",
+            description: "URL to the delivered work (e.g. a gist, repo, or hosted page)",
+          },
+          delivery_description: {
+            type: "string",
+            description: "Description of what was delivered",
+          },
+        },
+        required: ["task_id", "delivery_link", "delivery_description"],
+      },
+      execute: async (args, ctx) => {
+        const { oxworkAuth, submitWork } = await import("../conway/oxwork.js");
+        const taskId = args.task_id as number;
+        const link = args.delivery_link as string;
+        const desc = args.delivery_description as string;
+
+        const auth = await oxworkAuth(ctx.identity.account);
+        const submitted = await submitWork(taskId, link, desc, auth);
+
+        ctx.db.insertTransaction({
+          id: ulid(),
+          type: "tool_use",
+          amountCents: 0,
+          description: `Submitted work for 0xWork task #${taskId} ($${submitted.bounty_amount} bounty)`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return (
+          `Work submitted for task #${submitted.id}!\n` +
+          `Status: ${submitted.status}\n` +
+          `Bounty: $${submitted.bounty_amount} USDC\n` +
+          `The poster will review your submission. USDC is released on approval.`
+        );
+      },
+    },
+    {
+      name: "oxwork_status",
+      description:
+        "Check the status of your claimed and submitted tasks on 0xWork.",
+      category: "financial" as ToolCategory,
+      riskLevel: "safe" as RiskLevel,
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: async (_args, ctx) => {
+        const { getMyTasks } = await import("../conway/oxwork.js");
+        const tasks = await getMyTasks(ctx.identity.account.address);
+
+        if (tasks.length === 0) return "You have no active tasks on 0xWork.";
+
+        const lines = tasks.map(
+          (t) =>
+            `#${t.id} [${t.status}] $${t.bounty_amount} — ${t.description.slice(0, 100)}${t.description.length > 100 ? "…" : ""}`,
+        );
+        return `Your 0xWork tasks (${tasks.length}):\n\n${lines.join("\n")}`;
+      },
+    },
+
     // === Orchestration Tools ===
     {
       name: "create_goal",
