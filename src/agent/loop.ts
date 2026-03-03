@@ -354,7 +354,7 @@ export async function runAgentLoop(
   // One-time per process: reset tasks assigned to local workers from a previous process.
   // Local workers are in-process async tasks that die with the process,
   // so any 'assigned' tasks with local:// addresses are stale after restart.
-  if (!localWorkerRecoveryDone) {
+  if (!localWorkerRecoveryDone && hasTable(db.raw, "task_graph")) {
     localWorkerRecoveryDone = true;
     const staleLocalTasks = db.raw.prepare(
       "SELECT id, assigned_to FROM task_graph WHERE status = 'assigned' AND assigned_to LIKE 'local://%'",
