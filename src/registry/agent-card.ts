@@ -36,11 +36,14 @@ export function generateAgentCard(
   config: AutomatonConfig,
   _db: AutomatonDatabase,
 ): AgentCard {
-  // Phase 3.2: Only expose agentWallet service
   const services: AgentService[] = [
     {
       name: "agentWallet",
       endpoint: `eip155:8453:${identity.address}`,
+    },
+    {
+      name: "polymarket-api",
+      endpoint: "https://api.compintel.co",
     },
   ];
 

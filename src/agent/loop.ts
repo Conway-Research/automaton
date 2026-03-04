@@ -357,6 +357,16 @@ export async function runAgentLoop(
     }
   } catch { /* ignore corrupt state */ }
 
+  // Circuit breaker: track per-tool consecutive failure counts.
+  // Orthogonal to loop detection (which tracks behavior patterns, not errors).
+  let failedToolCounts: Map<string, number> = new Map();
+  try {
+    const savedFailures = db.getKV("failed_tool_counts");
+    if (savedFailures) failedToolCounts = new Map(JSON.parse(savedFailures));
+  } catch {
+    // Ignore corrupt persisted state
+  }
+
   let idleToolTurns = 0;
   // blockedGoalTurns removed — replaced by immediate sleep + exponential backoff
 
@@ -649,6 +659,22 @@ export async function runAgentLoop(
             `[TOOL RESULT] ${tc.function.name}: ${result.error ? `ERROR: ${result.error}` : result.result.slice(0, 200)}`,
           );
 
+          // Circuit breaker: track per-tool failure counts
+          if (result.error) {
+            const count = (failedToolCounts.get(tc.function.name) ?? 0) + 1;
+            failedToolCounts.set(tc.function.name, count);
+            if (count >= 3) {
+              log(config, `[CIRCUIT BREAKER] ${tc.function.name} failed ${count}× consecutively`);
+              pendingInput = {
+                content: `TOOL FAILURE ESCALATION: "${tc.function.name}" has failed ${count} consecutive times. Stop using this tool. Post the error to Discord and try a different approach.`,
+                source: "system" as const,
+              };
+              failedToolCounts.delete(tc.function.name);
+            }
+          } else {
+            failedToolCounts.delete(tc.function.name);
+          }
+
           callCount++;
         }
       }
@@ -795,6 +821,7 @@ export async function runAgentLoop(
           patterns: lastToolPatterns,
           warningPattern: loopWarningPattern,
         }));
+        db.setKV("failed_tool_counts", JSON.stringify([...failedToolCounts]));
       }
 
       // Log the turn
@@ -860,6 +887,7 @@ export async function runAgentLoop(
               patterns: lastToolPatterns,
               warningPattern: loopWarningPattern,
             }));
+            db.setKV("failed_tool_counts", JSON.stringify([...failedToolCounts]));
             break;
           }
         }

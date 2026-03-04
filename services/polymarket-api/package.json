@@ -1,0 +1,19 @@
+{
+  "name": "polymarket-api",
+  "version": "1.0.0",
+  "description": "Polymarket prediction market API with x402 payment gating",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "npx vitest run"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.0"
+  }
+}

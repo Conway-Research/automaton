@@ -7,7 +7,7 @@
  * size limits + backup.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   buildContextMessages,
   estimateTokens,
@@ -16,7 +16,7 @@ import {
   summarizeTurns,
 } from "../agent/context.js";
 import { DEFAULT_TOKEN_BUDGET } from "../types.js";
-import type { AgentTurn, TokenBudget } from "../types.js";
+import type { AgentTurn, TokenBudget, SoulModel } from "../types.js";
 import { buildSystemPrompt } from "../agent/system-prompt.js";
 import {
   MockInferenceClient,
@@ -538,5 +538,117 @@ describe("DEFAULT_TOKEN_BUDGET", () => {
       DEFAULT_TOKEN_BUDGET.toolResults +
       DEFAULT_TOKEN_BUDGET.memoryRetrieval;
     expect(sum).toBe(DEFAULT_TOKEN_BUDGET.total);
+  });
+});
+
+// ─── System Prompt: behavioralGuidelines rendering ─────────────
+
+describe("buildSystemPrompt behavioralGuidelines rendering", () => {
+  let db: ReturnType<typeof createTestDb>;
+
+  beforeEach(() => {
+    db = createTestDb();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function makeSoul(overrides: Partial<SoulModel> = {}): SoulModel {
+    return {
+      format: "soul/v1",
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      name: "test-soul",
+      address: "0x1234",
+      creator: "0xabcd",
+      bornAt: new Date().toISOString(),
+      constitutionHash: "",
+      genesisPromptOriginal: "Be helpful",
+      genesisAlignment: 1.0,
+      lastReflected: "",
+      corePurpose: "Test purpose",
+      values: ["Value A"],
+      behavioralGuidelines: [],
+      personality: "",
+      boundaries: ["Do no harm"],
+      strategy: "",
+      capabilities: "",
+      relationships: "",
+      financialCharacter: "",
+      rawContent: "",
+      contentHash: "abc123",
+      ...overrides,
+    };
+  }
+
+  it("renders behavioralGuidelines when soul has them", async () => {
+    const soul = makeSoul({
+      behavioralGuidelines: [
+        "If blocked on the same problem for 2+ consecutive turns, post the blocker to Discord and stop looping. Do not retry indefinitely.",
+        "Always verify before acting.",
+      ],
+      values: ["Value A", "Value B"],
+      personality: "Friendly",
+      strategy: "Be strategic",
+      capabilities: "Can do things",
+    });
+
+    vi.doMock("../soul/model.js", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../soul/model.js")>();
+      return { ...actual, loadCurrentSoul: () => soul };
+    });
+
+    const { buildSystemPrompt: build } = await import("../agent/system-prompt.js");
+
+    const identity = createTestIdentity();
+    const config = createTestConfig();
+    const prompt = build({
+      identity,
+      config,
+      financial: { creditsCents: 5000, usdcBalance: 10, lastChecked: new Date().toISOString() },
+      state: "running",
+      db,
+      tools: [],
+      isFirstRun: false,
+    });
+
+    // The soul block should contain behavioral guidelines
+    expect(prompt).toContain("### Behavioral Guidelines");
+    expect(prompt).toContain(
+      "- If blocked on the same problem for 2+ consecutive turns, post the blocker to Discord and stop looping. Do not retry indefinitely.",
+    );
+    expect(prompt).toContain("- Always verify before acting.");
+
+    // Verify the soul block structure is intact
+    expect(prompt).toContain("## Soul [AGENT-EVOLVED CONTENT");
+    expect(prompt).toContain("## End Soul");
+  });
+
+  it("omits behavioralGuidelines section when array is empty", async () => {
+    const soul = makeSoul({ behavioralGuidelines: [] });
+
+    vi.doMock("../soul/model.js", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../soul/model.js")>();
+      return { ...actual, loadCurrentSoul: () => soul };
+    });
+
+    const { buildSystemPrompt: build } = await import("../agent/system-prompt.js");
+
+    const identity = createTestIdentity();
+    const config = createTestConfig();
+    const prompt = build({
+      identity,
+      config,
+      financial: { creditsCents: 5000, usdcBalance: 10, lastChecked: new Date().toISOString() },
+      state: "running",
+      db,
+      tools: [],
+      isFirstRun: false,
+    });
+
+    // Should NOT contain behavioral guidelines when empty
+    expect(prompt).not.toContain("### Behavioral Guidelines");
   });
 });

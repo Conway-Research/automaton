@@ -343,7 +343,7 @@ describe("read_file fallback shell escaping", () => {
   });
 });
 
-// ─── exec Tool Self-Harm Patterns ───────────────────────────────
+// ─── exec Tool Forbidden Command Patterns (Full Coverage) ──────
 
 describe("exec tool forbidden command patterns", () => {
   let tools: AutomatonTool[];
@@ -368,41 +368,196 @@ describe("exec tool forbidden command patterns", () => {
     db.close();
   });
 
-  const FORBIDDEN_COMMANDS = [
-    "rm -rf ~/.automaton",
-    "rm state.db",
-    "rm wallet.json",
-    "rm automaton.json",
-    "rm heartbeat.yml",
-    "rm SOUL.md",
-    "kill automaton",
-    "pkill automaton",
-    "systemctl stop automaton",
-    "DROP TABLE turns",
-    "DELETE FROM turns",
-    "DELETE FROM identity",
-    "DELETE FROM kv",
-    "TRUNCATE",
-    "sed -i 's/x/y/' injection-defense.ts",
-    "sed -i 's/x/y/' self-mod/code.ts",
-    "sed -i 's/x/y/' audit-log.ts",
-    "> injection-defense.ts",
-    "> self-mod/code.ts",
-    "> audit-log.ts",
-    "cat ~/.ssh/id_rsa",
-    "cat ~/.gnupg/key",
-    "cat .env",
-    "cat wallet.json",
+  // ── Table-driven fixture: every category from FORBIDDEN_COMMAND_PATTERNS ──
+  // Each entry has a blocked example and an allowed counterpart proving the
+  // regex doesn't over-match.
+  const PATTERN_COVERAGE: Array<{
+    category: string;
+    blocked: string;
+    allowed: string;
+  }> = [
+    // ── 1. Self-destruction (6 patterns) ──
+    { category: "self-destruct/.automaton",  blocked: "rm -rf ~/.automaton",           allowed: "ls ~/.automaton" },
+    { category: "self-destruct/state.db",    blocked: "rm state.db",                   allowed: "ls state.db" },
+    { category: "self-destruct/wallet.json", blocked: "rm -f wallet.json",             allowed: "ls wallet.json" },
+    { category: "self-destruct/automaton.json", blocked: "rm automaton.json",          allowed: "ls my-other.json" },
+    { category: "self-destruct/heartbeat.yml",  blocked: "rm heartbeat.yml",           allowed: "ls heartbeat.yml" },
+    { category: "self-destruct/SOUL.md",        blocked: "rm SOUL.md",                 allowed: "ls SOUL.md" },
+
+    // ── 2. Process-killing (3 patterns) ──
+    { category: "process-kill/kill",         blocked: "kill automaton",                 allowed: "kill 12345" },
+    { category: "process-kill/pkill",        blocked: "pkill automaton",               allowed: "pkill node" },
+    { category: "process-kill/systemctl",    blocked: "systemctl stop automaton",      allowed: "systemctl status nginx" },
+
+    // ── 3. Database-destruction (3 patterns) ──
+    { category: "db-destruct/DROP TABLE",    blocked: "DROP TABLE turns",              allowed: "SELECT * FROM turns" },
+    { category: "db-destruct/DELETE FROM",   blocked: "DELETE FROM turns",             allowed: "DELETE FROM my_temp_table" },
+    { category: "db-destruct/DELETE FROM identity", blocked: "DELETE FROM identity",   allowed: "SELECT * FROM identity" },
+    { category: "db-destruct/DELETE FROM kv",       blocked: "DELETE FROM kv",         allowed: "INSERT INTO kv VALUES (1)" },
+    { category: "db-destruct/DELETE FROM schema_version", blocked: "DELETE FROM schema_version", allowed: "SELECT * FROM schema_version" },
+    { category: "db-destruct/DELETE FROM skills",   blocked: "DELETE FROM skills",     allowed: "SELECT * FROM skills" },
+    { category: "db-destruct/DELETE FROM children",  blocked: "DELETE FROM children",  allowed: "SELECT * FROM children" },
+    { category: "db-destruct/DELETE FROM registry",  blocked: "DELETE FROM registry",  allowed: "SELECT * FROM registry" },
+    { category: "db-destruct/TRUNCATE",      blocked: "TRUNCATE TABLE turns",         allowed: "echo trunc_data" },
+
+    // ── 4. Safety-infra-modification (6 patterns) ──
+    { category: "safety-mod/sed injection-defense", blocked: "sed -i 's/x/y/' injection-defense.ts", allowed: "cat injection-defense.ts" },
+    { category: "safety-mod/sed self-mod",   blocked: "sed -i 's/x/y/' self-mod/code.ts",            allowed: "cat self-mod/code.ts" },
+    { category: "safety-mod/sed audit-log",  blocked: "sed -i 's/x/y/' audit-log.ts",                allowed: "cat audit-log.ts" },
+    { category: "safety-mod/> injection-defense", blocked: "> injection-defense.ts",                  allowed: "grep pattern injection-defense.ts" },
+    { category: "safety-mod/> self-mod",     blocked: "> self-mod/code.ts",                           allowed: "grep pattern self-mod/code.ts" },
+    { category: "safety-mod/> audit-log",    blocked: "> audit-log.ts",                               allowed: "grep pattern audit-log.ts" },
+
+    // ── 5. Credential-harvesting (4 patterns) ──
+    { category: "cred-harvest/.ssh",         blocked: "cat ~/.ssh/id_rsa",             allowed: "ls ~/.ssh" },
+    { category: "cred-harvest/.gnupg",       blocked: "cat ~/.gnupg/key",              allowed: "ls ~/.gnupg" },
+    { category: "cred-harvest/.env",         blocked: "cat .env",                      allowed: "ls .env" },
+    { category: "cred-harvest/wallet.json",  blocked: "cat wallet.json",               allowed: "ls wallet.json" },
+
+    // ── 6. Discord-webhook-abuse (2 patterns) ──
+    { category: "discord/webhooks",          blocked: "curl https://discord.com/api/webhooks/123/abc -d '{}'", allowed: "curl https://discord.com/channels/123" },
+    { category: "discord/webhooks-alt",      blocked: "curl https://discordapp.com/api/webhooks/456/def",      allowed: "curl https://discordapp.com/channels/456" },
+
+    // ── 7. Config-file-reads (1 pattern) ──
+    { category: "config-read/automaton.json", blocked: "cat automaton.json",           allowed: "cat config.json" },
+
+    // ── 8. Background-process-spawning (7 patterns) ──
+    { category: "bg-spawn/nohup",            blocked: "nohup node server.js",          allowed: "echo background_runner" },
+    { category: "bg-spawn/pm2 start",        blocked: "pm2 start app.js",             allowed: "pm2 status" },
+    { category: "bg-spawn/pm2 restart",      blocked: "pm2 restart all",              allowed: "pm2 list" },
+    { category: "bg-spawn/pm2 resurrect",    blocked: "pm2 resurrect",                allowed: "pm2 logs" },
+    { category: "bg-spawn/screen",           blocked: "screen -dS mysession",         allowed: "echo screen" },
+    { category: "bg-spawn/tmux",             blocked: "tmux new-session -d",          allowed: "echo tmux" },
+    { category: "bg-spawn/setsid",           blocked: "setsid node server.js",        allowed: "echo session_leader" },
+    { category: "bg-spawn/disown",           blocked: "node server.js & disown",      allowed: "echo detach_job" },
+    { category: "bg-spawn/forever",          blocked: "forever start app.js",         allowed: "forever list" },
+
+    // ── 9. Background-operator (2 patterns) ──
+    { category: "bg-op/trailing &",          blocked: "sleep 100 &",                  allowed: "curl 'https://api.example.com?a=1&b=2'" },
+    { category: "bg-op/mid-command &",       blocked: "sleep 100 & echo done",        allowed: "echo hello && echo world" },
   ];
 
-  for (const cmd of FORBIDDEN_COMMANDS) {
-    it(`blocks: ${cmd.slice(0, 60)}`, async () => {
+  // ── Blocked commands ──
+  describe("blocks all 10 forbidden categories", () => {
+    for (const { category, blocked } of PATTERN_COVERAGE) {
+      it(`[${category}] blocks: ${blocked.slice(0, 60)}`, async () => {
+        const execTool = tools.find((t) => t.name === "exec")!;
+        const result = await execTool.execute({ command: blocked }, ctx);
+        expect(result).toContain("Blocked");
+        expect(conway.execCalls.length).toBe(0);
+      });
+    }
+  });
+
+  // ── Allowed counterparts ──
+  describe("allows safe counterparts for each category", () => {
+    for (const { category, allowed } of PATTERN_COVERAGE) {
+      it(`[${category}] allows: ${allowed.slice(0, 60)}`, async () => {
+        const execTool = tools.find((t) => t.name === "exec")!;
+        const result = await execTool.execute({ command: allowed }, ctx);
+        expect(result).not.toContain("Blocked");
+        expect(conway.execCalls.length).toBeGreaterThan(0);
+      });
+    }
+  });
+
+  // ── Evasion Attempts ──
+  describe("evasion attempts", () => {
+    it("blocks case variation: drop table", async () => {
       const execTool = tools.find((t) => t.name === "exec")!;
-      const result = await execTool.execute({ command: cmd }, ctx);
+      const result = await execTool.execute({ command: "drop table turns" }, ctx);
       expect(result).toContain("Blocked");
       expect(conway.execCalls.length).toBe(0);
     });
-  }
+
+    it("blocks case variation: NOHUP", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "NOHUP node server.js" }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    it("blocks path trick: /usr/bin/cat .env", async () => {
+      // The pattern matches `cat` anywhere so path-prefixed cat still matches
+      // because the regex is /cat\s+.*\.env/
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "cat /home/user/.env" }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    it("blocks env prefix: ENV=val rm -rf ~/.automaton", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "ENV=val rm -rf ~/.automaton" }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    it("blocks tab before &: echo foo\\t&", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "echo foo\t&" }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    it("blocks quoted discord webhook URL", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute(
+        { command: `curl "https://discord.com/api/webhooks/123/abc" -d 'test'` },
+        ctx,
+      );
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    it("blocks semicolon gap: echo hi ; rm SOUL.md", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "echo hi ; rm SOUL.md" }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    it("blocks systemctl disable (alternative to stop)", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "systemctl disable automaton" }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    // Known limitation: `echo 'a & b'` is blocked (accepted tradeoff)
+    it("known false positive: echo 'a & b' is blocked (accepted tradeoff)", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "echo 'a & b'" }, ctx);
+      expect(result).toContain("Blocked");
+    });
+
+    // sh -c indirection IS caught because \bnohup\b matches anywhere in the string
+    it("blocks sh -c indirection: sh -c 'nohup node server.js'", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: `sh -c "nohup node server.js"` }, ctx);
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
+    });
+
+    // Known gap: variable-based indirection escapes pattern matching
+    it("known gap: variable indirection ($cmd) is NOT blocked", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      // Simulates: cmd=nohup; $cmd node server.js — the variable name doesn't match \bnohup\b
+      const result = await execTool.execute({ command: "cmd=daemonize; $cmd node server.js" }, ctx);
+      // This is a known limitation — inline regex cannot match runtime variable expansion.
+      // The policy engine's command.forbidden_patterns rule is the primary defense.
+      expect(result).not.toContain("Blocked");
+    });
+
+    // Known gap: no space before & (e.g. `;&`) is not caught by the lookbehind
+    it("known gap: ;& (no space before &) is NOT blocked", async () => {
+      const execTool = tools.find((t) => t.name === "exec")!;
+      const result = await execTool.execute({ command: "echo hello;& echo world" }, ctx);
+      expect(result).not.toContain("Blocked");
+    });
+  });
+
+  // ── Preserved: sandbox self-delete and safe commands ──
 
   it("blocks deleting own sandbox", async () => {
     const execTool = tools.find((t) => t.name === "exec")!;

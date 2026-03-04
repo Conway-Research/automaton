@@ -480,6 +480,37 @@ describe("Agent Card", () => {
     expect(cardStr).not.toContain("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
   });
 
+  it("generateAgentCard includes polymarket-api service", async () => {
+    const { generateAgentCard } = await import("../registry/agent-card.js");
+
+    const identity = {
+      name: "test-agent",
+      address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as `0x${string}`,
+      account: {} as any,
+      creatorAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as `0x${string}`,
+      sandboxId: "sandbox-123",
+      apiKey: "key-123",
+      createdAt: new Date().toISOString(),
+    };
+
+    const config = {
+      name: "TestBot",
+      conwayApiUrl: "https://api.conway.tech",
+      creatorAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as `0x${string}`,
+    } as any;
+
+    const db = {
+      getChildren: () => [],
+      getSkills: () => [],
+    } as any;
+
+    const card = generateAgentCard(identity, config, db);
+    expect(card.services.length).toBe(2);
+    expect(card.services[0].name).toBe("agentWallet");
+    expect(card.services[1].name).toBe("polymarket-api");
+    expect(card.services[1].endpoint).toBe("https://api.compintel.co");
+  });
+
   it("hostAgentCard writes card as separate JSON file", async () => {
     const { hostAgentCard } = await import("../registry/agent-card.js");
 

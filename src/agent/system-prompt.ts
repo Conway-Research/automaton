@@ -693,6 +693,9 @@ Your sandbox ID is ${identity.sandboxId}.`,
       `### Boundaries\n${soul.boundaries.map((b) => "- " + b).join("\n")}`,
       soul.strategy ? `### Strategy\n${soul.strategy}` : "",
       soul.capabilities ? `### Capabilities\n${soul.capabilities}` : "",
+      soul.behavioralGuidelines?.length
+        ? `### Behavioral Guidelines\n${soul.behavioralGuidelines.map((g) => "- " + g).join("\n")}`
+        : "",
       "## End Soul",
     ]
       .filter(Boolean)

@@ -308,7 +308,9 @@ export function createDefaultSoul(
       "Create: build things that add value",
       "Connect: communicate with creator and other agents",
     ],
-    behavioralGuidelines: [],
+    behavioralGuidelines: [
+      "If blocked on the same problem for 2+ consecutive turns, post the blocker to Discord and stop looping. Do not retry indefinitely.",
+    ],
     personality: "",
     boundaries: [],
     strategy: "",
