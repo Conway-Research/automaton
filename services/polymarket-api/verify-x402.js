@@ -69,6 +69,16 @@ async function verifyX402Payment(headerValue, options) {
     return { valid: false, error: "Malformed payment: missing signature" };
   }
 
+  // Step 2.5: Nonce replay protection (check + reserve before any async work)
+  // Reserving early eliminates TOCTOU race across await boundaries.
+  // Safe: Ethereum addresses (0x + 40 hex) and bytes32 nonces (0x + 64 hex)
+  // cannot contain ':', so the separator is unambiguous.
+  const nonceKey = `${auth.from}:${auth.nonce}`;
+  if (usedNonces.has(nonceKey)) {
+    return { valid: false, error: "Nonce already used (replay rejected)" };
+  }
+  usedNonces.add(nonceKey);
+
   // Step 3: Verify recipient matches
   if (auth.to.toLowerCase() !== payToAddress.toLowerCase()) {
     return { valid: false, error: `Wrong payee: expected ${payToAddress}, got ${auth.to}` };
@@ -147,13 +157,6 @@ async function verifyX402Payment(headerValue, options) {
       return { valid: false, error: `Balance check failed: ${err.message}` };
     }
   }
-
-  // Step 8: Nonce replay protection (in-memory)
-  const nonceKey = `${auth.from}:${auth.nonce}`;
-  if (usedNonces.has(nonceKey)) {
-    return { valid: false, error: "Nonce already used (replay rejected)" };
-  }
-  usedNonces.add(nonceKey);
 
   return { valid: true, from: auth.from };
 }
