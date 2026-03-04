@@ -14,7 +14,7 @@ const PORT = parseInt(process.env.PORT || "8081", 10);
 // Payment requirement response (x402 spec)
 function paymentRequiredResponse(res) {
   return res.status(402).json({
-    x402Version: 1,
+    x402Version: 2,
     error: "Payment required",
     accepts: [
       {
@@ -44,7 +44,7 @@ async function requirePayment(req, res, next) {
 
   if (!result.valid) {
     return res.status(402).json({
-      x402Version: 1,
+      x402Version: 2,
       error: result.error,
       accepts: [
         {

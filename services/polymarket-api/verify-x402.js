@@ -31,6 +31,11 @@ const BALANCE_OF_ABI = [
   },
 ];
 
+// In-memory nonce set — prevents replay within a process lifetime.
+// Survives across requests but not across restarts.
+// For production, replace with persistent storage (Redis, SQLite, etc.).
+const usedNonces = new Set();
+
 /**
  * Verify an x402 payment from the X-Payment header.
  *
@@ -70,7 +75,12 @@ async function verifyX402Payment(headerValue, options) {
   }
 
   // Step 4: Verify amount >= minimum
-  const valueAtomic = BigInt(auth.value);
+  let valueAtomic;
+  try {
+    valueAtomic = BigInt(auth.value);
+  } catch {
+    return { valid: false, error: "Malformed payment: invalid value (not a valid integer)" };
+  }
   const minAtomic = BigInt(minAmountCents) * 10000n; // cents -> 6-decimal atomic units
   if (valueAtomic < minAtomic) {
     return {
@@ -93,7 +103,7 @@ async function verifyX402Payment(headerValue, options) {
     const message = {
       from: auth.from,
       to: auth.to,
-      value: BigInt(auth.value),
+      value: valueAtomic,
       validAfter: BigInt(auth.validAfter),
       validBefore: BigInt(auth.validBefore),
       nonce: auth.nonce,
@@ -138,9 +148,14 @@ async function verifyX402Payment(headerValue, options) {
     }
   }
 
-  // TODO: nonce replay tracking (requires persistent storage)
+  // Step 8: Nonce replay protection (in-memory)
+  const nonceKey = `${auth.from}:${auth.nonce}`;
+  if (usedNonces.has(nonceKey)) {
+    return { valid: false, error: "Nonce already used (replay rejected)" };
+  }
+  usedNonces.add(nonceKey);
 
   return { valid: true, from: auth.from };
 }
 
-module.exports = { verifyX402Payment, EIP712_DOMAIN, TRANSFER_WITH_AUTH_TYPES, BALANCE_OF_ABI, USDC_ADDRESS };
+module.exports = { verifyX402Payment, EIP712_DOMAIN, TRANSFER_WITH_AUTH_TYPES, BALANCE_OF_ABI, USDC_ADDRESS, usedNonces };

@@ -432,9 +432,11 @@ describe("exec tool forbidden command patterns", () => {
     { category: "bg-spawn/disown",           blocked: "node server.js & disown",      allowed: "echo detach_job" },
     { category: "bg-spawn/forever",          blocked: "forever start app.js",         allowed: "forever list" },
 
-    // ── 9. Background-operator (2 patterns) ──
+    // ── 9. Background-operator (4 patterns) ──
     { category: "bg-op/trailing &",          blocked: "sleep 100 &",                  allowed: "curl 'https://api.example.com?a=1&b=2'" },
     { category: "bg-op/mid-command &",       blocked: "sleep 100 & echo done",        allowed: "echo hello && echo world" },
+    { category: "bg-op/no-space trailing &", blocked: "sleep 1&",                     allowed: "echo hello &&echo world" },
+    { category: "bg-op/no-space mid &",      blocked: "sleep 1& echo done",           allowed: "wget 'https://example.com?foo=bar&baz=qux'" },
   ];
 
   // ── Blocked commands ──
@@ -549,11 +551,12 @@ describe("exec tool forbidden command patterns", () => {
       expect(result).not.toContain("Blocked");
     });
 
-    // Known gap: no space before & (e.g. `;&`) is not caught by the lookbehind
-    it("known gap: ;& (no space before &) is NOT blocked", async () => {
+    // ;& is now caught by the strengthened regex (& preceded by non-whitespace, non-=, non-&)
+    it("blocks ;& (semicolon then background &)", async () => {
       const execTool = tools.find((t) => t.name === "exec")!;
       const result = await execTool.execute({ command: "echo hello;& echo world" }, ctx);
-      expect(result).not.toContain("Blocked");
+      expect(result).toContain("Blocked");
+      expect(conway.execCalls.length).toBe(0);
     });
   });
 

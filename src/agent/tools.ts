@@ -79,8 +79,11 @@ const FORBIDDEN_COMMAND_PATTERNS = [
   /\bdisown\b/,
   /\bforever\s+start/i,
   // Background operator — blocks `cmd &` at end or `cmd & next` mid-command.
-  // A backgrounding & follows whitespace/start, not = (which indicates URL query params like ?a=1&b=2).
+  // A backgrounding & follows whitespace or a word char (e.g. `sleep 1&`),
+  // but NOT `=` (URL query params like ?a=1&b=2) or `&` (chaining `&&`).
+  /(?<=[^\s=&])&\s*$/,
   /(?<=\s)&\s*$/,
+  /(?<=[^\s=&])&\s+/,
   /(?<=\s)&\s+/,
 ];
 

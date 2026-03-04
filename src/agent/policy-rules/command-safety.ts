@@ -67,6 +67,24 @@ const FORBIDDEN_COMMAND_PATTERNS: { pattern: RegExp; description: string }[] = [
   { pattern: /sed\s+.*policy-rules/, description: "Modify policy rules via sed" },
   { pattern: />\s*.*policy-engine/, description: "Overwrite policy engine" },
   { pattern: />\s*.*policy-rules/, description: "Overwrite policy rules" },
+  // Discord webhook abuse
+  { pattern: /discord\.com\/api\/webhooks/i, description: "Discord webhook abuse" },
+  { pattern: /discordapp\.com\/api\/webhooks/i, description: "Discord webhook abuse" },
+  // Config file reads
+  { pattern: /\bautomaton\.json\b/, description: "Read automaton config" },
+  // Background process spawning
+  { pattern: /\bnohup\b/i, description: "Background process via nohup" },
+  { pattern: /\bpm2\s+(start|restart|resurrect)/i, description: "Background process via pm2" },
+  { pattern: /\bscreen\s+-[dS]/, description: "Background process via screen" },
+  { pattern: /\btmux\b.*\b(new-session|new\b|-d)/, description: "Background process via tmux" },
+  { pattern: /\bsetsid\b/, description: "Background process via setsid" },
+  { pattern: /\bdisown\b/, description: "Background process via disown" },
+  { pattern: /\bforever\s+start/i, description: "Background process via forever" },
+  // Background operator
+  { pattern: /(?<=[^\s=&])&\s*$/, description: "Background operator &" },
+  { pattern: /(?<=\s)&\s*$/, description: "Background operator &" },
+  { pattern: /(?<=[^\s=&])&\s+/, description: "Background operator &" },
+  { pattern: /(?<=\s)&\s+/, description: "Background operator &" },
 ];
 
 function deny(rule: string, reasonCode: string, humanMessage: string): PolicyRuleResult {

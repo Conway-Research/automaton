@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
-import { verifyX402Payment, EIP712_DOMAIN, TRANSFER_WITH_AUTH_TYPES } from "./verify-x402.js";
+import { verifyX402Payment, EIP712_DOMAIN, TRANSFER_WITH_AUTH_TYPES, usedNonces } from "./verify-x402.js";
 
 // Known test private key (Hardhat account #0 -- NEVER use in production)
 const TEST_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -51,6 +51,10 @@ function encodePayment(payment) {
 describe("verifyX402Payment", () => {
   const baseOpts = { payToAddress: PAY_TO, minAmountCents: 1 };
 
+  beforeEach(() => {
+    usedNonces.clear();
+  });
+
   it("accepts valid payment", async () => {
     const payment = await createTestPayment();
     const result = await verifyX402Payment(encodePayment(payment), baseOpts);
@@ -96,6 +100,14 @@ describe("verifyX402Payment", () => {
     expect(result.error).toContain("Insufficient payment");
   });
 
+  it("rejects non-numeric auth.value without throwing", async () => {
+    const payment = await createTestPayment();
+    payment.payload.authorization.value = "not-a-number";
+    const result = await verifyX402Payment(encodePayment(payment), baseOpts);
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("invalid value");
+  });
+
   it("rejects malformed base64", async () => {
     const result = await verifyX402Payment("not-valid-base64!!!", baseOpts);
     expect(result.valid).toBe(false);
@@ -138,13 +150,13 @@ describe("verifyX402Payment", () => {
     expect(result.error).toContain("Balance check failed");
   });
 
-  it("accepts same nonce twice (documents tech debt -- no nonce tracking)", async () => {
+  it("rejects same nonce on second use (replay protection)", async () => {
     const payment = await createTestPayment();
     const encoded = encodePayment(payment);
     const r1 = await verifyX402Payment(encoded, baseOpts);
     const r2 = await verifyX402Payment(encoded, baseOpts);
     expect(r1.valid).toBe(true);
-    expect(r2.valid).toBe(true);
-    // TODO: Once nonce tracking is implemented, second call should fail
+    expect(r2.valid).toBe(false);
+    expect(r2.error).toContain("replay");
   });
 });
