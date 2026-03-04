@@ -10,4 +10,4 @@ dist
 *.tgz
 .automaton/wallet.json
 .automaton/state.db
-
+.worktrees
