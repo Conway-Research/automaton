@@ -148,6 +148,27 @@ scripts/
   conways-rules.txt # Core rules for the automaton
 ```
 
+## Audit event fields (risk/policy)
+
+Tool-call results now support optional structured audit metadata to make policy outcomes easier to analyze downstream:
+
+- `riskLevel`: tool risk classification (`safe|caution|dangerous|forbidden`)
+- `policyDecision`: normalized policy outcome (`allow|block|require_confirmation|dry_run`)
+- `policyReason`: short human-readable reason
+- `capability`: capability namespace for the action (e.g. `network.expose_port`, `finance.transfer_credits`)
+
+Example:
+
+```json
+{
+  "name": "transfer_credits",
+  "riskLevel": "dangerous",
+  "policyDecision": "allow",
+  "policyReason": "ALLOWED: All policy checks passed",
+  "capability": "finance.transfer_credits"
+}
+```
+
 ## License
 
 MIT
