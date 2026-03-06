@@ -123,6 +123,13 @@ export class LocalWorkerPool {
       })
       .finally(() => {
         this.activeWorkers.delete(workerId);
+        // Mark child as terminated in DB so the orchestrator doesn't
+        // re-assign new tasks to this dead worker address.
+        try {
+          this.config.db.prepare(
+            "UPDATE children SET status = 'terminated' WHERE address = ?",
+          ).run(address);
+        } catch { /* ignore DB errors during cleanup */ }
       });
 
     this.activeWorkers.set(workerId, { promise: workerPromise, taskId: task.id, abortController });
