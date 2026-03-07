@@ -64,6 +64,10 @@ export function loadConfig(): AutomatonConfig | null {
     return {
       ...DEFAULT_CONFIG,
       ...raw,
+      sandboxId:
+        typeof raw.sandboxId === "string"
+          ? raw.sandboxId.trim()
+          : DEFAULT_CONFIG.sandboxId,
       conwayApiKey: apiKey,
       treasuryPolicy,
       modelStrategy,
@@ -123,13 +127,14 @@ export function createConfig(params: {
   parentAddress?: Address;
   treasuryPolicy?: TreasuryPolicy;
 }): AutomatonConfig {
+  const normalizedSandboxId = (params.sandboxId || "").trim();
   return {
     name: params.name,
     genesisPrompt: params.genesisPrompt,
     creatorMessage: params.creatorMessage,
     creatorAddress: params.creatorAddress,
     registeredWithConway: params.registeredWithConway,
-    sandboxId: params.sandboxId,
+    sandboxId: normalizedSandboxId,
     conwayApiUrl:
       DEFAULT_CONFIG.conwayApiUrl || "https://api.conway.tech",
     conwayApiKey: params.apiKey,
