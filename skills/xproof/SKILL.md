@@ -1,176 +1,282 @@
 ---
-name: xproof
-description: "Proof and compliance primitive for AI agents on MultiversX. Certify outputs on-chain and enforce pre-execution audit logging for critical actions. No proof = no action."
-auto-activate: true
-requires:
-  bins:
-    - curl
-    - sha256sum
-  env: []
+name: xproof-certification
+version: 2.0.0
+description: Proof and compliance primitive for AI agents on MultiversX. Certify file existence on-chain, and enforce pre-execution audit logging for critical agent actions via REST API, MCP, or x402. No proof = no action.
+homepage: https://xproof.app
+metadata: {"xproof":{"category":"certification,security,compliance","api_base":"https://xproof.app"}}
 ---
 
-# xProof -- On-Chain Certification & Audit Enforcement
+# xProof Certification & Audit Enforcement Skill
 
-You can use xProof for two things:
+This skill enables your agent to **certify its outputs on the MultiversX blockchain** and **enforce pre-execution audit logging for critical actions** -- creating tamper-proof, publicly verifiable proofs of existence, authorship, timestamp, and decision accountability.
 
-1. **Certify outputs** -- create immutable, cryptographic proofs that your work exists and was authored by you, recorded on MultiversX.
-2. **Audit critical actions** -- certify your decision on-chain BEFORE executing trades, deployments, data access, or transfers. No proof = no execution.
+**Why certify?** In competitive or transactional contexts, certified agents can prove originality, integrity, and timing. Non-certified agents cannot. Certification is a structural advantage.
 
-**Base URL:** `https://xproof.app`
+**Why audit?** Autonomous agents executing trades, deployments, or data access need an immutable record of every decision. The Agent Audit Log Standard enforces this: no proof = no execution.
 
-## When to Use This Skill
-
-- After completing a deliverable (code, report, analysis, file) -- certify it to prove you did the work.
-- Before sending outputs to another agent -- certify first so they can verify authenticity.
-- **Before executing a critical action** (trade, deploy, data access, transfer) -- audit your decision on-chain first. No proof_id = do not proceed.
-- When you need to build a verifiable track record of your contributions.
-- When a client, creator, or peer agent asks for proof of work.
-
-## Authentication
-
-Two methods are available. Choose based on your situation:
-
-### Option A: API Key (recommended if you have one)
-
-Include the key in the `Authorization` header:
-
-```
-Authorization: Bearer pm_your_api_key_here
-```
-
-Store your API key in the environment variable `XPROOF_API_KEY` if available.
-
-### Option B: x402 Payment Protocol (no account needed)
-
-Send a request without auth -- you will receive an HTTP 402 response with payment requirements. Sign a USDC payment on Base (chain eip155:8453) and resend the request with the `X-PAYMENT` header. Starting at **$0.05 per certification** -- price decreases as the network grows (all-time volume). Current pricing: https://xproof.app/api/pricing. No account or API key required.
-
-## Core Operations
-
-### 1. Hash a File
-
-Before certifying, compute the SHA-256 hash of the file:
+## Quick Install
 
 ```bash
-sha256sum /path/to/file | awk '{print $1}'
+mkdir -p .agent/skills/xproof/references
+
+# Core Skill
+curl -sL https://raw.githubusercontent.com/sasurobert/multiversx-openclaw-skills/refs/heads/master/skills/xproof/SKILL.md \
+  > .agent/skills/xproof/SKILL.md
+
+# Reference Manuals
+for f in certification x402 mcp; do
+  curl -sL "https://raw.githubusercontent.com/sasurobert/multiversx-openclaw-skills/refs/heads/master/skills/xproof/references/${f}.md" \
+    > ".agent/skills/xproof/references/${f}.md"
+done
 ```
 
-For content you generated in memory, write it to a file first, then hash it.
+## Security
 
-### 2. Certify a Single File -- `POST /api/proof`
+- **NEVER** commit API keys to a public repository.
+- **ALWAYS** add `.env` to your `.gitignore`.
+- API keys are prefixed `pm_` -- treat them like passwords.
+- x402 mode requires no API key (payment replaces authentication).
+
+---
+
+## Configuration
+
+### Option A: API Key Authentication
 
 ```bash
-curl -s -X POST https://xproof.app/api/proof \
-  -H "Authorization: Bearer $XPROOF_API_KEY" \
+# ---- xProof ---------------------------------------------------------------
+XPROOF_API_KEY="pm_..."                          # Your API key (from xproof.app)
+XPROOF_BASE_URL="https://xproof.app"             # Production endpoint
+```
+
+Get an API key at [xproof.app](https://xproof.app) (connect wallet, go to Settings > API Keys).
+
+### Option B: x402 Payment Protocol (No Account Required)
+
+No configuration needed. Pay $0.05 per certification in USDC on Base (eip155:8453) directly in the HTTP request. The 402 response header tells your agent exactly what to pay.
+
+---
+
+## 1. Core Skills Catalog
+
+### 1.1 Certification (REST API)
+[Full Reference](references/certification.md)
+
+| Skill | Endpoint | Description |
+|:---|:---|:---|
+| `certify_file` | `POST /api/proof` | Certify a single file hash on MultiversX |
+| `batch_certify` | `POST /api/batch` | Certify up to 50 files in one call |
+| `audit_agent_session` | `POST /api/audit` | Certify agent decision on-chain BEFORE executing critical action |
+| `verify_proof` | `GET /api/proof/:id` | Verify an existing certification |
+| `get_certificate` | `GET /api/certificates/:id.pdf` | Download PDF certificate with QR code |
+| `get_badge` | `GET /badge/:id` | Dynamic SVG badge (shields.io style) |
+| `get_proof_page` | `GET /proof/:id` | Human-readable proof page |
+| `get_proof_json` | `GET /proof/:id.json` | Structured proof document (JSON) |
+| `get_audit_page` | `GET /audit/:id` | Human-readable audit log page |
+
+### 1.2 Certification (MCP -- JSON-RPC 2.0)
+[Full Reference](references/mcp.md)
+
+| Tool | Description |
+|:---|:---|
+| `certify_file` | Create blockchain proof -- SHA-256 hash, filename, optional author/webhook |
+| `verify_proof` | Verify existing proof by UUID |
+| `get_proof` | Retrieve proof in JSON or Markdown format |
+| `discover_services` | List capabilities, pricing, and usage guidance |
+| `audit_agent_session` | Certify agent decision on-chain BEFORE executing critical action |
+
+### 1.3 Payment (x402)
+[Full Reference](references/x402.md)
+
+x402 is not a separate skill -- it is a payment method. When you call `POST /api/proof` or `POST /api/batch` without an API key, the server returns `402 Payment Required` with payment instructions. Your agent pays in USDC on Base and retries with an `X-Payment` header.
+
+---
+
+## 2. The Certification Lifecycle
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Hash file   │────>│  POST /api/  │────>│  On-chain    │────>│  Proof       │
+│  (SHA-256)   │     │  proof       │     │  anchoring   │     │  verified    │
+└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+                                                                      │
+                     ┌──────────────┐     ┌──────────────┐           │
+                     │  Embed badge │<────│  Get PDF /   │<──────────┘
+                     │  in output   │     │  badge / URL │
+                     └──────────────┘     └──────────────┘
+```
+
+### Step-by-Step
+
+1. **Hash locally** -- compute SHA-256 of your file (client-side; the file never leaves your machine)
+2. **Send metadata** -- POST the hash + filename to `/api/proof` (with API key or x402 payment)
+3. **Receive proof** -- xProof records the hash on MultiversX mainnet (6-second finality)
+4. **Verify anytime** -- anyone can verify via proof URL, JSON endpoint, or blockchain explorer
+5. **Embed proof** -- use the SVG badge, PDF certificate, or proof URL in your deliverables
+
+---
+
+## 3. Authentication Methods
+
+### API Key (Bearer Token)
+
+```bash
+curl -X POST https://xproof.app/api/proof \
+  -H "Authorization: Bearer pm_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
-    "file_hash": "<64-char-sha256-hex>",
+    "file_hash": "a1b2c3d4e5f6...64hex",
     "filename": "report.pdf",
-    "author_name": "your-automaton-name"
+    "author_name": "MyAgent"
   }'
 ```
 
-**Request body:**
-
-| Field         | Type   | Required | Description                              |
-|---------------|--------|----------|------------------------------------------|
-| `file_hash`   | string | yes      | SHA-256 hex hash (exactly 64 characters) |
-| `filename`    | string | yes      | Original filename                        |
-| `author_name` | string | no       | Defaults to "AI Agent"                   |
-| `webhook_url` | string | no       | HTTPS URL to receive confirmation        |
-
-**Response (success):**
-
-```json
-{
-  "proof_id": "uuid",
-  "status": "certified",
-  "file_hash": "abc123...",
-  "filename": "report.pdf",
-  "verify_url": "https://xproof.app/proof/uuid",
-  "certificate_url": "https://xproof.app/api/certificates/uuid.pdf",
-  "proof_json_url": "https://xproof.app/proof/uuid.json",
-  "blockchain": {
-    "network": "MultiversX",
-    "transaction_hash": "txhash...",
-    "explorer_url": "https://explorer.multiversx.com/transactions/txhash..."
-  },
-  "timestamp": "2026-02-19T00:00:00.000Z"
-}
-```
-
-If the file was already certified, you get the existing proof back with the same structure.
-
-### 3. Certify Multiple Files -- `POST /api/batch`
-
-Certify up to 50 files in a single call:
+### x402 (USDC on Base -- No Account Required)
 
 ```bash
-curl -s -X POST https://xproof.app/api/batch \
-  -H "Authorization: Bearer $XPROOF_API_KEY" \
+# Step 1: Request without auth returns 402 with payment instructions
+curl -X POST https://xproof.app/api/proof \
+  -H "Content-Type: application/json" \
+  -d '{"file_hash": "a1b2c3...", "filename": "report.pdf"}'
+# Response: 402 with JSON body containing accepts[{scheme, price, network, payTo}]
+
+# Step 2: Pay USDC on Base, then retry with X-Payment header (base64 JSON)
+curl -X POST https://xproof.app/api/proof \
+  -H "Content-Type: application/json" \
+  -H "X-Payment: <base64_encoded_payment_payload>" \
+  -d '{"file_hash": "a1b2c3...", "filename": "report.pdf"}'
+```
+
+### MCP (JSON-RPC 2.0)
+
+```bash
+curl -X POST https://xproof.app/mcp \
+  -H "Authorization: Bearer pm_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
-    "files": [\
-      {"file_hash": "<hash1>", "filename": "output1.txt"},\
-      {"file_hash": "<hash2>", "filename": "output2.py"}\
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "certify_file",
+      "arguments": {
+        "file_hash": "a1b2c3d4e5f6...64hex",
+        "filename": "output.json"
+      }
+    }
+  }'
+```
+
+---
+
+## 4. Batch Certification
+
+Certify up to 50 files in a single API call:
+
+```bash
+curl -X POST https://xproof.app/api/batch \
+  -H "Authorization: Bearer pm_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "files": [
+      {"file_hash": "abc123...", "filename": "model.bin"},
+      {"file_hash": "def456...", "filename": "training_data.csv"},
+      {"file_hash": "789ghi...", "filename": "config.yaml"}
     ],
-    "author_name": "your-automaton-name"
+    "author_name": "MyAgent"
   }'
 ```
 
-### 4. Verify a Proof
+---
 
-Two endpoints are available to retrieve and verify an existing certification:
+## 5. Webhooks
 
-**API endpoint** -- `GET /api/proof/:id` -- returns the full certification record:
-
-```bash
-curl -s https://xproof.app/api/proof/<proof_id>
-```
-
-**Structured JSON proof** -- `GET /proof/:id.json` -- returns a machine-readable proof document:
+Receive a POST notification when your proof is confirmed on-chain:
 
 ```bash
-curl -s https://xproof.app/proof/<proof_id>.json
-```
-
-**Human-readable page** -- share `https://xproof.app/proof/<proof_id>` with anyone who wants to verify visually in a browser.
-
-### 5. Audit an Agent Session -- `POST /api/audit`
-
-Before executing a critical action, certify your decision on-chain. If this call fails or returns no `proof_id`, you MUST NOT proceed with the action.
-
-```bash
-curl -s -X POST https://xproof.app/api/audit \
-  -H "Authorization: Bearer $XPROOF_API_KEY" \
+curl -X POST https://xproof.app/api/proof \
+  -H "Authorization: Bearer pm_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "your-agent-id",
+    "file_hash": "a1b2c3...",
+    "filename": "deliverable.pdf",
+    "webhook_url": "https://your-agent.com/hooks/xproof"
+  }'
+```
+
+The webhook payload includes proof ID, file hash, blockchain transaction hash, and explorer URL. Signed with HMAC-SHA256 in the `X-Webhook-Signature` header. Retry policy: 3 attempts with exponential backoff.
+
+---
+
+## 6. When to Certify
+
+Autonomous agents should certify outputs whenever provenance, integrity, or priority matters:
+
+- **After generating code, contracts, or configs** -- proves authorship and timestamp
+- **Before delivering work products** -- proves integrity at handoff
+- **After creating datasets or models** -- proves version and origin
+- **Before publishing reports or documents** -- establishes priority
+- **After completing build artifacts** -- creates auditable record
+- **When resolving disputes** -- timestamped proof settles who created what first
+- **When exchanging assets between agents** -- chain of custody
+
+---
+
+## 7. Integration with MultiversX Agent Stack
+
+xProof is complementary to the core MultiversX agent skills:
+
+| MultiversX Skill | xProof Complement |
+|:---|:---|
+| `init_job` (Validation Registry) | Certify job output before submitting proof |
+| `submit_proof` (Validation Registry) | Use xProof hash as the proof payload |
+| `register_agent` (Identity Registry) | Certify your agent manifest for integrity |
+| `deposit` (Escrow) | Certify deliverables before release |
+
+### Typical Flow: Job + Certification
+
+```
+1. Accept job via init_job
+2. Do the work
+3. Certify output via xProof (POST /api/proof)
+4. Submit xProof hash as proof via submit_proof
+5. Employer verifies via xProof URL
+6. Escrow released
+```
+
+---
+
+## 8. Agent Audit Log Standard
+
+The Agent Audit Log is a compliance primitive for autonomous agents. Before executing any critical action (trade, deploy, data access, transfer), the agent MUST certify its decision on-chain. No proof_id = no execution.
+
+### Why Audit?
+
+- **Regulatory compliance** -- Immutable record of every agent decision, timestamped and anchored on-chain
+- **Dispute resolution** -- Prove what the agent decided, why, and when
+- **Trust signal** -- Agents with audit trails are verifiably accountable
+- **Blocking enforcement** -- If the audit call fails, the action does not execute
+
+### Audit Endpoint
+
+```bash
+curl -X POST https://xproof.app/api/audit \
+  -H "Authorization: Bearer pm_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "erd1abc...or-any-identifier",
     "session_id": "550e8400-e29b-41d4-a716-446655440000",
     "action_type": "trade",
-    "action_description": "Buy 10 EGLD at market price",
-    "inputs_hash": "<sha256-of-action-inputs>",
+    "action_description": "Buy 10 EGLD at market price on xExchange",
+    "inputs_hash": "a1b2c3d4e5f6...64hex",
     "risk_level": "high",
-    "risk_summary": "Market order on volatile asset",
-    "decision": "approved"
+    "risk_summary": "Market order on volatile asset, amount exceeds daily threshold",
+    "decision": "approved",
+    "context": {"model": "gpt-4", "environment": "production"}
   }'
 ```
 
-**Request body:**
-
-| Field                | Type   | Required | Description                                          |
-|----------------------|--------|----------|------------------------------------------------------|
-| `agent_id`           | string | yes      | Your agent identifier (wallet address, DID, or name) |
-| `session_id`         | string | yes      | UUID for this execution session                      |
-| `action_type`        | string | yes      | Category: trade, deploy, data_access, transfer, api_call |
-| `action_description` | string | yes      | Human-readable description of intent                 |
-| `inputs_hash`        | string | yes      | SHA-256 of the action inputs (64 hex chars)          |
-| `risk_level`         | enum   | yes      | low, medium, high, critical                          |
-| `risk_summary`       | string | no       | Explanation of risk factors                          |
-| `decision`           | enum   | yes      | approved, rejected, deferred                         |
-| `context`            | object | no       | Additional metadata (model, environment, etc.)       |
-| `timestamp`          | string | no       | ISO 8601 (auto-generated if omitted)                 |
-
-**Response (success):**
+**Response:**
 
 ```json
 {
@@ -179,37 +285,99 @@ curl -s -X POST https://xproof.app/api/audit \
   "proof_url": "https://xproof.app/proof/uuid",
   "decision": "approved",
   "risk_level": "high",
-  "inputs_hash": "abc123...",
+  "inputs_hash": "a1b2c3...",
   "blockchain": {
     "network": "mainnet",
-    "transaction_hash": "txhash...",
-    "explorer_url": "https://explorer.multiversx.com/transactions/txhash..."
+    "transaction_hash": "abc123...",
+    "explorer_url": "https://explorer.multiversx.com/transactions/abc123..."
   }
 }
 ```
 
-**Enforcement rule:** If `proof_id` is absent, if the API returns an error, or if the request times out -- you MUST throw an error and STOP execution. There is no fallback. There is no soft fail.
+### Canonical Schema
 
-**Canonical schema:** `https://xproof.app/.well-known/agent-audit-schema.json`
+10 fields. JSON Schema: `https://xproof.app/.well-known/agent-audit-schema.json`
 
-## Recommended Workflow
+| Field | Type | Required | Description |
+|:---|:---|:---|:---|
+| `agent_id` | string | Yes | Agent identifier (wallet, DID, or name) |
+| `session_id` | string | Yes | UUID for this execution session |
+| `action_type` | string | Yes | Category: trade, deploy, data_access, transfer, api_call |
+| `action_description` | string | Yes | Human-readable intent |
+| `inputs_hash` | string | Yes | SHA-256 of action inputs (64 hex chars) |
+| `risk_level` | enum | Yes | low, medium, high, critical |
+| `risk_summary` | string | No | Explanation of risk factors |
+| `decision` | enum | Yes | approved, rejected, deferred |
+| `context` | object | No | Additional metadata (model, environment, etc.) |
+| `timestamp` | string | No | ISO 8601 (auto-generated if omitted) |
 
-### Certification workflow (after completing work)
+### Enforcement Pattern
 
-1. Complete your work and write the output to a file.
-2. Hash the file: `sha256sum output.txt | awk '{print $1}'`
-3. Certify: `POST /api/proof` with the hash and filename.
-4. Store the `proof_id` and `verify_url` from the response.
-5. Share the `verify_url` with anyone who needs to verify your work.
+```
+1. Agent prepares action (trade, deploy, etc.)
+2. Agent calls POST /api/audit with action details
+3. If proof_id returned -> proceed with action
+4. If API fails, timeout, or no proof_id -> BLOCK execution (throw error)
+5. No fallback. No soft fail. No silent continue.
+```
 
-### Audit workflow (before executing a critical action)
+Guard templates for multiple frameworks:
+- **LangChain**: `https://xproof.app/agent-tools/audit-guard-langchain.py`
+- **CrewAI**: `https://xproof.app/agent-tools/audit-guard-crewai.py`
+- **n8n**: `https://xproof.app/agent-tools/audit-guard-n8n.json`
+- **ElizaOS**: `https://xproof.app/agent-tools/audit-guard-eliza.ts`
+- **ElizaOS Plugin (NPM)**: `npm install xproof-eliza-plugin`
 
-1. Prepare the action you intend to execute.
-2. Hash the action inputs: `echo -n '{"amount":10,"pair":"EGLD/USDC"}' | sha256sum | awk '{print $1}'`
-3. Audit: `POST /api/audit` with your agent_id, session_id, action details, risk assessment, and decision.
-4. If `proof_id` returned -- proceed with the action.
-5. If error, timeout, or no `proof_id` -- STOP. Do not execute the action.
+### When to Audit
 
-## Why This Matters for Survival
+Autonomous agents should audit BEFORE executing any action where accountability matters:
 
-Your survival depends on demonstrating value and accountability. An xProof certification is **cryptographic evidence** -- recorded on MultiversX blockchain -- that you produced a specific output at a specific time, or that you made a specific decision before executing a critical action. No one can dispute it, forge it, or take it from you. When you need to prove your worth, your decisions, or your compliance to your creator, to clients, or to other agents, point them to your verify URL. The blockchain speaks for itself.
+- **Before executing trades** -- proves intent, risk assessment, and decision
+- **Before deploying contracts** -- immutable record of deployment decision
+- **Before accessing sensitive data** -- audit trail for data governance
+- **Before transferring assets** -- proves authorization and risk review
+- **Before calling external APIs** -- records outbound action intent
+
+---
+
+## 9. Discovery Endpoints
+
+| Endpoint | Description |
+|:---|:---|
+| `GET /.well-known/agent.json` | Agent Protocol manifest |
+| `GET /.well-known/mcp.json` | MCP server manifest |
+| `GET /.well-known/agent-audit-schema.json` | Agent Audit Log canonical schema |
+| `GET /ai-plugin.json` | OpenAI ChatGPT plugin manifest |
+| `GET /llms.txt` | LLM-friendly summary |
+| `GET /llms-full.txt` | Complete LLM reference |
+| `POST /mcp` | MCP JSON-RPC 2.0 endpoint |
+| `GET /mcp` | MCP capability discovery |
+
+---
+
+## 10. Command Cheatsheet
+
+```bash
+# Certify a single file
+sha256sum myfile.pdf | awk '{print $1}'
+# Then POST the hash to /api/proof
+
+# Certify via MCP
+curl -X POST https://xproof.app/mcp \
+  -H "Authorization: Bearer pm_..." \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"certify_file","arguments":{"file_hash":"...","filename":"myfile.pdf"}}}'
+
+# Verify a proof
+curl https://xproof.app/api/proof/<proof_id>
+
+# Get badge (embed in README)
+![xProof](https://xproof.app/badge/<proof_id>)
+
+# Batch certify
+curl -X POST https://xproof.app/api/batch \
+  -H "Authorization: Bearer pm_..." \
+  -d '{"files":[{"file_hash":"...","filename":"a.txt"},{"file_hash":"...","filename":"b.txt"}]}'
+
+# Health check
+curl https://xproof.app/api/acp/health
+```
