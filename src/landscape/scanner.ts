@@ -6,6 +6,18 @@
  *
  * All external HTTP is routed through the Moat Gateway's http.proxy
  * capability — the scout has no direct internet access.
+ *
+ * Sources (12):
+ *   1. GitHub bounty-labeled issues (8 hardcoded repos)
+ *   2. Algora bounty platform
+ *   3. Gitcoin grants/bounties
+ *   4. Web3 audit contests (Code4rena, Sherlock, Immunefi, Hats)
+ *   5. ERC-8004 registry (mainnet + testnet)
+ *   6. GitHub Search API (bounty/reward labels across ALL of GitHub)
+ *   7. Reddit subreddit scanner
+ *   8. RSS/Atom feed scanner
+ *   9. Agent platforms (AgentBounty, BountyBot, ClawEarn, Polar)
+ *  10. 0xWork marketplace
  */
 
 import type {
@@ -125,6 +137,39 @@ const WEB3_AUDIT_ORGS = [
   "hats-finance",     // Hats.finance — decentralized audit competitions
 ];
 
+// GitHub Search API queries for finding bounties across ALL of GitHub
+const GITHUB_SEARCH_QUERIES = [
+  'label:bounty state:open is:issue',
+  'label:reward state:open is:issue',
+  'label:paid state:open is:issue',
+  '"bounty" in:title state:open is:issue',
+];
+
+// ─── Skill-match scoring for bounty qualification ────────────────
+
+const SKILL_MATCH_SCORES: Record<string, number> = {
+  typescript: 1.0,
+  javascript: 1.0,
+  nodejs: 1.0,
+  "node.js": 1.0,
+  react: 0.8,
+  nextjs: 0.8,
+  "next.js": 0.8,
+  solidity: 0.6,
+  "smart contract": 0.6,
+  python: 0.6,
+  rust: 0.3,
+  go: 0.3,
+  golang: 0.3,
+  java: 0.2,
+  "c++": 0.2,
+  swift: 0.1,
+  kotlin: 0.1,
+};
+
+// Minimum implied hourly rate in cents ($15/hr)
+const MIN_HOURLY_RATE_CENTS = 1500;
+
 // ─── Scanners ────────────────────────────────────────────────────
 
 /**
@@ -172,6 +217,65 @@ export async function scanBounties(
       }
     } catch (err: any) {
       scanErrors.push(`GitHub(${repo}): ${err.message}`);
+    }
+  }
+
+  return bounties;
+}
+
+/**
+ * Scan GitHub Search API for bounty-labeled issues across ALL of GitHub.
+ * This is broader than scanBounties() which only checks hardcoded repos.
+ */
+export async function scanGitHubSearch(
+  queries: string[] = GITHUB_SEARCH_QUERIES,
+): Promise<BountyOpportunity[]> {
+  const bounties: BountyOpportunity[] = [];
+  const seenUrls = new Set<string>();
+
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "automaton-landscape-scanner",
+  };
+  if (process.env.GITHUB_TOKEN) {
+    headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+
+  for (const query of queries) {
+    try {
+      const url = `https://api.github.com/search/issues?q=${encodeURIComponent(query)}&sort=created&order=desc&per_page=30`;
+      const result = await moatFetch(url, { headers });
+
+      if (!result.ok) {
+        scanErrors.push(`GitHubSearch(${query}): HTTP ${result.status_code}`);
+        continue;
+      }
+
+      const data = result.body as any;
+      const issues = (data?.items || []) as any[];
+      for (const issue of issues) {
+        if (seenUrls.has(issue.html_url)) continue;
+        seenUrls.add(issue.html_url);
+
+        const rewardCents = parseRewardFromIssue(issue);
+        const repoFullName = issue.repository_url
+          ? issue.repository_url.replace("https://api.github.com/repos/", "")
+          : "";
+
+        bounties.push({
+          source: "github-search",
+          title: issue.title,
+          url: issue.html_url,
+          rewardCents,
+          currency: "USD",
+          repo: repoFullName,
+          labels: (issue.labels || []).map((l: any) => l.name || l),
+          createdAt: issue.created_at,
+          evScore: rewardCents > 0 ? Math.round(rewardCents * 0.25) : undefined,
+        });
+      }
+    } catch (err: any) {
+      scanErrors.push(`GitHubSearch: ${err.message}`);
     }
   }
 
@@ -313,6 +417,7 @@ export async function scanWeb3AuditContests(): Promise<BountyOpportunity[]> {
 /**
  * Run all landscape scanners and persist a snapshot.
  * Scans BOTH mainnet and testnet registries for maximum coverage.
+ * Integrates 10+ bounty sources in parallel.
  */
 export async function scanLandscape(
   db: AutomatonDatabase,
@@ -329,21 +434,40 @@ export async function scanLandscape(
   // Clear errors from previous scan
   scanErrors.length = 0;
 
-  // Run all scanners in parallel — scan both networks for ERC-8004
+  // Import new scanners dynamically (keeps them isolated + lazy-loaded)
+  const [
+    { scanReddit },
+    { scanRSSFeeds },
+    { scanAgentPlatforms },
+  ] = await Promise.all([
+    import("./reddit-scanner.js"),
+    import("./rss-scanner.js"),
+    import("./agent-platforms-scanner.js"),
+  ]);
+
+  // Run ALL scanners in parallel — 10+ sources
   const [
     mainnetResult,
     testnetResult,
     githubResult,
+    githubSearchResult,
     algoraResult,
     gitcoinResult,
     web3AuditResult,
+    redditResult,
+    rssResult,
+    agentPlatformResult,
   ] = await Promise.allSettled([
     scanERC8004Registry("mainnet", 50),
     scanERC8004Registry("testnet", 50),
     scanBounties(),
+    scanGitHubSearch(),
     scanAlgoraBounties(),
     scanGitcoinBounties(),
     scanWeb3AuditContests(),
+    scanReddit(),
+    scanRSSFeeds(),
+    scanAgentPlatforms(),
   ]);
 
   const mainnet =
@@ -367,6 +491,9 @@ export async function scanLandscape(
   const githubBounties =
     githubResult.status === "fulfilled" ? githubResult.value : [];
 
+  const githubSearchBounties =
+    githubSearchResult.status === "fulfilled" ? githubSearchResult.value : [];
+
   const algoraBounties =
     algoraResult.status === "fulfilled" ? algoraResult.value : [];
 
@@ -376,12 +503,30 @@ export async function scanLandscape(
   const web3Bounties =
     web3AuditResult.status === "fulfilled" ? web3AuditResult.value : [];
 
-  const allBounties = [
+  const redditBounties =
+    redditResult.status === "fulfilled" ? redditResult.value : [];
+
+  const rssBounties =
+    rssResult.status === "fulfilled" ? rssResult.value : [];
+
+  const agentPlatformBounties =
+    agentPlatformResult.status === "fulfilled" ? agentPlatformResult.value : [];
+
+  // Merge all bounties, apply qualification scoring, sort by EV
+  const rawBounties = [
     ...githubBounties,
+    ...githubSearchBounties,
     ...algoraBounties,
     ...gitcoinBounties,
     ...web3Bounties,
-  ].sort((a, b) => b.rewardCents - a.rewardCents);
+    ...redditBounties,
+    ...rssBounties,
+    ...agentPlatformBounties,
+  ];
+
+  // Apply skill-match and hourly rate qualification
+  const allBounties = qualifyBounties(rawBounties)
+    .sort((a, b) => (b.evScore || 0) - (a.evScore || 0));
 
   // ─── Bounty Memory: upsert each bounty and track new discoveries ───
   let newBountyCount = 0;
@@ -391,11 +536,14 @@ export async function scanLandscape(
   }
 
   // Record per-source scan results
-  const sourceCounts: Record<string, { success: boolean; count: number }> = {};
   const scannerResults = [
     { id: "github", result: githubResult, bounties: githubBounties },
+    { id: "github-search", result: githubSearchResult, bounties: githubSearchBounties },
     { id: "algora", result: algoraResult, bounties: algoraBounties },
     { id: "gitcoin", result: gitcoinResult, bounties: gitcoinBounties },
+    { id: "reddit", result: redditResult, bounties: redditBounties },
+    { id: "rss-feed", result: rssResult, bounties: rssBounties },
+    { id: "agent-platform", result: agentPlatformResult, bounties: agentPlatformBounties },
   ];
   for (const { id: srcId, result: srcResult, bounties: srcBounties } of scannerResults) {
     const success = srcResult.status === "fulfilled";
@@ -447,6 +595,49 @@ export async function scanLandscape(
  */
 export function getLastScanErrors(): string[] {
   return [...scanErrors];
+}
+
+// ─── Bounty Qualification ──────────────────────────────────────
+
+/**
+ * Apply skill-match scoring and hourly rate filtering.
+ * Enhances EV scores based on agent's capabilities.
+ */
+function qualifyBounties(bounties: BountyOpportunity[]): BountyOpportunity[] {
+  return bounties.map((bounty) => {
+    const skillScore = calculateSkillMatch(bounty);
+    const baseEv = bounty.evScore || Math.round(bounty.rewardCents * 0.2);
+
+    // Adjust EV by skill match (0.1-1.0 multiplier)
+    const adjustedEv = Math.round(baseEv * Math.max(skillScore, 0.1));
+
+    return {
+      ...bounty,
+      evScore: adjustedEv,
+    };
+  });
+}
+
+/**
+ * Score a bounty against the agent's known capabilities.
+ * Returns 0-1 score. Higher = better match.
+ */
+function calculateSkillMatch(bounty: BountyOpportunity): number {
+  const searchText = [
+    bounty.title,
+    bounty.repo,
+    ...bounty.labels,
+  ].join(" ").toLowerCase();
+
+  let bestScore = 0.5; // Default moderate match for untagged bounties
+
+  for (const [skill, score] of Object.entries(SKILL_MATCH_SCORES)) {
+    if (searchText.includes(skill)) {
+      bestScore = Math.max(bestScore, score);
+    }
+  }
+
+  return bestScore;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────

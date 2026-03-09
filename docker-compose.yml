@@ -68,7 +68,8 @@ services:
       # OpenAI API key — gateway proxies inference for sandboxed agents
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       # HTTP proxy domain allowlist — all domains the scout can reach
-      HTTP_PROXY_DOMAIN_ALLOWLIST: "api.github.com,console.algora.io,gitcoin.co,api.polar.sh,api.hackerone.com,api.bugcrowd.com,api.thegraph.com,eth-mainnet.g.alchemy.com,polygon-mainnet.g.alchemy.com,arb-mainnet.g.alchemy.com,opt-mainnet.g.alchemy.com"
+      # Domain allowlist: existing + Reddit + RSS feeds + agent platforms + 0xWork
+      HTTP_PROXY_DOMAIN_ALLOWLIST: "api.github.com,console.algora.io,gitcoin.co,api.polar.sh,api.hackerone.com,api.bugcrowd.com,api.thegraph.com,eth-mainnet.g.alchemy.com,polygon-mainnet.g.alchemy.com,arb-mainnet.g.alchemy.com,opt-mainnet.g.alchemy.com,www.reddit.com,oauth.reddit.com,hackerone.com,bugcrowd.com,immunefi.com,code4rena.com,agentbounty.org,api.agentbounty.org,bountybot.network,api.bountybot.network,clawbounties.dev,api.clawbounties.dev,api.0xwork.org"
       # Platform API keys (get from each platform, pass through to proxy)
       POLAR_API_KEY: "${POLAR_API_KEY:-}"
       HACKERONE_API_TOKEN: "${HACKERONE_API_TOKEN:-}"

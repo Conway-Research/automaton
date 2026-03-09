@@ -242,6 +242,157 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     return { shouldWake: false };
   },
 
+  // ─── New scanner heartbeat tasks ──────────────────────────────
+
+  scan_reddit: async (ctx) => {
+    const { scanReddit } = await import("../landscape/reddit-scanner.js");
+    const bounties = await scanReddit();
+
+    let newCount = 0;
+    for (const bounty of bounties) {
+      const { isNew } = ctx.db.upsertBounty(bounty);
+      if (isNew) newCount++;
+    }
+
+    ctx.db.recordSourceScanResult("reddit", true, bounties.length);
+    ctx.db.setKV("last_reddit_scan", JSON.stringify({
+      totalFound: bounties.length,
+      newCount,
+      timestamp: new Date().toISOString(),
+    }));
+
+    if (newCount > 0) {
+      const highValue = bounties.filter(b => b.rewardCents >= 5000);
+      if (highValue.length > 0) {
+        return {
+          shouldWake: true,
+          message: `Reddit: ${newCount} new bounty(ies), ${highValue.length} high-value (>=$50)`,
+        };
+      }
+    }
+    return { shouldWake: false };
+  },
+
+  scan_rss_feeds: async (ctx) => {
+    const { scanRSSFeeds } = await import("../landscape/rss-scanner.js");
+    const bounties = await scanRSSFeeds();
+
+    let newCount = 0;
+    for (const bounty of bounties) {
+      const { isNew } = ctx.db.upsertBounty(bounty);
+      if (isNew) newCount++;
+    }
+
+    ctx.db.recordSourceScanResult("rss-feed", true, bounties.length);
+    ctx.db.setKV("last_rss_scan", JSON.stringify({
+      totalFound: bounties.length,
+      newCount,
+      timestamp: new Date().toISOString(),
+    }));
+
+    if (newCount > 0) {
+      const highValue = bounties.filter(b => b.rewardCents >= 10000);
+      if (highValue.length > 0) {
+        return {
+          shouldWake: true,
+          message: `RSS feeds: ${newCount} new bounty(ies), ${highValue.length} high-value (>=$100)`,
+        };
+      }
+    }
+    return { shouldWake: false };
+  },
+
+  scan_agent_platforms: async (ctx) => {
+    const { scanAgentPlatforms } = await import("../landscape/agent-platforms-scanner.js");
+    const bounties = await scanAgentPlatforms();
+
+    let newCount = 0;
+    for (const bounty of bounties) {
+      const { isNew } = ctx.db.upsertBounty(bounty);
+      if (isNew) newCount++;
+    }
+
+    ctx.db.recordSourceScanResult("agent-platform", true, bounties.length);
+    ctx.db.setKV("last_agent_platform_scan", JSON.stringify({
+      totalFound: bounties.length,
+      newCount,
+      timestamp: new Date().toISOString(),
+    }));
+
+    if (newCount > 0) {
+      const highValue = bounties.filter(b => b.rewardCents >= 5000);
+      if (highValue.length > 0) {
+        return {
+          shouldWake: true,
+          message: `Agent platforms: ${newCount} new bounty(ies), ${highValue.length} high-value (>=$50)`,
+        };
+      }
+    }
+    return { shouldWake: false };
+  },
+
+  scan_github_search: async (ctx) => {
+    const { scanGitHubSearch } = await import("../landscape/scanner.js");
+    const bounties = await scanGitHubSearch();
+
+    let newCount = 0;
+    for (const bounty of bounties) {
+      const { isNew } = ctx.db.upsertBounty(bounty);
+      if (isNew) newCount++;
+    }
+
+    ctx.db.recordSourceScanResult("github-search", true, bounties.length);
+    ctx.db.setKV("last_github_search_scan", JSON.stringify({
+      totalFound: bounties.length,
+      newCount,
+      timestamp: new Date().toISOString(),
+    }));
+
+    if (newCount > 0) {
+      const highValue = bounties.filter(b => b.rewardCents >= 5000);
+      if (highValue.length > 0) {
+        return {
+          shouldWake: true,
+          message: `GitHub Search: ${newCount} new bounty(ies), ${highValue.length} high-value (>=$50)`,
+        };
+      }
+    }
+    return { shouldWake: false };
+  },
+
+  scan_oxwork_tasks: async (ctx) => {
+    const { browseOpenTasks } = await import("../conway/oxwork.js");
+    const tasks = await browseOpenTasks({ minBounty: 5 });
+
+    // Filter for viable tasks (>= $5, >= 24h deadline remaining)
+    const now = Date.now();
+    const viable = tasks.filter((t) => {
+      if (t.bountyUsd < 5) return false;
+      if (t.deadlineAt) {
+        const deadline = new Date(t.deadlineAt).getTime();
+        if (deadline - now < 24 * 60 * 60 * 1000) return false;
+      }
+      return true;
+    });
+
+    ctx.db.setKV("last_oxwork_scan", JSON.stringify({
+      totalFound: tasks.length,
+      viableCount: viable.length,
+      timestamp: new Date().toISOString(),
+    }));
+
+    if (viable.length > 0) {
+      const top5 = viable
+        .sort((a, b) => b.bountyUsd - a.bountyUsd)
+        .slice(0, 5);
+      return {
+        shouldWake: true,
+        message: `0xWork: ${viable.length} viable task(s). Top: ${top5.map(t => `${t.title} ($${t.bountyUsd})`).join(", ")}`,
+      };
+    }
+    return { shouldWake: false };
+  },
+
   health_check: async (ctx) => {
     // Check that the sandbox is healthy
     try {

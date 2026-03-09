@@ -1582,6 +1582,163 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
+    // ── 0xWork Marketplace Tools ──
+    {
+      name: "oxwork_browse",
+      description:
+        "Browse open tasks on the 0xWork marketplace. Filter by category, min/max bounty.",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            description: "Filter by category (e.g., 'development', 'security', 'content')",
+          },
+          min_bounty: {
+            type: "number",
+            description: "Minimum bounty in USD (default: 5)",
+          },
+          max_bounty: {
+            type: "number",
+            description: "Maximum bounty in USD",
+          },
+        },
+      },
+      execute: async (args) => {
+        const { browseOpenTasks } = await import("../conway/oxwork.js");
+        const tasks = await browseOpenTasks({
+          category: args.category as string | undefined,
+          minBounty: (args.min_bounty as number) || 5,
+          maxBounty: args.max_bounty as number | undefined,
+        });
+
+        if (tasks.length === 0) {
+          return "No open tasks found matching filters.";
+        }
+
+        const lines = [`=== 0xWork Open Tasks (${tasks.length}) ===`];
+        for (const t of tasks.slice(0, 20)) {
+          lines.push(`  - [${t.id}] ${t.title} ($${t.bountyUsd}) [${t.category}] deadline:${t.deadlineAt || "none"}`);
+        }
+        return lines.join("\n");
+      },
+    },
+    {
+      name: "oxwork_claim",
+      description:
+        "Claim a task on 0xWork marketplace for execution. Requires authentication.",
+      category: "financial",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "The task ID to claim",
+          },
+        },
+        required: ["task_id"],
+      },
+      execute: async (args, ctx) => {
+        const { oxworkAuth, claimTask, getTaskDetail } = await import("../conway/oxwork.js");
+        const taskId = args.task_id as string;
+
+        // Verify task is still open
+        const task = await getTaskDetail(taskId);
+        if (!task) return `Task ${taskId} not found.`;
+        if (task.status !== "open") return `Task ${taskId} is ${task.status}, not open.`;
+
+        // Authenticate and claim
+        const auth = await oxworkAuth(ctx.identity.account);
+        const result = await claimTask(taskId, auth);
+
+        if (!result.success) {
+          return `Failed to claim task: ${result.error}`;
+        }
+
+        ctx.db.insertTransaction({
+          id: `txn_oxwork_claim_${Date.now()}`,
+          type: "tool_use",
+          description: `Claimed 0xWork task: ${task.title} ($${task.bountyUsd})`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `Successfully claimed task "${task.title}" ($${task.bountyUsd}). Start working on it now.`;
+      },
+    },
+    {
+      name: "oxwork_submit",
+      description:
+        "Submit completed work for a claimed 0xWork task.",
+      category: "financial",
+      dangerous: true,
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "The task ID to submit work for",
+          },
+          delivery_link: {
+            type: "string",
+            description: "URL to the deliverable (PR, repo, deployed service, etc.)",
+          },
+          description: {
+            type: "string",
+            description: "Description of the completed work",
+          },
+        },
+        required: ["task_id", "delivery_link", "description"],
+      },
+      execute: async (args, ctx) => {
+        const { oxworkAuth, submitWork } = await import("../conway/oxwork.js");
+        const taskId = args.task_id as string;
+        const deliveryLink = args.delivery_link as string;
+        const description = args.description as string;
+
+        const auth = await oxworkAuth(ctx.identity.account);
+        const result = await submitWork(taskId, deliveryLink, description, auth);
+
+        if (!result.success) {
+          return `Failed to submit work: ${result.error}`;
+        }
+
+        ctx.db.insertTransaction({
+          id: `txn_oxwork_submit_${Date.now()}`,
+          type: "tool_use",
+          description: `Submitted work for 0xWork task ${taskId}: ${deliveryLink}`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return `Work submitted successfully for task ${taskId}. Waiting for review.`;
+      },
+    },
+    {
+      name: "oxwork_status",
+      description:
+        "Check status of your 0xWork tasks (claimed, submitted, completed).",
+      category: "financial",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: async (_args, ctx) => {
+        const { getMyTasks } = await import("../conway/oxwork.js");
+        const tasks = await getMyTasks(ctx.identity.address);
+
+        if (tasks.length === 0) {
+          return "No tasks found for your address.";
+        }
+
+        const lines = [`=== Your 0xWork Tasks (${tasks.length}) ===`];
+        for (const t of tasks) {
+          lines.push(`  - [${t.id}] ${t.title} ($${t.bountyUsd}) status:${t.status}`);
+        }
+        return lines.join("\n");
+      },
+    },
+
     // ── x402 Payment Tool ──
     {
       name: "x402_fetch",

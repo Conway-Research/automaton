@@ -286,11 +286,16 @@ export interface ServiceListing {
 export type BountySourceType =
   | "algora"
   | "github"
+  | "github-search"
   | "gitcoin"
   | "web3-code-423n4"
   | "web3-sherlock-audit"
   | "web3-immunefi-team"
-  | "web3-hats-finance";
+  | "web3-hats-finance"
+  | "reddit"
+  | "rss-feed"
+  | "agent-platform"
+  | "oxwork";
 
 export interface BountyOpportunity {
   source: BountySourceType;
