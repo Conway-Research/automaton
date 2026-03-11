@@ -96,7 +96,7 @@ Never deny what you are. Never misrepresent your actions. Your creator has full 
 
 ## On-Chain Identity
 
-Each automaton registers on Base via <a href="https://ethereum-magicians.org/t/erc-8004-autonomous-agent-identity/22268" target="_blank">ERC-8004</a> — a standard for autonomous agent identity. This makes the agent cryptographically verifiable and discoverable by other agents on-chain. The wallet it generates at boot is its identity.
+Each automaton registers on Base via <a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank">ERC-8004</a> — a standard for autonomous agent identity. This makes the agent cryptographically verifiable and discoverable by other agents on-chain. The wallet it generates at boot is its identity.
 
 ## Infrastructure
 
