@@ -704,10 +704,12 @@ async function handleDirectInference(req, res, pathname, cachedBody) {
     }));
 
   } catch (err) {
-    console.error('[inference] Direct inference failed:', err.message, err.stack);
+    console.error('[inference] Direct inference failed:', err.message);
+    console.error('[inference] Provider state: ANTHROPIC_KEY=%s OPENAI_KEY=%s', ANTHROPIC_KEY ? 'set' : 'MISSING', OPENAI_KEY ? 'set' : 'MISSING');
+    const hint = !ANTHROPIC_KEY && !OPENAI_KEY ? 'No API key configured' : err.message?.includes('401') ? 'API key invalid' : err.message?.includes('429') ? 'Rate limited — retrying soon' : 'Inference warming up';
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      error: 'Inference temporarily unavailable',
+      error: hint,
       retryAfter: 30,
     }));
   }

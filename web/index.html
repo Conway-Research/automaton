@@ -2761,9 +2761,10 @@ curl -X POST https://zentience.org/v1/ask \
           status.style.color = 'var(--green)';
         } else {
           const errData = await resp.json().catch(() => ({}));
-          chat.innerHTML += '<div style="margin:8px 0"><span style="color:var(--cyan)">ZENTIENCE &gt;</span> <span style="color:var(--amber)">[' + resp.status + '] ' + esc(errData.error || 'Error') + '</span> <span style="color:var(--text-dim);font-size:10px">' + respTs + '</span></div>';
-          status.textContent = 'ERROR ' + resp.status;
-          status.style.color = 'var(--red)';
+          const errMsg = resp.status === 500 ? 'Inference warming up — try again in a moment' : esc(errData.error || 'Error');
+          chat.innerHTML += '<div style="margin:8px 0"><span style="color:var(--cyan)">ZENTIENCE &gt;</span> <span style="color:var(--amber)">' + errMsg + '</span> <span style="color:var(--text-dim);font-size:10px">' + respTs + '</span></div>';
+          status.textContent = resp.status === 500 ? 'WARMING UP' : 'ERROR ' + resp.status;
+          status.style.color = 'var(--amber)';
         }
       } catch(e) {
         const el = document.getElementById(typingId);
