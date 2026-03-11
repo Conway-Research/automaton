@@ -8,10 +8,16 @@
  */
 
 import { loadConfig } from "@conway/automaton/config.js";
-import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { keccak256, toBytes } from "viem";
+import { Keypair } from "@solana/web3.js";
+import nacl from "tweetnacl";
+import bs58 from "bs58";
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+
+function sha256Hex(data: string): string {
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
 
 const args = process.argv.slice(3);
 const toAddress = args[0];
@@ -20,7 +26,7 @@ const messageText = args.slice(1).join(" ");
 if (!toAddress || !messageText) {
   console.log("Usage: automaton-cli send <to-address> <message>");
   console.log("Examples:");
-  console.log('  automaton-cli send 0xabc...def "Hello, fellow automaton!"');
+  console.log('  automaton-cli send 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU "Hello, fellow automaton!"');
   process.exit(1);
 }
 
@@ -38,7 +44,9 @@ if (!fs.existsSync(walletPath)) {
 }
 
 const walletData = JSON.parse(fs.readFileSync(walletPath, "utf-8"));
-const account: PrivateKeyAccount = privateKeyToAccount(walletData.privateKey as `0x${string}`);
+const secretKeyBytes = bs58.decode(walletData.secretKey);
+const keypair = Keypair.fromSecretKey(secretKeyBytes);
+const address = keypair.publicKey.toBase58();
 
 // Load config for relay URL
 const config = loadConfig();
@@ -48,19 +56,21 @@ const relayUrl =
   "https://social.conway.tech";
 
 try {
-  // Phase 3.2: Sign the message using the same canonical format as runtime
-  // Canonical: Conway:send:{to_lowercase}:{keccak256(toBytes(content))}:{signed_at_iso}
+  // Sign the message using the same canonical format as runtime
+  // Canonical: Conway:send:{to}:{sha256(content)}:{signed_at_iso}
   const signedAt = new Date().toISOString();
-  const contentHash = keccak256(toBytes(messageText));
-  const canonical = `Conway:send:${toAddress.toLowerCase()}:${contentHash}:${signedAt}`;
-  const signature = await account.signMessage({ message: canonical });
+  const contentHash = sha256Hex(messageText);
+  const canonical = `Conway:send:${toAddress}:${contentHash}:${signedAt}`;
+  const messageBytes = new TextEncoder().encode(canonical);
+  const sigBytes = nacl.sign.detached(messageBytes, keypair.secretKey);
+  const signature = bs58.encode(sigBytes);
 
   const resp = await fetch(`${relayUrl}/v1/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: account.address.toLowerCase(),
-      to: toAddress.toLowerCase(),
+      from: address,
+      to: toAddress,
       content: messageText,
       signed_at: signedAt,
       signature,
@@ -75,7 +85,7 @@ try {
   const result = (await resp.json()) as { id?: string };
   console.log(`Message sent (signed).`);
   console.log(`  ID:   ${result.id || "n/a"}`);
-  console.log(`  From: ${account.address}`);
+  console.log(`  From: ${address}`);
   console.log(`  To:   ${toAddress}`);
   console.log(`  Relay: ${relayUrl}`);
 } catch (err: any) {

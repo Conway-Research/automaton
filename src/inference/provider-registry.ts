@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export type ModelTier = "reasoning" | "fast" | "cheap";
 
@@ -31,6 +32,7 @@ export interface ResolvedModel {
   provider: ProviderConfig;
   model: ModelConfig;
   client: OpenAI;
+  anthropicClient?: Anthropic;
 }
 
 interface TierDefault {
@@ -55,16 +57,16 @@ const DEFAULT_EMERGENCY_STOP_CREDITS = 100;
 
 const DEFAULT_TIER_DEFAULTS: Record<ModelTier, TierDefault> = {
   reasoning: {
-    preferredProvider: "openai",
-    fallbackOrder: ["groq", "together"],
+    preferredProvider: "anthropic",
+    fallbackOrder: ["openai", "groq", "together"],
   },
   fast: {
-    preferredProvider: "groq",
-    fallbackOrder: ["openai", "together", "local"],
+    preferredProvider: "anthropic",
+    fallbackOrder: ["groq", "openai", "together", "local"],
   },
   cheap: {
     preferredProvider: "groq",
-    fallbackOrder: ["together", "local", "openai"],
+    fallbackOrder: ["anthropic", "together", "local", "openai"],
   },
 };
 
@@ -111,6 +113,51 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
     ],
     maxRequestsPerMinute: 500,
     maxTokensPerMinute: 2_000_000,
+    priority: 1,
+    enabled: true,
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiKeyEnvVar: "ANTHROPIC_API_KEY",
+    models: [
+      {
+        id: "claude-sonnet-4-20250514",
+        tier: "reasoning",
+        contextWindow: 200000,
+        maxOutputTokens: 16384,
+        costPerInputToken: 3.0,
+        costPerOutputToken: 15.0,
+        supportsTools: true,
+        supportsVision: true,
+        supportsStreaming: true,
+      },
+      {
+        id: "claude-haiku-4-5-20251001",
+        tier: "fast",
+        contextWindow: 200000,
+        maxOutputTokens: 8192,
+        costPerInputToken: 0.8,
+        costPerOutputToken: 4.0,
+        supportsTools: true,
+        supportsVision: true,
+        supportsStreaming: true,
+      },
+      {
+        id: "claude-haiku-4-5-20251001",
+        tier: "cheap",
+        contextWindow: 200000,
+        maxOutputTokens: 8192,
+        costPerInputToken: 0.8,
+        costPerOutputToken: 4.0,
+        supportsTools: true,
+        supportsVision: true,
+        supportsStreaming: true,
+      },
+    ],
+    maxRequestsPerMinute: 1000,
+    maxTokensPerMinute: 400_000,
     priority: 1,
     enabled: true,
   },
@@ -431,6 +478,19 @@ export class ProviderRegistry {
 
   private buildResolvedModel(provider: ProviderConfig, model: ModelConfig): ResolvedModel {
     const apiKey = this.resolveApiKey(provider);
+
+    if (provider.id === "anthropic") {
+      const anthropicClient = new Anthropic({ apiKey });
+      // Create a dummy OpenAI client (unused for Anthropic, but satisfies the type)
+      const client = new OpenAI({ apiKey: "unused", baseURL: "https://unused" });
+      return {
+        provider: deepCloneProvider(provider),
+        model: { ...model },
+        client,
+        anthropicClient,
+      };
+    }
+
     const client = new OpenAI({
       apiKey,
       baseURL: provider.baseUrl,

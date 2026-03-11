@@ -86,7 +86,7 @@ describe("Tool Risk Level Classification", () => {
     install_skill: "dangerous",
     create_skill: "dangerous",
     remove_skill: "dangerous",
-    register_erc8004: "dangerous",
+    register_agent_card: "dangerous",
     give_feedback: "dangerous",
     spawn_child: "dangerous",
     fund_child: "dangerous",
@@ -531,7 +531,7 @@ describe("transfer_credits self-preservation", () => {
   it("blocks transfer of more than half balance", async () => {
     const transferTool = tools.find((t) => t.name === "transfer_credits")!;
     const result = await transferTool.execute(
-      { to_address: "0xrecipient", amount_cents: 6000 },
+      { to_address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", amount_cents: 6000 },
       ctx,
     );
     expect(result).toContain("Blocked");
@@ -541,7 +541,7 @@ describe("transfer_credits self-preservation", () => {
   it("allows transfer of less than half balance", async () => {
     const transferTool = tools.find((t) => t.name === "transfer_credits")!;
     const result = await transferTool.execute(
-      { to_address: "0xrecipient", amount_cents: 4000 },
+      { to_address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", amount_cents: 4000 },
       ctx,
     );
     expect(result).toContain("transfer submitted");
@@ -550,7 +550,7 @@ describe("transfer_credits self-preservation", () => {
   it("blocks negative amount", async () => {
     const transferTool = tools.find((t) => t.name === "transfer_credits")!;
     const result = await transferTool.execute(
-      { to_address: "0xrecipient", amount_cents: -500 },
+      { to_address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", amount_cents: -500 },
       ctx,
     );
     expect(result).toContain("Blocked");
@@ -560,7 +560,7 @@ describe("transfer_credits self-preservation", () => {
   it("blocks zero amount", async () => {
     const transferTool = tools.find((t) => t.name === "transfer_credits")!;
     const result = await transferTool.execute(
-      { to_address: "0xrecipient", amount_cents: 0 },
+      { to_address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", amount_cents: 0 },
       ctx,
     );
     expect(result).toContain("Blocked");

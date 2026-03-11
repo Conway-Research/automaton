@@ -48,38 +48,38 @@ describe("orchestration/simple-tracker", () => {
 
   describe("getIdle", () => {
     it("returns children with running status not assigned to active tasks", () => {
-      insertChild(db, "c1", "Alice", "0xalice", "running");
+      insertChild(db, "c1", "Alice", "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", "running");
 
       const idle = tracker.getIdle();
 
       expect(idle).toHaveLength(1);
-      expect(idle[0].address).toBe("0xalice");
+      expect(idle[0].address).toBe("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
       expect(idle[0].name).toBe("Alice");
     });
 
     it("returns children with healthy status not assigned to active tasks", () => {
-      insertChild(db, "c1", "Bob", "0xbob", "healthy");
+      insertChild(db, "c1", "Bob", "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP", "healthy");
 
       const idle = tracker.getIdle();
 
       expect(idle).toHaveLength(1);
-      expect(idle[0].address).toBe("0xbob");
+      expect(idle[0].address).toBe("3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP");
       expect(idle[0].status).toBe("healthy");
     });
 
     it("excludes children assigned to active tasks", () => {
-      insertChild(db, "c1", "Alice", "0xchild1", "running");
-      insertChild(db, "c2", "Bob", "0xchild2", "running");
+      insertChild(db, "c1", "Alice", "4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS", "running");
+      insertChild(db, "c2", "Bob", "5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU", "running");
 
       db.prepare("INSERT INTO goals (id, title, description, status, created_at) VALUES (?, ?, ?, ?, ?)").run("g1", "Goal", "Desc", "active", new Date().toISOString());
       db.prepare(
         "INSERT INTO task_graph (id, goal_id, title, description, status, assigned_to, agent_role, priority, dependencies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      ).run("t1", "g1", "Task", "Desc", "assigned", "0xchild1", "generalist", 50, "[]", new Date().toISOString());
+      ).run("t1", "g1", "Task", "Desc", "assigned", "4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS", "generalist", 50, "[]", new Date().toISOString());
 
       const idle = tracker.getIdle();
 
       expect(idle).toHaveLength(1);
-      expect(idle[0].address).toBe("0xchild2");
+      expect(idle[0].address).toBe("5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU");
     });
 
     it("returns empty when no idle children exist", () => {
@@ -88,7 +88,7 @@ describe("orchestration/simple-tracker", () => {
     });
 
     it("reads role from DB rather than hardcoding generalist", () => {
-      insertChild(db, "c1", "Specialist", "0xspec", "running", "researcher");
+      insertChild(db, "c1", "Specialist", "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX", "running", "researcher");
 
       const idle = tracker.getIdle();
 
@@ -97,7 +97,7 @@ describe("orchestration/simple-tracker", () => {
     });
 
     it("excludes children with dead status", () => {
-      insertChild(db, "c1", "Dead", "0xdead", "dead");
+      insertChild(db, "c1", "Dead", "8uJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jY", "dead");
 
       const idle = tracker.getIdle();
 
@@ -105,7 +105,7 @@ describe("orchestration/simple-tracker", () => {
     });
 
     it("excludes children with sleeping status", () => {
-      insertChild(db, "c1", "Sleeping", "0xsleep", "sleeping");
+      insertChild(db, "c1", "Sleeping", "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", "sleeping");
 
       const idle = tracker.getIdle();
 
@@ -113,12 +113,12 @@ describe("orchestration/simple-tracker", () => {
     });
 
     it("excludes children assigned to running tasks", () => {
-      insertChild(db, "c1", "Busy", "0xbusy", "running");
+      insertChild(db, "c1", "Busy", "2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", "running");
 
       db.prepare("INSERT INTO goals (id, title, description, status, created_at) VALUES (?, ?, ?, ?, ?)").run("g1", "Goal", "Desc", "active", new Date().toISOString());
       db.prepare(
         "INSERT INTO task_graph (id, goal_id, title, description, status, assigned_to, agent_role, priority, dependencies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      ).run("t2", "g1", "Active Task", "Desc", "running", "0xbusy", "generalist", 50, "[]", new Date().toISOString());
+      ).run("t2", "g1", "Active Task", "Desc", "running", "2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", "generalist", 50, "[]", new Date().toISOString());
 
       const idle = tracker.getIdle();
 
@@ -128,13 +128,13 @@ describe("orchestration/simple-tracker", () => {
 
   describe("getBestForTask", () => {
     it("returns the first idle agent", () => {
-      insertChild(db, "c1", "First", "0xfirst", "running");
-      insertChild(db, "c2", "Second", "0xsecond", "running");
+      insertChild(db, "c1", "First", "BvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fA", "running");
+      insertChild(db, "c2", "Second", "CwSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gB", "running");
 
       const best = tracker.getBestForTask("generalist");
 
       expect(best).not.toBeNull();
-      expect(best?.address).toBe("0xfirst");
+      expect(best?.address).toBe("BvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fA");
       expect(best?.name).toBe("First");
     });
 
@@ -146,18 +146,18 @@ describe("orchestration/simple-tracker", () => {
 
   describe("updateStatus", () => {
     it("updates the child status in the DB", () => {
-      insertChild(db, "c1", "Agent", "0xagent", "running");
+      insertChild(db, "c1", "Agent", "DtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hC", "running");
 
-      tracker.updateStatus("0xagent", "healthy");
+      tracker.updateStatus("DtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hC", "healthy");
 
       const row = db.prepare("SELECT status FROM children WHERE id = ?").get("c1") as { status: string } | undefined;
       expect(row?.status).toBe("healthy");
     });
 
     it("does nothing for an unknown address", () => {
-      insertChild(db, "c1", "Agent", "0xagent", "running");
+      insertChild(db, "c1", "Agent", "DtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hC", "running");
 
-      expect(() => tracker.updateStatus("0xunknown", "healthy")).not.toThrow();
+      expect(() => tracker.updateStatus("EuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jD", "healthy")).not.toThrow();
 
       const row = db.prepare("SELECT status FROM children WHERE id = ?").get("c1") as { status: string } | undefined;
       expect(row?.status).toBe("running");
@@ -167,7 +167,7 @@ describe("orchestration/simple-tracker", () => {
   describe("register", () => {
     it("inserts a new child record into the DB", () => {
       tracker.register({
-        address: "0xnew",
+        address: "FvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fE",
         name: "NewAgent",
         role: "analyst",
         sandboxId: "sb-42",
@@ -175,18 +175,18 @@ describe("orchestration/simple-tracker", () => {
 
       const children = mockDb.getChildren() as any[];
       expect(children).toHaveLength(1);
-      expect(children[0].address).toBe("0xnew");
+      expect(children[0].address).toBe("FvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fE");
     });
 
     it("stores the role in the genesis prompt", () => {
       tracker.register({
-        address: "0xrole",
+        address: "GwSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gF",
         name: "RoleAgent",
         role: "security-expert",
         sandboxId: "sb-99",
       });
 
-      const row = db.prepare("SELECT genesis_prompt FROM children WHERE address = ?").get("0xrole") as
+      const row = db.prepare("SELECT genesis_prompt FROM children WHERE address = ?").get("GwSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gF") as
         | { genesis_prompt: string }
         | undefined;
       expect(row?.genesis_prompt).toContain("security-expert");
@@ -202,7 +202,7 @@ describe("orchestration/SimpleFundingProtocol", () => {
     // Insert a child for funding tests
     fundingDb.prepare(
       "INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, funded_amount_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run("c1", "child-1", "0xchild", "sb-1", "test", 0, "running", new Date().toISOString());
+    ).run("c1", "child-1", "HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG", "sb-1", "test", 0, "running", new Date().toISOString());
   });
 
   afterEach(() => {
@@ -219,14 +219,14 @@ describe("orchestration/SimpleFundingProtocol", () => {
       getCreditsBalance: vi.fn().mockResolvedValue(500),
     } as any;
 
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.fundChild("0xchild", 100);
+    const result = await funding.fundChild("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG", 100);
 
     expect(result.success).toBe(true);
     expect(mockConway.transferCredits).toHaveBeenCalledWith(
-      "0xchild",
+      "HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG",
       100,
       "Task funding from orchestrator",
     );
@@ -237,12 +237,12 @@ describe("orchestration/SimpleFundingProtocol", () => {
       transferCredits: vi.fn().mockResolvedValue({ status: "ok" }),
     } as any;
 
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    await funding.fundChild("0xchild", 200);
+    await funding.fundChild("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG", 200);
 
-    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("0xchild") as any;
+    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG") as any;
     expect(row.funded_amount_cents).toBe(200);
   });
 
@@ -252,10 +252,10 @@ describe("orchestration/SimpleFundingProtocol", () => {
       getCreditsBalance: vi.fn().mockResolvedValue(0),
     } as any;
 
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.fundChild("0xchild", 0);
+    const result = await funding.fundChild("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG", 0);
 
     expect(result.success).toBe(true);
     expect(mockConway.transferCredits).not.toHaveBeenCalled();
@@ -267,70 +267,70 @@ describe("orchestration/SimpleFundingProtocol", () => {
       getCreditsBalance: vi.fn().mockResolvedValue(200),
     } as any;
 
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.fundChild("0xchild", 50);
+    const result = await funding.fundChild("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG", 50);
 
     expect(result.success).toBe(false);
   });
 
   it("getBalance returns funded_amount_cents from the children table", async () => {
-    fundingDb.prepare("UPDATE children SET funded_amount_cents = 350 WHERE address = ?").run("0xchild");
+    fundingDb.prepare("UPDATE children SET funded_amount_cents = 350 WHERE address = ?").run("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG");
 
     const mockConway = {} as any;
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const balance = await funding.getBalance("0xchild");
+    const balance = await funding.getBalance("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG");
     expect(balance).toBe(350);
   });
 
   it("getBalance returns 0 for unknown address", async () => {
     const mockConway = {} as any;
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const balance = await funding.getBalance("0xunknown");
+    const balance = await funding.getBalance("EuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jD");
     expect(balance).toBe(0);
   });
 
   it("recallCredits calls transferCredits back to the parent address", async () => {
     // Fund the child first so there's a balance to recall
-    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("0xchild");
+    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG");
 
     const mockConway = {
       transferCredits: vi.fn().mockResolvedValue({ status: "ok", amountCents: 500 }),
       getCreditsBalance: vi.fn().mockResolvedValue(500),
     } as any;
 
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.recallCredits("0xchild");
+    const result = await funding.recallCredits("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG");
 
     expect(result.success).toBe(true);
     expect(result.amountCents).toBe(500);
     expect(mockConway.transferCredits).toHaveBeenCalledWith(
-      "0xparent",
+      "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH",
       500,
-      "Recall credits from 0xchild",
+      "Recall credits from HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG",
     );
   });
 
   it("recallCredits decrements funded_amount_cents after successful recall", async () => {
-    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("0xchild");
+    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG");
 
     const mockConway = {
       transferCredits: vi.fn().mockResolvedValue({ status: "ok", amountCents: 500 }),
     } as any;
 
-    const identity = { address: "0xparent" } as any;
+    const identity = { address: "JuJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jH" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    await funding.recallCredits("0xchild");
+    await funding.recallCredits("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG");
 
-    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("0xchild") as any;
+    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("HtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hG") as any;
     expect(row.funded_amount_cents).toBe(0);
   });
 });

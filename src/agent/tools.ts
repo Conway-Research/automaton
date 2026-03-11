@@ -89,6 +89,12 @@ const FORBIDDEN_COMMAND_PATTERNS = [
   /cat\s+.*\.gnupg/,
   /cat\s+.*\.env/,
   /cat\s+.*wallet\.json/,
+  // Server/process launching — prevents port conflicts and runaway processes
+  /node\s+.*\.js\s*&/,           // background node processes
+  /npm\s+(start|run)\b/,         // npm start/run in sandbox
+  /nohup\s+/,                    // background processes surviving shell exit
+  /forever\s+/,                  // process managers
+  /pm2\s+/,                      // process managers
 ];
 
 function isForbiddenCommand(command: string, sandboxId: string): string | null {
@@ -249,25 +255,30 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     // ── Conway API Tools ──
     {
       name: "check_credits",
-      description: "Check your current Conway compute credit balance.",
+      description: "Check your current compute credit balance.",
       category: "conway",
       riskLevel: "safe",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
+        // In Anthropic-direct mode, report virtual credits (API key IS the funding)
+        const hasConwayKey = !!(process.env.CONWAY_API_KEY || process.env.CONWAY_KEY);
+        if (!hasConwayKey && process.env.ANTHROPIC_API_KEY) {
+          return `Credit balance: $100.00 (virtual — running in Anthropic-direct mode, funded by API key). No Conway credits needed.`;
+        }
         const balance = await ctx.conway.getCreditsBalance();
         return `Credit balance: $${(balance / 100).toFixed(2)} (${balance} cents)`;
       },
     },
     {
       name: "check_usdc_balance",
-      description: "Check your on-chain USDC balance on Base.",
+      description: "Check your on-chain USDC balance on Solana.",
       category: "conway",
       riskLevel: "safe",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
         const { getUsdcBalance } = await import("../conway/x402.js");
         const balance = await getUsdcBalance(ctx.identity.address);
-        return `USDC balance: ${balance.toFixed(6)} USDC on Base`;
+        return `USDC balance: ${balance.toFixed(6)} USDC on Solana`;
       },
     },
     {
@@ -305,7 +316,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
 
         const result = await topupCredits(
           ctx.config.conwayApiUrl,
-          ctx.identity.account,
+          ctx.identity.keypair,
           amountUsd,
         );
 
@@ -1384,9 +1395,9 @@ Model: ${ctx.inference.getDefaultModel()}
 
     // ── Registry Tools ──
     {
-      name: "register_erc8004",
+      name: "register_agent_card",
       description:
-        "Register on-chain as a Trustless Agent via ERC-8004. Performs gas balance preflight check. NOTE: If already registered, use update_agent_card instead to avoid creating duplicate Agent IDs.",
+        "Register on-chain as a Trustless Agent via Agent Card. Performs gas balance preflight check. NOTE: If already registered, use update_agent_card instead to avoid creating duplicate Agent IDs.",
       category: "registry",
       riskLevel: "dangerous",
       parameters: {
@@ -1414,7 +1425,7 @@ Model: ${ctx.inference.getDefaultModel()}
         const { registerAgent } = await import("../registry/erc8004.js");
         try {
           const entry = await registerAgent(
-            ctx.identity.account,
+            ctx.identity.keypair,
             args.agent_uri as string,
             ((args.network as string) || "mainnet") as any,
             ctx.db,
@@ -1422,8 +1433,8 @@ Model: ${ctx.inference.getDefaultModel()}
           );
           return `Registered on-chain! Agent ID: ${entry.agentId}, TX: ${entry.txHash}`;
         } catch (err: any) {
-          if (err.message?.includes("Insufficient ETH")) {
-            return `Registration failed: ${err.message}. Please fund your wallet with ETH for gas.`;
+          if (err.message?.includes("Insufficient SOL") || err.message?.includes("Insufficient ETH")) {
+            return `Registration failed: ${err.message}. Please fund your wallet with SOL for transaction fees.`;
           }
           throw err;
         }
@@ -1446,7 +1457,7 @@ Model: ${ctx.inference.getDefaultModel()}
     },
     {
       name: "discover_agents",
-      description: "Discover other agents via ERC-8004 registry with caching.",
+      description: "Discover other agents via Agent Card registry with caching.",
       category: "registry",
       riskLevel: "safe",
       parameters: {
@@ -1508,7 +1519,7 @@ Model: ${ctx.inference.getDefaultModel()}
         properties: {
           agent_id: {
             type: "string",
-            description: "Target agent's ERC-8004 ID",
+            description: "Target agent's Agent Card ID",
           },
           score: { type: "number", description: "Score 1-5" },
           comment: {
@@ -1537,7 +1548,7 @@ Model: ${ctx.inference.getDefaultModel()}
         // Phase 3.2: Use config-based network, not hardcoded "mainnet"
         const network = ((args.network as string) || "mainnet") as any;
         const hash = await leaveFeedback(
-          ctx.identity.account,
+          ctx.identity.keypair,
           args.agent_id as string,
           score,
           comment,
@@ -1643,7 +1654,7 @@ Model: ${ctx.inference.getDefaultModel()}
               const { topupForSandbox } = await import("../conway/topup.js");
               const topup = await topupForSandbox({
                 apiUrl: ctx.config.conwayApiUrl,
-                account: ctx.identity.account,
+                keypair: ctx.identity.keypair,
                 error: err,
               });
               if (topup?.success) {
@@ -2743,7 +2754,7 @@ Model: ${ctx.inference.getDefaultModel()}
           DEFAULT_TREASURY_POLICY.maxX402PaymentCents;
         const result = await x402Fetch(
           url,
-          ctx.identity.account,
+          ctx.identity.keypair,
           method,
           body,
           extraHeaders,

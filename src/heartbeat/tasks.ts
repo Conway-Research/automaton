@@ -171,7 +171,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       const { bootstrapTopup } = await import("../conway/topup.js");
       const result = await bootstrapTopup({
         apiUrl: taskCtx.config.conwayApiUrl,
-        account: taskCtx.identity.account,
+        keypair: taskCtx.identity.keypair,
         creditsCents: credits,
       });
 

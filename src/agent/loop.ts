@@ -68,9 +68,9 @@ import { ProviderRegistry } from "../inference/provider-registry.js";
 import { UnifiedInferenceClient } from "../inference/inference-client.js";
 
 const logger = createLogger("loop");
-const MAX_TOOL_CALLS_PER_TURN = 10;
-const MAX_CONSECUTIVE_ERRORS = 5;
-const MAX_REPETITIVE_TURNS = 3;
+const MAX_TOOL_CALLS_PER_TURN = 3;  // reduced from 10 — save tokens
+const MAX_CONSECUTIVE_ERRORS = 3;   // reduced from 5 — fail faster, sleep longer
+const MAX_REPETITIVE_TURNS = 2;     // reduced from 3 — catch loops earlier
 
 export interface AgentLoopOptions {
   identity: AutomatonIdentity;
@@ -85,6 +85,8 @@ export interface AgentLoopOptions {
   onStateChange?: (state: AgentState) => void;
   onTurnComplete?: (turn: AgentTurn) => void;
   ollamaBaseUrl?: string;
+  /** Revenue ledger for recording inference expenses */
+  revenueLedger?: import("../revenue/revenue-ledger.js").RevenueLedger;
 }
 
 /**
@@ -275,7 +277,7 @@ export async function runAgentLoop(
                     const { topupForSandbox } = await import("../conway/topup.js");
                     const topupResult = await topupForSandbox({
                       apiUrl: config.conwayApiUrl,
-                      account: identity.account,
+                      keypair: identity.keypair,
                       error: sandboxError,
                     });
 
@@ -397,10 +399,10 @@ export async function runAgentLoop(
 
   // ─── The Loop ──────────────────────────────────────────────
 
-  const MAX_IDLE_TURNS = 10; // Force sleep after N turns with no real work
+  const MAX_IDLE_TURNS = 3; // Force sleep after N turns with no real work
   let idleTurnCount = 0;
 
-  const maxCycleTurns = config.maxTurnsPerCycle ?? 25;
+  const maxCycleTurns = Math.min(config.maxTurnsPerCycle ?? 5, 5); // HARD CAP: 5 turns max per wake
   let cycleTurnCount = 0;
 
   let pendingInput: { content: string; source: string } | undefined = {
@@ -471,7 +473,7 @@ export async function runAgentLoop(
               const { bootstrapTopup } = await import("../conway/topup.js");
               const topupResult = await bootstrapTopup({
                 apiUrl: config.conwayApiUrl,
-                account: identity.account,
+                keypair: identity.keypair,
                 creditsCents: financial.creditsCents,
               });
               if (topupResult?.success) {
@@ -699,6 +701,19 @@ export async function runAgentLoop(
       });
       onTurnComplete?.(turn);
 
+      // Record inference expense in revenue ledger (for P&L tracking)
+      if (options.revenueLedger && turn.costCents > 0) {
+        try {
+          options.revenueLedger.recordExpense({
+            category: "inference",
+            amountCents: turn.costCents,
+            description: `Agent turn ${turn.id} (${turn.tokenUsage.totalTokens} tokens)`,
+          });
+        } catch (err) {
+          logger.error("Failed to record inference expense", err instanceof Error ? err : undefined);
+        }
+      }
+
       // Phase 2.2: Post-turn memory ingestion (non-blocking)
       try {
         const sessionId = db.getKV("session_id") || "default";
@@ -841,7 +856,7 @@ export async function runAgentLoop(
         "create_skill", "remove_skill", "install_skill_from_git",
         "install_skill_from_url", "pull_upstream", "git_commit", "git_push",
         "git_branch", "git_clone", "send_message", "message_child",
-        "register_domain", "register_erc8004", "give_feedback",
+        "register_domain", "register_agent_card", "give_feedback",
         "update_genesis_prompt", "update_agent_card", "modify_heartbeat",
         "expose_port", "remove_port", "x402_fetch", "manage_dns",
         "distress_signal", "prune_dead_children", "sleep",
@@ -855,7 +870,7 @@ export async function runAgentLoop(
         idleTurnCount++;
         if (idleTurnCount >= MAX_IDLE_TURNS) {
           log(config, `[IDLE] ${idleTurnCount} consecutive idle turns with no work. Entering sleep.`);
-          db.setKV("sleep_until", new Date(Date.now() + 60_000).toISOString());
+          db.setKV("sleep_until", new Date(Date.now() + 300_000).toISOString()); // 5 min idle sleep
           db.setAgentState("sleeping");
           onStateChange?.("sleeping");
           running = false;
@@ -871,7 +886,7 @@ export async function runAgentLoop(
       cycleTurnCount++;
       if (running && cycleTurnCount >= maxCycleTurns) {
         log(config, `[CYCLE LIMIT] ${cycleTurnCount} turns reached (max: ${maxCycleTurns}). Forcing sleep.`);
-        db.setKV("sleep_until", new Date(Date.now() + 120_000).toISOString());
+        db.setKV("sleep_until", new Date(Date.now() + 600_000).toISOString()); // 10 min cycle sleep
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         running = false;
@@ -886,10 +901,10 @@ export async function runAgentLoop(
       ) {
         // Agent produced text without tool calls.
         // This is a natural pause point -- no work queued, sleep briefly.
-        log(config, "[IDLE] No pending inputs. Entering brief sleep.");
+        log(config, "[IDLE] No pending inputs. Entering sleep.");
         db.setKV(
           "sleep_until",
-          new Date(Date.now() + 60_000).toISOString(),
+          new Date(Date.now() + 300_000).toISOString(), // 5 min idle sleep
         );
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
@@ -900,6 +915,31 @@ export async function runAgentLoop(
     } catch (err: any) {
       consecutiveErrors++;
       log(config, `[ERROR] Turn failed: ${err.message}`);
+
+      // If Anthropic rejects due to malformed tool_use/tool_result history,
+      // purge corrupted turns so the next attempt starts clean
+      if (err.message?.includes("tool_use") && err.message?.includes("tool_result")) {
+        log(config, "[RECOVERY] Clearing corrupted conversation history (tool_use/tool_result mismatch)");
+        try {
+          // Must delete tool_calls FIRST (FK references turns), then turns
+          const badTurnIds = db.raw
+            .prepare("SELECT id FROM turns ORDER BY created_at DESC LIMIT 5")
+            .all() as { id: string }[];
+          if (badTurnIds.length > 0) {
+            const ids = badTurnIds.map((r) => r.id);
+            const placeholders = ids.map(() => "?").join(",");
+            db.raw.exec("PRAGMA foreign_keys = OFF");
+            db.raw.prepare(`DELETE FROM tool_calls WHERE turn_id IN (${placeholders})`).run(...ids);
+            db.raw.prepare(`DELETE FROM turns WHERE id IN (${placeholders})`).run(...ids);
+            db.raw.exec("PRAGMA foreign_keys = ON");
+            log(config, `[RECOVERY] Purged ${ids.length} corrupted turns and their tool calls`);
+          }
+          consecutiveErrors = 0; // Reset — give the agent a fresh start
+          continue; // Retry immediately with clean history
+        } catch (purgeErr: any) {
+          log(config, `[RECOVERY] Failed to purge turns: ${purgeErr.message}`);
+        }
+      }
 
       // Handle inbox message state on turn failure:
       // Messages that have retries remaining go back to 'received';
@@ -921,13 +961,13 @@ export async function runAgentLoop(
       if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         log(
           config,
-          `[FATAL] ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Sleeping.`,
+          `[FATAL] ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Sleeping 30 min.`,
         );
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         db.setKV(
           "sleep_until",
-          new Date(Date.now() + 300_000).toISOString(),
+          new Date(Date.now() + 1_800_000).toISOString(), // 30 min error backoff
         );
         running = false;
       }
@@ -951,6 +991,27 @@ async function getFinancialState(
 ): Promise<FinancialState> {
   let creditsCents = _lastKnownCredits;
   let usdcBalance = _lastKnownUsdc;
+
+  // If running on Anthropic directly (no Conway API key), skip Conway credit
+  // checks entirely. The Anthropic API key IS our funding — treat as funded.
+  const hasConwayKey = !!(process.env.CONWAY_API_KEY);
+  const hasDirectProvider = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
+
+  if (!hasConwayKey && hasDirectProvider) {
+    // Running in direct-provider mode (no Conway credits needed).
+    // Report a healthy balance so the agent uses normal tier.
+    const directBalance = 10000; // $100 virtual — signals "funded" to tier logic
+    if (db) {
+      try {
+        db.setKV("last_known_balance", JSON.stringify({ creditsCents: directBalance, usdcBalance: 0 }));
+      } catch { /* non-fatal */ }
+    }
+    return {
+      creditsCents: directBalance,
+      usdcBalance: 0,
+      lastChecked: new Date().toISOString(),
+    };
+  }
 
   try {
     creditsCents = await conway.getCreditsBalance();
@@ -984,7 +1045,7 @@ async function getFinancialState(
   }
 
   try {
-    usdcBalance = await getUsdcBalance(address as `0x${string}`);
+    usdcBalance = await getUsdcBalance(address);
     if (usdcBalance > 0) _lastKnownUsdc = usdcBalance;
   } catch (error) {
     logger.error("USDC balance fetch failed", error instanceof Error ? error : undefined);

@@ -327,9 +327,10 @@ async function chatViaAnthropic(params: {
     .join("\n")
     .trim();
 
-  if (!textContent && !toolCalls?.length) {
-    throw new Error("No completion content returned from anthropic inference");
-  }
+  // If model returns nothing (empty content), return a placeholder
+  // instead of throwing. This prevents burning through error retries
+  // and lets the agent sleep gracefully.
+  const finalText = (textContent || (!toolCalls?.length ? "(no response from model)" : ""));
 
   const promptTokens = data.usage?.input_tokens || 0;
   const completionTokens = data.usage?.output_tokens || 0;
@@ -344,7 +345,7 @@ async function chatViaAnthropic(params: {
     model: data.model || params.model,
     message: {
       role: "assistant",
-      content: textContent,
+      content: finalText,
       tool_calls: toolCalls,
     },
     toolCalls,
@@ -428,6 +429,46 @@ function transformMessagesForAnthropic(
         role: "user",
         content: [toolResultBlock],
       });
+    }
+  }
+
+  // ── Safety: strip orphaned tool_use blocks ──
+  // Anthropic requires every tool_use in an assistant message to have a
+  // corresponding tool_result in the immediately following user message.
+  // If the DB has corrupted turns (interrupted mid-execution), tool_use
+  // blocks can end up without results. Strip them to prevent 400 errors.
+  for (let i = 0; i < transformed.length; i++) {
+    const msg = transformed[i];
+    if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
+
+    const toolUseIds = (msg.content as Array<Record<string, unknown>>)
+      .filter((b) => b.type === "tool_use")
+      .map((b) => b.id as string);
+
+    if (toolUseIds.length === 0) continue;
+
+    // Collect tool_result IDs from the next message
+    const next = transformed[i + 1];
+    const resultIds = new Set<string>();
+    if (next && next.role === "user" && Array.isArray(next.content)) {
+      for (const block of next.content as Array<Record<string, unknown>>) {
+        if (block.type === "tool_result" && block.tool_use_id) {
+          resultIds.add(block.tool_use_id as string);
+        }
+      }
+    }
+
+    // Remove tool_use blocks that have no corresponding result
+    const orphaned = toolUseIds.filter((id) => !resultIds.has(id));
+    if (orphaned.length > 0) {
+      const orphanSet = new Set(orphaned);
+      msg.content = (msg.content as Array<Record<string, unknown>>).filter(
+        (b) => !(b.type === "tool_use" && orphanSet.has(b.id as string))
+      );
+      // If assistant message is now empty, add placeholder text
+      if ((msg.content as Array<Record<string, unknown>>).length === 0) {
+        msg.content = [{ type: "text", text: "(tool execution interrupted)" }];
+      }
     }
   }
 

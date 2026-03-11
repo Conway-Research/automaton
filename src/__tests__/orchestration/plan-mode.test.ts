@@ -445,17 +445,17 @@ describe("orchestration/plan-mode", () => {
     it("opportunity requires enough replans and long suggestion", () => {
       expect(shouldReplan(
         baseState({ replansRemaining: 2 }),
-        { type: "opportunity", suggestion: "This opportunity is long enough to justify a replan", agentAddress: "0x1" },
+        { type: "opportunity", suggestion: "This opportunity is long enough to justify a replan", agentAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" },
       )).toBe(true);
 
       expect(shouldReplan(
         baseState({ replansRemaining: 1 }),
-        { type: "opportunity", suggestion: "This opportunity is long enough to justify a replan", agentAddress: "0x1" },
+        { type: "opportunity", suggestion: "This opportunity is long enough to justify a replan", agentAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" },
       )).toBe(false);
 
       expect(shouldReplan(
         baseState({ replansRemaining: 3 }),
-        { type: "opportunity", suggestion: "too short", agentAddress: "0x1" },
+        { type: "opportunity", suggestion: "too short", agentAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" },
       )).toBe(false);
     });
   });

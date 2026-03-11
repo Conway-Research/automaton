@@ -472,14 +472,14 @@ describe("RelationshipMemoryManager", () => {
 
   it("should record and retrieve a relationship", () => {
     rm.record({
-      entityAddress: "0x1234",
+      entityAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
       entityName: "Alice",
       relationshipType: "peer",
       trustScore: 0.7,
       notes: "Friendly agent",
     });
 
-    const rel = rm.get("0x1234");
+    const rel = rm.get("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
     expect(rel).toBeTruthy();
     expect(rel!.entityName).toBe("Alice");
     expect(rel!.trustScore).toBe(0.7);
@@ -487,43 +487,43 @@ describe("RelationshipMemoryManager", () => {
   });
 
   it("should upsert on entityAddress", () => {
-    rm.record({ entityAddress: "0x1234", relationshipType: "unknown", trustScore: 0.5 });
-    rm.record({ entityAddress: "0x1234", entityName: "Updated", relationshipType: "peer", trustScore: 0.8 });
+    rm.record({ entityAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", relationshipType: "unknown", trustScore: 0.5 });
+    rm.record({ entityAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", entityName: "Updated", relationshipType: "peer", trustScore: 0.8 });
 
-    const rel = rm.get("0x1234");
+    const rel = rm.get("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
     expect(rel!.entityName).toBe("Updated");
     expect(rel!.trustScore).toBe(0.8);
   });
 
   it("should record interactions", () => {
-    rm.record({ entityAddress: "0x1234", relationshipType: "peer" });
-    rm.recordInteraction("0x1234");
-    rm.recordInteraction("0x1234");
+    rm.record({ entityAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", relationshipType: "peer" });
+    rm.recordInteraction("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
+    rm.recordInteraction("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
 
-    const rel = rm.get("0x1234");
+    const rel = rm.get("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
     expect(rel!.interactionCount).toBe(2);
     expect(rel!.lastInteractionAt).toBeTruthy();
   });
 
   it("should update trust score with clamping", () => {
-    rm.record({ entityAddress: "0x1234", relationshipType: "peer", trustScore: 0.5 });
+    rm.record({ entityAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", relationshipType: "peer", trustScore: 0.5 });
 
-    rm.updateTrust("0x1234", 0.3);
-    expect(rm.get("0x1234")!.trustScore).toBeCloseTo(0.8);
+    rm.updateTrust("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", 0.3);
+    expect(rm.get("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR")!.trustScore).toBeCloseTo(0.8);
 
     // Should clamp to 1.0
-    rm.updateTrust("0x1234", 0.5);
-    expect(rm.get("0x1234")!.trustScore).toBe(1.0);
+    rm.updateTrust("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", 0.5);
+    expect(rm.get("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR")!.trustScore).toBe(1.0);
 
     // Should clamp to 0.0
-    rm.updateTrust("0x1234", -2.0);
-    expect(rm.get("0x1234")!.trustScore).toBe(0.0);
+    rm.updateTrust("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", -2.0);
+    expect(rm.get("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR")!.trustScore).toBe(0.0);
   });
 
   it("should filter by minimum trust", () => {
-    rm.record({ entityAddress: "0x001", relationshipType: "peer", trustScore: 0.3 });
-    rm.record({ entityAddress: "0x002", relationshipType: "peer", trustScore: 0.7 });
-    rm.record({ entityAddress: "0x003", relationshipType: "peer", trustScore: 0.9 });
+    rm.record({ entityAddress: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP", relationshipType: "peer", trustScore: 0.3 });
+    rm.record({ entityAddress: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", relationshipType: "peer", trustScore: 0.7 });
+    rm.record({ entityAddress: "4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS", relationshipType: "peer", trustScore: 0.9 });
 
     const trusted = rm.getTrusted(0.5);
     expect(trusted).toHaveLength(2);
@@ -532,9 +532,9 @@ describe("RelationshipMemoryManager", () => {
   });
 
   it("should delete a relationship", () => {
-    rm.record({ entityAddress: "0xDEAD", relationshipType: "unknown" });
-    rm.delete("0xDEAD");
-    expect(rm.get("0xDEAD")).toBeUndefined();
+    rm.record({ entityAddress: "5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU", relationshipType: "unknown" });
+    rm.delete("5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU");
+    expect(rm.get("5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU")).toBeUndefined();
   });
 });
 
@@ -678,7 +678,7 @@ describe("MemoryIngestionPipeline", () => {
       toolCalls: [
         makeToolCallResult({
           name: "send_message",
-          arguments: { to_address: "0xABCD" },
+          arguments: { to_address: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX" },
           result: "Message sent",
         }),
       ],
@@ -686,7 +686,7 @@ describe("MemoryIngestionPipeline", () => {
     pipeline.ingest("s1", turn, turn.toolCalls);
 
     const rm = new RelationshipMemoryManager(db);
-    const rel = rm.get("0xABCD");
+    const rel = rm.get("6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX");
     expect(rel).toBeTruthy();
     expect(rel!.relationshipType).toBe("contacted");
   });
@@ -717,7 +717,7 @@ describe("MemoryIngestionPipeline", () => {
     // Simulate a turn from an agent message with multiple tool calls
     const turn = makeTurn({
       inputSource: "agent" as any,
-      input: "[Message from 0xDEADBEEF]: Hello there",
+      input: "[Message from 64P4uSz8j65yPKdDMAuyzofZ3TbLzZ8foZg4BtButTRG]: Hello there",
       toolCalls: [
         makeToolCallResult({ id: "tc_1", name: "exec", result: "ok" }),
         makeToolCallResult({ id: "tc_2", name: "exec", result: "ok" }),
@@ -727,7 +727,7 @@ describe("MemoryIngestionPipeline", () => {
     pipeline.ingest("s1", turn, turn.toolCalls);
 
     const rm = new RelationshipMemoryManager(db);
-    const rel = rm.get("0xDEADBEEF");
+    const rel = rm.get("64P4uSz8j65yPKdDMAuyzofZ3TbLzZ8foZg4BtButTRG");
     expect(rel).toBeTruthy();
     // Should have interaction_count of 0 (new record) — NOT inflated by N tool calls
     expect(rel!.interactionCount).toBe(0);
@@ -885,14 +885,14 @@ describe("Memory Tools", () => {
   describe("noteAboutAgent", () => {
     it("should record a relationship note", () => {
       const result = noteAboutAgent(db, {
-        entityAddress: "0xABC",
+        entityAddress: "2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1",
         entityName: "Helper Bot",
         relationshipType: "service",
         notes: "Provides build services",
         trustScore: 0.8,
       });
       expect(result).toContain("Relationship noted");
-      expect(result).toContain("0xABC");
+      expect(result).toContain("2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1");
     });
   });
 
@@ -923,7 +923,7 @@ describe("Memory Tools", () => {
 
     it("should protect creator semantic entries", () => {
       const sm = new SemanticMemoryManager(db);
-      sm.store({ category: "creator", key: "creator_address", value: "0xCreator", source: "genesis" });
+      sm.store({ category: "creator", key: "creator_address", value: "BvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fA", source: "genesis" });
 
       const entry = sm.get("creator", "creator_address");
       const result = forget(db, { id: entry!.id, memoryType: "semantic" });
@@ -991,7 +991,7 @@ describe("formatMemoryBlock", () => {
         { id: "4", name: "deploy", description: "Deploy app", steps: [{ order: 1, description: "Build", tool: "exec", argsTemplate: null, expectedOutcome: null, onFailure: null }], successCount: 3, failureCount: 1, lastUsedAt: null, createdAt: "", updatedAt: "" },
       ],
       relationships: [
-        { id: "5", entityAddress: "0x1234", entityName: "Alice", relationshipType: "peer", trustScore: 0.8, interactionCount: 5, lastInteractionAt: null, notes: null, createdAt: "", updatedAt: "" },
+        { id: "5", entityAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", entityName: "Alice", relationshipType: "peer", trustScore: 0.8, interactionCount: 5, lastInteractionAt: null, notes: null, createdAt: "", updatedAt: "" },
       ],
       totalTokens: 50,
     };

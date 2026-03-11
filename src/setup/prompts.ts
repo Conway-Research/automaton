@@ -67,8 +67,8 @@ export async function promptMultiline(label: string): Promise<string> {
 export async function promptAddress(label: string): Promise<string> {
   while (true) {
     const value = await ask(chalk.white(`  → ${label}: `));
-    if (/^0x[0-9a-fA-F]{40}$/.test(value)) return value;
-    console.log(chalk.yellow("  Invalid Ethereum address. Must be 0x followed by 40 hex characters."));
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return value;
+    console.log(chalk.yellow("  Invalid Solana address. Must be 32-44 base58 characters."));
   }
 }
 

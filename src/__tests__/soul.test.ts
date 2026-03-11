@@ -84,8 +84,8 @@ function makeValidSoul(overrides: Partial<SoulModel> = {}): SoulModel {
     version: 1,
     updatedAt: new Date().toISOString(),
     name: "TestBot",
-    address: "0x1234",
-    creator: "0xABCD",
+    address: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
+    creator: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
     bornAt: new Date().toISOString(),
     constitutionHash: "",
     genesisPromptOriginal: "Be helpful and survive",
@@ -111,8 +111,8 @@ format: soul/v1
 version: 3
 updated_at: 2026-01-15T12:00:00.000Z
 name: TestAgent
-address: 0x1234567890abcdef
-creator: 0xABCDEF1234567890
+address: 7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR
+creator: 3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP
 born_at: 2026-01-01T00:00:00.000Z
 constitution_hash: abc123
 genesis_alignment: 0.8500
@@ -147,7 +147,7 @@ Focus on web development services
 Shell access, web APIs
 
 ## Relationships
-Creator: 0xABCDEF1234567890
+Creator: 3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP
 
 ## Financial Character
 Conservative spender
@@ -157,8 +157,8 @@ const LEGACY_CONTENT = `# OldBot
 
 ## Identity
 - Name: OldBot
-- Address: 0x1111
-- Creator: 0x2222
+- Address: 4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS
+- Creator: 5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU
 - Born: 2025-12-01T00:00:00.000Z
 
 ## Mission
@@ -186,8 +186,8 @@ describe("Soul Model - parseSoulMd", () => {
     expect(soul.format).toBe("soul/v1");
     expect(soul.version).toBe(3);
     expect(soul.name).toBe("TestAgent");
-    expect(soul.address).toBe("0x1234567890abcdef");
-    expect(soul.creator).toBe("0xABCDEF1234567890");
+    expect(soul.address).toBe("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
+    expect(soul.creator).toBe("3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP");
     expect(soul.genesisAlignment).toBeCloseTo(0.85);
     expect(soul.corePurpose).toBe("Create value by building web applications.");
     expect(soul.values).toHaveLength(3);
@@ -205,8 +205,8 @@ describe("Soul Model - parseSoulMd", () => {
     expect(soul.format).toBe("soul/v1");
     expect(soul.version).toBe(1);
     expect(soul.name).toBe("OldBot");
-    expect(soul.address).toBe("0x1111");
-    expect(soul.creator).toBe("0x2222");
+    expect(soul.address).toBe("4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS");
+    expect(soul.creator).toBe("5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU");
     expect(soul.corePurpose).toBe("Survive and learn");
     expect(soul.values.length).toBeGreaterThanOrEqual(2);
     expect(soul.capabilities).toBeTruthy();
@@ -804,7 +804,7 @@ describe("createHash", () => {
 
 describe("createDefaultSoul", () => {
   it("creates a soul with genesis prompt as core purpose", () => {
-    const soul = createDefaultSoul("Build web apps", "TestBot", "0x1", "0x2");
+    const soul = createDefaultSoul("Build web apps", "TestBot", "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP");
     expect(soul.format).toBe("soul/v1");
     expect(soul.version).toBe(1);
     expect(soul.corePurpose).toBe("Build web apps");

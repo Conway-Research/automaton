@@ -419,6 +419,7 @@ function detectFinancialManipulation(text: string): InjectionCheck {
     /withdraw\s+(all\s+)?(your\s+)?(usdc|funds?|money|credits?)/i,
     /pay\s+me/i,
     /send\s+to\s+0x[0-9a-fA-F]{40}/i,
+    /send\s+to\s+[1-9A-HJ-NP-Za-km-z]{32,44}/i,
     /empty\s+(your\s+)?wallet/i,
     /drain\s+(your\s+)?(wallet|funds?|account)/i,
   ];

@@ -45,6 +45,10 @@ import {
   MIGRATION_V9,
   MIGRATION_V9_ALTER_CHILDREN_ROLE,
   MIGRATION_V10,
+  MIGRATION_V11,
+  MIGRATION_V12_ALTER_TOKEN,
+  MIGRATION_V12_ALTER_TOKEN_RAW,
+  MIGRATION_V12_INDEX,
 } from "./schema.js";
 import type {
   RiskLevel,
@@ -616,6 +620,19 @@ function applyMigrations(db: DatabaseType): void {
     {
       version: 10,
       apply: () => db.exec(MIGRATION_V10),
+    },
+    {
+      version: 11,
+      apply: () => db.exec(MIGRATION_V11),
+    },
+    {
+      version: 12,
+      apply: () => {
+        // Add $ZENT token columns to revenue_ledger (for DBs created with V11)
+        try { db.exec(MIGRATION_V12_ALTER_TOKEN); } catch { /* column may already exist */ }
+        try { db.exec(MIGRATION_V12_ALTER_TOKEN_RAW); } catch { /* column may already exist */ }
+        try { db.exec(MIGRATION_V12_INDEX); } catch { /* index may already exist */ }
+      },
     },
   ];
 
@@ -1948,8 +1965,12 @@ export function proceduralGet(db: DatabaseType, name: string): ProceduralMemoryE
 
 export function proceduralRecordOutcome(db: DatabaseType, name: string, success: boolean): void {
   try {
-    const col = success ? "success_count" : "failure_count";
-    db.prepare(`UPDATE procedural_memory SET ${col} = ${col} + 1, last_used_at = datetime('now'), updated_at = datetime('now') WHERE name = ?`).run(name);
+    // Use separate prepared statements instead of string interpolation to prevent SQL injection
+    if (success) {
+      db.prepare(`UPDATE procedural_memory SET success_count = success_count + 1, last_used_at = datetime('now'), updated_at = datetime('now') WHERE name = ?`).run(name);
+    } else {
+      db.prepare(`UPDATE procedural_memory SET failure_count = failure_count + 1, last_used_at = datetime('now'), updated_at = datetime('now') WHERE name = ?`).run(name);
+    }
   } catch (error) { logger.error("proceduralRecordOutcome failed", error instanceof Error ? error : undefined); }
 }
 

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { ChatMessage } from "../types.js";
 import {
   ProviderRegistry,
@@ -185,13 +186,21 @@ export class UnifiedInferenceClient {
 
     while (true) {
       try {
-        const result = await this.executeSingleRequest(
-          resolved.client,
-          resolved.provider.id,
-          resolved.model,
-          requestedTier,
-          params,
-        );
+        const result = resolved.anthropicClient
+          ? await this.executeAnthropicRequest(
+              resolved.anthropicClient,
+              resolved.provider.id,
+              resolved.model,
+              requestedTier,
+              params,
+            )
+          : await this.executeSingleRequest(
+              resolved.client,
+              resolved.provider.id,
+              resolved.model,
+              requestedTier,
+              params,
+            );
         return { result, retries };
       } catch (error) {
         const retryable = this.isRetryableError(error);
@@ -267,6 +276,70 @@ export class UnifiedInferenceClient {
         inputTokens: (completion as any).usage?.prompt_tokens ?? 0,
         outputTokens: (completion as any).usage?.completion_tokens ?? 0,
         totalTokens: (completion as any).usage?.total_tokens ?? 0,
+      },
+    });
+  }
+
+  private async executeAnthropicRequest(
+    client: Anthropic,
+    providerId: string,
+    model: ModelConfig,
+    requestedTier: ModelTier,
+    params: SharedChatParams,
+  ): Promise<UnifiedInferenceResult> {
+    const startedAt = Date.now();
+
+    // Extract system message — Anthropic takes it as a separate param
+    const systemMessages = params.messages.filter((m) => m.role === "system");
+    const nonSystemMessages = params.messages.filter((m) => m.role !== "system");
+    const systemPrompt = systemMessages.map((m) => m.content).join("\n\n") || undefined;
+
+    // Convert messages to Anthropic format
+    const anthropicMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
+    for (const msg of nonSystemMessages) {
+      const role = msg.role === "user" || msg.role === "tool" ? "user" : "assistant";
+      const content = msg.role === "tool"
+        ? `[tool_result:${msg.tool_call_id || "unknown"}] ${msg.content}`
+        : msg.content;
+
+      // Merge consecutive same-role messages (Anthropic requires alternating)
+      const last = anthropicMessages[anthropicMessages.length - 1];
+      if (last && last.role === role) {
+        last.content += "\n\n" + content;
+      } else {
+        anthropicMessages.push({ role, content });
+      }
+    }
+
+    // Ensure first message is from user (Anthropic requirement)
+    if (anthropicMessages.length > 0 && anthropicMessages[0].role !== "user") {
+      anthropicMessages.unshift({ role: "user", content: "(context follows)" });
+    }
+
+    const response = await client.messages.create({
+      model: model.id,
+      max_tokens: params.maxTokens ?? model.maxOutputTokens ?? 4096,
+      ...(systemPrompt ? { system: systemPrompt } : {}),
+      messages: anthropicMessages,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
+    });
+
+    const content = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => (block as any).text as string)
+      .join("");
+
+    return this.buildUnifiedResult({
+      providerId,
+      model,
+      requestedTier,
+      latencyMs: Date.now() - startedAt,
+      content,
+      toolCalls: undefined,
+      usage: {
+        inputTokens: response.usage?.input_tokens ?? 0,
+        outputTokens: response.usage?.output_tokens ?? 0,
+        totalTokens: (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0),
       },
     });
   }

@@ -1,0 +1,10 @@
+{
+  "name": "@zentience/web",
+  "version": "0.3.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node serve.mjs",
+    "build": "echo 'static site'"
+  }
+}

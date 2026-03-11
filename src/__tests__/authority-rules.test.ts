@@ -215,12 +215,12 @@ describe("Authority Rules", () => {
       expect(decision.reasonCode).toBe("EXTERNAL_DANGEROUS_TOOL");
     });
 
-    it("allows register_erc8004 from external input", () => {
+    it("allows register_agent_card from external input", () => {
       const rules = createAuthorityRules();
       const engine = new PolicyEngine(db, rules);
 
       const tool = createMockTool({
-        name: "register_erc8004",
+        name: "register_agent_card",
         riskLevel: "dangerous",
         category: "registry",
       });
@@ -230,12 +230,12 @@ describe("Authority Rules", () => {
       expect(decision.action).toBe("allow");
     });
 
-    it("allows register_erc8004 from heartbeat input", () => {
+    it("allows register_agent_card from heartbeat input", () => {
       const rules = createAuthorityRules();
       const engine = new PolicyEngine(db, rules);
 
       const tool = createMockTool({
-        name: "register_erc8004",
+        name: "register_agent_card",
         riskLevel: "dangerous",
         category: "registry",
       });

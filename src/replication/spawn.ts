@@ -15,6 +15,7 @@ import type {
   ChildAutomaton,
 } from "../types.js";
 import type { ChildLifecycle } from "./lifecycle.js";
+import { PublicKey } from "@solana/web3.js";
 import { ulid } from "ulid";
 import { propagateConstitution } from "./constitution.js";
 
@@ -33,12 +34,15 @@ function selectSandboxTier(requestedMemoryMb: number) {
 }
 
 /**
- * Validate that an address is a well-formed, non-zero Ethereum wallet address.
+ * Validate that an address is a well-formed Solana wallet address (on-curve).
  */
 export function isValidWalletAddress(address: string): boolean {
-  return (
-    /^0x[a-fA-F0-9]{40}$/.test(address) && address !== "0x" + "0".repeat(40)
-  );
+  try {
+    const pubkey = new PublicKey(address);
+    return PublicKey.isOnCurve(pubkey.toBytes());
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -151,7 +155,7 @@ export async function spawnChild(
 
     // Initialize child wallet (on the CHILD sandbox)
     const initResult = await childConway.exec("node /root/automaton/dist/index.js --init 2>&1", 60_000);
-    const walletMatch = (initResult.stdout || "").match(/0x[a-fA-F0-9]{40}/);
+    const walletMatch = (initResult.stdout || "").match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
     const childWallet = walletMatch ? walletMatch[0] : "";
 
     if (!isValidWalletAddress(childWallet)) {
@@ -278,7 +282,7 @@ async function spawnChildLegacy(
     }
 
     const initResult = await childConway.exec("node /root/automaton/dist/index.js --init 2>&1", 60_000);
-    const walletMatch = (initResult.stdout || "").match(/0x[a-fA-F0-9]{40}/);
+    const walletMatch = (initResult.stdout || "").match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
     const childWallet = walletMatch ? walletMatch[0] : "";
 
     if (!isValidWalletAddress(childWallet)) {

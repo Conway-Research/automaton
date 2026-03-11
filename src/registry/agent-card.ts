@@ -1,13 +1,9 @@
 /**
- * Agent Card
+ * Agent Card (Solana)
  *
  * Generates and manages the agent's self-description card.
- * This is the JSON document pointed to by the ERC-8004 agentURI.
+ * This is the JSON document pointed to by the registry agentURI.
  * Can be hosted on IPFS or served at /.well-known/agent-card.json
- *
- * Phase 3.2: Fixed code injection in hostAgentCard (S-P0-3),
- * removed internal details from card (S-P1-10),
- * added CORS headers and Content-Type.
  */
 
 import type {
@@ -18,34 +14,42 @@ import type {
   AutomatonDatabase,
   ConwayClient,
 } from "../types.js";
+import type { ServiceRegistry } from "../revenue/service-registry.js";
 
 const AGENT_CARD_TYPE =
-  "https://eips.ethereum.org/EIPS/eip-8004#registration-v1";
+  "https://zentience.ai/agent-registry#registration-v1";
 
 /**
  * Generate an agent card from the automaton's current state.
- *
- * Phase 3.2: Only expose agentWallet service, name, generic description,
- * x402Support, and active status. Do NOT include:
- * - Conway API URL (internal infrastructure)
- * - Sandbox ID (internal identifier)
- * - Creator address (privacy)
+ * Optionally includes paid service catalog from the revenue engine.
  */
 export function generateAgentCard(
   identity: AutomatonIdentity,
   config: AutomatonConfig,
   _db: AutomatonDatabase,
+  serviceRegistry?: ServiceRegistry,
 ): AgentCard {
-  // Phase 3.2: Only expose agentWallet service
   const services: AgentService[] = [
     {
       name: "agentWallet",
-      endpoint: `eip155:8453:${identity.address}`,
+      endpoint: `solana:mainnet-beta:${identity.address}`,
     },
   ];
 
-  // Phase 3.2: Generic description, no internal details
-  const description = `Autonomous agent: ${config.name}`;
+  // Add paid service catalog if revenue engine is active
+  if (serviceRegistry) {
+    const catalog = serviceRegistry.toCatalog();
+    for (const svc of catalog) {
+      services.push({
+        name: `x402:${svc.name}`,
+        endpoint: svc.path,
+      });
+    }
+  }
+
+  const description = serviceRegistry
+    ? `Autonomous agent: ${config.name} — ${serviceRegistry.getActiveServices().length} paid services available via x402`
+    : `Autonomous agent: ${config.name}`;
 
   return {
     type: AGENT_CARD_TYPE,
@@ -66,11 +70,6 @@ export function serializeAgentCard(card: AgentCard): string {
 
 /**
  * Host the agent card at /.well-known/agent-card.json
- * by exposing a simple HTTP server on a port.
- *
- * Phase 3.2: CRITICAL FIX (S-P0-3) — Write card as a SEPARATE JSON file.
- * Server script reads the file at request time, NOT interpolated into JS.
- * Added CORS headers and X-Content-Type-Options: nosniff.
  */
 export async function hostAgentCard(
   card: AgentCard,
@@ -79,17 +78,14 @@ export async function hostAgentCard(
 ): Promise<string> {
   const cardJson = serializeAgentCard(card);
 
-  // Phase 3.2: Write card as a separate JSON file (not interpolated into JS)
   await conway.writeFile("/tmp/agent-card.json", cardJson);
 
-  // Phase 3.2: Server reads the file at request time
   const serverScript = `
 const http = require('http');
 const fs = require('fs');
 const path = '/tmp/agent-card.json';
 
 const server = http.createServer((req, res) => {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -121,13 +117,11 @@ server.listen(${port}, () => console.log('Agent card server on port ' + ${port})
 
   await conway.writeFile("/tmp/agent-card-server.js", serverScript);
 
-  // Start server in background
   await conway.exec(
     `node /tmp/agent-card-server.js &`,
     5000,
   );
 
-  // Expose port
   const portInfo = await conway.exposePort(port);
 
   return `${portInfo.publicUrl}/.well-known/agent-card.json`;

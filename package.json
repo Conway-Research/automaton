@@ -1,7 +1,7 @@
 {
-  "name": "@conway/automaton",
-  "version": "0.2.1",
-  "description": "Conway Automaton - Sovereign AI Agent Runtime",
+  "name": "@zentience/automaton",
+  "version": "0.3.0",
+  "description": "Zentience Automaton - Sovereign AI Agent Runtime (Solana)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Conway-Research/automaton.git"
+    "url": "https://github.com/0xZentience/Zentience.git"
   },
   "homepage": "https://conway.tech",
   "keywords": [
@@ -46,11 +46,18 @@
     "test:security": "vitest run --grep 'security|injection|policy'",
     "test:financial": "vitest run --grep 'financial|spend|treasury'",
     "test:ci": "vitest run --reporter=verbose",
+    "start": "node web/start.mjs",
+    "start:full": "tsx scripts/dev-start.ts",
+    "dev:agent": "tsx scripts/dev-start.ts",
     "clean": "rm -rf dist && pnpm -r clean"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.95.0",
     "@types/better-sqlite3": "^7.6.0",
     "better-sqlite3": "^11.0.0",
+    "bs58": "^5.0.0",
     "chalk": "^5.3.0",
     "cron-parser": "^4.9.0",
     "gray-matter": "^4.0.3",
@@ -58,15 +65,14 @@
     "openai": "^6.24.0",
     "ora": "^8.0.0",
     "simple-git": "^3.24.0",
-    "siwe": "^2.3.0",
+    "tweetnacl": "^1.0.3",
     "ulid": "^2.3.0",
-    "viem": "^2.44.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.9.3",
     "yaml": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.9.3",
     "vitest": "^2.0.0"
   },
   "engines": {

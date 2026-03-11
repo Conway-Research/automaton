@@ -101,7 +101,7 @@ describe("integration/multi-agent-coordination", () => {
       ]);
 
       const tasks = getTasksByGoal(db, goal.id);
-      const agents = ["0xagent1", "0xagent2", "0xagent3"];
+      const agents = ["7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP", "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS"];
 
       for (let i = 0; i < tasks.length; i++) {
         assignTask(db, tasks[i].id, agents[i]);
@@ -109,7 +109,7 @@ describe("integration/multi-agent-coordination", () => {
 
       const updated = getTasksByGoal(db, goal.id);
       const assignedAgents = updated.map((t) => t.assignedTo).sort();
-      expect(assignedAgents).toEqual(["0xagent1", "0xagent2", "0xagent3"].sort());
+      expect(assignedAgents).toEqual(["7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP", "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS"].sort());
       for (const task of updated) {
         expect(task.status).toBe("assigned");
       }

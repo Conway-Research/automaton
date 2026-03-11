@@ -227,7 +227,7 @@ describe("Financial Policy Rules", () => {
     it("allows transfers within limit and below confirmation threshold", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 500, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 500, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
       );
 
@@ -238,7 +238,7 @@ describe("Financial Policy Rules", () => {
     it("quarantines transfers above confirmation threshold but within single limit", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 4000, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 4000, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
       );
 
@@ -250,7 +250,7 @@ describe("Financial Policy Rules", () => {
     it("denies transfers above 5000 cents", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 6000, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 6000, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
       );
 
@@ -262,7 +262,7 @@ describe("Financial Policy Rules", () => {
     it("denies transfers exactly at boundary + 1", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 5001, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 5001, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
       );
 
@@ -273,7 +273,7 @@ describe("Financial Policy Rules", () => {
     it("quarantines transfers exactly at single limit (above confirmation threshold)", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 5000, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 5000, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
       );
 
@@ -294,7 +294,7 @@ describe("Financial Policy Rules", () => {
 
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 500, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 500, to_address: "11111111111111111111111111111111" },
         spendTracker,
       );
 
@@ -317,7 +317,7 @@ describe("Financial Policy Rules", () => {
 
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 1000, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 1000, to_address: "11111111111111111111111111111111" },
         spendTracker,
       );
 
@@ -347,7 +347,7 @@ describe("Financial Policy Rules", () => {
 
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 2000, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 2000, to_address: "11111111111111111111111111111111" },
         spendTracker,
       );
 
@@ -361,7 +361,7 @@ describe("Financial Policy Rules", () => {
     it("allows first transfer in a turn", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 100, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 100, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
         0, // first call
       );
@@ -373,7 +373,7 @@ describe("Financial Policy Rules", () => {
     it("allows second transfer in a turn", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 100, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 100, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
         1, // second call
       );
@@ -385,7 +385,7 @@ describe("Financial Policy Rules", () => {
     it("denies third transfer in a turn (> maxTransfersPerTurn=2)", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 100, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 100, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
         2, // third call (0-indexed: 0, 1, 2)
       );
@@ -398,7 +398,7 @@ describe("Financial Policy Rules", () => {
     it("denies 10th transfer in a turn", () => {
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 100, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 100, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
         9,
       );
@@ -412,7 +412,7 @@ describe("Financial Policy Rules", () => {
       // turnToolCallCount should reflect transfer count (0), not total tool call index
       const request = createRequest(
         mockTransferTool(),
-        { amount_cents: 100, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+        { amount_cents: 100, to_address: "11111111111111111111111111111111" },
         createMockSpendTracker(),
         0, // zero prior transfers, regardless of how many other tools ran
       );
@@ -430,7 +430,7 @@ describe("Financial Policy Rules", () => {
       for (let i = 0; i < 10; i++) {
         const request = createRequest(
           mockTransferTool(),
-          { amount_cents: 500, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+          { amount_cents: 500, to_address: "11111111111111111111111111111111" },
           spendTracker,
           i,
         );
@@ -474,7 +474,7 @@ describe("Financial Policy Rules", () => {
       for (let i = 0; i < 10; i++) {
         const request = createRequest(
           mockTransferTool(),
-          { amount_cents: 2000, to_address: "0x1234567890abcdef1234567890abcdef12345678" },
+          { amount_cents: 2000, to_address: "11111111111111111111111111111111" },
           spendTracker,
           i,
         );

@@ -7,7 +7,7 @@
  */
 
 import type BetterSqlite3 from "better-sqlite3";
-import type { Address } from "viem";
+import type { SolanaAddress } from "../types.js";
 import type {
   ConwayClient,
   HeartbeatConfig,
@@ -41,17 +41,25 @@ export async function buildTickContext(
   db: DatabaseType,
   conway: ConwayClient,
   config: HeartbeatConfig,
-  walletAddress?: Address,
+  walletAddress?: SolanaAddress,
 ): Promise<TickContext> {
   const tickId = generateTickId();
   const startedAt = new Date();
 
   // Fetch balances ONCE
+  // When running Anthropic-direct (no Conway API key), skip credit check
+  // and report virtual balance so heartbeat doesn't report false distress
   let creditBalance = 0;
-  try {
-    creditBalance = await conway.getCreditsBalance();
-  } catch (err: any) {
-    logger.error("Failed to fetch credit balance", err instanceof Error ? err : undefined);
+  const hasConwayKey = !!(process.env.CONWAY_API_KEY || process.env.CONWAY_KEY);
+  if (hasConwayKey) {
+    try {
+      creditBalance = await conway.getCreditsBalance();
+    } catch (err: any) {
+      logger.error("Failed to fetch credit balance", err instanceof Error ? err : undefined);
+    }
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    // Anthropic-direct mode: virtual credits (API key IS the funding)
+    creditBalance = 100;
   }
 
   let usdcBalance = 0;

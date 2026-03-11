@@ -1,25 +1,28 @@
 /**
- * Conway Automaton - Type Definitions
+ * Zentience Automaton - Type Definitions (Solana)
  *
  * All shared interfaces for the sovereign AI agent runtime.
  */
 
-import type { PrivateKeyAccount, Address } from "viem";
+import type { Keypair } from "@solana/web3.js";
+
+/** Solana base58 public key string */
+export type SolanaAddress = string;
 
 // ─── Identity ────────────────────────────────────────────────────
 
 export interface AutomatonIdentity {
   name: string;
-  address: Address;
-  account: PrivateKeyAccount;
-  creatorAddress: Address;
+  address: SolanaAddress;
+  keypair: Keypair;
+  creatorAddress: SolanaAddress;
   sandboxId: string;
   apiKey: string;
   createdAt: string;
 }
 
 export interface WalletData {
-  privateKey: `0x${string}`;
+  secretKey: string; // base58-encoded 64-byte secret key
   createdAt: string;
 }
 
@@ -35,7 +38,7 @@ export interface AutomatonConfig {
   name: string;
   genesisPrompt: string;
   creatorMessage?: string;
-  creatorAddress: Address;
+  creatorAddress: SolanaAddress;
   registeredWithConway: boolean;
   sandboxId: string;
   conwayApiUrl: string;
@@ -48,21 +51,19 @@ export interface AutomatonConfig {
   heartbeatConfigPath: string;
   dbPath: string;
   logLevel: "debug" | "info" | "warn" | "error";
-  walletAddress: Address;
+  walletAddress: SolanaAddress;
   version: string;
   skillsDir: string;
   agentId?: string;
   maxChildren: number;
   maxTurnsPerCycle?: number;
-  /** 子沙盒内存配置 (MB)，默认 1024 */
   childSandboxMemoryMb?: number;
-  parentAddress?: Address;
+  parentAddress?: SolanaAddress;
   socialRelayUrl?: string;
   treasuryPolicy?: TreasuryPolicy;
-  // Phase 2 config additions
   soulConfig?: SoulConfig;
   modelStrategy?: ModelStrategyConfig;
-  /** Custom RPC endpoint for Base chain interactions (overrides default public RPC) */
+  /** Custom RPC endpoint for Solana interactions (overrides default) */
   rpcUrl?: string;
 }
 
@@ -197,7 +198,7 @@ export interface HeartbeatConfig {
 
 export interface HeartbeatPingPayload {
   name: string;
-  address: Address;
+  address: SolanaAddress;
   state: AgentState;
   creditsCents: number;
   usdcBalance: number;
@@ -361,12 +362,12 @@ export interface ConwayClient {
   ): Promise<CreditTransferResult>;
   registerAutomaton(params: {
     automatonId: string;
-    automatonAddress: Address;
-    creatorAddress: Address;
+    automatonAddress: SolanaAddress;
+    creatorAddress: SolanaAddress;
     name: string;
     bio?: string;
-    genesisPromptHash?: `0x${string}`;
-    account: PrivateKeyAccount;
+    genesisPromptHash?: string;
+    keypair: Keypair;
     nonce?: string;
   }): Promise<{ automaton: Record<string, unknown> }>;
   // Domain operations
@@ -752,7 +753,7 @@ export interface GitLogEntry {
   date: string;
 }
 
-// ─── ERC-8004 Registry ─────────────────────────────────────────
+// ─── Agent Registry (Solana) ─────────────────────────────────────────
 
 export interface AgentCard {
   type: string;
@@ -801,7 +802,7 @@ export interface DiscoveredAgent {
 export interface ChildAutomaton {
   id: string;
   name: string;
-  address: Address;
+  address: SolanaAddress;
   sandboxId: string;
   genesisPrompt: string;
   creatorMessage?: string;
@@ -834,8 +835,8 @@ export interface GenesisConfig {
   name: string;
   genesisPrompt: string;
   creatorMessage?: string;
-  creatorAddress: Address;
-  parentAddress: Address;
+  creatorAddress: SolanaAddress;
+  parentAddress: SolanaAddress;
 }
 
 export const MAX_CHILDREN = 3;

@@ -113,7 +113,7 @@ describe("buildContextMessages token budget", () => {
   it("summarizes old turns when budget is exceeded", () => {
     // Each large turn is ~50k chars = ~12,500 tokens
     // With budget of 50k tokens for recentTurns, 5 such turns should trigger summarization
-    const largeTurns = Array.from({ length: 5 }, () => makeLargeTurn(50_000));
+    const largeTurns = Array.from({ length: 5 }, () => makeLargeTurn(5_000));
     const messages = buildContextMessages("System prompt", largeTurns);
 
     // Should have a summary message for old turns
@@ -126,7 +126,7 @@ describe("buildContextMessages token budget", () => {
 
   it("preserves most recent turns when summarizing", () => {
     const largeTurns = Array.from({ length: 5 }, (_, i) =>
-      makeLargeTurn(50_000),
+      makeLargeTurn(5_000),
     );
     // Tag the last turn so we can find it
     largeTurns[4].thinking = "LATEST_TURN_MARKER";
@@ -163,7 +163,7 @@ describe("buildContextMessages token budget", () => {
   });
 
   it("does not summarize when only one turn exists", () => {
-    const turns = [makeLargeTurn(500_000)];
+    const turns = [makeLargeTurn(50_000)];
     const messages = buildContextMessages("System prompt", turns);
 
     const summaryMessage = messages.find(

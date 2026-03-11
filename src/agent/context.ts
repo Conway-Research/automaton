@@ -170,9 +170,14 @@ export function buildContextMessages(
         content: turn.thinking,
       };
 
-      // If there were tool calls, include them
-      if (turn.toolCalls.length > 0) {
-        msg.tool_calls = turn.toolCalls.map((tc) => ({
+      // Only include tool_calls if every call has a result (prevents Anthropic 400 errors).
+      // Results from DB can be undefined, null, or empty string — check for all.
+      const completeToolCalls = turn.toolCalls.filter(
+        (tc) => (tc.result != null && tc.result !== "") || (tc.error != null && tc.error !== "")
+      );
+
+      if (completeToolCalls.length > 0) {
+        msg.tool_calls = completeToolCalls.map((tc) => ({
           id: tc.id,
           type: "function" as const,
           function: {
@@ -184,7 +189,7 @@ export function buildContextMessages(
       messages.push(msg);
 
       // Add tool results with truncation
-      for (const tc of turn.toolCalls) {
+      for (const tc of completeToolCalls) {
         const rawContent = tc.error
           ? `Error: ${tc.error}`
           : tc.result;

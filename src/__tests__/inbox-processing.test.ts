@@ -26,11 +26,11 @@ function makeTmpDbPath(): string {
   return path.join(tmpDir, "test.db");
 }
 
-function insertTestMessage(db: AutomatonDatabase, id: string, from = "0xsender"): void {
+function insertTestMessage(db: AutomatonDatabase, id: string, from = "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP"): void {
   db.insertInboxMessage({
     id,
     from,
-    to: "0xme",
+    to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
     content: `Message ${id}`,
     signedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
