@@ -185,8 +185,9 @@ export class InferenceRouter {
    * Select the best model for a given tier and task type.
    *
    * Priority:
-   *   1. First routing-matrix candidate present in the registry
-   *   2. User-configured model(s) from ModelStrategyConfig
+   *   1. User-configured inferenceModel (highest priority - respects user choice)
+   *   2. First routing-matrix candidate present in the registry
+   *   3. Other user-configured models from ModelStrategyConfig
    *      (free/Ollama models are allowed at any tier, including dead)
    */
   selectModel(tier: SurvivalTier, taskType: InferenceTaskType): ModelEntry | null {
@@ -195,8 +196,22 @@ export class InferenceRouter {
     };
 
     const tierRank = TIER_ORDER[tier] ?? 0;
+    const strategy = this.budget.config;
 
-    // 1. Try routing-matrix candidates
+    // 1. Try user-configured inferenceModel first (highest priority)
+    //    This ensures user's model choice is respected over routing-matrix defaults
+    if (strategy.inferenceModel) {
+      const entry = this.registry.get(strategy.inferenceModel);
+      if (entry && entry.enabled) {
+        const isFree = entry.costPer1kInput === 0 && entry.costPer1kOutput === 0;
+        const tierOk = tierRank >= (TIER_ORDER[entry.tierMinimum] ?? 0);
+        if (isFree || tierOk) {
+          return entry;
+        }
+      }
+    }
+
+    // 2. Try routing-matrix candidates as fallback
     const preference = this.getPreference(tier, taskType);
     if (preference && preference.candidates.length > 0) {
       for (const candidateId of preference.candidates) {
@@ -207,13 +222,12 @@ export class InferenceRouter {
       }
     }
 
-    // 2. Fall back to user-configured models.
+    // 3. Fall back to other user-configured models.
     //    This handles local/Ollama setups where routing-matrix models are absent.
-    const strategy = this.budget.config;
     const fallbackIds: (string | undefined)[] =
       tier === "critical" || tier === "dead"
-        ? [strategy.criticalModel, strategy.inferenceModel, strategy.lowComputeModel]
-        : [strategy.inferenceModel, strategy.lowComputeModel, strategy.criticalModel];
+        ? [strategy.criticalModel, strategy.lowComputeModel]
+        : [strategy.lowComputeModel, strategy.criticalModel];
 
     for (const modelId of fallbackIds) {
       if (!modelId) continue;
