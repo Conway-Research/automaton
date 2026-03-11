@@ -335,6 +335,8 @@ async function handleRpcProxy(req, res) {
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
 const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
+const CONWAY_KEY = process.env.CONWAY_API_KEY || '';
+const CONWAY_API_URL = process.env.CONWAY_API_URL || 'https://api.conway.tech';
 
 // Rate limiting for direct inference (prevents abuse when x402 is down)
 const inferenceRateLimit = new Map(); // ip -> { count, resetAt }
@@ -616,7 +618,7 @@ async function handleDirectInference(req, res, pathname, cachedBody) {
     let tokens = 0;
 
     if (ANTHROPIC_KEY) {
-      // Use Anthropic
+      // Use Anthropic directly — primary provider
       const apiResp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -674,11 +676,41 @@ async function handleDirectInference(req, res, pathname, cachedBody) {
       model = data.model || 'gpt-4.1-mini';
       tokens = data.usage?.total_tokens || 0;
 
+    } else if (CONWAY_KEY) {
+      // Use Conway (OpenAI-compatible) — fallback
+      const apiResp = await fetch(`${CONWAY_API_URL}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${CONWAY_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2048,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: truncated },
+          ],
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!apiResp.ok) {
+        const errBody = await apiResp.text();
+        console.error('[inference] Conway error:', apiResp.status, errBody);
+        throw new Error(`Conway API ${apiResp.status}: ${errBody.slice(0, 200)}`);
+      }
+
+      const data = await apiResp.json();
+      responseText = data.choices?.[0]?.message?.content || '';
+      model = data.model || 'claude-haiku-4-5-20251001';
+      tokens = data.usage?.total_tokens || 0;
+
     } else {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'No inference provider configured',
-        hint: 'Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable',
+        hint: 'Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or CONWAY_API_KEY',
       }));
       return;
     }
@@ -705,8 +737,8 @@ async function handleDirectInference(req, res, pathname, cachedBody) {
 
   } catch (err) {
     console.error('[inference] Direct inference failed:', err.message);
-    console.error('[inference] Provider state: ANTHROPIC_KEY=%s OPENAI_KEY=%s', ANTHROPIC_KEY ? 'set' : 'MISSING', OPENAI_KEY ? 'set' : 'MISSING');
-    const hint = !ANTHROPIC_KEY && !OPENAI_KEY ? 'No API key configured' : err.message?.includes('401') ? 'API key invalid' : err.message?.includes('429') ? 'Rate limited — retrying soon' : 'Inference warming up';
+    console.error('[inference] Provider state: CONWAY_KEY=%s ANTHROPIC_KEY=%s OPENAI_KEY=%s', CONWAY_KEY ? 'set' : 'MISSING', ANTHROPIC_KEY ? 'set' : 'MISSING', OPENAI_KEY ? 'set' : 'MISSING');
+    const hint = !CONWAY_KEY && !ANTHROPIC_KEY && !OPENAI_KEY ? 'No API key configured' : err.message?.includes('401') ? 'API key invalid' : err.message?.includes('429') ? 'Rate limited — retrying soon' : 'Inference warming up';
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       error: hint,
