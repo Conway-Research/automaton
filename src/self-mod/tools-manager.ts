@@ -9,6 +9,7 @@ import type {
   AutomatonDatabase,
   InstalledTool,
 } from "../types.js";
+import { escapeShellArg } from "../shell-escape.js";
 import { logModification } from "./audit-log.js";
 import { ulid } from "ulid";
 
@@ -29,7 +30,7 @@ export async function installNpmPackage(
   }
 
   const result = await conway.exec(
-    `npm install -g ${packageName}`,
+    `npm install -g ${escapeShellArg(packageName)}`,
     120000,
   );
 
