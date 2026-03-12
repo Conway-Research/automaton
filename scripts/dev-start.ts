@@ -154,8 +154,9 @@ function createDevServices(serviceRegistry: ServiceRegistry): ServiceEndpoint[] 
       description: askService.description,
       maxPerHourPerPayer: 60,
       handler: async (req: ParsedRequest) => {
-        const body = JSON.parse(req.body || "{}");
-        const question = body.question || body.prompt || "Hello";
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(req.body || "{}"); } catch { body = {}; }
+        const question = (body.question || body.prompt || "Hello") as string;
         return {
           status: 200,
           body: {
@@ -176,8 +177,9 @@ function createDevServices(serviceRegistry: ServiceRegistry): ServiceEndpoint[] 
       description: analyzeService.description,
       maxPerHourPerPayer: 30,
       handler: async (req: ParsedRequest) => {
-        const body = JSON.parse(req.body || "{}");
-        const code = body.code || "// no code provided";
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(req.body || "{}"); } catch { body = {}; }
+        const code = (body.code || "// no code provided") as string;
         return {
           status: 200,
           body: {
@@ -202,8 +204,9 @@ function createDevServices(serviceRegistry: ServiceRegistry): ServiceEndpoint[] 
       description: researchService.description,
       maxPerHourPerPayer: 20,
       handler: async (req: ParsedRequest) => {
-        const body = JSON.parse(req.body || "{}");
-        const topic = body.topic || body.query || "AI agents";
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(req.body || "{}"); } catch { body = {}; }
+        const topic = (body.topic || body.query || "AI agents") as string;
         return {
           status: 200,
           body: {
