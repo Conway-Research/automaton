@@ -12,9 +12,9 @@ import { createInMemoryDb } from "./test-db.js";
 
 const IDENTITY = {
   name: "test",
-  address: "0x1234" as any,
+  address: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" as any,
   account: {} as any,
-  creatorAddress: "0x0000" as any,
+  creatorAddress: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP" as any,
   sandboxId: "sb-1",
   apiKey: "key",
   createdAt: "2026-01-01T00:00:00Z",
@@ -60,7 +60,7 @@ function makeMessaging(_raw: BetterSqlite3.Database): {
 
   const automataDb = {
     raw: _raw,
-    getIdentity: (key: string) => (key === "address" ? "0x1234" : undefined),
+    getIdentity: (key: string) => (key === "address" ? "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" : undefined),
     getChildren: () => [],
     getUnprocessedInboxMessages: (_limit: number) => [],
     markInboxMessageProcessed: (_id: string) => {},
@@ -345,13 +345,13 @@ describe("orchestration/Orchestrator", () => {
       const goalId = insertGoal(db);
       const agentTracker = makeAgentTracker({
         getIdle: vi.fn().mockReturnValue([
-          { address: "0xspecialist", name: "Specialist", role: "researcher", status: "healthy" },
-          { address: "0xgeneralist", name: "Generalist", role: "generalist", status: "healthy" },
+          { address: "4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS", name: "Specialist", role: "researcher", status: "healthy" },
+          { address: "5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU", name: "Generalist", role: "generalist", status: "healthy" },
         ]),
       });
       const orc = makeOrchestrator(db, { agentTracker });
       const result = await orc.matchTaskToAgent(makeTask(goalId, { agentRole: "researcher" }));
-      expect(result.agentAddress).toBe("0xspecialist");
+      expect(result.agentAddress).toBe("4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS");
       expect(result.spawned).toBe(false);
     });
 
@@ -359,11 +359,11 @@ describe("orchestration/Orchestrator", () => {
       const goalId = insertGoal(db);
       const agentTracker = makeAgentTracker({
         getIdle: vi.fn().mockReturnValue([]),
-        getBestForTask: vi.fn().mockReturnValue({ address: "0xbest", name: "Best" }),
+        getBestForTask: vi.fn().mockReturnValue({ address: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX", name: "Best" }),
       });
       const orc = makeOrchestrator(db, { agentTracker });
       const result = await orc.matchTaskToAgent(makeTask(goalId));
-      expect(result.agentAddress).toBe("0xbest");
+      expect(result.agentAddress).toBe("6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX");
       expect(result.spawned).toBe(false);
     });
 
@@ -373,13 +373,13 @@ describe("orchestration/Orchestrator", () => {
         getIdle: vi.fn().mockReturnValue([]),
         getBestForTask: vi.fn().mockReturnValue(null),
       });
-      const spawnAgent = vi.fn().mockResolvedValue({ address: "0xspawned", name: "Spawned", sandboxId: "sb-2" });
+      const spawnAgent = vi.fn().mockResolvedValue({ address: "8uJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jY", name: "Spawned", sandboxId: "sb-2" });
       const orc = makeOrchestrator(db, {
         agentTracker,
         config: { spawnAgent },
       });
       const result = await orc.matchTaskToAgent(makeTask(goalId));
-      expect(result.agentAddress).toBe("0xspawned");
+      expect(result.agentAddress).toBe("8uJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jY");
       expect(result.spawned).toBe(true);
       expect(spawnAgent).toHaveBeenCalledTimes(1);
       expect(agentTracker.register).toHaveBeenCalled();
@@ -390,7 +390,7 @@ describe("orchestration/Orchestrator", () => {
       // Insert a running child into the DB
       db.prepare(
         "INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, creator_message, funded_amount_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      ).run(ulid(), "BusyAgent", "0xbusy", "sb-3", "prompt", "msg", 0, "running", new Date().toISOString());
+      ).run(ulid(), "BusyAgent", "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", "sb-3", "prompt", "msg", 0, "running", new Date().toISOString());
 
       const agentTracker = makeAgentTracker({
         getIdle: vi.fn().mockReturnValue([]),
@@ -401,7 +401,7 @@ describe("orchestration/Orchestrator", () => {
         config: { disableSpawn: true },
       });
       const result = await orc.matchTaskToAgent(makeTask(goalId));
-      expect(result.agentAddress).toBe("0xbusy");
+      expect(result.agentAddress).toBe("9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS");
       expect(result.spawned).toBe(false);
     });
 
@@ -457,15 +457,15 @@ describe("orchestration/Orchestrator", () => {
       const goalId = insertGoal(db);
       const funding = makeFunding();
       const orc = makeOrchestrator(db, { funding, config: { defaultTaskFundingCents: 25 } });
-      await orc.fundAgentForTask("0xagent", makeTaskWithCost(goalId, 0));
-      expect(funding.fundChild).toHaveBeenCalledWith("0xagent", 25);
+      await orc.fundAgentForTask("2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", makeTaskWithCost(goalId, 0));
+      expect(funding.fundChild).toHaveBeenCalledWith("2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", 25);
     });
 
     it("skips funding when estimated amount and default are both 0", async () => {
       const goalId = insertGoal(db);
       const funding = makeFunding();
       const orc = makeOrchestrator(db, { funding, config: { defaultTaskFundingCents: 0 } });
-      await orc.fundAgentForTask("0xagent", makeTaskWithCost(goalId, 0));
+      await orc.fundAgentForTask("2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", makeTaskWithCost(goalId, 0));
       expect(funding.fundChild).not.toHaveBeenCalled();
     });
 
@@ -475,8 +475,8 @@ describe("orchestration/Orchestrator", () => {
         fundChild: vi.fn().mockResolvedValue({ success: false }),
       });
       const orc = makeOrchestrator(db, { funding, config: { defaultTaskFundingCents: 25 } });
-      await expect(orc.fundAgentForTask("0xagent", makeTaskWithCost(goalId, 25))).rejects.toThrow(
-        "Funding transfer failed for 0xagent",
+      await expect(orc.fundAgentForTask("2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", makeTaskWithCost(goalId, 25))).rejects.toThrow(
+        "Funding transfer failed for 2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1",
       );
     });
   });
@@ -492,8 +492,8 @@ describe("orchestration/Orchestrator", () => {
         message: {
           id: ulid(),
           type: msg.type,
-          from: "0xagent",
-          to: "0x1234",
+          from: "2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1",
+          to: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
           goalId: null,
           taskId: null,
           content: msg.content,
@@ -551,8 +551,8 @@ describe("orchestration/Orchestrator", () => {
         message: {
           id: ulid(),
           type: msg.type,
-          from: "0xagent",
-          to: "0x1234",
+          from: "2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1",
+          to: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
           goalId: null,
           taskId: null,
           content: msg.content,
@@ -584,7 +584,7 @@ describe("orchestration/Orchestrator", () => {
         title: "Failing Task",
         description: "This task fails",
         status: "running" as const,
-        assignedTo: "0xagent",
+        assignedTo: "2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1",
         agentRole: "generalist",
         priority: 50,
         dependencies: [],

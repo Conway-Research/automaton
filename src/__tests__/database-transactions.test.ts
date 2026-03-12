@@ -181,8 +181,8 @@ describe("Database Transaction Safety", () => {
       // Insert an inbox message
       db.insertInboxMessage({
         id: "msg-001",
-        from: "0xsender",
-        to: "0xme",
+        from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+        to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
         content: "hello",
         signedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),

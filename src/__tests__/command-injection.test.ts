@@ -436,10 +436,10 @@ describe("Validation rules", () => {
   describe("validate.address_format", () => {
     const rule = rules.find((r) => r.id === "validate.address_format")!;
 
-    it("allows valid Ethereum addresses", () => {
+    it("allows valid Solana addresses", () => {
       const valid = [
-        "0x1234567890abcdef1234567890abcdef12345678",
-        "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
+        "11111111111111111111111111111111",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       ];
       for (const to_address of valid) {
         const request = makeRequest("transfer_credits", { to_address }, "treasury");
@@ -451,9 +451,9 @@ describe("Validation rules", () => {
     it("rejects invalid addresses", () => {
       const invalid = [
         "not-an-address",
-        "0x1234",     // too short
-        "1234567890abcdef1234567890abcdef12345678", // no 0x prefix
-        "0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", // non-hex
+        "abc",        // too short
+        "0x1234567890abcdef1234567890abcdef12345678", // hex format, not base58
+        "OOOO0000OOOO0000OOOO0000OOOO0000OO", // invalid base58 chars (O and 0 mix)
       ];
       for (const to_address of invalid) {
         const request = makeRequest("transfer_credits", { to_address }, "treasury");

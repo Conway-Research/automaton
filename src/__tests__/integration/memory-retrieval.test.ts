@@ -28,7 +28,7 @@ function addKnowledge(
     category,
     key,
     content,
-    source: "0xtest",
+    source: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
     confidence: opts.confidence ?? 0.8,
     lastVerified: opts.lastVerified ?? new Date().toISOString(),
     tokenCount: opts.tokenCount ?? Math.max(1, Math.ceil(content.length / 4)),

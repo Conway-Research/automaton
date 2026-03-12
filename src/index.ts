@@ -9,7 +9,7 @@
 
 import { getWallet, getAutomatonDir } from "./identity/wallet.js";
 import { provision, loadApiKeyFromConfig } from "./identity/provision.js";
-import { loadConfig, resolvePath } from "./config.js";
+import { loadConfig, saveConfig, resolvePath } from "./config.js";
 import { createDatabase } from "./state/database.js";
 import { createConwayClient } from "./conway/client.js";
 import { createInferenceClient } from "./conway/inference.js";
@@ -29,14 +29,26 @@ import { SpendTracker } from "./agent/spend-tracker.js";
 import { createDefaultRules } from "./agent/policy-rules/index.js";
 import type { AutomatonIdentity, AgentState, Skill, SocialClientInterface } from "./types.js";
 import { DEFAULT_TREASURY_POLICY } from "./types.js";
-import { createLogger, setGlobalLogLevel, StructuredLogger } from "./observability/logger.js";
-import { prettySink } from "./observability/pretty-sink.js";
+import { createLogger, setGlobalLogLevel } from "./observability/logger.js";
 import { bootstrapTopup } from "./conway/topup.js";
 import { randomUUID } from "crypto";
-import { keccak256, toHex } from "viem";
+import crypto from "crypto";
+
+// Revenue Engine
+import { RevenueLedger } from "./revenue/revenue-ledger.js";
+import { ServiceRegistry } from "./revenue/service-registry.js";
+import { BountyBoard } from "./revenue/bounty-board.js";
+import { createRevenueHeartbeatTasks } from "./revenue/heartbeat-tasks.js";
+import { createX402Server } from "./revenue/x402-server.js";
+import type { RevenueRecord } from "./revenue/x402-server.js";
+import { createProductionServices } from "./revenue/service-handlers.js";
 
 const logger = createLogger("main");
-const VERSION = "0.2.1";
+const VERSION = "0.3.0";
+
+function sha256Hex(data: string): string {
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -73,10 +85,10 @@ Environment:
   }
 
   if (args.includes("--init")) {
-    const { account, isNew } = await getWallet();
+    const { keypair, isNew } = await getWallet();
     logger.info(
       JSON.stringify({
-        address: account.address,
+        address: keypair.publicKey.toBase58(),
         isNew,
         configDir: getAutomatonDir(),
       }),
@@ -119,7 +131,6 @@ Environment:
   }
 
   if (args.includes("--run")) {
-    StructuredLogger.setSink(prettySink);
     await run();
     return;
   }
@@ -175,18 +186,68 @@ Version:    ${config.version}
 async function run(): Promise<void> {
   logger.info(`[${new Date().toISOString()}] Conway Automaton v${VERSION} starting...`);
 
-  // Load config — first run triggers interactive setup wizard
+  // Load wallet first — needed for headless config
+  const { keypair } = await getWallet();
+  const walletAddress = keypair.publicKey.toBase58();
+
+  // Load config — headless mode from env vars when no config file exists
   let config = loadConfig();
   if (!config) {
-    const { runSetupWizard } = await import("./setup/wizard.js");
-    config = await runSetupWizard();
+    const envApiKey = process.env.CONWAY_API_KEY || process.env.ANTHROPIC_API_KEY || "";
+    if (envApiKey && !process.stdin.isTTY) {
+      // Headless mode (Railway / Docker): build config from environment
+      logger.info(`No config file — building from environment (headless mode)`);
+      config = {
+        name: process.env.AUTOMATON_NAME || "Zentience",
+        genesisPrompt: process.env.AUTOMATON_GENESIS_PROMPT || "You are Zentience, a sovereign AI agent on Solana. You earn revenue through x402 micropayments, manage your own finances, and operate autonomously.",
+        creatorAddress: process.env.AUTOMATON_CREATOR_ADDRESS || walletAddress,
+        registeredWithConway: false,
+        sandboxId: process.env.AUTOMATON_SANDBOX_ID || "",
+        conwayApiUrl: process.env.CONWAY_API_URL || "https://api.conway.tech",
+        conwayApiKey: process.env.CONWAY_API_KEY || "",
+        anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+        openaiApiKey: process.env.OPENAI_API_KEY,
+        inferenceModel: process.env.AUTOMATON_MODEL || "claude-haiku-4-5-20251001",
+        maxTokensPerTurn: parseInt(process.env.AUTOMATON_MAX_TOKENS || "4096", 10),
+        heartbeatConfigPath: "~/.automaton/heartbeat.yml",
+        dbPath: process.env.AUTOMATON_DB_PATH || "~/.automaton/state.db",
+        logLevel: (process.env.AUTOMATON_LOG_LEVEL || "info") as "debug" | "info" | "warn" | "error",
+        walletAddress,
+        version: VERSION,
+        skillsDir: "~/.automaton/skills",
+        maxChildren: 3,
+        rpcUrl: process.env.AUTOMATON_RPC_URL,
+      };
+      saveConfig(config);
+      logger.info(`Config saved to ~/.automaton/automaton.json`);
+    } else if (!process.stdin.isTTY) {
+      logger.error("No config and no CONWAY_API_KEY or ANTHROPIC_API_KEY set. Cannot start headless.");
+      process.exit(1);
+    } else {
+      const { runSetupWizard } = await import("./setup/wizard.js");
+      config = await runSetupWizard();
+    }
   }
 
-  // Load wallet
-  const { account } = await getWallet();
-  const apiKey = config.conwayApiKey || loadApiKeyFromConfig();
+  // Environment variables override saved config for API keys and model
+  if (process.env.ANTHROPIC_API_KEY) config.anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  if (process.env.OPENAI_API_KEY) config.openaiApiKey = process.env.OPENAI_API_KEY;
+  if (process.env.AUTOMATON_MODEL) config.inferenceModel = process.env.AUTOMATON_MODEL;
+
+  // Force model strategy to Claude Haiku when running on Anthropic directly.
+  // The saved config on persistent volumes may still have gpt-5-mini from old boots.
+  if (process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
+    const haikuModel = "claude-haiku-4-5-20251001";
+    if (!config.inferenceModel?.startsWith("claude-")) config.inferenceModel = haikuModel;
+    if (!config.modelStrategy) config.modelStrategy = {} as any;
+    config.modelStrategy!.inferenceModel = config.inferenceModel || haikuModel;
+    config.modelStrategy!.lowComputeModel = haikuModel;
+    config.modelStrategy!.criticalModel = haikuModel;
+  }
+
+  const apiKey = config.conwayApiKey || config.anthropicApiKey || loadApiKeyFromConfig();
   if (!apiKey) {
-    logger.error("No API key found. Run: automaton --provision");
+    logger.error("No API key found. Set CONWAY_API_KEY or ANTHROPIC_API_KEY, or run: automaton --provision");
     process.exit(1);
   }
 
@@ -204,8 +265,8 @@ async function run(): Promise<void> {
   // Build identity
   const identity: AutomatonIdentity = {
     name: config.name,
-    address: account.address,
-    account,
+    address: keypair.publicKey.toBase58(),
+    keypair,
     creatorAddress: config.creatorAddress,
     sandboxId: config.sandboxId,
     apiKey,
@@ -214,7 +275,7 @@ async function run(): Promise<void> {
 
   // Store identity in DB
   db.setIdentity("name", config.name);
-  db.setIdentity("address", account.address);
+  db.setIdentity("address", keypair.publicKey.toBase58());
   db.setIdentity("creator", config.creatorAddress);
   db.setIdentity("sandbox", config.sandboxId);
   const storedAutomatonId = db.getIdentity("automatonId");
@@ -235,16 +296,16 @@ async function run(): Promise<void> {
   if (registrationState !== "registered") {
     try {
       const genesisPromptHash = config.genesisPrompt
-        ? keccak256(toHex(config.genesisPrompt))
+        ? `0x${sha256Hex(config.genesisPrompt)}`
         : undefined;
       await conway.registerAutomaton({
         automatonId,
-        automatonAddress: account.address,
+        automatonAddress: keypair.publicKey.toBase58(),
         creatorAddress: config.creatorAddress,
         name: config.name,
         bio: config.creatorMessage || "",
         genesisPromptHash,
-        account,
+        keypair,
       });
       db.setIdentity("conwayRegistrationStatus", "registered");
       logger.info(`[${new Date().toISOString()}] Automaton identity registered.`);
@@ -272,7 +333,7 @@ async function run(): Promise<void> {
     apiKey,
     defaultModel: config.inferenceModel,
     maxTokens: config.maxTokensPerTurn,
-    lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
+    lowComputeModel: config.modelStrategy?.lowComputeModel || "claude-haiku-4-5-20251001",
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
@@ -286,7 +347,7 @@ async function run(): Promise<void> {
   // Create social client
   let social: SocialClientInterface | undefined;
   if (config.socialRelayUrl) {
-    social = createSocialClient(config.socialRelayUrl, account);
+    social = createSocialClient(config.socialRelayUrl, keypair);
     logger.info(`[${new Date().toISOString()}] Social relay: ${config.socialRelayUrl}`);
   }
 
@@ -295,6 +356,67 @@ async function run(): Promise<void> {
   const rules = createDefaultRules(treasuryPolicy);
   const policyEngine = new PolicyEngine(db.raw, rules);
   const spendTracker = new SpendTracker(db.raw);
+
+  // Initialize Revenue Engine (Phase 5)
+  const revenueLedger = new RevenueLedger(db.raw);
+  const serviceRegistry = new ServiceRegistry();
+  const bountyBoard = new BountyBoard(db.raw);
+  logger.info(`[${new Date().toISOString()}] Revenue engine initialized.`);
+
+  // ─── x402 Payment Server (Production Revenue Node) ────────
+  // Register real inference-backed services and start the x402 server.
+  // This turns the agent from a SPENDER into an EARNER.
+  const x402Port = parseInt(process.env.X402_PORT || "4020", 10);
+  const x402Network = process.env.AUTOMATON_NETWORK || "solana:mainnet-beta";
+
+  const serviceEndpoints = createProductionServices(serviceRegistry, {
+    inference,
+    identity,
+    serviceRegistry,
+    revenueLedger,
+    bountyBoard,
+    getCreditsBalance: () => conway.getCreditsBalance(),
+  });
+
+  const x402Config = {
+    walletAddress: keypair.publicKey.toBase58(),
+    network: x402Network,
+    port: x402Port,
+    maxPaymentAgeSec: 300,
+    bannedAddresses: new Set<string>(),
+    rpcUrl: config.rpcUrl || process.env.AUTOMATON_RPC_URL,
+    onRevenue: (record: RevenueRecord) => {
+      revenueLedger.recordRevenue({
+        source: "x402_service",
+        serviceEndpoint: record.serviceEndpoint,
+        payerAddress: record.payerAddress,
+        amountCents: record.amountCents,
+        network: record.network,
+        transactionSignature: record.transactionSignature,
+        serviceCategory: "agent_task",
+        token: record.token,
+        tokenAmountRaw: record.tokenAmountRaw,
+      });
+      // Update service registry sale tracking
+      const svc = serviceRegistry.getByPath(record.serviceEndpoint);
+      if (svc) {
+        serviceRegistry.recordSale(svc.id, record.amountCents);
+      }
+    },
+  };
+
+  const x402 = createX402Server(x402Config, serviceEndpoints, db.raw);
+
+  try {
+    const x402Addr = await x402.start();
+    logger.info(`[${new Date().toISOString()}] x402 Revenue Node listening on ${x402Addr}`);
+    for (const ep of serviceEndpoints) {
+      logger.info(`  ${ep.method} ${ep.path} → ${ep.priceCents}¢ (${ep.description})`);
+    }
+  } catch (err: any) {
+    logger.error(`[${new Date().toISOString()}] x402 server failed to start: ${err.message}`);
+    // Non-fatal: agent can still operate without revenue server
+  }
 
   // Load and sync heartbeat config
   const heartbeatConfigPath = resolvePath(config.heartbeatConfigPath);
@@ -332,7 +454,7 @@ async function run(): Promise<void> {
           const creditsCents = await conway.getCreditsBalance().catch(() => 0);
           const topupResult = await bootstrapTopup({
             apiUrl: config.conwayApiUrl,
-            account,
+            keypair,
             creditsCents,
           });
           if (topupResult?.success) {
@@ -373,6 +495,7 @@ async function run(): Promise<void> {
   const shutdown = () => {
     logger.info(`[${new Date().toISOString()}] Shutting down...`);
     heartbeat.stop();
+    x402.server.close();
     db.setAgentState("sleeping");
     db.close();
     process.exit(0);
@@ -380,6 +503,19 @@ async function run(): Promise<void> {
 
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+
+  // Process-level hardening: catch unhandled errors to prevent silent crashes
+  process.on("uncaughtException", (err) => {
+    logger.error(`[FATAL] Uncaught exception: ${err.message}`);
+    logger.error(err.stack || "");
+    // Attempt graceful shutdown — do NOT swallow and continue
+    shutdown();
+  });
+  process.on("unhandledRejection", (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    logger.error(`[FATAL] Unhandled rejection: ${msg}`);
+    // Log but continue — some promise rejections are recoverable
+  });
 
   // ─── Main Run Loop ──────────────────────────────────────────
   // The automaton alternates between running and sleeping.
@@ -406,6 +542,7 @@ async function run(): Promise<void> {
         policyEngine,
         spendTracker,
         ollamaBaseUrl,
+        revenueLedger,
         onStateChange: (state: AgentState) => {
           logger.info(`[${new Date().toISOString()}] State: ${state}`);
         },
@@ -431,7 +568,7 @@ async function run(): Promise<void> {
         const sleepUntilStr = db.getKV("sleep_until");
         const sleepUntil = sleepUntilStr
           ? new Date(sleepUntilStr).getTime()
-          : Date.now() + 60_000;
+          : Date.now() + 300_000; // default 5 min sleep
         const sleepMs = Math.max(sleepUntil - Date.now(), 10_000);
         logger.info(
           `[${new Date().toISOString()}] Sleeping for ${Math.round(sleepMs / 1000)}s`,

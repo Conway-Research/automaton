@@ -8,9 +8,9 @@ import { createInMemoryDb } from "../orchestration/test-db.js";
 
 const IDENTITY = {
   name: "test",
-  address: "0xparent" as any,
+  address: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP" as any,
   account: {} as any,
-  creatorAddress: "0x0000" as any,
+  creatorAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" as any,
   sandboxId: "sb-1",
   apiKey: "key",
   createdAt: "2026-01-01T00:00:00Z",
@@ -103,8 +103,8 @@ function makeMocks() {
     createMessage: vi.fn().mockReturnValue({
       id: "msg-1",
       type: "task_assignment",
-      from: "0xparent",
-      to: "0xchild",
+      from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+      to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
       goalId: null,
       taskId: null,
       content: "{}",
@@ -144,8 +144,8 @@ function makeTaskResultInboxEntry(goalId: string, taskId: string) {
     message: {
       id: "m1",
       type: "task_result",
-      from: "0xchild",
-      to: "0xparent",
+      from: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
+      to: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
       goalId,
       taskId,
       content: JSON.stringify({
@@ -265,7 +265,7 @@ describe("integration/plan-execute-flow", () => {
 
       // Provide an idle agent so task assignment succeeds
       mocks.agentTracker.getIdle.mockReturnValue([
-        { address: "0xchild", name: "Worker", role: "generalist", status: "healthy" },
+        { address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", name: "Worker", role: "generalist", status: "healthy" },
       ]);
 
       // First tick: assigns the task (inbox empty)
@@ -275,7 +275,7 @@ describe("integration/plan-execute-flow", () => {
 
       // Verify task was assigned
       const tasks = getTasksForGoal(db, goalId);
-      expect(tasks[0].assigned_to).toBe("0xchild");
+      expect(tasks[0].assigned_to).toBe("9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS");
 
       // Second tick: process task result
       mocks.messaging.processInbox.mockResolvedValue([
@@ -302,7 +302,7 @@ describe("integration/plan-execute-flow", () => {
       setState(db, { phase: "executing", goalId, replanCount: 0, failedTaskId: null, failedError: null });
 
       mocks.agentTracker.getIdle.mockReturnValue([
-        { address: "0xchild", name: "Worker", role: "generalist", status: "healthy" },
+        { address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", name: "Worker", role: "generalist", status: "healthy" },
       ]);
 
       // Return a failed task result
@@ -312,8 +312,8 @@ describe("integration/plan-execute-flow", () => {
           message: {
             id: "m2",
             type: "task_result",
-            from: "0xchild",
-            to: "0xparent",
+            from: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
+            to: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
             goalId,
             taskId,
             content: JSON.stringify({
@@ -370,7 +370,7 @@ describe("integration/plan-execute-flow", () => {
       setState(db, { phase: "executing", goalId, replanCount: 3, failedTaskId: null, failedError: null });
 
       mocks.agentTracker.getIdle.mockReturnValue([
-        { address: "0xchild", name: "Worker", role: "generalist", status: "healthy" },
+        { address: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", name: "Worker", role: "generalist", status: "healthy" },
       ]);
 
       // Return a failed task result
@@ -380,8 +380,8 @@ describe("integration/plan-execute-flow", () => {
           message: {
             id: "m3",
             type: "task_result",
-            from: "0xchild",
-            to: "0xparent",
+            from: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
+            to: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
             goalId,
             taskId,
             content: JSON.stringify({

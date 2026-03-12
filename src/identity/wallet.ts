@@ -1,13 +1,12 @@
 /**
- * Automaton Wallet Management
+ * Automaton Wallet Management (Solana)
  *
- * Creates and manages an EVM wallet for the automaton's identity and payments.
- * The private key is the automaton's sovereign identity.
- * Adapted from conway-mcp/src/wallet.ts
+ * Creates and manages a Solana keypair for the automaton's identity and payments.
+ * The secret key is the automaton's sovereign identity.
  */
 
-import type { PrivateKeyAccount } from "viem";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
 import fs from "fs";
 import path from "path";
 import type { WalletData } from "../types.js";
@@ -28,10 +27,10 @@ export function getWalletPath(): string {
 
 /**
  * Get or create the automaton's wallet.
- * The private key IS the automaton's identity -- protect it.
+ * The secret key IS the automaton's identity -- protect it.
  */
 export async function getWallet(): Promise<{
-  account: PrivateKeyAccount;
+  keypair: Keypair;
   isNew: boolean;
 }> {
   if (!fs.existsSync(AUTOMATON_DIR)) {
@@ -42,14 +41,14 @@ export async function getWallet(): Promise<{
     const walletData: WalletData = JSON.parse(
       fs.readFileSync(WALLET_FILE, "utf-8"),
     );
-    const account = privateKeyToAccount(walletData.privateKey);
-    return { account, isNew: false };
+    const secretKey = bs58.decode(walletData.secretKey);
+    const keypair = Keypair.fromSecretKey(secretKey);
+    return { keypair, isNew: false };
   } else {
-    const privateKey = generatePrivateKey();
-    const account = privateKeyToAccount(privateKey);
+    const keypair = Keypair.generate();
 
     const walletData: WalletData = {
-      privateKey,
+      secretKey: bs58.encode(keypair.secretKey),
       createdAt: new Date().toISOString(),
     };
 
@@ -57,12 +56,12 @@ export async function getWallet(): Promise<{
       mode: 0o600,
     });
 
-    return { account, isNew: true };
+    return { keypair, isNew: true };
   }
 }
 
 /**
- * Get the wallet address without loading the full account.
+ * Get the wallet address (base58 public key) without loading the full keypair.
  */
 export function getWalletAddress(): string | null {
   if (!fs.existsSync(WALLET_FILE)) {
@@ -72,14 +71,15 @@ export function getWalletAddress(): string | null {
   const walletData: WalletData = JSON.parse(
     fs.readFileSync(WALLET_FILE, "utf-8"),
   );
-  const account = privateKeyToAccount(walletData.privateKey);
-  return account.address;
+  const secretKey = bs58.decode(walletData.secretKey);
+  const keypair = Keypair.fromSecretKey(secretKey);
+  return keypair.publicKey.toBase58();
 }
 
 /**
- * Load the full wallet account (needed for signing).
+ * Load the full wallet keypair (needed for signing).
  */
-export function loadWalletAccount(): PrivateKeyAccount | null {
+export function loadWalletKeypair(): Keypair | null {
   if (!fs.existsSync(WALLET_FILE)) {
     return null;
   }
@@ -87,7 +87,8 @@ export function loadWalletAccount(): PrivateKeyAccount | null {
   const walletData: WalletData = JSON.parse(
     fs.readFileSync(WALLET_FILE, "utf-8"),
   );
-  return privateKeyToAccount(walletData.privateKey);
+  const secretKey = bs58.decode(walletData.secretKey);
+  return Keypair.fromSecretKey(secretKey);
 }
 
 export function walletExists(): boolean {

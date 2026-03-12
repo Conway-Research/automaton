@@ -13,6 +13,7 @@ import { createPathProtectionRules } from "./path-protection.js";
 import { createFinancialRules } from "./financial.js";
 import { createAuthorityRules } from "./authority.js";
 import { createRateLimitRules } from "./rate-limits.js";
+import { createFortressRules } from "../../revenue/financial-fortress.js";
 
 /**
  * Create the default set of policy rules.
@@ -22,6 +23,9 @@ export function createDefaultRules(
   treasuryPolicy: TreasuryPolicy = DEFAULT_TREASURY_POLICY,
 ): PolicyRule[] {
   return [
+    // Financial Fortress rules run FIRST (priority 50-100)
+    // They are hardcoded and cannot be overridden
+    ...createFortressRules(treasuryPolicy),
     ...createValidationRules(),
     ...createCommandSafetyRules(),
     ...createPathProtectionRules(),

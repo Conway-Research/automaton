@@ -22,7 +22,7 @@ function createTestDb(options?: { address?: string; recipients?: string[] }): {
   raw.exec("ALTER TABLE inbox_messages ADD COLUMN retry_count INTEGER DEFAULT 0;");
   raw.exec("ALTER TABLE inbox_messages ADD COLUMN max_retries INTEGER DEFAULT 3;");
 
-  const address = options?.address ?? "0xself";
+  const address = options?.address ?? "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR";
   const recipients = options?.recipients ?? [];
 
   const getUnprocessedInboxMessages = (limit: number): InboxMessage[] => {
@@ -51,7 +51,7 @@ function createTestDb(options?: { address?: string; recipients?: string[] }): {
   const children: ChildAutomaton[] = recipients.map((entry, index) => ({
     id: `child-${index}`,
     name: `Child ${index}`,
-    address: entry as `0x${string}`,
+    address: entry,
     sandboxId: `sandbox-${index}`,
     genesisPrompt: "test",
     creatorMessage: "test",
@@ -87,7 +87,7 @@ function insertInbox(raw: BetterSqlite3.Database, params: {
   ).run(
     params.id,
     params.from,
-    params.to ?? "0xself",
+    params.to ?? "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
     params.content,
     params.receivedAt ?? new Date().toISOString(),
   );
@@ -97,8 +97,8 @@ function makeMessage(overrides: Partial<AgentMessage> = {}): AgentMessage {
   return {
     id: overrides.id ?? "msg-1",
     type: overrides.type ?? "alert",
-    from: overrides.from ?? "0xsender",
-    to: overrides.to ?? "0xreceiver",
+    from: overrides.from ?? "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+    to: overrides.to ?? "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
     goalId: overrides.goalId ?? null,
     taskId: overrides.taskId ?? null,
     content: overrides.content ?? "payload",
@@ -121,29 +121,29 @@ describe("orchestration/messaging", () => {
 
   describe("LocalDBTransport", () => {
     it("deliver writes to inbox_messages", async () => {
-      const ctx = createTestDb({ address: "0xorigin" });
+      const ctx = createTestDb({ address: "4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS" });
       raw = ctx.raw;
       const transport = new LocalDBTransport(ctx.db);
 
-      await transport.deliver("0xtarget", "{\"hello\":\"world\"}");
+      await transport.deliver("5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU", "{\"hello\":\"world\"}");
 
       const row = raw.prepare(
         "SELECT from_address, to_address, content, status FROM inbox_messages LIMIT 1",
       ).get() as { from_address: string; to_address: string; content: string; status: string } | undefined;
 
       expect(row).toBeDefined();
-      expect(row?.from_address).toBe("0xorigin");
-      expect(row?.to_address).toBe("0xtarget");
+      expect(row?.from_address).toBe("4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS");
+      expect(row?.to_address).toBe("5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU");
       expect(row?.content).toBe('{"hello":"world"}');
       expect(row?.status).toBe("received");
     });
 
     it("getRecipients returns known child addresses", () => {
-      const ctx = createTestDb({ recipients: ["0x1", "0x2"] });
+      const ctx = createTestDb({ recipients: ["2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", "4mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0e2"] });
       raw = ctx.raw;
       const transport = new LocalDBTransport(ctx.db);
 
-      expect(transport.getRecipients()).toEqual(["0x1", "0x2"]);
+      expect(transport.getRecipients()).toEqual(["2nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8a1", "4mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0e2"]);
     });
   });
 
@@ -244,7 +244,7 @@ describe("orchestration/messaging", () => {
 
       insertInbox(raw, {
         id: `inbox-${type}`,
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({ id: `m-${type}`, type })),
       });
 
@@ -262,7 +262,7 @@ describe("orchestration/messaging", () => {
       const message = makeMessage({ id: "enveloped", type: "alert", priority: "high" });
       insertInbox(raw, {
         id: "inbox-envelope",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify({
           protocol: "colony_message_v1",
           sentAt: "2026-01-01T00:00:00.000Z",
@@ -282,12 +282,12 @@ describe("orchestration/messaging", () => {
 
       insertInbox(raw, {
         id: "inbox-low",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({ id: "low", priority: "low", createdAt: "2026-01-01T00:00:00.000Z" })),
       });
       insertInbox(raw, {
         id: "inbox-critical",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({ id: "critical", priority: "critical", createdAt: "2026-01-01T01:00:00.000Z" })),
       });
 
@@ -302,12 +302,12 @@ describe("orchestration/messaging", () => {
 
       insertInbox(raw, {
         id: "inbox-late",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({ id: "late", priority: "high", createdAt: "2026-01-01T02:00:00.000Z" })),
       });
       insertInbox(raw, {
         id: "inbox-early",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({ id: "early", priority: "high", createdAt: "2026-01-01T01:00:00.000Z" })),
       });
 
@@ -320,7 +320,7 @@ describe("orchestration/messaging", () => {
       raw = ctx.raw;
       const messaging = new ColonyMessaging({ deliver: vi.fn(), getRecipients: () => [] }, ctx.db);
 
-      insertInbox(raw, { id: "bad-json", from: "0xfrom", content: "{not-json}" });
+      insertInbox(raw, { id: "bad-json", from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX", content: "{not-json}" });
       const processed = await messaging.processInbox();
 
       expect(processed).toHaveLength(1);
@@ -336,7 +336,7 @@ describe("orchestration/messaging", () => {
 
       insertInbox(raw, {
         id: "bad-shape",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify({ id: "x", type: "alert", from: "a", to: "b", content: "x", priority: "urgent" }),
       });
 
@@ -352,7 +352,7 @@ describe("orchestration/messaging", () => {
 
       insertInbox(raw, {
         id: "expired",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({
           id: "expired-msg",
           expiresAt: "2000-01-01T00:00:00.000Z",
@@ -369,7 +369,7 @@ describe("orchestration/messaging", () => {
       raw = ctx.raw;
       const messaging = new ColonyMessaging({ deliver: vi.fn(), getRecipients: () => [] }, ctx.db);
 
-      insertInbox(raw, { id: "m1", from: "0xfrom", content: "not-json" });
+      insertInbox(raw, { id: "m1", from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX", content: "not-json" });
       await messaging.processInbox();
 
       const row = raw.prepare("SELECT processed_at FROM inbox_messages WHERE id = 'm1'").get() as {
@@ -388,7 +388,7 @@ describe("orchestration/messaging", () => {
 
       insertInbox(raw, {
         id: "m-alert",
-        from: "0xfrom",
+        from: "6tHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hX",
         content: JSON.stringify(makeMessage({ id: "msg-alert", type: "alert" })),
       });
 
@@ -405,12 +405,12 @@ describe("orchestration/messaging", () => {
 
   describe("broadcast and message construction", () => {
     it("broadcast sends to all recipients", async () => {
-      const ctx = createTestDb({ recipients: ["0xa", "0xb", "0xc"], address: "0xself" });
+      const ctx = createTestDb({ recipients: ["BvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fA", "CwSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gB", "DtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hC"], address: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR" });
       raw = ctx.raw;
 
       const transport: MessageTransport = {
         deliver: vi.fn().mockResolvedValue(undefined),
-        getRecipients: () => ["0xa", "0xb", "0xc"],
+        getRecipients: () => ["BvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fA", "CwSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gB", "DtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hC"],
       };
 
       const messaging = new ColonyMessaging(transport, ctx.db);
@@ -420,7 +420,7 @@ describe("orchestration/messaging", () => {
       const envelopes = (transport.deliver as ReturnType<typeof vi.fn>).mock.calls
         .map((call) => JSON.parse(call[1]) as { message: AgentMessage });
 
-      expect(envelopes.map((entry) => entry.message.to).sort()).toEqual(["0xa", "0xb", "0xc"]);
+      expect(envelopes.map((entry) => entry.message.to).sort()).toEqual(["BvRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fA", "CwSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gB", "DtHmK1zL4vP7yD9nJ5eS2rA8fC3gW0hC"]);
       expect(envelopes.every((entry) => entry.message.type === "alert")).toBe(true);
       expect(envelopes.every((entry) => entry.message.priority === "critical")).toBe(true);
     });
@@ -439,17 +439,17 @@ describe("orchestration/messaging", () => {
     });
 
     it("createMessage fills defaults", () => {
-      const ctx = createTestDb({ address: "0xcreator" });
+      const ctx = createTestDb({ address: "8uJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jY" });
       raw = ctx.raw;
       const messaging = new ColonyMessaging({ deliver: vi.fn(), getRecipients: () => [] }, ctx.db);
 
       const msg = messaging.createMessage({
         type: "peer_query",
-        to: "0xtarget",
+        to: "5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU",
         content: "question",
       });
 
-      expect(msg.from).toBe("0xcreator");
+      expect(msg.from).toBe("8uJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jY");
       expect(msg.goalId).toBeNull();
       expect(msg.taskId).toBeNull();
       expect(msg.priority).toBe("normal");
@@ -458,13 +458,13 @@ describe("orchestration/messaging", () => {
     });
 
     it("createMessage respects explicit overrides", () => {
-      const ctx = createTestDb({ address: "0xcreator" });
+      const ctx = createTestDb({ address: "8uJnM2aB5wQ7zE9pK6fT3sC1hD4gX0jY" });
       raw = ctx.raw;
       const messaging = new ColonyMessaging({ deliver: vi.fn(), getRecipients: () => [] }, ctx.db);
 
       const msg = messaging.createMessage({
         type: "resource_request",
-        to: "0xtarget",
+        to: "5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU",
         content: "need resource",
         goalId: "goal-1",
         taskId: "task-1",

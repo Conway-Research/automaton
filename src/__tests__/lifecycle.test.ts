@@ -700,22 +700,22 @@ describe("Messaging", () => {
   });
 
   it("sendToChild sends via social relay", async () => {
-    const result = await sendToChild(social, "0xchild", "hello child");
+    const result = await sendToChild(social, "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", "hello child");
     expect(result.id).toBeDefined();
     expect(social.sentMessages.length).toBe(1);
-    expect(social.sentMessages[0].to).toBe("0xchild");
+    expect(social.sentMessages[0].to).toBe("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
   });
 
   it("sendToParent sends via social relay", async () => {
-    const result = await sendToParent(social, "0xparent", "hello parent");
+    const result = await sendToParent(social, "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP", "hello parent");
     expect(result.id).toBeDefined();
     expect(social.sentMessages.length).toBe(1);
-    expect(social.sentMessages[0].to).toBe("0xparent");
+    expect(social.sentMessages[0].to).toBe("3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP");
   });
 
   it("rejects messages exceeding size limit", async () => {
     const bigContent = "x".repeat(MESSAGE_LIMITS.maxContentLength + 1);
-    await expect(sendToChild(social, "0xchild", bigContent)).rejects.toThrow(
+    await expect(sendToChild(social, "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", bigContent)).rejects.toThrow(
       "Message too long",
     );
   });
@@ -804,7 +804,7 @@ describe("MIGRATION_V7", () => {
     const stmt = db.prepare(
       "INSERT INTO discovered_agents_cache (agent_address, agent_card, fetched_from, card_hash) VALUES (?, ?, ?, ?)",
     );
-    expect(() => stmt.run("0x123", "{}", "ipfs://...", "abc123")).not.toThrow();
+    expect(() => stmt.run("9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", "{}", "ipfs://...", "abc123")).not.toThrow();
 
     db.close();
   });
@@ -822,7 +822,7 @@ describe("MIGRATION_V7", () => {
     const stmt = db.prepare(
       "INSERT INTO onchain_transactions (id, tx_hash, chain, operation, status) VALUES (?, ?, ?, ?, ?)",
     );
-    expect(() => stmt.run("tx-1", "0xhash", "eip155:8453", "register", "pending")).not.toThrow();
+    expect(() => stmt.run("tx-1", "txhash123abc", "solana:mainnet-beta", "register", "pending")).not.toThrow();
 
     db.close();
   });

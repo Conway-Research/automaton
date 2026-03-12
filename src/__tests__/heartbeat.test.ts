@@ -69,16 +69,16 @@ describe("Heartbeat Tasks", () => {
         messages: [
           {
             id: "msg-1",
-            from: "0xsender1",
-            to: "0xrecipient",
+            from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+            to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
             content: "Hey there!",
             signedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
           },
           {
             id: "msg-2",
-            from: "0xsender2",
-            to: "0xrecipient",
+            from: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
+            to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
             content: "What's up?",
             signedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
@@ -114,8 +114,8 @@ describe("Heartbeat Tasks", () => {
         messages: [
           {
             id: "msg-1",
-            from: "0xsender1",
-            to: "0xrecipient",
+            from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+            to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
             content: "Hello!",
             signedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
@@ -128,8 +128,8 @@ describe("Heartbeat Tasks", () => {
         messages: [
           {
             id: "msg-1",
-            from: "0xsender1",
-            to: "0xrecipient",
+            from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+            to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
             content: "Hello!",
             signedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
@@ -185,8 +185,8 @@ describe("Heartbeat Tasks", () => {
         messages: [
           {
             id: "blocked-msg-1",
-            from: "0xattacker",
-            to: "0xrecipient",
+            from: "5wSkP9yJ3uN6xC8kH4dR1qZ7eB2fT0gU",
+            to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
             content: oversizedContent,
             signedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),

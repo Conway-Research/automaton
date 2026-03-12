@@ -155,7 +155,7 @@ describe("orchestration/task-graph", () => {
         makeTask(goal.id, "a"),
         makeTask(goal.id, "b", {
           status: "assigned",
-          assignedTo: "0xagent",
+          assignedTo: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
           dependencies: ["a"],
         }),
       ]);
@@ -163,7 +163,7 @@ describe("orchestration/task-graph", () => {
       const tasks = getTasksByGoal(db, goal.id);
       const b = tasks.find((task) => task.title === "b");
       expect(b?.status).toBe("assigned");
-      expect(b?.assignedTo).toBe("0xagent");
+      expect(b?.assignedTo).toBe("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
     });
 
     it("starts pending when dependency is already completed", () => {
@@ -358,18 +358,18 @@ describe("orchestration/task-graph", () => {
       const goal = createGoal(db, "Goal", "Desc");
       const taskId = insertTask(db, { goalId: goal.id, title: "task", description: "desc" });
 
-      assignTask(db, taskId, "0xabc");
+      assignTask(db, taskId, "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP");
 
       const task = getTaskById(db, taskId);
       expect(task?.status).toBe("assigned");
-      expect(task?.assignedTo).toBe("0xabc");
+      expect(task?.assignedTo).toBe("3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP");
     });
 
     it("trims agent address", () => {
       const goal = createGoal(db, "Goal", "Desc");
       const taskId = insertTask(db, { goalId: goal.id, title: "task", description: "desc" });
-      assignTask(db, taskId, "   0xtrim   ");
-      expect(getTaskById(db, taskId)?.assignedTo).toBe("0xtrim");
+      assignTask(db, taskId, "   9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS   ");
+      expect(getTaskById(db, taskId)?.assignedTo).toBe("9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS");
     });
 
     it("rejects empty agent address", () => {
@@ -381,11 +381,11 @@ describe("orchestration/task-graph", () => {
     it("rejects non-pending tasks", () => {
       const goal = createGoal(db, "Goal", "Desc");
       const taskId = insertTask(db, { goalId: goal.id, title: "task", description: "desc", status: "blocked" });
-      expect(() => assignTask(db, taskId, "0xagent")).toThrow(/is not assignable/);
+      expect(() => assignTask(db, taskId, "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR")).toThrow(/is not assignable/);
     });
 
     it("rejects unknown task", () => {
-      expect(() => assignTask(db, "missing", "0xagent")).toThrow("Task not found: missing");
+      expect(() => assignTask(db, "missing", "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR")).toThrow("Task not found: missing");
     });
   });
 
@@ -512,7 +512,7 @@ describe("orchestration/task-graph", () => {
         retryCount: 0,
         startedAt: "2026-01-01T00:00:00.000Z",
         completedAt: "2026-01-01T00:10:00.000Z",
-        assignedTo: "0xagent",
+        assignedTo: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
       });
 
       failTask(db, taskId, "oops", true);

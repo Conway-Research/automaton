@@ -1,6 +1,5 @@
 node_modules
 dist
-.env
 *.log
 .DS_Store
 *.db
@@ -8,6 +7,28 @@ dist
 *.db-wal
 *.db-shm
 *.tgz
-.automaton/wallet.json
-.automaton/state.db
 
+# ─── SECRETS — NEVER COMMIT ────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
+# ─── Agent state (contains wallet private key) ─────────────
+.automaton/
+.automaton-dev/
+wallet.json
+config.json
+automaton.json
+
+# ─── IDE / OS ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db

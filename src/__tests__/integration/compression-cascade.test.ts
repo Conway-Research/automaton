@@ -32,7 +32,7 @@ function makeEvent(id: string, type = "inference") {
   return {
     id,
     type,
-    agentAddress: "0xagent",
+    agentAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
     goalId: null,
     taskId: null,
     content: "test content",

@@ -5,7 +5,7 @@
  * The database IS the automaton's memory.
  */
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export const CREATE_TABLES = `
   -- Schema version tracking
@@ -129,11 +129,11 @@ export const CREATE_TABLES = `
     last_checked TEXT
   );
 
-  -- ERC-8004 registration state
+  -- Agent registration state
   CREATE TABLE IF NOT EXISTS registry (
     agent_id TEXT PRIMARY KEY,
     agent_uri TEXT NOT NULL,
-    chain TEXT NOT NULL DEFAULT 'eip155:8453',
+    chain TEXT NOT NULL DEFAULT 'solana:mainnet-beta',
     contract_address TEXT NOT NULL,
     tx_hash TEXT NOT NULL,
     registered_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -343,7 +343,7 @@ export const MIGRATION_V2 = `
   CREATE TABLE IF NOT EXISTS registry (
     agent_id TEXT PRIMARY KEY,
     agent_uri TEXT NOT NULL,
-    chain TEXT NOT NULL DEFAULT 'eip155:8453',
+    chain TEXT NOT NULL DEFAULT 'solana:mainnet-beta',
     contract_address TEXT NOT NULL,
     tx_hash TEXT NOT NULL,
     registered_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -589,7 +589,7 @@ export const MIGRATION_V9 = `
   -- Schema version: 9
   -- Tables: goals, task_graph, event_stream
 
-  CREATE TABLE goals (
+  CREATE TABLE IF NOT EXISTS goals (
     id TEXT PRIMARY KEY,                    -- ULID
     title TEXT NOT NULL,
     description TEXT NOT NULL,
@@ -602,7 +602,7 @@ export const MIGRATION_V9 = `
     completed_at TEXT
   );
 
-  CREATE TABLE task_graph (
+  CREATE TABLE IF NOT EXISTS task_graph (
     id TEXT PRIMARY KEY,                    -- ULID
     parent_id TEXT,                         -- parent task (decomposition)
     goal_id TEXT NOT NULL REFERENCES goals(id),
@@ -624,11 +624,11 @@ export const MIGRATION_V9 = `
     completed_at TEXT
   );
 
-  CREATE INDEX idx_task_graph_goal ON task_graph(goal_id);
-  CREATE INDEX idx_task_graph_status ON task_graph(status);
-  CREATE INDEX idx_task_graph_assigned ON task_graph(assigned_to);
+  CREATE INDEX IF NOT EXISTS idx_task_graph_goal ON task_graph(goal_id);
+  CREATE INDEX IF NOT EXISTS idx_task_graph_status ON task_graph(status);
+  CREATE INDEX IF NOT EXISTS idx_task_graph_assigned ON task_graph(assigned_to);
 
-  CREATE TABLE event_stream (
+  CREATE TABLE IF NOT EXISTS event_stream (
     id TEXT PRIMARY KEY,                    -- ULID
     type TEXT NOT NULL,                     -- EventType enum
     agent_address TEXT NOT NULL,
@@ -640,9 +640,9 @@ export const MIGRATION_V9 = `
     created_at TEXT NOT NULL
   );
 
-  CREATE INDEX idx_events_agent ON event_stream(agent_address, created_at);
-  CREATE INDEX idx_events_goal ON event_stream(goal_id, created_at);
-  CREATE INDEX idx_events_type ON event_stream(type, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_agent ON event_stream(agent_address, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_goal ON event_stream(goal_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_type ON event_stream(type, created_at);
 `;
 
 // Role column for children table (must be separate statement for SQLite ALTER)
@@ -654,7 +654,7 @@ export const MIGRATION_V10 = `
   -- Schema version: 10
   -- Tables: knowledge_store
 
-  CREATE TABLE knowledge_store (
+  CREATE TABLE IF NOT EXISTS knowledge_store (
     id TEXT PRIMARY KEY,                    -- ULID
     category TEXT NOT NULL,                 -- market|technical|social|financial|operational
     key TEXT NOT NULL,
@@ -668,6 +668,75 @@ export const MIGRATION_V10 = `
     expires_at TEXT
   );
 
-  CREATE INDEX idx_knowledge_category ON knowledge_store(category);
-  CREATE INDEX idx_knowledge_key ON knowledge_store(key);
+  CREATE INDEX IF NOT EXISTS idx_knowledge_category ON knowledge_store(category);
+  CREATE INDEX IF NOT EXISTS idx_knowledge_key ON knowledge_store(key);
 `;
+
+// === Phase 5: Revenue Engine ===
+
+export const MIGRATION_V11 = `
+  -- Schema version: 11
+  -- Revenue Engine: ledger, expenses, bounty board
+
+  -- Revenue Ledger: every cent earned
+  CREATE TABLE IF NOT EXISTS revenue_ledger (
+    id TEXT PRIMARY KEY,                    -- ULID
+    source TEXT NOT NULL,                   -- x402_service|bounty_completion|task_payment|tip|subscription|data_sale|transfer_in
+    service_endpoint TEXT NOT NULL,
+    payer_address TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    network TEXT NOT NULL DEFAULT 'solana:mainnet-beta',
+    transaction_signature TEXT NOT NULL DEFAULT '',
+    service_category TEXT NOT NULL DEFAULT 'agent_task',
+    created_at TEXT NOT NULL,
+    token TEXT NOT NULL DEFAULT 'USDC',                    -- USDC or ZENT
+    token_amount_raw TEXT NOT NULL DEFAULT '0'             -- raw atomic units of token paid
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_revenue_source ON revenue_ledger(source);
+  CREATE INDEX IF NOT EXISTS idx_revenue_payer ON revenue_ledger(payer_address);
+  CREATE INDEX IF NOT EXISTS idx_revenue_created ON revenue_ledger(created_at);
+  CREATE INDEX IF NOT EXISTS idx_revenue_endpoint ON revenue_ledger(service_endpoint);
+
+  -- Expense Ledger: every cent spent (parallel to revenue for P&L)
+  CREATE TABLE IF NOT EXISTS expense_ledger (
+    id TEXT PRIMARY KEY,                    -- ULID
+    category TEXT NOT NULL,                 -- inference|compute|credit_purchase|child_funding|x402_payment|domain|registry|other
+    amount_cents INTEGER NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_expense_category ON expense_ledger(category);
+  CREATE INDEX IF NOT EXISTS idx_expense_created ON expense_ledger(created_at);
+
+  -- Bounty Board: paid tasks from clients
+  CREATE TABLE IF NOT EXISTS bounty_board (
+    id TEXT PRIMARY KEY,                    -- ULID
+    client_address TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    reward_cents INTEGER NOT NULL,
+    deadline TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',    -- open|claimed|delivered|completed|expired|rejected|cancelled
+    category TEXT NOT NULL DEFAULT 'agent_task',
+    deliverable TEXT,
+    estimated_cost_cents INTEGER DEFAULT 0,
+    actual_cost_cents INTEGER DEFAULT 0,
+    payment_signature TEXT,
+    created_at TEXT NOT NULL,
+    claimed_at TEXT,
+    delivered_at TEXT,
+    completed_at TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bounty_status ON bounty_board(status);
+  CREATE INDEX IF NOT EXISTS idx_bounty_client ON bounty_board(client_address);
+  CREATE INDEX IF NOT EXISTS idx_bounty_deadline ON bounty_board(deadline);
+  CREATE INDEX IF NOT EXISTS idx_bounty_reward ON bounty_board(reward_cents);
+`;
+
+// V12: Add $ZENT token tracking columns to revenue_ledger
+export const MIGRATION_V12_ALTER_TOKEN = `ALTER TABLE revenue_ledger ADD COLUMN token TEXT NOT NULL DEFAULT 'USDC';`;
+export const MIGRATION_V12_ALTER_TOKEN_RAW = `ALTER TABLE revenue_ledger ADD COLUMN token_amount_raw TEXT NOT NULL DEFAULT '0';`;
+export const MIGRATION_V12_INDEX = `CREATE INDEX IF NOT EXISTS idx_revenue_token ON revenue_ledger(token);`;

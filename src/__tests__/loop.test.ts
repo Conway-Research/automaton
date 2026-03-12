@@ -156,8 +156,8 @@ describe("Agent Loop", () => {
     // Insert an inbox message before running the loop
     db.insertInboxMessage({
       id: "test-msg-1",
-      from: "0xsender",
-      to: "0xrecipient",
+      from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+      to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
       content: "Hello from another agent!",
       signedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -285,8 +285,8 @@ describe("Agent Loop", () => {
     // Insert an inbox message
     db.insertInboxMessage({
       id: "atomic-msg-1",
-      from: "0xsender",
-      to: "0xrecipient",
+      from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
+      to: "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS",
       content: "Test atomic persistence",
       signedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -673,7 +673,7 @@ describe("Agent Loop", () => {
       execResponse("r3"), // Warning fires, loopWarningPattern = "exec"
       // Turn 4: different tool — resets loopWarningPattern
       toolCallResponse([
-        { name: "send_message", arguments: { to: "0x123", content: "hello" } },
+        { name: "send_message", arguments: { to: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR", content: "hello" } },
       ]),
       execResponse("r5"),
       execResponse("r6"),

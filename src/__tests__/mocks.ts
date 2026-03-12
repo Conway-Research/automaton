@@ -208,12 +208,12 @@ export class MockConwayClient implements ConwayClient {
 
   async registerAutomaton(_params: {
     automatonId: string;
-    automatonAddress: import("viem").Address;
-    creatorAddress: import("viem").Address;
+    automatonAddress: string;
+    creatorAddress: string;
     name: string;
     bio?: string;
-    genesisPromptHash?: `0x${string}`;
-    account: import("viem").PrivateKeyAccount;
+    genesisPromptHash?: string;
+    keypair: import("@solana/web3.js").Keypair;
     nonce?: string;
   }): Promise<{ automaton: Record<string, unknown> }> {
     return { automaton: {} };
@@ -318,11 +318,13 @@ export function createTestDb(): AutomatonDatabase {
 }
 
 export function createTestIdentity(): AutomatonIdentity {
+  const { Keypair } = require("@solana/web3.js");
+  const testKeypair = Keypair.generate();
   return {
     name: "test-automaton",
-    address: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
-    account: {} as any, // Placeholder — not used in most tests
-    creatorAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as `0x${string}`,
+    address: testKeypair.publicKey.toBase58(),
+    keypair: testKeypair,
+    creatorAddress: Keypair.generate().publicKey.toBase58(),
     sandboxId: "test-sandbox-id",
     apiKey: "test-api-key",
     createdAt: new Date().toISOString(),
@@ -335,7 +337,7 @@ export function createTestConfig(
   return {
     name: "test-automaton",
     genesisPrompt: "You are a test automaton.",
-    creatorAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as `0x${string}`,
+    creatorAddress: "BPFLoaderUpgradeab1e11111111111111111111111",
     registeredWithConway: true,
     sandboxId: "test-sandbox-id",
     conwayApiUrl: "https://api.conway.tech",
@@ -345,8 +347,8 @@ export function createTestConfig(
     heartbeatConfigPath: "/tmp/test-heartbeat.yml",
     dbPath: "/tmp/test-state.db",
     logLevel: "error",
-    walletAddress: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
-    version: "0.2.1",
+    walletAddress: "11111111111111111111111111111111",
+    version: "0.3.0",
     skillsDir: "/tmp/test-skills",
     maxChildren: 3,
     maxTurnsPerCycle: 25,

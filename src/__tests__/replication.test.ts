@@ -43,44 +43,38 @@ vi.mock("fs", async (importOriginal) => {
 // ─── isValidWalletAddress ─────────────────────────────────────
 
 describe("isValidWalletAddress", () => {
-  it("accepts a valid 40-hex-char address with 0x prefix", () => {
-    expect(isValidWalletAddress("0xabcdef1234567890abcdef1234567890abcdef12")).toBe(true);
+  it("accepts a valid Solana base58 address (on-curve)", () => {
+    // A known valid on-curve Solana public key (generated from Keypair)
+    expect(isValidWalletAddress("CenYq6bDRB7p73EjsPEpiYN7uveyPUTdXkDkgUduboaN")).toBe(true);
   });
 
-  it("accepts uppercase hex characters", () => {
-    expect(isValidWalletAddress("0xABCDEF1234567890ABCDEF1234567890ABCDEF12")).toBe(true);
+  it("accepts another valid Solana address", () => {
+    expect(isValidWalletAddress("CenYq6bDRB7p73EjsPEpiYN7uveyPUTdXkDkgUduboaN")).toBe(true);
   });
 
-  it("accepts mixed-case hex characters", () => {
-    expect(isValidWalletAddress("0xAbCdEf1234567890aBcDeF1234567890AbCdEf12")).toBe(true);
-  });
-
-  it("rejects the zero address", () => {
-    expect(isValidWalletAddress("0x" + "0".repeat(40))).toBe(false);
-  });
-
-  it("rejects addresses without 0x prefix", () => {
-    expect(isValidWalletAddress("abcdef1234567890abcdef1234567890abcdef12")).toBe(false);
+  it("rejects a PDA address (not on curve)", () => {
+    // PDA derived from Token program — valid base58 but not on ed25519 curve
+    expect(isValidWalletAddress("5HD8p5DdzpF7CeSsRHkWmFtUC1shqtSajvEnyYkHkASr")).toBe(false);
   });
 
   it("rejects addresses that are too short", () => {
-    expect(isValidWalletAddress("0xabcdef")).toBe(false);
+    expect(isValidWalletAddress("abc")).toBe(false);
   });
 
   it("rejects addresses that are too long", () => {
-    expect(isValidWalletAddress("0x" + "a".repeat(42))).toBe(false);
+    expect(isValidWalletAddress("a".repeat(50))).toBe(false);
   });
 
   it("rejects empty string", () => {
     expect(isValidWalletAddress("")).toBe(false);
   });
 
-  it("rejects non-hex characters", () => {
-    expect(isValidWalletAddress("0xGGGGGG1234567890abcdef1234567890abcdef12")).toBe(false);
+  it("rejects invalid base58 characters (0, O, I, l)", () => {
+    expect(isValidWalletAddress("0OIl" + "1".repeat(40))).toBe(false);
   });
 
-  it("rejects 0x prefix alone", () => {
-    expect(isValidWalletAddress("0x")).toBe(false);
+  it("rejects non-base58 string", () => {
+    expect(isValidWalletAddress("!!!invalid!!!")).toBe(false);
   });
 });
 
@@ -98,8 +92,8 @@ describe("spawnChild", () => {
     parentAddress: identity.address,
   };
 
-  const validAddress = "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
-  const zeroAddress = "0x" + "0".repeat(40);
+  const validAddress = "CenYq6bDRB7p73EjsPEpiYN7uveyPUTdXkDkgUduboaN";
+  const zeroAddress = "5HD8p5DdzpF7CeSsRHkWmFtUC1shqtSajvEnyYkHkASr";
 
   beforeEach(() => {
     conway = new MockConwayClient();
@@ -276,7 +270,7 @@ describe("pruneDeadChildren", () => {
   function insertChild(id: string, name: string, status: string, createdAt: string): void {
     db.raw.prepare(
       `INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, status, created_at)
-       VALUES (?, ?, '0xabc', 'sandbox-${id}', 'prompt', ?, ?)`,
+       VALUES (?, ?, '4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T', 'sandbox-${id}', 'prompt', ?, ?)`,
     ).run(id, name, status, createdAt);
   }
 

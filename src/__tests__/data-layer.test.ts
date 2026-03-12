@@ -154,7 +154,7 @@ describe("Agent Card Validation", () => {
     const card = validateAgentCard({
       name: "TestAgent",
       type: "automaton",
-      address: "0x1234",
+      address: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
       description: "A test agent",
     });
     expect(card).not.toBeNull();
@@ -461,17 +461,17 @@ describe("Inbox Message Deserialization", () => {
     rawDb.prepare(
       `INSERT INTO inbox_messages (id, from_address, to_address, content, received_at)
        VALUES (?, ?, ?, ?, ?)`,
-    ).run("msg-1", "0xSender", "0xRecipient", "Hello", new Date().toISOString());
+    ).run("msg-1", "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP", "9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS", "Hello", new Date().toISOString());
 
     const messages = db.getUnprocessedInboxMessages(10);
     expect(messages.length).toBe(1);
-    expect(messages[0].to).toBe("0xRecipient");
+    expect(messages[0].to).toBe("9mFkR2xH5tN8vB3wG7jQ4cY1pZ6dA0eS");
   });
 
   it("falls back to empty string when to_address is null", () => {
     db.insertInboxMessage({
       id: "msg-2",
-      from: "0xSender",
+      from: "3nWpEUTi9ZMx6K4YhVfRqJb7cDsLg8aP",
       to: "",
       content: "Hello",
       signedAt: new Date().toISOString(),
@@ -733,7 +733,7 @@ describe("Core Table CRUD", () => {
     const rawDb = (db as any).raw;
     rawDb.prepare(
       `INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, status) VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run("child-1", "test-child", "0xchild", "sandbox-1", "You are a child.", "spawning");
+    ).run("child-1", "test-child", "4vRkN8xH2tM5wB7jG3cQ9pY1dZ6eA0fS", "sandbox-1", "You are a child.", "spawning");
 
     const children = db.getChildren();
     expect(children.length).toBe(1);

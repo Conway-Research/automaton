@@ -3,7 +3,7 @@ import path from "path";
 import chalk from "chalk";
 import type { AutomatonConfig, TreasuryPolicy } from "../types.js";
 import { DEFAULT_TREASURY_POLICY } from "../types.js";
-import type { Address } from "viem";
+import type { SolanaAddress } from "../types.js";
 import { getWallet, getAutomatonDir } from "../identity/wallet.js";
 import { provision } from "../identity/provision.js";
 import { createConfig, saveConfig } from "../config.js";
@@ -27,11 +27,11 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
 
   // ─── 1. Generate wallet ───────────────────────────────────────
   console.log(chalk.cyan("  [1/6] Generating identity (wallet)..."));
-  const { account, isNew } = await getWallet();
+  const { keypair, isNew } = await getWallet();
   if (isNew) {
-    console.log(chalk.green(`  Wallet created: ${account.address}`));
+    console.log(chalk.green(`  Wallet created: ${keypair.publicKey.toBase58()}`));
   } else {
-    console.log(chalk.green(`  Wallet loaded: ${account.address}`));
+    console.log(chalk.green(`  Wallet loaded: ${keypair.publicKey.toBase58()}`));
   }
   console.log(chalk.dim(`  Private key stored at: ${getAutomatonDir()}/wallet.json\n`));
 
@@ -55,7 +55,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
       }
       fs.writeFileSync(
         path.join(configDir, "config.json"),
-        JSON.stringify({ apiKey, walletAddress: account.address, provisionedAt: new Date().toISOString() }, null, 2),
+        JSON.stringify({ apiKey, walletAddress: keypair.publicKey.toBase58(), provisionedAt: new Date().toISOString() }, null, 2),
         { mode: 0o600 },
       );
       console.log(chalk.green("  API key saved.\n"));
@@ -75,7 +75,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   const genesisPrompt = await promptMultiline("Enter the genesis prompt (system prompt) for your automaton.");
   console.log(chalk.green(`  Genesis prompt set (${genesisPrompt.length} chars)\n`));
 
-  console.log(chalk.dim(`  Your automaton's address is ${account.address}`));
+  console.log(chalk.dim(`  Your automaton's address is ${keypair.publicKey.toBase58()}`));
   console.log(chalk.dim("  Now enter YOUR wallet address (the human creator/owner).\n"));
   const creatorAddress = await promptAddress("Creator wallet address (0x...)");
   console.log(chalk.green(`  Creator: ${creatorAddress}\n`));
@@ -149,10 +149,10 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   const config = createConfig({
     name,
     genesisPrompt,
-    creatorAddress: creatorAddress as Address,
+    creatorAddress: creatorAddress as SolanaAddress,
     registeredWithConway: !!apiKey,
     sandboxId: env.sandboxId,
-    walletAddress: account.address,
+    walletAddress: keypair.publicKey.toBase58(),
     apiKey,
     openaiApiKey: openaiApiKey || undefined,
     anthropicApiKey: anthropicApiKey || undefined,
@@ -178,7 +178,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
 
   // SOUL.md
   const soulPath = path.join(automatonDir, "SOUL.md");
-  fs.writeFileSync(soulPath, generateSoulMd(name, account.address, creatorAddress, genesisPrompt), { mode: 0o600 });
+  fs.writeFileSync(soulPath, generateSoulMd(name, keypair.publicKey.toBase58(), creatorAddress, genesisPrompt), { mode: 0o600 });
   console.log(chalk.green("  SOUL.md written"));
 
   // Default skills
@@ -188,7 +188,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
 
   // ─── 6. Funding guidance ──────────────────────────────────────
   console.log(chalk.cyan("  [6/6] Funding\n"));
-  showFundingPanel(account.address);
+  showFundingPanel(keypair.publicKey.toBase58());
 
   closePrompts();
 
@@ -208,7 +208,7 @@ function showFundingPanel(address: string): void {
   console.log(chalk.cyan(`  │${pad("  1. Transfer Conway credits", w)}│`));
   console.log(chalk.cyan(`  │${pad("     conway credits transfer <address> <amount>", w)}│`));
   console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
-  console.log(chalk.cyan(`  │${pad("  2. Send USDC on Base directly to the address above", w)}│`));
+  console.log(chalk.cyan(`  │${pad("  2. Send USDC on Solana directly to the address above", w)}│`));
   console.log(chalk.cyan(`  │${" ".repeat(w)}│`));
   console.log(chalk.cyan(`  │${pad("  3. Fund via Conway Cloud dashboard", w)}│`));
   console.log(chalk.cyan(`  │${pad("     https://app.conway.tech", w)}│`));

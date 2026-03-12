@@ -518,19 +518,36 @@ export class Orchestrator {
 
     // Recover stale tasks: workers that died (process restart, sandbox crash)
     // leave tasks stuck in 'assigned' forever. Detect and reset them.
+    // Uses the existing retry_count column — after max_retries, mark as failed.
     if (this.params.isWorkerAlive) {
       const assignedTasks = getTasksByGoal(this.params.db, goal.id)
         .filter((t) => t.status === "assigned" && t.assignedTo);
       for (const task of assignedTasks) {
         const alive = this.params.isWorkerAlive(task.assignedTo!);
         if (!alive) {
-          logger.warn("Recovering stale task from dead worker", {
-            taskId: task.id,
-            worker: task.assignedTo,
-          });
-          this.params.db.prepare(
-            "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL WHERE id = ?",
-          ).run(task.id);
+          const newRetryCount = task.retryCount + 1;
+
+          if (newRetryCount >= task.maxRetries) {
+            logger.warn("Stale task exceeded max retries, marking failed", {
+              taskId: task.id,
+              worker: task.assignedTo,
+              retryCount: newRetryCount,
+              maxRetries: task.maxRetries,
+            });
+            this.params.db.prepare(
+              "UPDATE task_graph SET status = 'failed', assigned_to = NULL, started_at = NULL, retry_count = ? WHERE id = ?",
+            ).run(newRetryCount, task.id);
+          } else {
+            logger.warn("Recovering stale task from dead worker", {
+              taskId: task.id,
+              worker: task.assignedTo,
+              attempt: newRetryCount,
+              maxRetries: task.maxRetries,
+            });
+            this.params.db.prepare(
+              "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL, retry_count = ? WHERE id = ?",
+            ).run(newRetryCount, task.id);
+          }
         }
       }
     }

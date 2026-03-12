@@ -49,7 +49,7 @@ function isExternalSource(inputSource: string | undefined): boolean {
  * only be initiated by the agent itself or its creator — never from
  * heartbeat tasks or untrusted external input.
  *
- * Tools NOT on this list (e.g., register_erc8004, give_feedback,
+ * Tools NOT on this list (e.g., register_agent_card, give_feedback,
  * edit_own_file, transfer_credits) are allowed from any source because
  * they are core agent functionality already guarded by other policy rules
  * (financial limits, rate limits, path protection, etc.).

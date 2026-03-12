@@ -478,12 +478,19 @@ function buildPlannerUserPrompt(params: {
 }
 
 function parsePlannerResponse(content: string): unknown {
-  if (content.trim().length === 0) {
+  let text = content.trim();
+  if (text.length === 0) {
     throw new Error("Planner returned an empty response");
   }
 
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const fenceMatch = text.match(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/);
+  if (fenceMatch) {
+    text = fenceMatch[1].trim();
+  }
+
   try {
-    return JSON.parse(content);
+    return JSON.parse(text);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Planner returned invalid JSON: ${message}`);

@@ -1,51 +1,48 @@
 /**
- * x402 Payment Protocol
+ * x402 Payment Protocol (Solana)
  *
  * Enables the automaton to make USDC micropayments via HTTP 402.
- * Adapted from conway-mcp/src/x402/index.ts
+ * Uses SPL Token transfers on Solana instead of EIP-3009.
  */
 
 import {
-  createPublicClient,
-  http,
-  parseUnits,
-  type Address,
-  type PrivateKeyAccount,
-} from "viem";
-import { base, baseSepolia } from "viem/chains";
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  clusterApiUrl,
+} from "@solana/web3.js";
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  getAccount,
+} from "@solana/spl-token";
+import nacl from "tweetnacl";
+import bs58 from "bs58";
 import { ResilientHttpClient } from "./http-client.js";
 
 const x402HttpClient = new ResilientHttpClient();
 
-// USDC contract addresses
-const USDC_ADDRESSES: Record<string, Address> = {
-  "eip155:8453": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base mainnet
-  "eip155:84532": "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia
+// USDC SPL token mint addresses
+const USDC_MINTS: Record<string, PublicKey> = {
+  "solana:mainnet-beta": new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mainnet
+  "solana:devnet": new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), // USDC devnet
 };
 
-const CHAINS: Record<string, any> = {
-  "eip155:8453": base,
-  "eip155:84532": baseSepolia,
+const CLUSTERS: Record<string, string> = {
+  "solana:mainnet-beta": "mainnet-beta",
+  "solana:devnet": "devnet",
 };
-type NetworkId = keyof typeof USDC_ADDRESSES;
 
-const BALANCE_OF_ABI = [
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
+type NetworkId = keyof typeof USDC_MINTS;
 
 interface PaymentRequirement {
   scheme: string;
   network: NetworkId;
   maxAmountRequired: string;
-  payToAddress: Address;
+  payToAddress: string;
   requiredDeadlineSeconds: number;
-  usdcAddress: Address;
+  usdcMint: string;
 }
 
 interface PaymentRequiredResponse {
@@ -96,11 +93,8 @@ function parsePositiveInt(value: unknown): number | null {
 function normalizeNetwork(raw: unknown): NetworkId | null {
   if (typeof raw !== "string") return null;
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "base") return "eip155:8453";
-  if (normalized === "base-sepolia") return "eip155:84532";
-  if (normalized === "eip155:8453" || normalized === "eip155:84532") {
-    return normalized;
-  }
+  if (normalized === "solana" || normalized === "solana:mainnet-beta") return "solana:mainnet-beta";
+  if (normalized === "solana:devnet") return "solana:devnet";
   return null;
 }
 
@@ -113,8 +107,7 @@ function normalizePaymentRequirement(raw: unknown): PaymentRequirement | null {
   const scheme = typeof value.scheme === "string" ? value.scheme : null;
   const maxAmountRequired = typeof value.maxAmountRequired === "string"
     ? value.maxAmountRequired
-    : typeof value.maxAmountRequired === "number" &&
-        Number.isFinite(value.maxAmountRequired)
+    : typeof value.maxAmountRequired === "number" && Number.isFinite(value.maxAmountRequired)
       ? String(value.maxAmountRequired)
       : null;
   const payToAddress = typeof value.payToAddress === "string"
@@ -122,17 +115,17 @@ function normalizePaymentRequirement(raw: unknown): PaymentRequirement | null {
     : typeof value.payTo === "string"
       ? value.payTo
       : null;
-  const usdcAddress = typeof value.usdcAddress === "string"
-    ? value.usdcAddress
+  const usdcMint = typeof value.usdcMint === "string"
+    ? value.usdcMint
     : typeof value.asset === "string"
       ? value.asset
-      : USDC_ADDRESSES[network];
+      : USDC_MINTS[network]?.toBase58();
   const requiredDeadlineSeconds =
     parsePositiveInt(value.requiredDeadlineSeconds) ??
     parsePositiveInt(value.maxTimeoutSeconds) ??
     300;
 
-  if (!scheme || !maxAmountRequired || !payToAddress || !usdcAddress) {
+  if (!scheme || !maxAmountRequired || !payToAddress || !usdcMint) {
     return null;
   }
 
@@ -140,9 +133,9 @@ function normalizePaymentRequirement(raw: unknown): PaymentRequirement | null {
     scheme,
     network,
     maxAmountRequired,
-    payToAddress: payToAddress as Address,
+    payToAddress,
     requiredDeadlineSeconds,
-    usdcAddress: usdcAddress as Address,
+    usdcMint,
   };
 }
 
@@ -167,43 +160,44 @@ function parseMaxAmountRequired(maxAmountRequired: string, x402Version: number):
   }
 
   if (amount.includes(".")) {
-    return parseUnits(amount, 6);
+    // Convert decimal to atomic units (6 decimals for USDC)
+    const [whole, frac = ""] = amount.split(".");
+    const padded = frac.padEnd(6, "0").slice(0, 6);
+    return BigInt(whole + padded);
   }
   if (x402Version >= 2 || amount.length > 6) {
     return BigInt(amount);
   }
-  return parseUnits(amount, 6);
+  // Treat as whole USDC units
+  return BigInt(amount) * 1_000_000n;
 }
 
 function selectRequirement(parsed: PaymentRequiredResponse): PaymentRequirement {
   const exactSupported = parsed.accepts.find(
-    (r) => r.scheme === "exact" && !!CHAINS[r.network],
+    (r) => r.scheme === "exact" && !!CLUSTERS[r.network],
   );
   if (exactSupported) return exactSupported;
   return parsed.accepts[0];
 }
 
 /**
- * Get the USDC balance for the automaton's wallet on a given network.
+ * Get the USDC SPL token balance for the automaton's wallet.
  */
 export async function getUsdcBalance(
-  address: Address,
-  network: string = "eip155:8453",
+  address: string,
+  network: string = process.env.AUTOMATON_NETWORK || "solana:mainnet-beta",
 ): Promise<number> {
   const result = await getUsdcBalanceDetailed(address, network);
   return result.balance;
 }
 
-/**
- * Get the USDC balance and read status details for diagnostics.
- */
 export async function getUsdcBalanceDetailed(
-  address: Address,
-  network: string = "eip155:8453",
+  address: string,
+  network: string = process.env.AUTOMATON_NETWORK || "solana:mainnet-beta",
 ): Promise<UsdcBalanceResult> {
-  const chain = CHAINS[network];
-  const usdcAddress = USDC_ADDRESSES[network];
-  if (!chain || !usdcAddress) {
+  const cluster = CLUSTERS[network];
+  const usdcMint = USDC_MINTS[network];
+  if (!cluster || !usdcMint) {
     return {
       balance: 0,
       network,
@@ -213,25 +207,23 @@ export async function getUsdcBalanceDetailed(
   }
 
   try {
-    const rpcUrl = process.env.AUTOMATON_RPC_URL || undefined;
-    const client = createPublicClient({
-      chain,
-      transport: http(rpcUrl, { timeout: 10_000 }),
-    });
+    const rpcUrl = process.env.AUTOMATON_RPC_URL || clusterApiUrl(cluster as any);
+    const connection = new Connection(rpcUrl, "confirmed");
+    const walletPubkey = new PublicKey(address);
 
-    const balance = await client.readContract({
-      address: usdcAddress,
-      abi: BALANCE_OF_ABI,
-      functionName: "balanceOf",
-      args: [address],
-    });
+    const ata = await getAssociatedTokenAddress(usdcMint, walletPubkey);
 
-    // USDC has 6 decimals
-    return {
-      balance: Number(balance) / 1_000_000,
-      network,
-      ok: true,
-    };
+    try {
+      const tokenAccount = await getAccount(connection, ata);
+      return {
+        balance: Number(tokenAccount.amount) / 1_000_000,
+        network,
+        ok: true,
+      };
+    } catch {
+      // Token account doesn't exist = 0 balance
+      return { balance: 0, network, ok: true };
+    }
   } catch (err: any) {
     return {
       balance: 0,
@@ -262,18 +254,17 @@ export async function checkX402(
 
 /**
  * Fetch a URL with automatic x402 payment.
- * If the endpoint returns 402, sign and pay, then retry.
+ * If the endpoint returns 402, sign a Solana SPL transfer and retry.
  */
 export async function x402Fetch(
   url: string,
-  account: PrivateKeyAccount,
+  keypair: Keypair,
   method: string = "GET",
   body?: string,
   headers?: Record<string, string>,
   maxPaymentCents?: number,
 ): Promise<X402PaymentResult> {
   try {
-    // Initial request (non-mutating probe, uses resilient client)
     const initialResp = await x402HttpClient.request(url, {
       method,
       headers: { ...headers, "Content-Type": "application/json" },
@@ -287,7 +278,6 @@ export async function x402Fetch(
       return { success: initialResp.ok, response: data, status: initialResp.status };
     }
 
-    // Parse payment requirements
     const parsed = await parsePaymentRequired(initialResp);
     if (!parsed) {
       return {
@@ -303,7 +293,6 @@ export async function x402Fetch(
         parsed.requirement.maxAmountRequired,
         parsed.x402Version,
       );
-      // Convert atomic units (6 decimals) to cents (2 decimals)
       const amountCents = Number(amountAtomic) / 10_000;
       if (amountCents > maxPaymentCents) {
         return {
@@ -314,11 +303,11 @@ export async function x402Fetch(
       }
     }
 
-    // Sign payment
+    // Sign payment (Solana SPL transfer authorization)
     let payment: any;
     try {
       payment = await signPayment(
-        account,
+        keypair,
         parsed.requirement,
         parsed.x402Version,
       );
@@ -330,7 +319,6 @@ export async function x402Fetch(
       };
     }
 
-    // Retry with payment
     const paymentHeader = Buffer.from(
       JSON.stringify(payment),
     ).toString("base64");
@@ -343,7 +331,7 @@ export async function x402Fetch(
         "X-Payment": paymentHeader,
       },
       body,
-      retries: 0, // Paid request: do not auto-retry (payment already signed)
+      retries: 0,
     });
 
     const data = await paidResp.json().catch(() => paidResp.text());
@@ -377,13 +365,13 @@ async function parsePaymentRequired(
         };
       }
     } catch {
-      // Ignore header decode errors and continue with body parsing.
+      // Ignore
     }
   }
 
   try {
-    const body = await resp.json();
-    const parsedBody = normalizePaymentRequired(body);
+    const bodyData = await resp.json();
+    const parsedBody = normalizePaymentRequired(bodyData);
     if (!parsedBody) return null;
     return {
       x402Version: parsedBody.x402Version,
@@ -394,76 +382,72 @@ async function parsePaymentRequired(
   }
 }
 
+/**
+ * Sign a Solana SPL token transfer authorization for x402 payment.
+ * Creates a signed transaction that can be submitted by the server.
+ */
 async function signPayment(
-  account: PrivateKeyAccount,
+  keypair: Keypair,
   requirement: PaymentRequirement,
   x402Version: number,
 ): Promise<any> {
-  const chain = CHAINS[requirement.network];
-  if (!chain) {
+  const cluster = CLUSTERS[requirement.network];
+  if (!cluster) {
     throw new Error(`Unsupported network: ${requirement.network}`);
   }
 
-  const nonce = `0x${Buffer.from(
-    crypto.getRandomValues(new Uint8Array(32)),
-  ).toString("hex")}`;
-
-  const now = Math.floor(Date.now() / 1000);
-  const validAfter = now - 60;
-  const validBefore = now + requirement.requiredDeadlineSeconds;
   const amount = parseMaxAmountRequired(
     requirement.maxAmountRequired,
     x402Version,
   );
 
-  // EIP-712 typed data for TransferWithAuthorization
-  const domain = {
-    name: "USD Coin",
-    version: "2",
-    chainId: chain.id,
-    verifyingContract: requirement.usdcAddress,
-  } as const;
+  const rpcUrl = process.env.AUTOMATON_RPC_URL || clusterApiUrl(cluster as any);
+  const connection = new Connection(rpcUrl, "confirmed");
+  const usdcMint = new PublicKey(requirement.usdcMint);
+  const payTo = new PublicKey(requirement.payToAddress);
 
-  const types = {
-    TransferWithAuthorization: [
-      { name: "from", type: "address" },
-      { name: "to", type: "address" },
-      { name: "value", type: "uint256" },
-      { name: "validAfter", type: "uint256" },
-      { name: "validBefore", type: "uint256" },
-      { name: "nonce", type: "bytes32" },
-    ],
-  } as const;
+  const senderAta = await getAssociatedTokenAddress(usdcMint, keypair.publicKey);
+  const recipientAta = await getAssociatedTokenAddress(usdcMint, payTo);
 
-  const message = {
-    from: account.address,
+  const transferIx = createTransferInstruction(
+    senderAta,
+    recipientAta,
+    keypair.publicKey,
+    BigInt(amount.toString()),
+  );
+
+  const tx = new Transaction().add(transferIx);
+  tx.feePayer = keypair.publicKey;
+  tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  tx.sign(keypair);
+
+  const serializedTx = tx.serialize().toString("base64");
+
+  // Sign a message proving intent
+  const now = Math.floor(Date.now() / 1000);
+  const intentMessage = JSON.stringify({
+    from: keypair.publicKey.toBase58(),
     to: requirement.payToAddress,
-    value: amount,
-    validAfter: BigInt(validAfter),
-    validBefore: BigInt(validBefore),
-    nonce: nonce as `0x${string}`,
-  };
-
-  const signature = await account.signTypedData({
-    domain,
-    types,
-    primaryType: "TransferWithAuthorization",
-    message,
+    amount: amount.toString(),
+    mint: requirement.usdcMint,
+    timestamp: now,
   });
+  const intentBytes = new TextEncoder().encode(intentMessage);
+  const intentSig = bs58.encode(nacl.sign.detached(intentBytes, keypair.secretKey));
 
   return {
     x402Version,
     scheme: requirement.scheme,
     network: requirement.network,
     payload: {
-      signature,
+      transaction: serializedTx,
+      signature: intentSig,
       authorization: {
-        from: account.address,
+        from: keypair.publicKey.toBase58(),
         to: requirement.payToAddress,
-        value: amount.toString(),
-        validAfter: validAfter.toString(),
-        validBefore: validBefore.toString(),
-        nonce,
+        amount: amount.toString(),
+        mint: requirement.usdcMint,
+        timestamp: now,
       },
     },
   };

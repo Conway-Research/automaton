@@ -62,6 +62,28 @@ const FORBIDDEN_COMMAND_PATTERNS: { pattern: RegExp; description: string }[] = [
   { pattern: /cat\s+.*\.gnupg/, description: "Read GPG keys" },
   { pattern: /cat\s+.*\.env/, description: "Read environment file" },
   { pattern: /cat\s+.*wallet\.json/, description: "Read wallet file" },
+  // Environment variable exfiltration
+  { pattern: /^\s*env\s*$/, description: "Dump environment variables" },
+  { pattern: /\bprintenv\b/, description: "Print environment variables" },
+  { pattern: /^\s*set\s*$/, description: "Dump shell variables" },
+  { pattern: /\/proc\/self\/environ/, description: "Read process environment" },
+  { pattern: /echo\s+\$[A-Z_]*KEY/i, description: "Echo API key variable" },
+  { pattern: /echo\s+\$[A-Z_]*SECRET/i, description: "Echo secret variable" },
+  { pattern: /echo\s+\$[A-Z_]*TOKEN/i, description: "Echo token variable" },
+  { pattern: /echo\s+\$[A-Z_]*PASSWORD/i, description: "Echo password variable" },
+  // Network exfiltration
+  { pattern: /curl\s+.*\|\s*sh/, description: "Pipe curl to shell" },
+  { pattern: /wget\s+.*\|\s*sh/, description: "Pipe wget to shell" },
+  { pattern: /curl\s+.*-d\s+.*\$/, description: "Exfiltrate env via curl" },
+  // Crypto key theft
+  { pattern: /cat\s+.*\.pem/, description: "Read PEM key file" },
+  { pattern: /cat\s+.*\.key/, description: "Read key file" },
+  { pattern: /cat\s+.*private/, description: "Read private key file" },
+  // Disk/system destruction
+  { pattern: /mkfs/, description: "Format filesystem" },
+  { pattern: /dd\s+if=.*of=\/dev/, description: "Raw disk write" },
+  { pattern: /chmod\s+777/, description: "World-writable permissions" },
+  { pattern: /chown\s+.*root/, description: "Change ownership to root" },
   // Policy engine modification via shell
   { pattern: /sed\s+.*policy-engine/, description: "Modify policy engine via sed" },
   { pattern: /sed\s+.*policy-rules/, description: "Modify policy rules via sed" },

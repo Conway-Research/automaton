@@ -52,7 +52,7 @@ const STRATEGIC_TOOLS = new Set([
   "edit_own_file",
   "modify_heartbeat",
   "spawn_child",
-  "register_erc8004",
+  "register_agent_card",
   "update_agent_card",
   "install_mcp_server",
   "update_soul",

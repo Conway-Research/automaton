@@ -572,7 +572,7 @@ describe("Tool risk classifications", () => {
       "install_mcp_server", "install_skill", "create_skill", "remove_skill",
       "transfer_credits", "fund_child", "x402_fetch", "register_domain",
       "spawn_child", "delete_sandbox", "update_genesis_prompt",
-      "register_erc8004", "give_feedback", "distress_signal",
+      "register_agent_card", "give_feedback", "distress_signal",
     ];
     for (const name of expectedDangerous) {
       const tool = tools.find((t) => t.name === name);

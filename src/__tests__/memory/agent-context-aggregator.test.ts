@@ -6,7 +6,7 @@ import {
 
 function makeUpdate(overrides: Partial<AgentStatusUpdate> = {}): AgentStatusUpdate {
   return {
-    agentAddress: "0xagent1",
+    agentAddress: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
     department: "engineering",
     role: "generalist",
     status: "running",

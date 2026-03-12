@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zentience - Terms & Conditions</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23d4af37'/%3E%3Cstop offset='100%25' stop-color='%23f5f5f5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23g)'/%3E%3Ctext x='50' y='68' text-anchor='middle' font-family='monospace' font-weight='900' font-size='52' fill='%23000'%3EZ%3C/text%3E%3C/svg%3E">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-void: #000000;
+      --accent-gold: #d4af37;
+      --accent-gold-dim: rgba(212, 175, 55, 0.3);
+      --accent-platinum: #e8e8e8;
+      --accent-ember: #ff6b35;
+      --text-primary: #e8e4e0;
+      --text-secondary: #777070;
+      --text-muted: #444;
+      --border-dim: rgba(212, 175, 55, 0.08);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Space Grotesk', -apple-system, sans-serif;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      color: var(--accent-gold); text-decoration: none;
+      font-family: 'Space Mono', monospace; font-size: 0.7rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 3rem; transition: opacity 0.3s;
+    }
+    .back-link:hover { opacity: 0.7; }
+    .terms {
+      max-width: 720px; margin: 0 auto;
+      padding: 4rem 2rem 6rem;
+    }
+    .terms h1 {
+      font-size: 2rem; font-weight: 700; color: var(--accent-platinum);
+      margin-bottom: 0.5rem; letter-spacing: -0.02em;
+    }
+    .terms .updated {
+      font-size: 0.65rem; color: var(--text-muted);
+      font-family: 'Space Mono', monospace; letter-spacing: 0.1em;
+      margin-bottom: 3rem;
+    }
+    .terms h2 {
+      font-size: 0.8rem; font-weight: 600; color: var(--accent-gold);
+      margin: 2.5rem 0 0.75rem; text-transform: uppercase;
+      letter-spacing: 0.12em; font-family: 'Space Mono', monospace;
+    }
+    .terms p {
+      font-size: 0.85rem; color: var(--text-secondary);
+      line-height: 1.9; font-weight: 300; margin-bottom: 0.75rem;
+    }
+    .terms ul { list-style: none; padding: 0; margin: 0.5rem 0 1rem; }
+    .terms li {
+      font-size: 0.8rem; color: var(--text-secondary);
+      line-height: 1.8; font-weight: 300;
+      padding: 0.25rem 0 0.25rem 1.25rem; position: relative;
+    }
+    .terms li::before {
+      content: '//'; position: absolute; left: 0;
+      color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 0.65rem;
+    }
+    .terms strong { color: var(--accent-ember); font-weight: 500; }
+    .divider {
+      width: 100%; height: 1px; margin: 3rem 0;
+      background: linear-gradient(90deg, transparent, var(--accent-gold-dim), transparent);
+    }
+    footer {
+      border-top: 1px solid var(--border-dim);
+      padding: 2rem; text-align: center;
+    }
+    footer p {
+      color: var(--text-muted); font-size: 0.65rem;
+      font-family: 'Space Mono', monospace; letter-spacing: 0.1em;
+    }
+    footer a { color: var(--accent-gold); text-decoration: none; }
+    @media (max-width: 768px) {
+      .terms { padding: 3rem 1.25rem 4rem; }
+      .terms h1 { font-size: 1.5rem; }
+      .terms h2 { font-size: 0.7rem; }
+      .terms p { font-size: 0.8rem; }
+      .terms li { font-size: 0.75rem; }
+      .back-link { font-size: 0.6rem; margin-bottom: 2rem; }
+      footer { padding: 1.5rem 1.25rem; }
+    }
+    @supports (padding: env(safe-area-inset-top)) {
+      .terms { padding-left: max(1.25rem, env(safe-area-inset-left)); padding-right: max(1.25rem, env(safe-area-inset-right)); }
+      footer { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="terms">
+  <a href="index.html" class="back-link">&larr; Back to Zentience</a>
+  <h1>Terms &amp; Conditions</h1>
+  <p class="updated">LAST UPDATED: MARCH 2026</p>
+
+  <p>By accessing this website or interacting with the Zentience project, you agree to the following terms.</p>
+
+  <h2>1. Experimental Software</h2>
+  <p>Zentience is an experimental, open-source AI research project provided "as is" and "as available" without warranties of any kind, express or implied. The software is in active development and may contain bugs, errors, or unexpected behavior. Use of this software is entirely at your own risk.</p>
+
+  <h2>2. Educational Purpose</h2>
+  <p>This project exists for educational, research, and entertainment purposes only. It is designed to explore concepts in autonomous AI agents, on-chain identity, and self-sustaining software systems. Nothing on this website or in this codebase constitutes financial, investment, legal, or professional advice of any kind.</p>
+
+  <h2>3. $ZENT Token Disclaimer</h2>
+  <p>The $ZENT token is a community meme token on the Solana blockchain. By purchasing, holding, or interacting with $ZENT, you acknowledge and agree that:</p>
+  <ul>
+    <li>$ZENT is a meme token with no intrinsic value and no expectation of profit or financial return</li>
+    <li>$ZENT does not represent equity, shares, ownership, governance rights, revenue share, or any claim on assets</li>
+    <li>$ZENT has no utility beyond community engagement and entertainment</li>
+    <li>The value of $ZENT may go to zero at any time and you may lose 100% of your purchase amount</li>
+    <li>No individual, team, or entity makes any promises about the future value, development, or support of $ZENT</li>
+    <li>$ZENT is not a security under U.S. or international securities laws</li>
+    <li>You are solely responsible for determining whether $ZENT is legal in your jurisdiction</li>
+    <li>You will not hold the project contributors liable for any financial losses</li>
+  </ul>
+
+  <h2>4. No Financial Advice</h2>
+  <p>Nothing contained on this website, in the project documentation, on social media, or in any communication from project contributors constitutes financial advice, investment advice, trading advice, or any other sort of professional advice. You should conduct your own research and consult with independent financial, legal, and tax advisors before making any investment decisions.</p>
+
+  <h2>5. No Warranties</h2>
+  <p>The Zentience project, its contributors, and affiliates make no warranties or representations about the accuracy, reliability, completeness, or timeliness of the content, software, text, graphics, or other materials. The entire risk of the use or the results from the use of this software remains with you.</p>
+
+  <h2>6. Limitation of Liability</h2>
+  <p>In no event shall the Zentience project, its contributors, or affiliates be liable for any direct, indirect, incidental, special, consequential, or exemplary damages, including but not limited to damages for loss of profits, data, goodwill, or other intangible losses, resulting from (a) use or inability to use the software; (b) any transaction or interaction involving $ZENT; (c) unauthorized access to your wallets or data; (d) any bugs, viruses, or errors in the software.</p>
+
+  <h2>7. Assumption of Risk</h2>
+  <p>You acknowledge that blockchain transactions are irreversible, that cryptocurrency markets are highly volatile, and that interacting with smart contracts carries inherent risks including but not limited to smart contract vulnerabilities, regulatory changes, and total loss of funds. You assume all such risks voluntarily.</p>
+
+  <h2>8. Regulatory Compliance</h2>
+  <p>You are solely responsible for compliance with all applicable laws and regulations in your jurisdiction. The Zentience project does not facilitate, endorse, or promote the purchase of $ZENT in any jurisdiction where doing so would be prohibited or restricted by law.</p>
+
+  <h2>9. Open Source</h2>
+  <p>The Zentience software is released under the MIT License. You are free to use, modify, and distribute the code subject to the license terms. The open-source nature of the project does not create any obligation for ongoing development, maintenance, or support.</p>
+
+  <h2>10. Modifications</h2>
+  <p>These terms may be updated at any time without notice. Continued use of the website or interaction with the project constitutes acceptance of any modified terms.</p>
+
+  <div class="divider"></div>
+  <p style="font-size:0.7rem;">Questions? Open an issue on <a href="https://github.com/0xZentience/Zentience_Automaton-merge" style="color:var(--accent-gold);text-decoration:none;">GitHub</a>.</p>
+</div>
+
+<footer>
+  <p><a href="index.html">Zentience</a> v0.3.0 &mdash; Open Source &mdash; Sovereign AI on Solana</p>
+</footer>
+
+</body>
+</html>

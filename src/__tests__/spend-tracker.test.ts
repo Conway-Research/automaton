@@ -63,7 +63,7 @@ describe("SpendTracker", () => {
       tracker.recordSpend({
         toolName: "transfer_credits",
         amountCents: 500,
-        recipient: "0x1234",
+        recipient: "7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR",
         category: "transfer",
       });
 
@@ -73,7 +73,7 @@ describe("SpendTracker", () => {
       expect(row).toBeDefined();
       expect(row.tool_name).toBe("transfer_credits");
       expect(row.amount_cents).toBe(500);
-      expect(row.recipient).toBe("0x1234");
+      expect(row.recipient).toBe("7xKpQ4rJ2mN3vF8wG6hB9tY1cZ5dA0eR");
       expect(row.category).toBe("transfer");
 
       // window_hour should be ISO format like '2026-02-19T14'

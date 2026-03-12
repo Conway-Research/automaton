@@ -722,7 +722,7 @@ export class MemoryIngestionPipeline {
 
       // Track inbox message sources (once per turn, not per tool call)
       if (turn.inputSource === "agent" && turn.input) {
-        const fromMatch = turn.input.match(/\[Message from (0x[a-fA-F0-9]+)\]/);
+        const fromMatch = turn.input.match(/\[Message from ([1-9A-HJ-NP-Za-km-z]{32,44})\]/);
         if (fromMatch) {
           const fromAddress = fromMatch[1];
           const existing = this.relationships.get(fromAddress);

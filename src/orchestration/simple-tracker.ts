@@ -67,7 +67,7 @@ export class SimpleAgentTracker implements AgentTracker {
     this.db.insertChild({
       id: ulid(),
       name: agent.name,
-      address: agent.address as `0x${string}`,
+      address: agent.address,
       sandboxId: agent.sandboxId,
       genesisPrompt: `Role: ${agent.role}`,
       creatorMessage: "registered by orchestrator",

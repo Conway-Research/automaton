@@ -1,12 +1,11 @@
 /**
- * Message Validation
+ * Message Validation (Solana)
  *
  * Validates social messages for size limits, replay protection,
  * and address format.
- *
- * Phase 3.2: Social & Registry Hardening
  */
 
+import { PublicKey } from "@solana/web3.js";
 import type { MessageValidationResult } from "../types.js";
 import { MESSAGE_LIMITS } from "./signing.js";
 
@@ -48,7 +47,7 @@ export function validateMessage(message: {
     }
   }
 
-  // Address validation
+  // Address validation (Solana base58 public keys)
   if (!isValidAddress(message.from)) {
     errors.push("Invalid sender address");
   }
@@ -76,8 +75,13 @@ export function validateRelayUrl(url: string): void {
 }
 
 /**
- * Check if a string is a valid Ethereum-style hex address.
+ * Check if a string is a valid Solana base58 public key.
  */
 export function isValidAddress(address: string): boolean {
-  return /^0x[0-9a-fA-F]{40}$/.test(address);
+  try {
+    const pubkey = new PublicKey(address);
+    return PublicKey.isOnCurve(pubkey.toBytes());
+  } catch {
+    return false;
+  }
 }

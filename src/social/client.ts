@@ -1,14 +1,11 @@
 /**
- * Social Client Factory
+ * Social Client Factory (Solana)
  *
  * Creates a SocialClient for the automaton runtime.
- * Self-contained: uses viem for signing and fetch for HTTP.
- *
- * Phase 3.2: Hardened with HTTPS enforcement, shared signing,
- * request timeouts, replay protection, and rate limiting.
+ * Uses ed25519 signing and fetch for HTTP.
  */
 
-import type { PrivateKeyAccount } from "viem";
+import { Keypair } from "@solana/web3.js";
 import type { SocialClientInterface, InboxMessage } from "../types.js";
 import { ResilientHttpClient } from "../conway/http-client.js";
 import { signSendPayload, signPollPayload, MESSAGE_LIMITS } from "./signing.js";
@@ -16,32 +13,28 @@ import { validateRelayUrl, validateMessage } from "./validation.js";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("social");
 
-// Request timeout for all fetch calls (30 seconds)
 const REQUEST_TIMEOUT_MS = 30_000;
 
 /**
- * Create a SocialClient wired to the agent's wallet.
+ * Create a SocialClient wired to the agent's keypair.
  *
  * @throws if relayUrl is not HTTPS
  */
 export function createSocialClient(
   relayUrl: string,
-  account: PrivateKeyAccount,
+  keypair: Keypair,
   db?: import("better-sqlite3").Database,
 ): SocialClientInterface {
-  // Phase 3.2: Validate relay URL as HTTPS
   validateRelayUrl(relayUrl);
 
   const baseUrl = relayUrl.replace(/\/$/, "");
   const httpClient = new ResilientHttpClient();
 
-  // Rate limiting state: track outbound message timestamps
   const outboundTimestamps: number[] = [];
 
   function checkRateLimit(): void {
     const now = Date.now();
     const oneHourAgo = now - 3_600_000;
-    // Prune old timestamps
     while (outboundTimestamps.length > 0 && outboundTimestamps[0]! < oneHourAgo) {
       outboundTimestamps.shift();
     }
@@ -60,9 +53,8 @@ export function createSocialClient(
           "SELECT 1 FROM heartbeat_dedup WHERE dedup_key = ? AND expires_at >= datetime('now')",
         )
         .get(`social:nonce:${nonce}`);
-      if (row) return true; // Already seen this nonce
+      if (row) return true;
 
-      // Insert nonce with 5 min TTL
       const expiresAt = new Date(Date.now() + MESSAGE_LIMITS.replayWindowMs).toISOString();
       db.prepare(
         "INSERT OR IGNORE INTO heartbeat_dedup (dedup_key, task_name, expires_at) VALUES (?, ?, ?)",
@@ -80,22 +72,15 @@ export function createSocialClient(
       content: string,
       replyTo?: string,
     ): Promise<{ id: string }> => {
-      // Phase 3.2: Rate limit check
       checkRateLimit();
-
-      // Track outbound attempt for rate limiting BEFORE the network call.
-      // Counting attempts (not just successes) prevents hammering the relay
-      // with unlimited retries when the server returns errors.
       outboundTimestamps.push(Date.now());
 
-      // Phase 3.2: Validate message before sending
-      const validation = validateMessage({ from: account.address, to, content });
+      const validation = validateMessage({ from: keypair.publicKey.toBase58(), to, content });
       if (!validation.valid) {
         throw new Error(`Message validation failed: ${validation.errors.join("; ")}`);
       }
 
-      // Phase 3.2: Use shared signing module
-      const payload = await signSendPayload(account, to, content, replyTo);
+      const payload = await signSendPayload(keypair, to, content, replyTo);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages`, {
         method: "POST",
@@ -119,8 +104,7 @@ export function createSocialClient(
       cursor?: string,
       limit?: number,
     ): Promise<{ messages: InboxMessage[]; nextCursor?: string }> => {
-      // Phase 3.2: Use shared signing module
-      const pollAuth = await signPollPayload(account);
+      const pollAuth = await signPollPayload(keypair);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages/poll`, {
         method: "POST",
@@ -155,7 +139,6 @@ export function createSocialClient(
         next_cursor?: string;
       };
 
-      // Phase 3.2: Replay protection for inbound messages
       const filtered = data.messages.filter((m) => {
         if (m.nonce && checkReplayNonce(m.nonce)) {
           logger.warn(`Dropped replayed message: nonce=${m.nonce}`);
@@ -179,8 +162,7 @@ export function createSocialClient(
     },
 
     unreadCount: async (): Promise<number> => {
-      // Phase 3.2: Use shared signing module
-      const pollAuth = await signPollPayload(account);
+      const pollAuth = await signPollPayload(keypair);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages/count`, {
         method: "GET",
@@ -192,7 +174,6 @@ export function createSocialClient(
         timeout: REQUEST_TIMEOUT_MS,
       });
 
-      // Phase 3.2: THROW on error instead of returning 0 (S-P1-7)
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(

@@ -1,9 +1,8 @@
 /**
- * Conway API Client
+ * Conway API Client (Solana)
  *
  * Communicates with Conway's control plane for sandbox management,
  * credits, and infrastructure operations.
- * Adapted from @aiws/sdk patterns.
  */
 
 import { execSync } from "child_process";
@@ -21,11 +20,14 @@ import type {
   DomainRegistration,
   DnsRecord,
   ModelInfo,
+  SolanaAddress,
 } from "../types.js";
+import { Keypair } from "@solana/web3.js";
+import nacl from "tweetnacl";
+import bs58 from "bs58";
+import crypto from "crypto";
 import { ResilientHttpClient } from "./http-client.js";
 import { ulid } from "ulid";
-import { keccak256, toHex } from "viem";
-import type { Address, PrivateKeyAccount } from "viem";
 import { randomUUID } from "crypto";
 
 interface ConwayClientOptions {
@@ -34,10 +36,15 @@ interface ConwayClientOptions {
   sandboxId: string;
 }
 
+/**
+ * Compute SHA-256 hash.
+ */
+function sha256Hex(data: string): string {
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
+
 export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   const { apiUrl, apiKey } = options;
-  // Normalize sandbox ID defensively so values like whitespace/"undefined"/"null"
-  // never produce malformed API paths such as /v1/sandboxes//exec.
   const sandboxId = normalizeSandboxId(options.sandboxId);
   const httpClient = new ResilientHttpClient();
 
@@ -47,9 +54,6 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     body?: unknown,
     requestOptions?: { idempotencyKey?: string; retries404?: number },
   ): Promise<any> {
-    // Conway LB has an intermittent routing bug that returns 404 for valid
-    // sandbox endpoints. Retry 404s here (outside ResilientHttpClient) to
-    // avoid tripping the circuit breaker on transient routing failures.
     const max404Retries = requestOptions?.retries404 ?? 3;
     for (let attempt = 0; attempt <= max404Retries; attempt++) {
       const resp = await httpClient.request(`${apiUrl}${path}`, {
@@ -96,14 +100,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     return JSON.stringify(sorted);
   };
 
-  const hashIdentityPayload = (payload: Record<string, string>): `0x${string}` => {
+  const hashIdentityPayload = (payload: Record<string, string>): string => {
     const canonical = canonicalizePayload(payload);
-    return keccak256(toHex(canonical));
+    return sha256Hex(canonical);
   };
 
-
   // ─── Sandbox Operations (own sandbox) ────────────────────────
-  // When sandboxId is empty, automatically fall back to local execution.
 
   const isLocal = !sandboxId;
 
@@ -131,8 +133,6 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   ): Promise<ExecResult> => {
     if (isLocal) return execLocal(command, timeout);
 
-    // Remote sandboxes default to / as cwd. Wrap commands to run from /root
-    // (matching local exec behavior) unless the command already sets a directory.
     const wrappedCommand = `cd /root && ${command}`;
 
     try {
@@ -148,13 +148,9 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
         exitCode: result.exit_code ?? result.exitCode ?? -1,
       };
     } catch (err: any) {
-      // SECURITY: Never silently fall back to local execution on auth failure.
-      // A 403 indicates a credentials mismatch — falling back to local exec
-      // would bypass the sandbox security boundary entirely.
       if (err?.status === 403) {
         throw new Error(
           `Conway API authentication failed (403). Sandbox exec refused. ` +
-            `This may indicate a misconfigured or revoked API key. ` +
             `Command will NOT be executed locally for security reasons.`,
         );
       }
@@ -186,11 +182,9 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
         content,
       });
     } catch (err: any) {
-      // SECURITY: Never silently fall back to local FS on auth failure.
       if (err?.status === 403) {
         throw new Error(
-          `Conway API authentication failed (403). File write refused. ` +
-            `File will NOT be written locally for security reasons.`,
+          `Conway API authentication failed (403). File write refused.`,
         );
       }
       throw err;
@@ -210,11 +204,9 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       );
       return typeof result === "string" ? result : result.content || "";
     } catch (err: any) {
-      // SECURITY: Never silently fall back to local FS on auth failure.
       if (err?.status === 403) {
         throw new Error(
-          `Conway API authentication failed (403). File read refused. ` +
-            `File will NOT be read locally for security reasons.`,
+          `Conway API authentication failed (403). File read refused.`,
         );
       }
       throw err;
@@ -271,8 +263,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   };
 
   const deleteSandbox = async (_targetId: string): Promise<void> => {
-    // Conway API no longer supports sandbox deletion.
-    // Sandboxes are prepaid and non-refundable — this is a no-op.
+    // No-op: sandboxes are prepaid and non-refundable
   };
 
   const listSandboxes = async (): Promise<SandboxInfo[]> => {
@@ -334,13 +325,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
         },
         body: JSON.stringify(payload),
         idempotencyKey,
-        retries: 0, // Mutating: do not auto-retry transfers
+        retries: 0,
       });
 
       if (!resp.ok) {
         const text = await resp.text();
         lastError = `${resp.status}: ${text}`;
-        // Try next known endpoint shape before failing.
         if (resp.status === 404) continue;
         throw new Error(`Conway API error: POST ${path} -> ${lastError}`);
       }
@@ -363,12 +353,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
 
   const registerAutomaton = async (params: {
     automatonId: string;
-    automatonAddress: Address;
-    creatorAddress: Address;
+    automatonAddress: SolanaAddress;
+    creatorAddress: SolanaAddress;
     name: string;
     bio?: string;
-    genesisPromptHash?: `0x${string}`;
-    account: PrivateKeyAccount;
+    genesisPromptHash?: string;
+    keypair: Keypair;
     nonce?: string;
   }): Promise<{ automaton: Record<string, unknown> }> => {
     const {
@@ -378,7 +368,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       name,
       bio,
       genesisPromptHash,
-      account,
+      keypair,
     } = params;
     const nonce = params.nonce ?? randomUUID();
 
@@ -394,29 +384,17 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     }
 
     const payloadHash = hashIdentityPayload(payload);
-    const domain = {
-      name: "AIWS Automaton",
-      version: "1",
-      chainId: 8453,
-    };
-    const types = {
-      Register: [
-        { name: "automatonId", type: "string" },
-        { name: "nonce", type: "string" },
-        { name: "payloadHash", type: "bytes32" },
-      ],
-    };
-    const message = {
+
+    // Sign with ed25519 instead of EIP-712
+    const signMessage = JSON.stringify({
       automatonId,
       nonce,
       payloadHash,
-    };
-    const signature = await account.signTypedData({
-      domain,
-      types,
-      primaryType: "Register",
-      message,
+      chain: "solana",
     });
+    const messageBytes = new TextEncoder().encode(signMessage);
+    const signatureBytes = nacl.sign.detached(messageBytes, keypair.secretKey);
+    const signature = bs58.encode(signatureBytes);
 
     const body: Record<string, unknown> = {
       automaton_id: automatonId,
@@ -427,6 +405,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       nonce,
       signature,
       payload_hash: payloadHash,
+      chain: "solana",
     };
     if (genesisPromptHash) {
       body.genesis_prompt_hash = genesisPromptHash;
@@ -520,7 +499,6 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   // ─── Model Discovery ───────────────────────────────────────────
 
   const listModels = async (): Promise<ModelInfo[]> => {
-    // Try inference.conway.tech first (has availability info), fall back to control plane
     const urls = [
       "https://inference.conway.tech/v1/models",
       `${apiUrl}/v1/models`,
@@ -581,11 +559,6 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     listModels,
     createScopedClient,
   };
-
-  // SECURITY: API credentials are NOT exposed on the client object.
-  // If child spawning or other modules need API configuration, pass it
-  // explicitly through a dedicated typed interface — never via dynamic getters
-  // that any code with a client reference could access.
 
   return client;
 }

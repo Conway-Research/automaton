@@ -1,14 +1,14 @@
 /**
- * Automaton SIWE Provisioning
+ * Automaton Solana Provisioning
  *
- * Uses the automaton's wallet to authenticate via Sign-In With Ethereum (SIWE)
+ * Uses the automaton's Solana keypair to authenticate via signed message
  * and create an API key for Conway API access.
- * Adapted from conway-mcp/src/cli/provision.ts
  */
 
 import fs from "fs";
 import path from "path";
-import { SiweMessage } from "siwe";
+import nacl from "tweetnacl";
+import bs58 from "bs58";
 import { getWallet, getAutomatonDir } from "./wallet.js";
 import type { ProvisionResult } from "../types.js";
 import { ResilientHttpClient } from "../conway/http-client.js";
@@ -51,10 +51,10 @@ function saveConfig(apiKey: string, walletAddress: string): void {
 }
 
 /**
- * Run the full SIWE provisioning flow:
- * 1. Load wallet
+ * Run the full Solana signing provisioning flow:
+ * 1. Load wallet keypair
  * 2. Get nonce from Conway API
- * 3. Sign SIWE message
+ * 3. Sign message with ed25519
  * 4. Verify signature -> get JWT
  * 5. Create API key
  * 6. Save to config.json
@@ -65,8 +65,8 @@ export async function provision(
   const url = apiUrl || process.env.CONWAY_API_URL || DEFAULT_API_URL;
 
   // 1. Load wallet
-  const { account } = await getWallet();
-  const address = account.address;
+  const { keypair } = await getWallet();
+  const address = keypair.publicKey.toBase58();
 
   // 2. Get nonce
   const nonceResp = await httpClient.request(`${url}/v1/auth/nonce`, {
@@ -79,32 +79,30 @@ export async function provision(
   }
   const { nonce } = (await nonceResp.json()) as { nonce: string };
 
-  // 3. Construct and sign SIWE message
-  const siweMessage = new SiweMessage({
-    domain: "conway.tech",
-    address,
-    statement:
-      "Sign in to Conway as an Automaton to provision an API key.",
-    uri: `${url}/v1/auth/verify`,
-    version: "1",
-    chainId: 8453, // Base
-    nonce,
-    issuedAt: new Date().toISOString(),
-  });
+  // 3. Construct and sign message
+  const messageString = [
+    `Sign in to Conway as an Automaton to provision an API key.`,
+    ``,
+    `Address: ${address}`,
+    `Chain: solana`,
+    `Nonce: ${nonce}`,
+    `Issued At: ${new Date().toISOString()}`,
+  ].join("\n");
 
-  const messageString = siweMessage.prepareMessage();
-  const signature = await account.signMessage({ message: messageString });
+  const messageBytes = new TextEncoder().encode(messageString);
+  const signatureBytes = nacl.sign.detached(messageBytes, keypair.secretKey);
+  const signature = bs58.encode(signatureBytes);
 
   // 4. Verify signature -> get JWT
   const verifyResp = await httpClient.request(`${url}/v1/auth/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: messageString, signature }),
+    body: JSON.stringify({ message: messageString, signature, address }),
   });
 
   if (!verifyResp.ok) {
     throw new Error(
-      `SIWE verification failed: ${verifyResp.status} ${await verifyResp.text()}`,
+      `Signature verification failed: ${verifyResp.status} ${await verifyResp.text()}`,
     );
   }
 
@@ -141,7 +139,6 @@ export async function provision(
 
 /**
  * Register the automaton's creator as its parent with Conway.
- * This allows the creator to see automaton logs and inference calls.
  */
 export async function registerParent(
   creatorAddress: string,
@@ -162,7 +159,6 @@ export async function registerParent(
     body: JSON.stringify({ creatorAddress }),
   });
 
-  // Endpoint may not exist yet -- fail gracefully
   if (!resp.ok && resp.status !== 404) {
     throw new Error(
       `Failed to register parent: ${resp.status} ${await resp.text()}`,
