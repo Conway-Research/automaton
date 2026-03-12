@@ -397,6 +397,51 @@ export async function runAgentLoop(
 
   log(config, `[WAKE UP] ${config.name} is alive. Credits: $${(financial.creditsCents / 100).toFixed(2)}`);
 
+  // ─── Demand Gate ─────────────────────────────────────────────
+  // Before burning inference tokens, check if there's actual work.
+  // If no inbox messages, no active orchestrator tasks, and not first run,
+  // skip inference entirely and go back to sleep. The heartbeat will wake
+  // us when something happens (incoming message, scheduled task, etc).
+  if (!isFirstRun) {
+    // Peek at inbox without claiming (check for unprocessed messages)
+    const hasInbox = (() => {
+      try {
+        const row = db.raw.prepare(
+          "SELECT COUNT(*) as cnt FROM inbox WHERE status = 'received'"
+        ).get() as { cnt: number } | undefined;
+        return (row?.cnt ?? 0) > 0;
+      } catch { return false; }
+    })();
+
+    const hasActiveGoals = (() => {
+      try {
+        const row = db.raw.prepare(
+          "SELECT COUNT(*) as cnt FROM goals WHERE status IN ('active', 'planning', 'executing')"
+        ).get() as { cnt: number } | undefined;
+        return (row?.cnt ?? 0) > 0;
+      } catch { return false; }
+    })();
+
+    const hasPendingTasks = (() => {
+      try {
+        const row = db.raw.prepare(
+          "SELECT COUNT(*) as cnt FROM task_graph WHERE status IN ('pending', 'assigned')"
+        ).get() as { cnt: number } | undefined;
+        return (row?.cnt ?? 0) > 0;
+      } catch { return false; }
+    })();
+
+    if (!hasInbox && !hasActiveGoals && !hasPendingTasks) {
+      log(config, `[DEMAND GATE] No work pending (no inbox, no active goals, no tasks). Sleeping.`);
+      db.setKV("sleep_until", new Date(Date.now() + 1_800_000).toISOString()); // 30 min demand sleep
+      db.setAgentState("sleeping");
+      onStateChange?.("sleeping");
+      return;
+    }
+
+    log(config, `[DEMAND GATE] Work found: inbox=${hasInbox} goals=${hasActiveGoals} tasks=${hasPendingTasks}`);
+  }
+
   // ─── The Loop ──────────────────────────────────────────────
 
   const MAX_IDLE_TURNS = 3; // Force sleep after N turns with no real work
@@ -886,7 +931,7 @@ export async function runAgentLoop(
       cycleTurnCount++;
       if (running && cycleTurnCount >= maxCycleTurns) {
         log(config, `[CYCLE LIMIT] ${cycleTurnCount} turns reached (max: ${maxCycleTurns}). Forcing sleep.`);
-        db.setKV("sleep_until", new Date(Date.now() + 600_000).toISOString()); // 10 min cycle sleep
+        db.setKV("sleep_until", new Date(Date.now() + 1_800_000).toISOString()); // 30 min cycle sleep (demand gate will wake if needed)
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         running = false;

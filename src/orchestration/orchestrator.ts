@@ -518,19 +518,37 @@ export class Orchestrator {
 
     // Recover stale tasks: workers that died (process restart, sandbox crash)
     // leave tasks stuck in 'assigned' forever. Detect and reset them.
+    // After MAX_STALE_RECOVERIES, mark as failed to stop infinite loops.
+    const MAX_STALE_RECOVERIES = 3;
     if (this.params.isWorkerAlive) {
       const assignedTasks = getTasksByGoal(this.params.db, goal.id)
         .filter((t) => t.status === "assigned" && t.assignedTo);
       for (const task of assignedTasks) {
         const alive = this.params.isWorkerAlive(task.assignedTo!);
         if (!alive) {
-          logger.warn("Recovering stale task from dead worker", {
-            taskId: task.id,
-            worker: task.assignedTo,
-          });
-          this.params.db.prepare(
-            "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL WHERE id = ?",
-          ).run(task.id);
+          // Track recovery attempts in task metadata
+          const meta = typeof task.metadata === "object" && task.metadata ? task.metadata : {};
+          const recoveryCount = ((meta as Record<string, unknown>).staleRecoveries as number || 0) + 1;
+
+          if (recoveryCount >= MAX_STALE_RECOVERIES) {
+            logger.warn("Stale task exceeded max recoveries, marking failed", {
+              taskId: task.id,
+              worker: task.assignedTo,
+              recoveryCount,
+            });
+            this.params.db.prepare(
+              "UPDATE task_graph SET status = 'failed', assigned_to = NULL, started_at = NULL, metadata = json_set(COALESCE(metadata, '{}'), '$.staleRecoveries', ?, '$.failReason', 'worker_died_max_retries') WHERE id = ?",
+            ).run(recoveryCount, task.id);
+          } else {
+            logger.warn("Recovering stale task from dead worker", {
+              taskId: task.id,
+              worker: task.assignedTo,
+              attempt: recoveryCount,
+            });
+            this.params.db.prepare(
+              "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL, metadata = json_set(COALESCE(metadata, '{}'), '$.staleRecoveries', ?) WHERE id = ?",
+            ).run(recoveryCount, task.id);
+          }
         }
       }
     }
