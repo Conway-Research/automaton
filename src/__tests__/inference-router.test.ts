@@ -227,7 +227,7 @@ describe("InferenceRouter", () => {
     it("returns correct model for normal/agent_turn", () => {
       const model = router.selectModel("normal", "agent_turn");
       expect(model).not.toBeNull();
-      expect(model!.modelId).toBe("claude-sonnet-4-20250514");
+      expect(model!.modelId).toBe("claude-haiku-4-5-20251001");
     });
 
     it("returns cheaper model for low_compute tier", () => {
@@ -253,10 +253,10 @@ describe("InferenceRouter", () => {
     });
 
     it("skips disabled models and picks next candidate", () => {
-      registry.setEnabled("claude-sonnet-4-20250514", false);
+      registry.setEnabled("claude-haiku-4-5-20251001", false);
       const model = router.selectModel("normal", "agent_turn");
       expect(model).not.toBeNull();
-      expect(model!.modelId).toBe("claude-haiku-4-5-20251001");
+      expect(model!.modelId).toBe("claude-sonnet-4-20250514");
     });
   });
 
@@ -279,17 +279,17 @@ describe("InferenceRouter", () => {
       );
 
       expect(result.content).toBe("Hello!");
-      expect(result.model).toBe("claude-sonnet-4-20250514");
+      expect(result.model).toBe("claude-haiku-4-5-20251001");
       expect(result.finishReason).toBe("stop");
 
       // Verify cost was recorded
       const costs = inferenceGetSessionCosts(db, "test-session");
       expect(costs.length).toBe(1);
-      expect(costs[0].model).toBe("claude-sonnet-4-20250514");
+      expect(costs[0].model).toBe("claude-haiku-4-5-20251001");
     });
 
     it("computes actualCostCents accurately from token usage", async () => {
-      // claude-sonnet-4 has costPer1kInput=30, costPer1kOutput=150 (hundredths of cents)
+      // claude-haiku-4.5 has costPer1kInput=8, costPer1kOutput=40 (hundredths of cents)
       // Formula: Math.ceil((input/1000)*costPer1kInput/100 + (output/1000)*costPer1kOutput/100)
       const mockChat = async (_msgs: any[], _opts: any) => ({
         message: { content: "result", role: "assistant" },
@@ -569,7 +569,12 @@ describe("InferenceBudgetTracker", () => {
   });
 
   it("checkBudget allows when no limits are set (0 = unlimited)", () => {
-    const tracker = new InferenceBudgetTracker(db, DEFAULT_MODEL_STRATEGY_CONFIG);
+    const tracker = new InferenceBudgetTracker(db, {
+      ...DEFAULT_MODEL_STRATEGY_CONFIG,
+      hourlyBudgetCents: 0,
+      sessionBudgetCents: 0,
+      perCallCeilingCents: 0,
+    });
 
     const result = tracker.checkBudget(9999, "gpt-4.1");
     expect(result.allowed).toBe(true);
@@ -954,12 +959,12 @@ describe("Inference DB Helpers", () => {
 
 describe("DEFAULT_MODEL_STRATEGY_CONFIG", () => {
   it("has sensible defaults", () => {
-    expect(DEFAULT_MODEL_STRATEGY_CONFIG.inferenceModel).toBe("claude-sonnet-4-20250514");
+    expect(DEFAULT_MODEL_STRATEGY_CONFIG.inferenceModel).toBe("claude-haiku-4-5-20251001");
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.lowComputeModel).toBe("claude-haiku-4-5-20251001");
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.criticalModel).toBe("claude-haiku-4-5-20251001");
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.enableModelFallback).toBe(true);
-    expect(DEFAULT_MODEL_STRATEGY_CONFIG.hourlyBudgetCents).toBe(0); // no limit
-    expect(DEFAULT_MODEL_STRATEGY_CONFIG.sessionBudgetCents).toBe(0); // no limit
-    expect(DEFAULT_MODEL_STRATEGY_CONFIG.perCallCeilingCents).toBe(0); // no limit
+    expect(DEFAULT_MODEL_STRATEGY_CONFIG.hourlyBudgetCents).toBe(50);
+    expect(DEFAULT_MODEL_STRATEGY_CONFIG.sessionBudgetCents).toBe(200);
+    expect(DEFAULT_MODEL_STRATEGY_CONFIG.perCallCeilingCents).toBe(25);
   });
 });

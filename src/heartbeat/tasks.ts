@@ -308,8 +308,14 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
   },
 
   // === Phase 2.1: Soul Reflection ===
-  soul_reflection: async (_ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
+  // Skipped in low_compute/critical/dead tiers to save inference tokens.
+  soul_reflection: async (ctx: TickContext, taskCtx: HeartbeatLegacyContext) => {
     try {
+      const tier = getSurvivalTier(ctx.creditBalance);
+      if (tier === "low_compute" || tier === "critical" || tier === "dead") {
+        logger.info(`soul_reflection skipped (tier=${tier})`);
+        return { shouldWake: false };
+      }
       const { reflectOnSoul } = await import("../soul/reflection.js");
       const reflection = await reflectOnSoul(taskCtx.db.raw);
 

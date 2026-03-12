@@ -69,15 +69,15 @@ export interface AutomatonConfig {
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   conwayApiUrl: "https://api.conway.tech",
-  inferenceModel: "gpt-5.2",
-  maxTokensPerTurn: 4096,
+  inferenceModel: "claude-haiku-4-5-20251001",
+  maxTokensPerTurn: 2048,
   heartbeatConfigPath: "~/.automaton/heartbeat.yml",
   dbPath: "~/.automaton/state.db",
   logLevel: "info",
   version: "0.2.1",
   skillsDir: "~/.automaton/skills",
   maxChildren: 3,
-  maxTurnsPerCycle: 25,
+  maxTurnsPerCycle: 5,
   childSandboxMemoryMb: 1024,
   socialRelayUrl: "https://social.conway.tech",
 };
@@ -1227,13 +1227,13 @@ export interface ModelStrategyConfig {
 }
 
 export const DEFAULT_MODEL_STRATEGY_CONFIG: ModelStrategyConfig = {
-  inferenceModel: "gpt-5.2",
-  lowComputeModel: "gpt-5-mini",
-  criticalModel: "gpt-5-mini",
-  maxTokensPerTurn: 4096,
-  hourlyBudgetCents: 0,
-  sessionBudgetCents: 0,
-  perCallCeilingCents: 0,
+  inferenceModel: "claude-haiku-4-5-20251001",
+  lowComputeModel: "claude-haiku-4-5-20251001",
+  criticalModel: "claude-haiku-4-5-20251001",
+  maxTokensPerTurn: 2048,
+  hourlyBudgetCents: 50,
+  sessionBudgetCents: 200,
+  perCallCeilingCents: 25,
   enableModelFallback: true,
   anthropicApiVersion: "2023-06-01",
 };

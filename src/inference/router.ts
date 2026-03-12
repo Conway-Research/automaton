@@ -7,6 +7,7 @@
  */
 
 import type BetterSqlite3 from "better-sqlite3";
+import crypto from "crypto";
 import { ulid } from "ulid";
 import type {
   InferenceRequest,
@@ -24,15 +25,72 @@ import { DEFAULT_ROUTING_MATRIX, TASK_TIMEOUTS } from "./types.js";
 
 type Database = BetterSqlite3.Database;
 
+// ─── Response Cache ─────────────────────────────────────
+// Short-lived cache to deduplicate rapid identical requests.
+// Only caches non-tool-call responses (tool calls need fresh execution).
+
+interface CachedResponse {
+  result: InferenceResult;
+  expiresAt: number;
+}
+
+const CACHE_TTL_MS: Record<string, number> = {
+  heartbeat_triage: 120_000, // 2 min — heartbeat results rarely change
+  summarization: 300_000,    // 5 min — summaries are stable
+  safety_check: 60_000,      // 1 min — safety checks can be cached briefly
+  agent_turn: 0,             // never cache agent turns (unique conversations)
+  planning: 0,               // never cache planning (unique contexts)
+};
+
 export class InferenceRouter {
   private db: Database;
   private registry: ModelRegistry;
   private budget: InferenceBudgetTracker;
+  private responseCache = new Map<string, CachedResponse>();
 
   constructor(db: Database, registry: ModelRegistry, budget: InferenceBudgetTracker) {
     this.db = db;
     this.registry = registry;
     this.budget = budget;
+
+    // Prune stale cache entries every 2 minutes
+    setInterval(() => this.pruneCache(), 120_000);
+  }
+
+  private getCacheKey(messages: ChatMessage[], taskType: string): string {
+    // Hash the last 2 messages + task type for cache key
+    const tail = messages.slice(-2).map(m => `${m.role}:${m.content}`).join("|");
+    return crypto.createHash("sha256").update(`${taskType}:${tail}`).digest("hex").slice(0, 32);
+  }
+
+  private getCached(key: string): InferenceResult | null {
+    const entry = this.responseCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.responseCache.delete(key);
+      return null;
+    }
+    return entry.result;
+  }
+
+  private setCache(key: string, result: InferenceResult, taskType: string): void {
+    const ttl = CACHE_TTL_MS[taskType] ?? 0;
+    if (ttl <= 0) return;
+    // Don't cache responses with tool calls
+    if (result.toolCalls && result.toolCalls.length > 0) return;
+    this.responseCache.set(key, { result, expiresAt: Date.now() + ttl });
+    // Cap cache size at 50 entries
+    if (this.responseCache.size > 50) {
+      const oldest = this.responseCache.keys().next().value;
+      if (oldest) this.responseCache.delete(oldest);
+    }
+  }
+
+  private pruneCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.responseCache) {
+      if (now > entry.expiresAt) this.responseCache.delete(key);
+    }
   }
 
   /**
@@ -44,6 +102,27 @@ export class InferenceRouter {
     inferenceChat: (messages: any[], options: any) => Promise<any>,
   ): Promise<InferenceResult> {
     const { messages, taskType, tier, sessionId, turnId, tools } = request;
+
+    // 0. Check response cache (skips API call entirely for repeated requests)
+    const cacheKey = this.getCacheKey(messages, taskType);
+    const cached = this.getCached(cacheKey);
+    if (cached) {
+      // Record as cache hit with zero cost
+      this.budget.recordCost({
+        sessionId,
+        turnId: turnId || null,
+        model: cached.model,
+        provider: cached.provider,
+        inputTokens: 0,
+        outputTokens: 0,
+        costCents: 0,
+        latencyMs: 0,
+        tier,
+        taskType,
+        cacheHit: true,
+      });
+      return cached;
+    }
 
     // 1. Select model from routing matrix
     const model = this.selectModel(tier, taskType);
@@ -167,8 +246,8 @@ export class InferenceRouter {
       cacheHit: false,
     });
 
-    // 9. Build result
-    return {
+    // 9. Build result and cache if eligible
+    const result: InferenceResult = {
       content: response.message?.content || "",
       model: model.modelId,
       provider: model.provider,
@@ -179,6 +258,8 @@ export class InferenceRouter {
       toolCalls: response.toolCalls,
       finishReason: response.finishReason || "stop",
     };
+    this.setCache(cacheKey, result, taskType);
+    return result;
   }
 
   /**
