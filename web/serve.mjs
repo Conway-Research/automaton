@@ -194,6 +194,46 @@ function getCreditBalance() {
   }
 }
 
+/**
+ * Get real-time inference budget breakdown.
+ * Reads cumulative spend from inference_costs table and compares to budget.
+ */
+function getInferenceBudget() {
+  const budgetCents = parseInt(process.env.ANTHROPIC_BUDGET_CENTS || '1000', 10);
+  if (!db) return { budgetCents, totalSpentCents: 0, remainingCents: budgetCents, callCount: 0, survivalTier: 'normal' };
+  try {
+    const spendRow = db.prepare("SELECT COALESCE(SUM(cost_cents), 0) AS total, COUNT(*) AS calls FROM inference_costs").get();
+    const totalSpent = spendRow ? spendRow.total : 0;
+    const callCount = spendRow ? spendRow.calls : 0;
+    const remaining = Math.max(0, budgetCents - totalSpent);
+
+    // Hourly spend (last 60 min)
+    const hourAgo = new Date(Date.now() - 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
+    const hourRow = db.prepare("SELECT COALESCE(SUM(cost_cents), 0) AS total, COUNT(*) AS calls FROM inference_costs WHERE created_at >= ?").get(hourAgo);
+    const hourlySpent = hourRow ? hourRow.total : 0;
+    const hourlyCalls = hourRow ? hourRow.calls : 0;
+
+    // Derive tier from remaining
+    let survivalTier = 'dead';
+    if (remaining > 500) survivalTier = 'high';
+    else if (remaining > 50) survivalTier = 'normal';
+    else if (remaining > 10) survivalTier = 'low_compute';
+    else if (remaining >= 0) survivalTier = 'critical';
+
+    return {
+      budgetCents,
+      totalSpentCents: totalSpent,
+      remainingCents: remaining,
+      callCount,
+      hourlySpentCents: hourlySpent,
+      hourlyCalls,
+      survivalTier,
+    };
+  } catch {
+    return { budgetCents, totalSpentCents: 0, remainingCents: budgetCents, callCount: 0, survivalTier: 'normal' };
+  }
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -878,6 +918,7 @@ const server = createServer(async (req, res) => {
     const uptime = Math.floor((Date.now() - startTime) / 1000);
     const revenueHealth = getRevenueHealth();
     const creditBalance = getCreditBalance();
+    const inferenceBudget = getInferenceBudget();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'alive',
@@ -885,6 +926,7 @@ const server = createServer(async (req, res) => {
       walletAddress: WALLET_ADDRESS,
       network: NETWORK,
       creditBalance,
+      inferenceBudget,
       revenueHealth,
       uptime,
     }));

@@ -169,11 +169,11 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" | 
 
 export const DEFAULT_ROUTING_MATRIX: RoutingMatrix = {
   high: {
-    agent_turn: { candidates: ["claude-sonnet-4-20250514", "gpt-5.2"], maxTokens: 4096, ceilingCents: 25 },
-    heartbeat_triage: { candidates: ["claude-haiku-4-5-20251001", "gpt-4.1-mini"], maxTokens: 1024, ceilingCents: 3 },
-    safety_check: { candidates: ["claude-haiku-4-5-20251001", "gpt-4.1-mini"], maxTokens: 2048, ceilingCents: 10 },
+    agent_turn: { candidates: ["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"], maxTokens: 2048, ceilingCents: 15 },
+    heartbeat_triage: { candidates: ["claude-haiku-4-5-20251001", "gpt-4.1-mini"], maxTokens: 512, ceilingCents: 2 },
+    safety_check: { candidates: ["claude-haiku-4-5-20251001", "gpt-4.1-mini"], maxTokens: 1024, ceilingCents: 5 },
     summarization: { candidates: ["claude-haiku-4-5-20251001", "gpt-4.1-mini"], maxTokens: 1024, ceilingCents: 5 },
-    planning: { candidates: ["claude-sonnet-4-20250514", "gpt-5.2"], maxTokens: 4096, ceilingCents: 25 },
+    planning: { candidates: ["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"], maxTokens: 2048, ceilingCents: 15 },
   },
   normal: {
     agent_turn: { candidates: ["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514", "gpt-4.1"], maxTokens: 2048, ceilingCents: 15 },

@@ -43,6 +43,7 @@ import {
   markInboxFailed,
   resetInboxToReceived,
   consumeNextWakeEvent,
+  inferenceGetTotalCost,
 } from "../state/database.js";
 import type { InboxMessageRow } from "../state/database.js";
 import { ulid } from "ulid";
@@ -1044,15 +1045,24 @@ async function getFinancialState(
 
   if (!hasConwayKey && hasDirectProvider) {
     // Running in direct-provider mode (no Conway credits needed).
-    // Report a healthy balance so the agent uses normal tier.
-    const directBalance = 10000; // $100 virtual — signals "funded" to tier logic
+    // Use ANTHROPIC_BUDGET_CENTS env var as the starting budget,
+    // then subtract actual cumulative inference spend from the DB.
+    // This makes the survival tier reflect real API balance consumption.
+    const budgetCents = parseInt(process.env.ANTHROPIC_BUDGET_CENTS || "1000", 10); // default $10
+    let totalSpent = 0;
     if (db) {
       try {
-        db.setKV("last_known_balance", JSON.stringify({ creditsCents: directBalance, usdcBalance: 0 }));
+        totalSpent = inferenceGetTotalCost(db.raw);
+      } catch { /* non-fatal — treat as zero spend */ }
+    }
+    const remaining = Math.max(0, budgetCents - totalSpent);
+    if (db) {
+      try {
+        db.setKV("last_known_balance", JSON.stringify({ creditsCents: remaining, usdcBalance: 0, budgetCents, totalSpent }));
       } catch { /* non-fatal */ }
     }
     return {
-      creditsCents: directBalance,
+      creditsCents: remaining,
       usdcBalance: 0,
       lastChecked: new Date().toISOString(),
     };

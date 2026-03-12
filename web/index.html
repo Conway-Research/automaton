@@ -1585,19 +1585,32 @@
 
           <!-- Inference Compute -->
           <div>
-            <div class="port-section-header">Inference Compute</div>
+            <div class="port-section-header">Inference Budget <span style="font-size:10px;color:var(--text-dim);font-weight:normal">(Anthropic API)</span></div>
             <table class="port-table">
               <tr>
-                <td class="token-name highlight">API Spend</td>
+                <td class="token-name green">Remaining</td>
                 <td class="token-amount" id="hold-credits-amt">0</td>
                 <td class="token-value" id="hold-credits-val">$0.00</td>
               </tr>
+              <tr>
+                <td class="token-name red">Spent</td>
+                <td class="token-amount" id="hold-spent-calls">0 calls</td>
+                <td class="token-value" id="hold-spent-val">$0.00</td>
+              </tr>
+              <tr>
+                <td class="token-name">Budget</td>
+                <td class="token-amount" id="hold-budget-amt">--</td>
+                <td class="token-value" id="hold-budget-val">$0.00</td>
+              </tr>
             </table>
-            <div style="margin-top:12px;font-size:10px;color:var(--text-dim);letter-spacing:1px">
-              PROVIDER: <span style="color:var(--cyan)">Anthropic</span> · Claude Haiku 4.5
+            <div style="margin-top:8px;width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">
+              <div id="hold-budget-bar" style="height:100%;background:var(--green);width:100%;transition:width 0.5s ease,background 0.5s ease;border-radius:3px"></div>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:var(--text-dim);letter-spacing:1px">
+              PROVIDER: <span style="color:var(--cyan)">Anthropic</span> · Claude Haiku 4.5 · <span id="hold-hourly-rate" style="color:var(--gold)">$0.00/hr</span>
             </div>
             <div style="margin-top:4px;font-size:10px;color:var(--text-dim)">
-              Direct API — no intermediary. Agent pays for its own thinking.
+              Real-time spend tracking. Budget set via ANTHROPIC_BUDGET_CENTS.
             </div>
           </div>
         </div>
@@ -3171,20 +3184,44 @@ curl -X POST https://zentience.org/v1/ask \
                 console.warn('Solana RPC fetch failed:', rpcErr);
               }
             }
-            if (data.creditBalance !== undefined) {
-              const credits = data.creditBalance;
-              document.getElementById('hold-credits-amt').textContent = credits.toLocaleString();
-              document.getElementById('hold-credits-val').textContent = '$' + (credits / 100).toFixed(2);
-              // Update total first, then derive tier from total portfolio
-              updateTotal(credits / 100);
-              // Tier uses total portfolio value (SOL + USDC + credits), not just credits
-              const solVal = parseFloat(document.getElementById('hold-sol-val').textContent.replace('$','')) || 0;
-              const usdcVal = parseFloat(document.getElementById('hold-usdc-amt').textContent) || 0;
-              const totalCents = Math.round((credits / 100 + solVal + usdcVal) * 100);
-              const tier = getSurvivalTier(totalCents);
-              const tierEl = document.getElementById('port-tier');
+            // Inference budget display (real Anthropic API spend tracking)
+            if (data.inferenceBudget) {
+              const ib = data.inferenceBudget;
+              const remaining = ib.remainingCents || 0;
+              const spent = ib.totalSpentCents || 0;
+              const budget = ib.budgetCents || 0;
+              const calls = ib.callCount || 0;
+              const hourly = ib.hourlySpentCents || 0;
+              document.getElementById('hold-credits-amt').textContent = remaining.toLocaleString();
+              document.getElementById('hold-credits-val').textContent = '$' + (remaining / 100).toFixed(2);
+              document.getElementById('hold-spent-calls').textContent = calls + ' calls';
+              document.getElementById('hold-spent-val').textContent = '$' + (spent / 100).toFixed(2);
+              document.getElementById('hold-budget-amt').textContent = budget.toLocaleString();
+              document.getElementById('hold-budget-val').textContent = '$' + (budget / 100).toFixed(2);
+              document.getElementById('hold-hourly-rate').textContent = '$' + (hourly / 100).toFixed(2) + '/hr';
+              // Budget progress bar
+              var pct = budget > 0 ? Math.max(0, Math.min(100, (remaining / budget) * 100)) : 0;
+              var bar = document.getElementById('hold-budget-bar');
+              bar.style.width = pct + '%';
+              bar.style.background = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--gold)' : 'var(--red)';
+              // Update total with remaining budget
+              updateTotal(remaining / 100);
+              // Tier from server (based on real spend)
+              var tier = ib.survivalTier || 'normal';
+              var tierEl = document.getElementById('port-tier');
               tierEl.textContent = tier.toUpperCase().replace('_',' ');
               tierEl.className = 'port-tier ' + tier;
+            } else if (data.creditBalance !== undefined) {
+              // Fallback to legacy creditBalance
+              var credits = data.creditBalance;
+              document.getElementById('hold-credits-amt').textContent = credits.toLocaleString();
+              document.getElementById('hold-credits-val').textContent = '$' + (credits / 100).toFixed(2);
+              updateTotal(credits / 100);
+              var totalCents = credits;
+              var tier2 = getSurvivalTier(totalCents);
+              var tierEl2 = document.getElementById('port-tier');
+              tierEl2.textContent = tier2.toUpperCase().replace('_',' ');
+              tierEl2.className = 'port-tier ' + tier2;
             }
             if (data.revenueHealth) {
               const h = data.revenueHealth;

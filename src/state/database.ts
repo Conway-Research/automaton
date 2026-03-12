@@ -2149,6 +2149,13 @@ export function inferenceGetModelCosts(db: DatabaseType, model: string, days?: n
   return { totalCents: row.total, callCount: row.count };
 }
 
+export function inferenceGetTotalCost(db: DatabaseType): number {
+  const row = db
+    .prepare("SELECT COALESCE(SUM(cost_cents), 0) as total FROM inference_costs")
+    .get() as { total: number };
+  return row.total;
+}
+
 export function inferencePruneCosts(db: DatabaseType, retentionDays: number): number {
   const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
   const result = db
