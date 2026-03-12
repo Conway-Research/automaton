@@ -280,7 +280,7 @@ async function run(): Promise<void> {
   if (registrationState !== "registered") {
     try {
       const genesisPromptHash = config.genesisPrompt
-        ? sha256Hex(config.genesisPrompt)
+        ? `0x${sha256Hex(config.genesisPrompt)}`
         : undefined;
       await conway.registerAutomaton({
         automatonId,
