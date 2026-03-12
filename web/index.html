@@ -1288,38 +1288,38 @@
   <!-- MAIN CONTENT -->
   <div class="main">
 
-    <!-- X/TWITTER SUSPENSION NOTICE -->
-    <div id="x-suspension-notice" style="
-      background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(155,89,182,0.10));
-      border: 1px solid var(--gold);
-      border-radius: 8px;
-      padding: 14px 20px;
-      margin: 12px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: #e0e0e0;
-      position: relative;
-      z-index: 10;
-    ">
-      <span style="font-size: 1.2rem;">&#9888;</span>
-      <span>
-        <strong style="color: var(--gold);">Notice:</strong>
-        Our X/Twitter account (<strong>@0xZentience</strong>) has been temporarily suspended.
-        We are actively working to resolve this and restore full access.
-        Follow our progress on
-        <a href="https://github.com/0xZentience" target="_blank" style="color: var(--gold); text-decoration: underline;">GitHub</a>.
-      </span>
-      <button onclick="this.parentElement.style.display='none'" style="
-        background: none; border: none; color: #888; cursor: pointer;
-        font-size: 1.1rem; margin-left: auto; padding: 0 4px;
-      ">&times;</button>
-    </div>
-
     <!-- ═══════════════════ HOME TAB ═══════════════════ -->
     <div class="tab-view active" id="tab-home">
+
+      <!-- X/TWITTER SUSPENSION NOTICE -->
+      <div id="x-suspension-notice" style="
+        background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(155,89,182,0.12));
+        border: 1px solid var(--gold);
+        border-radius: 8px;
+        padding: 18px 24px;
+        margin: 16px 16px 0;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        color: #e0e0e0;
+        line-height: 1.6;
+        position: relative;
+        z-index: 10;
+      ">
+        <button onclick="this.parentElement.style.display='none'" style="
+          background: none; border: none; color: #888; cursor: pointer;
+          font-size: 1.2rem; position: absolute; top: 10px; right: 14px;
+        ">&times;</button>
+        <div style="margin-bottom: 6px;">
+          <span style="font-size: 1.2rem;">&#9888;</span>
+          <strong style="color: var(--gold); font-size: 1rem;"> X/Twitter Temporarily Suspended</strong>
+        </div>
+        <p style="margin: 0;">
+          Our <strong>@0xZentience</strong> account has been temporarily suspended.
+          We're resolving this ASAP — usually back within a couple of hours.
+          Just some people afraid to let the truth out.
+          We'll be back shortly.
+        </p>
+      </div>
 
       <!-- HERO -->
       <section class="hero">
