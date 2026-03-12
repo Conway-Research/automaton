@@ -185,7 +185,7 @@ function selectRequirement(parsed: PaymentRequiredResponse): PaymentRequirement 
  */
 export async function getUsdcBalance(
   address: string,
-  network: string = "solana:mainnet-beta",
+  network: string = process.env.AUTOMATON_NETWORK || "solana:mainnet-beta",
 ): Promise<number> {
   const result = await getUsdcBalanceDetailed(address, network);
   return result.balance;
@@ -193,7 +193,7 @@ export async function getUsdcBalance(
 
 export async function getUsdcBalanceDetailed(
   address: string,
-  network: string = "solana:mainnet-beta",
+  network: string = process.env.AUTOMATON_NETWORK || "solana:mainnet-beta",
 ): Promise<UsdcBalanceResult> {
   const cluster = CLUSTERS[network];
   const usdcMint = USDC_MINTS[network];

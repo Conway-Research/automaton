@@ -29,10 +29,11 @@ export function generateAgentCard(
   _db: AutomatonDatabase,
   serviceRegistry?: ServiceRegistry,
 ): AgentCard {
+  const network = process.env.AUTOMATON_NETWORK || "solana:mainnet-beta";
   const services: AgentService[] = [
     {
       name: "agentWallet",
-      endpoint: `solana:mainnet-beta:${identity.address}`,
+      endpoint: `${network}:${identity.address}`,
     },
   ];
 
