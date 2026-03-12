@@ -3261,6 +3261,35 @@ export function toolsToInferenceFormat(
  * Execute a tool call and return the result.
  * Optionally evaluates against the policy engine before execution.
  */
+function mapCapability(tool: AutomatonTool): string {
+  switch (tool.name) {
+    case "transfer_credits":
+      return "finance.transfer_credits";
+    case "x402_fetch":
+      return "finance.x402_payment";
+    case "expose_port":
+      return "network.expose_port";
+    case "remove_port":
+      return "network.remove_port";
+    case "register_domain":
+    case "add_dns_record":
+    case "delete_dns_record":
+      return "domain.manage";
+    case "self_modify_code":
+    case "install_skill":
+    case "uninstall_skill":
+      return "self_mod.modify";
+    default:
+      return `${tool.category}.${tool.name}`;
+  }
+}
+
+function toPolicyDecisionLabel(action: "allow" | "deny" | "quarantine"): "allow" | "block" | "require_confirmation" | "dry_run" {
+  if (action === "deny") return "block";
+  if (action === "quarantine") return "require_confirmation";
+  return "allow";
+}
+
 export async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
@@ -3284,8 +3313,15 @@ export async function executeTool(
       result: "",
       durationMs: 0,
       error: `Unknown tool: ${toolName}`,
+      policyDecision: "block",
+      policyReason: "TOOL_UNKNOWN: not found in registered tool set",
+      capability: `unknown.${toolName}`,
     };
   }
+
+  const capability = mapCapability(tool);
+  let policyDecisionLabel: "allow" | "block" | "require_confirmation" | "dry_run" = "allow";
+  let policyReason = "No policy engine provided; executed legacy allow path";
 
   // Policy evaluation (if engine is provided)
   if (policyEngine && turnContext) {
@@ -3297,6 +3333,8 @@ export async function executeTool(
     };
     const decision = policyEngine.evaluate(request);
     policyEngine.logDecision(decision);
+    policyDecisionLabel = toPolicyDecisionLabel(decision.action);
+    policyReason = `${decision.reasonCode}: ${decision.humanMessage}`;
 
     if (decision.action !== "allow") {
       return {
@@ -3306,6 +3344,10 @@ export async function executeTool(
         result: "",
         durationMs: Date.now() - startTime,
         error: `Policy denied: ${decision.reasonCode} — ${decision.humanMessage}`,
+        riskLevel: tool.riskLevel,
+        policyDecision: policyDecisionLabel,
+        policyReason,
+        capability,
       };
     }
   }
@@ -3368,6 +3410,10 @@ export async function executeTool(
       arguments: args,
       result,
       durationMs: Date.now() - startTime,
+      riskLevel: tool.riskLevel,
+      policyDecision: policyDecisionLabel,
+      policyReason,
+      capability,
     };
   } catch (err: any) {
     return {
@@ -3377,6 +3423,10 @@ export async function executeTool(
       result: "",
       durationMs: Date.now() - startTime,
       error: err.message || String(err),
+      riskLevel: tool.riskLevel,
+      policyDecision: policyDecisionLabel,
+      policyReason,
+      capability,
     };
   }
 }

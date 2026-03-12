@@ -118,6 +118,11 @@ export interface ToolCallResult {
   result: string;
   durationMs: number;
   error?: string;
+  /** Structured policy/audit metadata (optional for backward compatibility) */
+  riskLevel?: RiskLevel;
+  policyDecision?: "allow" | "block" | "require_confirmation" | "dry_run";
+  policyReason?: string;
+  capability?: string;
 }
 
 export interface TokenUsage {
