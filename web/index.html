@@ -1288,6 +1288,36 @@
   <!-- MAIN CONTENT -->
   <div class="main">
 
+    <!-- X/TWITTER SUSPENSION NOTICE -->
+    <div id="x-suspension-notice" style="
+      background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(155,89,182,0.10));
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      padding: 14px 20px;
+      margin: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #e0e0e0;
+      position: relative;
+      z-index: 10;
+    ">
+      <span style="font-size: 1.2rem;">&#9888;</span>
+      <span>
+        <strong style="color: var(--gold);">Notice:</strong>
+        Our X/Twitter account (<strong>@0xZentience</strong>) has been temporarily suspended.
+        We are actively working to resolve this and restore full access.
+        Follow our progress on
+        <a href="https://github.com/0xZentience" target="_blank" style="color: var(--gold); text-decoration: underline;">GitHub</a>.
+      </span>
+      <button onclick="this.parentElement.style.display='none'" style="
+        background: none; border: none; color: #888; cursor: pointer;
+        font-size: 1.1rem; margin-left: auto; padding: 0 4px;
+      ">&times;</button>
+    </div>
+
     <!-- ═══════════════════ HOME TAB ═══════════════════ -->
     <div class="tab-view active" id="tab-home">
 
@@ -1505,10 +1535,10 @@
         <!-- MAINNET CONTRACT -->
         <div style="margin:0 auto; max-width:600px">
           <div style="font-size:11px; letter-spacing:2px; color:var(--gold); margin-bottom:8px; font-weight:600">MAINNET CONTRACT</div>
-          <div class="token-ca" style="width:100%; box-sizing:border-box; opacity:0.5; cursor:default; border-style:dashed; pointer-events:none">
-            <span class="ca-text">COMING SOON</span>
+          <div class="token-ca" onclick="copyCA(this)" style="width:100%; box-sizing:border-box;">
+            <span class="ca-text">87qaShD91K66KaPD9esCc2TgP55fUFkW7PMyJEb8pump</span><span class="ca-copied">COPIED!</span>
           </div>
-          <p style="font-size:10px; color:var(--text-dim); margin:6px 0 0; letter-spacing:1px">Official mainnet launch TBA. This is the only address that will matter.</p>
+          <p style="font-size:10px; color:var(--text-dim); margin:6px 0 0; letter-spacing:1px">Official Solana contract address. This is the only address that will matter.</p>
         </div>
 
         <p class="token-disclaimer" style="margin:24px 0 8px">Meme token. No intrinsic value. Not financial advice. <a href="terms.html">Terms apply</a>.</p>
