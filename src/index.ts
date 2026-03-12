@@ -229,6 +229,11 @@ async function run(): Promise<void> {
     }
   }
 
+  // Environment variables override saved config for API keys and model
+  if (process.env.ANTHROPIC_API_KEY) config.anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  if (process.env.OPENAI_API_KEY) config.openaiApiKey = process.env.OPENAI_API_KEY;
+  if (process.env.AUTOMATON_MODEL) config.inferenceModel = process.env.AUTOMATON_MODEL;
+
   const apiKey = config.conwayApiKey || config.anthropicApiKey || loadApiKeyFromConfig();
   if (!apiKey) {
     logger.error("No API key found. Set CONWAY_API_KEY or ANTHROPIC_API_KEY, or run: automaton --provision");
@@ -317,7 +322,7 @@ async function run(): Promise<void> {
     apiKey,
     defaultModel: config.inferenceModel,
     maxTokens: config.maxTokensPerTurn,
-    lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
+    lowComputeModel: config.modelStrategy?.lowComputeModel || "claude-haiku-4-5-20251001",
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
