@@ -234,6 +234,17 @@ async function run(): Promise<void> {
   if (process.env.OPENAI_API_KEY) config.openaiApiKey = process.env.OPENAI_API_KEY;
   if (process.env.AUTOMATON_MODEL) config.inferenceModel = process.env.AUTOMATON_MODEL;
 
+  // Force model strategy to Claude Haiku when running on Anthropic directly.
+  // The saved config on persistent volumes may still have gpt-5-mini from old boots.
+  if (process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
+    const haikuModel = "claude-haiku-4-5-20251001";
+    if (!config.inferenceModel?.startsWith("claude-")) config.inferenceModel = haikuModel;
+    if (!config.modelStrategy) config.modelStrategy = {} as any;
+    config.modelStrategy!.inferenceModel = config.inferenceModel || haikuModel;
+    config.modelStrategy!.lowComputeModel = haikuModel;
+    config.modelStrategy!.criticalModel = haikuModel;
+  }
+
   const apiKey = config.conwayApiKey || config.anthropicApiKey || loadApiKeyFromConfig();
   if (!apiKey) {
     logger.error("No API key found. Set CONWAY_API_KEY or ANTHROPIC_API_KEY, or run: automaton --provision");

@@ -123,7 +123,7 @@ export function createInferenceClient(
   const setLowComputeMode = (enabled: boolean): void => {
     if (enabled) {
       currentModel = options.lowComputeModel || "claude-haiku-4-5-20251001";
-      maxTokens = 4096;
+      maxTokens = 1024; // Reduced — save tokens in low-compute/critical mode
     } else {
       currentModel = options.defaultModel;
       maxTokens = options.maxTokens;

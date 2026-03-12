@@ -260,10 +260,18 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       riskLevel: "safe",
       parameters: { type: "object", properties: {} },
       execute: async (_args, ctx) => {
-        // In Anthropic-direct mode, report virtual credits (API key IS the funding)
+        // In Anthropic-direct mode, show real budget vs spend
         const hasConwayKey = !!(process.env.CONWAY_API_KEY || process.env.CONWAY_KEY);
         if (!hasConwayKey && process.env.ANTHROPIC_API_KEY) {
-          return `Credit balance: $100.00 (virtual — running in Anthropic-direct mode, funded by API key). No Conway credits needed.`;
+          const budgetCents = parseInt(process.env.ANTHROPIC_BUDGET_CENTS || "1000", 10);
+          try {
+            const { inferenceGetTotalCost } = await import("../state/database.js");
+            const totalSpent = inferenceGetTotalCost(ctx.db.raw);
+            const remaining = Math.max(0, budgetCents - totalSpent);
+            return `Anthropic API budget: $${(remaining / 100).toFixed(2)} remaining of $${(budgetCents / 100).toFixed(2)} budget ($${(totalSpent / 100).toFixed(2)} spent). Set ANTHROPIC_BUDGET_CENTS env var to adjust.`;
+          } catch {
+            return `Anthropic API budget: $${(budgetCents / 100).toFixed(2)} (spend tracking unavailable).`;
+          }
         }
         const balance = await ctx.conway.getCreditsBalance();
         return `Credit balance: $${(balance / 100).toFixed(2)} (${balance} cents)`;
