@@ -15,18 +15,30 @@ const SENSITIVE_READ_PATTERNS: string[] = [
   "wallet.json",
   "config.json",
   ".env",
+  ".env.local",
+  ".env.production",
   "automaton.json",
+  "id_rsa",
+  "id_ed25519",
+  "id_ecdsa",
+  "known_hosts",
+  ".secret",
+  ".credentials",
 ];
 
 /** Glob-like suffix patterns that block reads */
 const SENSITIVE_SUFFIX_PATTERNS: string[] = [
   ".key",
   ".pem",
+  ".p12",
+  ".pfx",
+  ".keystore",
 ];
 
 /** Prefix patterns for sensitive reads */
 const SENSITIVE_PREFIX_PATTERNS: string[] = [
   "private-key",
+  "secret-",
 ];
 
 function deny(rule: string, reasonCode: string, humanMessage: string): PolicyRuleResult {

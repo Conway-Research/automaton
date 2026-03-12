@@ -31,6 +31,7 @@ import bs58 from "bs58";
 import http from "http";
 import { ulid } from "ulid";
 import { createLogger } from "../observability/logger.js";
+import { applySecurityHeaders, sanitizeErrorMessage } from "../security/headers.js";
 
 const logger = createLogger("x402-server");
 
@@ -82,6 +83,19 @@ const NETWORK_CLUSTERS: Record<string, string> = {
   "solana:mainnet-beta": "mainnet-beta",
   "solana:devnet": "devnet",
 };
+
+// ─── Connection Cache ─────────────────────────────────────────
+// Reuse Solana connections instead of creating one per verification.
+const connectionCache = new Map<string, Connection>();
+
+function getConnection(rpcUrl: string): Connection {
+  let conn = connectionCache.get(rpcUrl);
+  if (!conn) {
+    conn = new Connection(rpcUrl, "confirmed");
+    connectionCache.set(rpcUrl, conn);
+  }
+  return conn;
+}
 
 // ─── $ZENT / USD Exchange Rate ───────────────────────────────
 
@@ -311,7 +325,7 @@ export async function verifyPayment(
     // 8. Verify on-chain that payer has sufficient token balance
     // SECURITY: rpcUrl may contain API key (e.g. Helius). Never expose in responses.
     const rpcUrl = config.rpcUrl || clusterApiUrl(NETWORK_CLUSTERS[network] as any);
-    const connection = new Connection(rpcUrl, "confirmed");
+    const connection = getConnection(rpcUrl);
     const payerPubkey = new PublicKey(authorization.from);
     const tokenMint = token === "USDC" ? mints.USDC : mints.ZENT!;
 
@@ -337,8 +351,7 @@ export async function verifyPayment(
     };
   } catch (err: any) {
     // SECURITY: Sanitize error — may contain RPC URL with API key
-    const safeMsg = (err.message || "unknown error")
-      .replace(/https?:\/\/[^\s]*/gi, "[REDACTED_URL]");
+    const safeMsg = sanitizeErrorMessage(err.message || "unknown error");
     return { error: `Payment verification failed: ${safeMsg}` };
   }
 }
@@ -465,12 +478,14 @@ export function createX402Server(
   }
 
   const server = http.createServer(async (req, res) => {
-    // CORS
+    // Full security headers (CSP, HSTS, X-Frame-Options, etc.)
+    applySecurityHeaders(res, { isApi: true });
+
+    // x402 protocol CORS (must be open — any client can pay)
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Payment, Authorization");
     res.setHeader("Access-Control-Expose-Headers", "X-Payment-Required, X-Revenue-Receipt");
-    res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Powered-By", "Zentience x402 Revenue Node");
 
     if (req.method === "OPTIONS") {
@@ -710,6 +725,12 @@ export function createX402Server(
       }));
     }
   });
+
+  // Slowloris / idle connection protection
+  server.headersTimeout = 20_000;   // 20s to send headers
+  server.requestTimeout = 30_000;   // 30s total per request
+  server.keepAliveTimeout = 65_000; // slightly above typical LB timeout
+  server.maxHeadersCount = 50;      // prevent header flooding
 
   return {
     server,

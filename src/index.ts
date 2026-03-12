@@ -493,6 +493,19 @@ async function run(): Promise<void> {
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
 
+  // Process-level hardening: catch unhandled errors to prevent silent crashes
+  process.on("uncaughtException", (err) => {
+    logger.error(`[FATAL] Uncaught exception: ${err.message}`);
+    logger.error(err.stack || "");
+    // Attempt graceful shutdown — do NOT swallow and continue
+    shutdown();
+  });
+  process.on("unhandledRejection", (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    logger.error(`[FATAL] Unhandled rejection: ${msg}`);
+    // Log but continue — some promise rejections are recoverable
+  });
+
   // ─── Main Run Loop ──────────────────────────────────────────
   // The automaton alternates between running and sleeping.
   // The heartbeat can wake it up.
