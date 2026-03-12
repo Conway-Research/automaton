@@ -144,6 +144,9 @@ export async function runAgentLoop(
       if (config.anthropicApiKey && !process.env.ANTHROPIC_API_KEY) {
         process.env.ANTHROPIC_API_KEY = config.anthropicApiKey;
       }
+      if (config.minimaxApiKey && !process.env.MINIMAX_API_KEY) {
+        process.env.MINIMAX_API_KEY = config.minimaxApiKey;
+      }
       // Conway Compute API is OpenAI-compatible. Use it as fallback when no
       // direct OpenAI key is available. The conwayApiKey is always present
       // (required for sandbox operations), so this ensures the orchestrator

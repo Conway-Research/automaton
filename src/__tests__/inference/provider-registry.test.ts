@@ -66,15 +66,17 @@ describe("ProviderRegistry", () => {
     const registry = ProviderRegistry.fromConfig(makeMissingPath());
 
     const providers = registry.getProviders();
-    expect(providers.length).toBe(4);
+    expect(providers.length).toBe(5);
     expect(providers.map((provider) => provider.id)).toEqual([
       "openai",
       "groq",
       "together",
+      "minimax",
       "local",
     ]);
     expect(providers.find((provider) => provider.id === "openai")?.enabled).toBe(true);
     expect(providers.find((provider) => provider.id === "together")?.enabled).toBe(false);
+    expect(providers.find((provider) => provider.id === "minimax")?.enabled).toBe(true);
   });
 
   it("fromConfig keeps defaults when JSON is invalid", () => {
@@ -83,7 +85,7 @@ describe("ProviderRegistry", () => {
     fs.writeFileSync(filePath, "{ not json", "utf8");
 
     const registry = ProviderRegistry.fromConfig(filePath);
-    expect(registry.getProviders().length).toBe(4);
+    expect(registry.getProviders().length).toBe(5);
     expect(registry.resolveModel("reasoning").provider.id).toBe("openai");
   });
 
@@ -144,7 +146,7 @@ describe("ProviderRegistry", () => {
     });
 
     const registry = ProviderRegistry.fromConfig(filePath);
-    expect(registry.getProviders().length).toBe(4);
+    expect(registry.getProviders().length).toBe(5);
   });
 
   it("fromConfig uses emergencyStopCredits from config", () => {
@@ -187,7 +189,7 @@ describe("ProviderRegistry", () => {
 
   it("resolveCandidates returns fallback order for reasoning tier", () => {
     const registry = createRegistryFromDefaults();
-    expect(providerIdsForTier(registry, "reasoning")).toEqual(["openai", "groq"]);
+    expect(providerIdsForTier(registry, "reasoning")).toEqual(["openai", "groq", "minimax"]);
   });
 
   it("resolveCandidates skips providers disabled in config", () => {
@@ -258,10 +260,10 @@ describe("ProviderRegistry", () => {
     const registry = createRegistryFromDefaults();
 
     registry.disableProvider("openai", "manual", 60_000);
-    expect(providerIdsForTier(registry, "reasoning")).toEqual(["groq"]);
+    expect(providerIdsForTier(registry, "reasoning")).toEqual(["groq", "minimax"]);
 
     registry.enableProvider("openai");
-    expect(providerIdsForTier(registry, "reasoning")).toEqual(["openai", "groq"]);
+    expect(providerIdsForTier(registry, "reasoning")).toEqual(["openai", "groq", "minimax"]);
   });
 
   it("disableProvider ignores unknown provider IDs", () => {
@@ -282,10 +284,10 @@ describe("ProviderRegistry", () => {
     const registry = createRegistryFromDefaults();
     registry.disableProvider("openai", "maintenance", 5_000);
 
-    expect(providerIdsForTier(registry, "reasoning")).toEqual(["groq"]);
+    expect(providerIdsForTier(registry, "reasoning")).toEqual(["groq", "minimax"]);
 
     vi.advanceTimersByTime(5_001);
-    expect(providerIdsForTier(registry, "reasoning")).toEqual(["openai", "groq"]);
+    expect(providerIdsForTier(registry, "reasoning")).toEqual(["openai", "groq", "minimax"]);
 
     vi.useRealTimers();
   });
@@ -401,6 +403,66 @@ describe("ProviderRegistry", () => {
     registry.resolveModel("reasoning");
     registry.resolveModel("fast");
 
-    expect(openAiCtor).toHaveBeenCalledTimes(4);
+    expect(openAiCtor).toHaveBeenCalledTimes(6);
+  });
+
+  it("minimax provider is included and enabled in defaults", () => {
+    const registry = createRegistryFromDefaults();
+    const providers = registry.getProviders();
+    const minimax = providers.find((provider) => provider.id === "minimax");
+
+    expect(minimax).toBeDefined();
+    expect(minimax?.enabled).toBe(true);
+    expect(minimax?.name).toBe("MiniMax");
+    expect(minimax?.baseUrl).toBe("https://api.minimax.io/v1");
+    expect(minimax?.apiKeyEnvVar).toBe("MINIMAX_API_KEY");
+    expect(minimax?.models.length).toBe(2);
+  });
+
+  it("minimax provider resolves models when enabled via config", () => {
+    const filePath = makeTempConfigFile({
+      providers: [
+        {
+          id: "minimax",
+          name: "MiniMax",
+          baseUrl: "https://api.minimax.io/v1",
+          apiKeyEnvVar: "MINIMAX_API_KEY",
+          enabled: true,
+          priority: 1,
+          models: [
+            {
+              id: "MiniMax-M2.5",
+              tier: "reasoning",
+              contextWindow: 204800,
+              maxOutputTokens: 192000,
+              costPerInputToken: 0.3,
+              costPerOutputToken: 1.2,
+              supportsTools: true,
+              supportsVision: false,
+              supportsStreaming: true,
+            },
+          ],
+        },
+      ],
+      tierDefaults: {
+        reasoning: {
+          preferredProvider: "minimax",
+          fallbackOrder: [],
+        },
+      },
+    });
+
+    const registry = ProviderRegistry.fromConfig(filePath);
+    const resolved = registry.resolveModel("reasoning");
+
+    expect(resolved.provider.id).toBe("minimax");
+    expect(resolved.model.id).toBe("MiniMax-M2.5");
+  });
+
+  it("resolveCandidates includes enabled minimax in fallback", () => {
+    const registry = createRegistryFromDefaults();
+    const fastCandidates = providerIdsForTier(registry, "fast");
+
+    expect(fastCandidates).toContain("minimax");
   });
 });

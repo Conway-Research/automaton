@@ -42,6 +42,7 @@ export interface AutomatonConfig {
   conwayApiKey: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
+  minimaxApiKey?: string;
   ollamaBaseUrl?: string;
   inferenceModel: string;
   maxTokensPerTurn: number;
@@ -1123,7 +1124,7 @@ export const DEFAULT_MEMORY_BUDGET: MemoryBudget = {
 
 // === Phase 2.3: Inference & Model Strategy Types ===
 
-export type ModelProvider = "openai" | "anthropic" | "conway" | "ollama" | "other";
+export type ModelProvider = "openai" | "anthropic" | "conway" | "ollama" | "minimax" | "other";
 
 export type InferenceTaskType =
   | "agent_turn"

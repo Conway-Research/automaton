@@ -124,6 +124,7 @@ export function createConfig(params: {
   apiKey: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
+  minimaxApiKey?: string;
   ollamaBaseUrl?: string;
   parentAddress?: Address;
   treasuryPolicy?: TreasuryPolicy;
@@ -141,6 +142,7 @@ export function createConfig(params: {
     conwayApiKey: params.apiKey,
     openaiApiKey: params.openaiApiKey,
     anthropicApiKey: params.anthropicApiKey,
+    minimaxApiKey: params.minimaxApiKey,
     ollamaBaseUrl: params.ollamaBaseUrl,
     inferenceModel: DEFAULT_CONFIG.inferenceModel || "gpt-5.2",
     maxTokensPerTurn: DEFAULT_CONFIG.maxTokensPerTurn || 4096,
