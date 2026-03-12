@@ -106,6 +106,21 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     const prevTier = taskCtx.db.getKV("prev_credit_tier");
     taskCtx.db.setKV("prev_credit_tier", tier);
 
+    // ── Resurrection check ──
+    // If the agent is dead but credits have been topped up, resurrect it.
+    const currentState = taskCtx.db.getAgentState();
+    if (currentState === "dead" && credits > 0) {
+      const { attemptResurrection } = await import("../survival/resurrection.js");
+      const result = await attemptResurrection(taskCtx.db, taskCtx.conway);
+      if (result.resurrected) {
+        logger.info(`Agent resurrected via heartbeat: ${result.reason}`);
+        return {
+          shouldWake: true,
+          message: `Resurrected! Credits: $${(credits / 100).toFixed(2)}. Tier: ${result.newTier}. Resuming operation.`,
+        };
+      }
+    }
+
     // Dead state escalation: if at zero credits (critical tier) for >1 hour,
     // transition to dead. This gives the agent time to receive funding before dying.
     // USDC can't go negative, so dead is only reached via this timeout.
@@ -130,8 +145,9 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
           };
         }
       }
-    } else {
-      // Credits are above zero — clear the grace period timer
+    } else if (currentState !== "dead") {
+      // Credits are above zero and not dead — clear the grace period timer.
+      // (Don't clear if dead; resurrection handles that.)
       taskCtx.db.deleteKV("zero_credits_since");
     }
 
