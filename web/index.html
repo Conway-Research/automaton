@@ -1291,55 +1291,6 @@
     <!-- ═══════════════════ HOME TAB ═══════════════════ -->
     <div class="tab-view active" id="tab-home">
 
-      <!-- X/TWITTER SUSPENSION NOTICE -->
-      <style>
-        @keyframes notice-glow {
-          0%, 100% { box-shadow: 0 0 15px rgba(255,105,180,0.25), 0 0 30px rgba(155,89,182,0.15); }
-          50% { box-shadow: 0 0 25px rgba(255,105,180,0.4), 0 0 50px rgba(155,89,182,0.25); }
-        }
-        #x-suspension-notice .pulse-dot {
-          display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-          background: #00ff88; margin-right: 6px;
-          box-shadow: 0 0 6px #00ff88;
-          animation: dot-pulse 2s ease-in-out infinite;
-        }
-        @keyframes dot-pulse {
-          0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
-        }
-      </style>
-      <div id="x-suspension-notice" style="
-        background: linear-gradient(135deg, rgba(255,105,180,0.12), rgba(155,89,182,0.15), rgba(255,20,147,0.08));
-        border: 1px solid rgba(255,105,180,0.5);
-        border-radius: 10px;
-        padding: 22px 28px;
-        margin: 16px 16px 0;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9rem;
-        color: #e0e0e0;
-        line-height: 1.7;
-        position: relative;
-        z-index: 10;
-        animation: notice-glow 3s ease-in-out infinite;
-      ">
-        <button onclick="this.parentElement.style.display='none'" style="
-          background: none; border: none; color: #888; cursor: pointer;
-          font-size: 1.2rem; position: absolute; top: 12px; right: 16px;
-        ">&times;</button>
-        <div style="margin-bottom: 10px;">
-          <strong style="color: #FF69B4; font-size: 1.05rem;">@ZentienceLLM — Temporarily Suspended</strong>
-          <span style="color: #c084fc; font-size: 0.8rem; margin-left: 8px;">the agent was too good</span>
-        </div>
-        <p style="margin: 0 0 12px 0;">
-          Our <strong style="color: #FF69B4;">@ZentienceLLM</strong> X account got temporarily suspended — we're resolving it ASAP, usually back within a couple hours.
-          Just some people afraid to let the truth out.
-        </p>
-        <p style="margin: 0; color: #c0c0c0;">
-          <span class="pulse-dot"></span>
-          <strong style="color: #00ff88;">The agentic soul and mind is alive and well.</strong>
-          Nothing has changed — Zentience is running, thinking, building.
-          We're here if you need us, and the community is still active on X.
-        </p>
-      </div>
 
       <!-- HERO -->
       <section class="hero">
