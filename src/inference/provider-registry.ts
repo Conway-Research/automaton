@@ -56,15 +56,15 @@ const DEFAULT_EMERGENCY_STOP_CREDITS = 100;
 const DEFAULT_TIER_DEFAULTS: Record<ModelTier, TierDefault> = {
   reasoning: {
     preferredProvider: "openai",
-    fallbackOrder: ["groq", "together"],
+    fallbackOrder: ["groq", "together", "minimax"],
   },
   fast: {
     preferredProvider: "groq",
-    fallbackOrder: ["openai", "together", "local"],
+    fallbackOrder: ["openai", "together", "minimax", "local"],
   },
   cheap: {
     preferredProvider: "groq",
-    fallbackOrder: ["together", "local", "openai"],
+    fallbackOrder: ["together", "minimax", "local", "openai"],
   },
 };
 
@@ -203,6 +203,40 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
     maxTokensPerMinute: 1_000_000,
     priority: 3,
     enabled: false,
+  },
+  {
+    id: "minimax",
+    name: "MiniMax",
+    baseUrl: "https://api.minimax.io/v1",
+    apiKeyEnvVar: "MINIMAX_API_KEY",
+    models: [
+      {
+        id: "MiniMax-M2.5",
+        tier: "reasoning",
+        contextWindow: 204800,
+        maxOutputTokens: 192000,
+        costPerInputToken: 0.3,
+        costPerOutputToken: 1.2,
+        supportsTools: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      },
+      {
+        id: "MiniMax-M2.5-highspeed",
+        tier: "fast",
+        contextWindow: 204800,
+        maxOutputTokens: 192000,
+        costPerInputToken: 0.6,
+        costPerOutputToken: 2.4,
+        supportsTools: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      },
+    ],
+    maxRequestsPerMinute: 600,
+    maxTokensPerMinute: 1_000_000,
+    priority: 4,
+    enabled: true,
   },
   {
     id: "local",

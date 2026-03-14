@@ -101,6 +101,7 @@ async function askChoice<T extends string>(
 const PROVIDER_LABEL: Record<string, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
+  minimax: "MiniMax",
   conway: "Conway",
   ollama: "Ollama",
   other: "Other",
@@ -173,6 +174,7 @@ function printMainMenu(config: AutomatonConfig): void {
   const providers = [
     config.openaiApiKey ? "OpenAI" : null,
     config.anthropicApiKey ? "Anthropic" : null,
+    config.minimaxApiKey ? "MiniMax" : null,
     config.ollamaBaseUrl ? "Ollama" : null,
     "Conway",
   ].filter(Boolean).join(", ");
@@ -205,6 +207,7 @@ async function configureProviders(config: AutomatonConfig): Promise<void> {
 
   config.openaiApiKey = await askString("OpenAI API key  (sk-...)", config.openaiApiKey) || undefined;
   config.anthropicApiKey = await askString("Anthropic API key  (sk-ant-...)", config.anthropicApiKey) || undefined;
+  config.minimaxApiKey = await askString("MiniMax API key", config.minimaxApiKey) || undefined;
   config.ollamaBaseUrl = await askString("Ollama base URL  (http://localhost:11434)", config.ollamaBaseUrl) || undefined;
 
   console.log("");
