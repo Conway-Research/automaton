@@ -9,6 +9,7 @@
 
 import type { MessageValidationResult } from "../types.js";
 import { MESSAGE_LIMITS } from "./signing.js";
+import { isValidAddress } from "../identity/chain.js";
 
 /**
  * Validate a social message for size, timestamp, and address constraints.
@@ -75,9 +76,4 @@ export function validateRelayUrl(url: string): void {
   }
 }
 
-/**
- * Check if a string is a valid Ethereum-style hex address.
- */
-export function isValidAddress(address: string): boolean {
-  return /^0x[0-9a-fA-F]{40}$/.test(address);
-}
+// isValidAddress is imported from ../identity/chain.js (supports both EVM and Solana)
