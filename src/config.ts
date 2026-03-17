@@ -30,6 +30,10 @@ export function loadConfig(): AutomatonConfig | null {
     return null;
   }
 
+  return loadConfigFrom(configPath);
+}
+
+export function loadConfigFrom(configPath: string): AutomatonConfig | null {
   try {
     const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
     const apiKey = raw.conwayApiKey || loadApiKeyFromConfig();
