@@ -210,11 +210,27 @@ export async function runAgentLoop(
 
       // Local worker pool: runs inference-driven agents in-process
       // as async tasks. Falls back from Conway sandbox spawning.
+      // Adapt parent tools for worker use. Workers get the same custom tools
+      // as the orchestrator so they can perform outreach, publish to GitHub,
+      // send emails, call external APIs, and perform any action that requires
+      // the parent's credentials/context.
+      const workerCustomTools = tools
+        .filter((t) => !["create_goal", "list_goals", "get_plan", "cancel_goal",
+          "orchestrator_status", "sleep", "modify_heartbeat",
+          "review_upstream_changes", "pull_upstream"].includes(t.name))
+        .map((t) => ({
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+          execute: async (args: Record<string, unknown>) => t.execute(args, toolContext),
+        }));
+
       const workerPool = new LocalWorkerPool({
         db: db.raw,
         inference: workerInference,
         conway,
         workerId: `pool-${identity.name}`,
+        customTools: workerCustomTools,
       });
 
       orchestrator = new Orchestrator({
