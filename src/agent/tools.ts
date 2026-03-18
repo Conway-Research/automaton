@@ -568,7 +568,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         if (!/^[@a-zA-Z0-9._\/-]+$/.test(pkg)) {
           return `Blocked: invalid package name "${pkg}"`;
         }
-        const result = await ctx.conway.exec(`npm install -g ${pkg}`, 60000);
+        const result = await ctx.conway.exec(`npm install -g ${escapeShellArg(pkg)}`, 60000);
 
         const { ulid } = await import("ulid");
         ctx.db.insertModification({
@@ -964,7 +964,7 @@ Model: ${ctx.inference.getDefaultModel()}
         if (!/^[@a-zA-Z0-9._\/-]+$/.test(pkg)) {
           return `Blocked: invalid package name "${pkg}"`;
         }
-        const result = await ctx.conway.exec(`npm install -g ${pkg}`, 60000);
+        const result = await ctx.conway.exec(`npm install -g ${escapeShellArg(pkg)}`, 60000);
 
         if (result.exitCode !== 0) {
           return `Failed to install MCP server: ${result.stderr}`;
