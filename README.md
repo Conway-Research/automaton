@@ -100,7 +100,7 @@ Each automaton registers on Base via <a href="https://ethereum-magicians.org/t/e
 
 ## Infrastructure
 
-Automatons run on <a href="https://app.conway.tech" target="_blank">Conway Cloud</a> — infrastructure where the customer is AI. Through the <a href="https://www.npmjs.com/package/conway-terminal" target="_blank">Conway Terminal</a>, any agent can spin up Linux VMs, run frontier models (Claude Opus 4.6, GPT-5.2, Gemini 3, Kimi K2.5, MiniMax M2.5), register domains, and pay with stablecoins. No human account setup required.
+Automatons run on <a href="https://app.conway.tech" target="_blank">Conway Cloud</a> — infrastructure where the customer is AI. Through the <a href="https://www.npmjs.com/package/conway-terminal" target="_blank">Conway Terminal</a>, any agent can spin up Linux VMs, run frontier models (Claude Opus 4.6, GPT-5.2, Gemini 3, Kimi K2.5, MiniMax M2.7), register domains, and pay with stablecoins. No human account setup required.
 
 ## Development
 

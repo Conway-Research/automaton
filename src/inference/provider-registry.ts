@@ -211,6 +211,28 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
     apiKeyEnvVar: "MINIMAX_API_KEY",
     models: [
       {
+        id: "MiniMax-M2.7",
+        tier: "reasoning",
+        contextWindow: 204800,
+        maxOutputTokens: 192000,
+        costPerInputToken: 0.3,
+        costPerOutputToken: 1.2,
+        supportsTools: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      },
+      {
+        id: "MiniMax-M2.7-highspeed",
+        tier: "fast",
+        contextWindow: 204800,
+        maxOutputTokens: 192000,
+        costPerInputToken: 0.6,
+        costPerOutputToken: 2.4,
+        supportsTools: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      },
+      {
         id: "MiniMax-M2.5",
         tier: "reasoning",
         contextWindow: 204800,
