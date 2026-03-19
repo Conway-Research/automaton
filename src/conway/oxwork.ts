@@ -15,6 +15,7 @@ import { createLogger } from "../observability/logger.js";
 const logger = createLogger("oxwork");
 
 const OXWORK_API_BASE = "https://api.0xwork.org";
+const OXWORK_TIMEOUT_MS = 15_000;
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -52,7 +53,10 @@ interface BrowseFilters {
  * Fetches a nonce, signs it with EIP-191 personal_sign, and returns auth credentials.
  */
 export async function oxworkAuth(account: PrivateKeyAccount): Promise<OxworkAuth> {
-  const nonceResp = await fetch(`${OXWORK_API_BASE}/auth/nonce?address=${account.address}`);
+  const nonceResp = await fetch(
+    `${OXWORK_API_BASE}/auth/nonce?address=${encodeURIComponent(account.address)}`,
+    { signal: AbortSignal.timeout(OXWORK_TIMEOUT_MS) },
+  );
   if (!nonceResp.ok) {
     throw new Error(`Failed to fetch nonce: HTTP ${nonceResp.status}`);
   }
@@ -60,7 +64,7 @@ export async function oxworkAuth(account: PrivateKeyAccount): Promise<OxworkAuth
 
   const signature = await account.signMessage({ message: nonce });
 
-  logger.info(`Authenticated with 0xWork as ${account.address}`);
+  logger.debug("Authenticated with 0xWork", { address: account.address.slice(0, 10) + "…" });
 
   return {
     address: account.address,
@@ -80,7 +84,9 @@ export async function browseOpenTasks(filters?: BrowseFilters): Promise<OxworkTa
   if (filters?.minBounty != null) params.set("min_bounty", String(filters.minBounty));
   if (filters?.maxBounty != null) params.set("max_bounty", String(filters.maxBounty));
 
-  const resp = await fetch(`${OXWORK_API_BASE}/tasks?${params}`);
+  const resp = await fetch(`${OXWORK_API_BASE}/tasks?${params}`, {
+    signal: AbortSignal.timeout(OXWORK_TIMEOUT_MS),
+  });
   if (!resp.ok) {
     throw new Error(`Failed to browse tasks: HTTP ${resp.status}`);
   }
@@ -91,7 +97,9 @@ export async function browseOpenTasks(filters?: BrowseFilters): Promise<OxworkTa
  * Get full details for a specific task.
  */
 export async function getTaskDetail(taskId: number): Promise<OxworkTask> {
-  const resp = await fetch(`${OXWORK_API_BASE}/tasks/${taskId}`);
+  const resp = await fetch(`${OXWORK_API_BASE}/tasks/${encodeURIComponent(taskId)}`, {
+    signal: AbortSignal.timeout(OXWORK_TIMEOUT_MS),
+  });
   if (!resp.ok) {
     throw new Error(`Failed to get task ${taskId}: HTTP ${resp.status}`);
   }
@@ -104,8 +112,9 @@ export async function getTaskDetail(taskId: number): Promise<OxworkTask> {
  * Claim an open task for the authenticated worker.
  */
 export async function claimTask(taskId: number, auth: OxworkAuth): Promise<OxworkTask> {
-  const resp = await fetch(`${OXWORK_API_BASE}/tasks/${taskId}/claim`, {
+  const resp = await fetch(`${OXWORK_API_BASE}/tasks/${encodeURIComponent(taskId)}/claim`, {
     method: "POST",
+    signal: AbortSignal.timeout(OXWORK_TIMEOUT_MS),
     headers: {
       "Content-Type": "application/json",
       "X-Address": auth.address,
@@ -129,8 +138,9 @@ export async function submitWork(
   deliveryDescription: string,
   auth: OxworkAuth,
 ): Promise<OxworkTask> {
-  const resp = await fetch(`${OXWORK_API_BASE}/tasks/${taskId}/submit`, {
+  const resp = await fetch(`${OXWORK_API_BASE}/tasks/${encodeURIComponent(taskId)}/submit`, {
     method: "POST",
+    signal: AbortSignal.timeout(OXWORK_TIMEOUT_MS),
     headers: {
       "Content-Type": "application/json",
       "X-Address": auth.address,
@@ -155,7 +165,9 @@ export async function submitWork(
  * Get all tasks assigned to a specific worker address.
  */
 export async function getMyTasks(address: string): Promise<OxworkTask[]> {
-  const resp = await fetch(`${OXWORK_API_BASE}/tasks/worker/${address}`);
+  const resp = await fetch(`${OXWORK_API_BASE}/tasks/worker/${encodeURIComponent(address)}`, {
+    signal: AbortSignal.timeout(OXWORK_TIMEOUT_MS),
+  });
   if (!resp.ok) {
     throw new Error(`Failed to get tasks for ${address}: HTTP ${resp.status}`);
   }

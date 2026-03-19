@@ -55,6 +55,8 @@ const EXTERNAL_SOURCE_TOOLS = new Set([
   "exec",
   "web_fetch",
   "check_social_inbox",
+  "oxwork_browse",
+  "oxwork_status",
 ]);
 
 // ─── Self-Preservation Guard ───────────────────────────────────
@@ -2934,19 +2936,31 @@ Model: ${ctx.inference.getDefaultModel()}
           return "0xWork requires an EVM wallet for authentication. Solana agents cannot use this tool.";
         }
 
-        const { oxworkAuth, submitWork } = await import("../conway/oxwork.js");
+        const { oxworkAuth, submitWork, getTaskDetail } = await import("../conway/oxwork.js");
         const taskId = args.task_id as number;
         const link = args.delivery_link as string;
         const desc = args.delivery_description as string;
 
+        // Verify the agent owns this claim before submitting
+        const task = await getTaskDetail(taskId);
+        if (task.worker_address?.toLowerCase() !== ctx.identity.account.address.toLowerCase()) {
+          return `Task #${taskId} is not claimed by you (claimed by: ${task.worker_address ?? "no one"}). Cannot submit.`;
+        }
+        if (task.status !== "Claimed") {
+          return `Task #${taskId} status is "${task.status}" — expected "Claimed". Cannot submit.`;
+        }
+
         const auth = await oxworkAuth(ctx.identity.account);
         const submitted = await submitWork(taskId, link, desc, auth);
 
+        // Record as tool_use, NOT service_revenue — bounty isn't released
+        // until the poster approves. Revenue should only be recorded when
+        // the agent detects approval via oxwork_status.
         ctx.db.insertTransaction({
           id: ulid(),
-          type: "service_revenue",
-          amountCents: Math.round(parseFloat(submitted.bounty_amount) * 100),
-          description: `Submitted work for 0xWork task #${taskId} ($${submitted.bounty_amount} bounty, pending approval)`,
+          type: "tool_use",
+          amountCents: 0,
+          description: `Submitted work for 0xWork task #${taskId} ($${submitted.bounty_amount} bounty, pending poster approval)`,
           timestamp: new Date().toISOString(),
         });
 

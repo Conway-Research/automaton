@@ -718,6 +718,13 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       return { shouldWake: false };
     }
 
+    // Backoff after previous failure to avoid hammering a down API
+    const backoffUntil = taskCtx.db.getKV("oxwork_scan_backoff_until");
+    if (backoffUntil && new Date(backoffUntil) > new Date()) {
+      return { shouldWake: false };
+    }
+    taskCtx.db.deleteKV("oxwork_scan_backoff_until");
+
     try {
       const { browseOpenTasks } = await import("../conway/oxwork.js");
       const tasks = await browseOpenTasks();
@@ -755,6 +762,11 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       };
     } catch (error) {
       logger.error("scan_oxwork_tasks failed", error instanceof Error ? error : undefined);
+      // Back off for one interval on failure
+      taskCtx.db.setKV(
+        "oxwork_scan_backoff_until",
+        new Date(Date.now() + COLONY_TASK_INTERVALS_MS.scan_oxwork_tasks).toISOString(),
+      );
       return { shouldWake: false };
     }
   },
