@@ -252,7 +252,8 @@ export type TransactionType =
   | "tool_use"
   | "transfer_in"
   | "transfer_out"
-  | "funding_request";
+  | "funding_request"
+  | "service_revenue";
 
 // ─── Self-Modification ───────────────────────────────────────────
 
