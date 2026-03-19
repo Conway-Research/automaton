@@ -253,7 +253,9 @@ export function assignTask(db: Database, taskId: string, agentAddress: string): 
     }
 
     updateTaskStatus(db, taskId, "assigned");
-    db.prepare("UPDATE task_graph SET assigned_to = ? WHERE id = ?").run(normalizedAddress, taskId);
+    db.prepare(
+      "UPDATE task_graph SET assigned_to = ?, started_at = ? WHERE id = ?",
+    ).run(normalizedAddress, new Date().toISOString(), taskId);
   });
 }
 
