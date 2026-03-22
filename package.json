@@ -17,6 +17,14 @@
     "./state/database.js": {
       "types": "./dist/state/database.d.ts",
       "default": "./dist/state/database.js"
+    },
+    "./identity/chain.js": {
+      "types": "./dist/identity/chain.d.ts",
+      "default": "./dist/identity/chain.js"
+    },
+    "./social/validation.js": {
+      "types": "./dist/social/validation.d.ts",
+      "default": "./dist/social/validation.js"
     }
   },
   "bin": {

@@ -5,6 +5,7 @@
  */
 
 import { loadConfig } from "@conway/automaton/config.js";
+import { isValidAddress } from "@conway/automaton/identity/chain.js";
 
 const args = process.argv.slice(3);
 const amount = args[0];
@@ -37,6 +38,11 @@ if (amountCents <= 0) {
 }
 
 const destination = toAddress || config.walletAddress;
+
+if (!isValidAddress(destination)) {
+  console.log(`Invalid destination address: ${destination}`);
+  process.exit(1);
+}
 
 const payload = {
   to_address: destination,

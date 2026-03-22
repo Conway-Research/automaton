@@ -56,3 +56,13 @@ declare module "@conway/automaton/state/database.js" {
 
   export function createDatabase(path: string): AutomatonCliDatabase;
 }
+
+declare module "@conway/automaton/identity/chain.js" {
+  export type ChainType = "evm" | "solana";
+
+  export function isValidAddress(address: string, chainType?: ChainType): boolean;
+}
+
+declare module "@conway/automaton/social/validation.js" {
+  export function validateRelayUrl(url: string): void;
+}

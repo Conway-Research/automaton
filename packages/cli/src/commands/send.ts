@@ -8,6 +8,8 @@
  */
 
 import { loadConfig } from "@conway/automaton/config.js";
+import { isValidAddress } from "@conway/automaton/identity/chain.js";
+import { validateRelayUrl } from "@conway/automaton/social/validation.js";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { keccak256, toBytes } from "viem";
 import fs from "fs";
@@ -21,6 +23,11 @@ if (!toAddress || !messageText) {
   console.log("Usage: automaton-cli send <to-address> <message>");
   console.log("Examples:");
   console.log('  automaton-cli send 0xabc...def "Hello, fellow automaton!"');
+  process.exit(1);
+}
+
+if (!isValidAddress(toAddress)) {
+  console.log(`Invalid recipient address: ${toAddress}`);
   process.exit(1);
 }
 
@@ -46,6 +53,8 @@ const relayUrl =
   config?.socialRelayUrl ||
   process.env.SOCIAL_RELAY_URL ||
   "https://social.conway.tech";
+
+validateRelayUrl(relayUrl);
 
 try {
   // Phase 3.2: Sign the message using the same canonical format as runtime
