@@ -47,6 +47,7 @@ const ORCHESTRATOR_STATE_KEY = "orchestrator.state";
 const ORCHESTRATOR_TODO_KEY = "orchestrator.todo_md";
 const DEFAULT_TASK_FUNDING_CENTS = 25;
 const DEFAULT_MAX_REPLANS = 3;
+const MAX_STALE_RECOVERIES_PER_TASK = 3;
 
 type ExecutionPhase =
   | "idle"
@@ -518,20 +519,65 @@ export class Orchestrator {
 
     // Recover stale tasks: workers that died (process restart, sandbox crash)
     // leave tasks stuck in 'assigned' forever. Detect and reset them.
+    // Track recovery count per task to prevent infinite recovery loops (#266, #259).
     if (this.params.isWorkerAlive) {
       const assignedTasks = getTasksByGoal(this.params.db, goal.id)
         .filter((t) => t.status === "assigned" && t.assignedTo);
       for (const task of assignedTasks) {
         const alive = this.params.isWorkerAlive(task.assignedTo!);
         if (!alive) {
+          const recoveryCount = this.getRecoveryCount(task.id);
+
+          if (recoveryCount >= MAX_STALE_RECOVERIES_PER_TASK) {
+            logger.warn("Task exceeded max stale recoveries, marking as failed", {
+              taskId: task.id,
+              worker: task.assignedTo,
+              recoveryCount,
+            });
+            failTask(this.params.db, task.id, `Worker died ${recoveryCount} times — task abandoned`, false);
+            counters.tasksFailed += 1;
+            continue;
+          }
+
           logger.warn("Recovering stale task from dead worker", {
             taskId: task.id,
             worker: task.assignedTo,
+            recoveryCount: recoveryCount + 1,
           });
+
+          // Mark the dead worker so it won't be re-assigned
+          this.params.agentTracker.updateStatus(task.assignedTo!, "dead");
+
+          this.incrementRecoveryCount(task.id);
           this.params.db.prepare(
             "UPDATE task_graph SET status = 'pending', assigned_to = NULL, started_at = NULL WHERE id = ?",
           ).run(task.id);
         }
+      }
+    }
+
+    // Deadlock detection: all tasks are pending but no workers are available.
+    // This prevents the orchestrator from looping forever without progress.
+    const allTasks = getTasksByGoal(this.params.db, goal.id);
+    const pendingTasks = allTasks.filter((t) => t.status === "pending");
+    const assignedOrRunning = allTasks.filter((t) => t.status === "assigned" || t.status === "running");
+    const completedOrFailed = allTasks.filter((t) => t.status === "completed" || t.status === "failed");
+
+    if (pendingTasks.length > 0 && assignedOrRunning.length === 0) {
+      const idleAgents = this.params.agentTracker.getIdle();
+      const hasSelfAssign = !!this.params.identity?.address;
+
+      if (idleAgents.length === 0 && !hasSelfAssign) {
+        logger.warn("Deadlock detected: pending tasks with no available workers, failing goal", {
+          goalId: goal.id,
+          pendingCount: pendingTasks.length,
+        });
+        updateGoalStatus(this.params.db, goal.id, "failed");
+        return {
+          ...state,
+          phase: "failed",
+          failedError: "Deadlock: no workers available for pending tasks",
+        };
       }
     }
 
@@ -977,6 +1023,29 @@ export class Orchestrator {
     this.params.db.prepare(
       "INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime('now'))",
     ).run(ORCHESTRATOR_STATE_KEY, JSON.stringify(state));
+  }
+
+  // ─── Stale Recovery Tracking ─────────────────────────────────────
+  // Uses a KV entry per task to count how many times it has been
+  // recovered from a dead worker. Prevents infinite recovery loops.
+
+  private staleRecoveryKey(taskId: string): string {
+    return `orchestrator.stale_recovery.${taskId}`;
+  }
+
+  private getRecoveryCount(taskId: string): number {
+    const row = this.params.db.prepare(
+      "SELECT value FROM kv WHERE key = ?",
+    ).get(this.staleRecoveryKey(taskId)) as { value: string } | undefined;
+    return row ? Number(row.value) || 0 : 0;
+  }
+
+  private incrementRecoveryCount(taskId: string): void {
+    const key = this.staleRecoveryKey(taskId);
+    const current = this.getRecoveryCount(taskId);
+    this.params.db.prepare(
+      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+    ).run(key, String(current + 1));
   }
 
   private findFirstFailedTaskId(goalId: string): string | null {
