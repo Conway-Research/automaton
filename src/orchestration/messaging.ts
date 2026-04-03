@@ -325,6 +325,38 @@ export class ColonyMessaging {
 
   private async handleStatusReport(message: AgentMessage): Promise<void> {
     this.logActionEvent("status_report_received", message);
+
+    // Extract and store reported credit balance from child agents.
+    // This gives the parent a more accurate view of child agent finances
+    // than the locally tracked funded_amount_cents (which is an upper-bound).
+    try {
+      const parsed = typeof message.content === "string"
+        ? JSON.parse(message.content)
+        : message.content;
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "credit_balance" in parsed &&
+        typeof parsed.credit_balance === "number" &&
+        Number.isFinite(parsed.credit_balance)
+      ) {
+        const key = `agent.reported_balance.${message.from}`;
+        this.db.raw.prepare(
+          "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+        ).run(key, JSON.stringify({
+          creditsCents: parsed.credit_balance,
+          reportedAt: new Date().toISOString(),
+        }));
+
+        logger.info("Child agent reported credit balance", {
+          from: message.from,
+          creditsCents: parsed.credit_balance,
+        });
+      }
+    } catch {
+      // Non-JSON or malformed content — ignore, already logged as event
+    }
   }
 
   private async handleResourceRequest(message: AgentMessage): Promise<void> {

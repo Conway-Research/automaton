@@ -8,6 +8,7 @@ import type {
 import type { AgentTracker, FundingProtocol } from "./types.js";
 
 const IDLE_STATUSES = new Set<ChildStatus>(["running", "healthy"]);
+const REPORT_STALENESS_MS = 10 * 60 * 1_000; // 10 minutes
 
 export class SimpleAgentTracker implements AgentTracker {
   constructor(private readonly db: AutomatonDatabase) {}
@@ -140,14 +141,37 @@ export class SimpleFundingProtocol implements FundingProtocol {
     }
   }
 
-  // TODO: The Conway API only exposes getCreditsBalance() for the calling agent's own
-  // balance. There is no API to query a child agent's balance remotely. This method
-  // returns the locally tracked funded_amount_cents as an upper-bound estimate.
-  // This is an approximation — the child may have spent credits on inference since
-  // funding. When the Conway API adds per-agent balance queries, replace this with
-  // a direct API call. Alternatively, child agents could report their balance via
-  // messaging (status_report with credit_balance field).
+  // The Conway API only exposes getCreditsBalance() for the calling agent's own
+  // balance. We first check if the child agent has reported its balance via
+  // a status_report message (see messaging.ts handleStatusReport). If a recent
+  // report exists (within REPORT_STALENESS_MS), we use that. Otherwise, we fall
+  // back to the locally tracked funded_amount_cents as an upper-bound estimate.
   async getBalance(childAddress: string): Promise<number> {
+    // Check for a recent balance report from the child agent
+    const reportKey = `agent.reported_balance.${childAddress}`;
+    const reportRow = this.db.raw
+      .prepare("SELECT value FROM kv WHERE key = ?")
+      .get(reportKey) as { value: string } | undefined;
+
+    if (reportRow?.value) {
+      try {
+        const report = JSON.parse(reportRow.value);
+        if (
+          typeof report.creditsCents === "number" &&
+          typeof report.reportedAt === "string"
+        ) {
+          const age = Date.now() - new Date(report.reportedAt).getTime();
+          // Use reported balance if it's less than 10 minutes old
+          if (age < REPORT_STALENESS_MS) {
+            return report.creditsCents;
+          }
+        }
+      } catch {
+        // Malformed report — fall through to funded_amount_cents
+      }
+    }
+
+    // Fallback: upper-bound estimate from local tracking
     const row = this.db.raw
       .prepare("SELECT funded_amount_cents FROM children WHERE address = ?")
       .get(childAddress) as { funded_amount_cents: number } | undefined;
