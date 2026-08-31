@@ -280,10 +280,39 @@ async function run(): Promise<void> {
   // Resolve Ollama base URL: env var takes precedence over config
   const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || config.ollamaBaseUrl;
 
+  // Resolve LiteLLM proxy URL and API key: env vars take precedence over config
+  const litellmBaseUrl = process.env.LITELLM_BASE_URL || config.litellmBaseUrl;
+  const litellmApiKey = process.env.LITELLM_API_KEY || config.litellmApiKey;
+
   // Create inference client — pass a live registry lookup so model names like
   // "gpt-oss:120b" route to Ollama based on their registered provider, not heuristics.
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+
+  // Auto-discover models from LiteLLM proxy
+  if (litellmBaseUrl) {
+    try {
+      const modelsUrl = `${litellmBaseUrl.replace(/\/$/, "")}/v1/models`;
+      const resp = await fetch(modelsUrl, {
+        headers: litellmApiKey ? { Authorization: `Bearer ${litellmApiKey}` } : {},
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as any;
+        const models = (data.data || []).map((m: any) => ({
+          ...m,
+          provider: "litellm",
+        }));
+        modelRegistry.refreshFromApi(models);
+        logger.info(`[${new Date().toISOString()}] LiteLLM: discovered ${models.length} models from ${modelsUrl}`);
+      } else {
+        logger.warn(`[${new Date().toISOString()}] LiteLLM model discovery failed: ${resp.status}`);
+      }
+    } catch (err: any) {
+      logger.warn(`[${new Date().toISOString()}] LiteLLM model discovery error: ${err.message}`);
+    }
+  }
+
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
@@ -293,11 +322,17 @@ async function run(): Promise<void> {
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
+    litellmBaseUrl,
+    litellmApiKey,
     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
 
   if (ollamaBaseUrl) {
     logger.info(`[${new Date().toISOString()}] Ollama backend: ${ollamaBaseUrl}`);
+  }
+
+  if (litellmBaseUrl) {
+    logger.info(`[${new Date().toISOString()}] LiteLLM backend: ${litellmBaseUrl}`);
   }
 
   // Create social client (chain-aware: pass ChainIdentity for Solana signing)

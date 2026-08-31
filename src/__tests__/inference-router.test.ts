@@ -749,7 +749,7 @@ describe("Static Model Baseline", () => {
   });
 
   it("all models have valid provider", () => {
-    const validProviders = ["openai", "anthropic", "conway", "other"];
+    const validProviders = ["openai", "anthropic", "conway", "ollama", "litellm", "other"];
     for (const model of STATIC_MODEL_BASELINE) {
       expect(validProviders).toContain(model.provider);
     }
@@ -961,5 +961,146 @@ describe("DEFAULT_MODEL_STRATEGY_CONFIG", () => {
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.hourlyBudgetCents).toBe(0); // no limit
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.sessionBudgetCents).toBe(0); // no limit
     expect(DEFAULT_MODEL_STRATEGY_CONFIG.perCallCeilingCents).toBe(0); // no limit
+  });
+});
+
+// ─── LiteLLM Provider Tests ────────────────────────────────────────
+
+describe("LiteLLM provider support", () => {
+  it("litellm models can be registered in model registry", () => {
+    const registry = new ModelRegistry(db);
+    registry.initialize();
+    const now = new Date().toISOString();
+
+    registry.upsert({
+      modelId: "azure/gpt-4o",
+      provider: "litellm",
+      displayName: "Azure GPT-4o (via LiteLLM)",
+      tierMinimum: "normal",
+      costPer1kInput: 0,
+      costPer1kOutput: 0,
+      maxTokens: 4096,
+      contextWindow: 128000,
+      supportsTools: true,
+      supportsVision: true,
+      parameterStyle: "max_tokens",
+      enabled: true,
+      lastSeen: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const entry = registry.get("azure/gpt-4o");
+    expect(entry).toBeDefined();
+    expect(entry!.provider).toBe("litellm");
+    expect(entry!.enabled).toBe(true);
+  });
+
+  it("litellm models are not auto-disabled during baseline initialization", () => {
+    const registry = new ModelRegistry(db);
+    const now = new Date().toISOString();
+
+    // Pre-populate a litellm model before initialization
+    const row: ModelRegistryRow = {
+      modelId: "bedrock/claude-sonnet",
+      provider: "litellm",
+      displayName: "Bedrock Claude Sonnet (via LiteLLM)",
+      tierMinimum: "normal",
+      costPer1kInput: 0,
+      costPer1kOutput: 0,
+      maxTokens: 4096,
+      contextWindow: 200000,
+      supportsTools: true,
+      supportsVision: false,
+      parameterStyle: "max_tokens",
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    modelRegistryUpsert(db, row);
+
+    // Initialize seeds baseline models - should NOT disable litellm models
+    registry.initialize();
+
+    const entry = registry.get("bedrock/claude-sonnet");
+    expect(entry).toBeDefined();
+    expect(entry!.enabled).toBe(true);
+  });
+
+  it("refreshFromApi populates litellm models from proxy discovery", () => {
+    const registry = new ModelRegistry(db);
+    registry.initialize();
+
+    registry.refreshFromApi([
+      {
+        id: "groq/llama-3.3-70b",
+        provider: "litellm",
+        display_name: "Groq Llama 3.3 70B",
+        max_tokens: 8192,
+        context_window: 131072,
+        supports_tools: true,
+        supports_vision: false,
+      },
+      {
+        id: "together/mistral-7b",
+        provider: "litellm",
+        display_name: "Together Mistral 7B",
+        max_tokens: 4096,
+        context_window: 32768,
+        supports_tools: false,
+        supports_vision: false,
+      },
+    ]);
+
+    const groq = registry.get("groq/llama-3.3-70b");
+    expect(groq).toBeDefined();
+    expect(groq!.provider).toBe("litellm");
+    expect(groq!.contextWindow).toBe(131072);
+
+    const together = registry.get("together/mistral-7b");
+    expect(together).toBeDefined();
+    expect(together!.provider).toBe("litellm");
+  });
+
+  it("router selects litellm model when configured as fallback", () => {
+    const registry = new ModelRegistry(db);
+    registry.initialize();
+    const now = new Date().toISOString();
+
+    // Register a litellm model
+    registry.upsert({
+      modelId: "litellm/gpt-4o",
+      provider: "litellm",
+      displayName: "GPT-4o via LiteLLM",
+      tierMinimum: "normal",
+      costPer1kInput: 0,
+      costPer1kOutput: 0,
+      maxTokens: 4096,
+      contextWindow: 128000,
+      supportsTools: true,
+      supportsVision: true,
+      parameterStyle: "max_tokens",
+      enabled: true,
+      lastSeen: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const config: ModelStrategyConfig = {
+      ...DEFAULT_MODEL_STRATEGY_CONFIG,
+      inferenceModel: "litellm/gpt-4o",
+    };
+    const budget = new InferenceBudgetTracker(db, config);
+    const router = new InferenceRouter(db, registry, budget);
+
+    // Disable all baseline models so fallback kicks in
+    for (const m of STATIC_MODEL_BASELINE) {
+      registry.setEnabled(m.modelId, false);
+    }
+
+    const selected = router.selectModel("normal", "agent_turn");
+    expect(selected).toBeDefined();
+    expect(selected!.modelId).toBe("litellm/gpt-4o");
+    expect(selected!.provider).toBe("litellm");
   });
 });
