@@ -22,6 +22,13 @@ export interface ResourceStatus {
   previousTier: SurvivalTier | null;
   tierChanged: boolean;
   sandboxHealthy: boolean;
+  diagnostics: ResourceDiagnostics;
+}
+
+export interface ResourceDiagnostics {
+  creditsError?: string;
+  usdcError?: string;
+  sandboxError?: string;
 }
 
 /**
@@ -32,25 +39,35 @@ export async function checkResources(
   conway: ConwayClient,
   db: AutomatonDatabase,
 ): Promise<ResourceStatus> {
+  const diagnostics: ResourceDiagnostics = {};
+
   // Check credits
   let creditsCents = 0;
   try {
     creditsCents = await conway.getCreditsBalance();
-  } catch {}
+  } catch (error) {
+    diagnostics.creditsError = toDiagnosticMessage(error);
+  }
 
   // Check USDC
   let usdcBalance = 0;
   try {
     usdcBalance = await getUsdcBalance(identity.address);
-  } catch {}
+  } catch (error) {
+    diagnostics.usdcError = toDiagnosticMessage(error);
+  }
 
   // Check sandbox health
   let sandboxHealthy = true;
   try {
     const result = await conway.exec("echo ok", 5000);
     sandboxHealthy = result.exitCode === 0;
-  } catch {
+    if (!sandboxHealthy) {
+      diagnostics.sandboxError = `health command exited ${result.exitCode}`;
+    }
+  } catch (error) {
     sandboxHealthy = false;
+    diagnostics.sandboxError = toDiagnosticMessage(error);
   }
 
   const financial: FinancialState = {
@@ -76,6 +93,7 @@ export async function checkResources(
     previousTier,
     tierChanged,
     sandboxHealthy,
+    diagnostics,
   };
 }
 
@@ -83,14 +101,31 @@ export async function checkResources(
  * Generate a human-readable resource report.
  */
 export function formatResourceReport(status: ResourceStatus): string {
+  const diagnostics = status.diagnostics || {};
+  const creditsLine = diagnostics.creditsError
+    ? `Credits: unknown (${diagnostics.creditsError})`
+    : `Credits: ${formatCredits(status.financial.creditsCents)}`;
+  const usdcLine = diagnostics.usdcError
+    ? `USDC: unknown (${diagnostics.usdcError})`
+    : `USDC: ${status.financial.usdcBalance.toFixed(6)}`;
+  const sandboxLine = diagnostics.sandboxError
+    ? `Sandbox: UNHEALTHY (${diagnostics.sandboxError})`
+    : `Sandbox: ${status.sandboxHealthy ? "healthy" : "UNHEALTHY"}`;
+
   const lines = [
     `=== RESOURCE STATUS ===`,
-    `Credits: ${formatCredits(status.financial.creditsCents)}`,
-    `USDC: ${status.financial.usdcBalance.toFixed(6)}`,
+    creditsLine,
+    usdcLine,
     `Tier: ${status.tier}${status.tierChanged ? ` (changed from ${status.previousTier})` : ""}`,
-    `Sandbox: ${status.sandboxHealthy ? "healthy" : "UNHEALTHY"}`,
+    sandboxLine,
     `Checked: ${status.financial.lastChecked}`,
     `========================`,
   ];
   return lines.join("\n");
+}
+
+function toDiagnosticMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "unknown error";
 }
