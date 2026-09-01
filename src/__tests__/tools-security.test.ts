@@ -53,6 +53,7 @@ describe("Tool Risk Level Classification", () => {
     check_child_status: "safe",
     verify_child_constitution: "safe",
     list_models: "safe",
+    exa_search: "safe",
 
     // Caution tools (side effects but generally safe)
     exec: "caution",

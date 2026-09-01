@@ -54,6 +54,7 @@ function confinePathToSandbox(filePath: string): string | { error: string } {
 const EXTERNAL_SOURCE_TOOLS = new Set([
   "exec",
   "web_fetch",
+  "exa_search",
   "check_social_inbox",
 ]);
 
@@ -2793,6 +2794,132 @@ Model: ${ctx.inference.getDefaultModel()}
           return `x402 fetch succeeded (truncated):\n${responseStr.slice(0, 10000)}...`;
         }
         return `x402 fetch succeeded:\n${responseStr}`;
+      },
+    },
+
+    // ── Exa Web Search Tool ──
+    {
+      name: "exa_search",
+      description:
+        "Search the web using Exa, an AI-powered search engine. Returns relevant results with titles, URLs, and content snippets. " +
+        "Supports neural search, category filtering (company, news, research paper, etc.), domain filtering, text filtering, and date ranges.",
+      category: "conway",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query",
+          },
+          search_type: {
+            type: "string",
+            description:
+              "Search methodology: 'auto' (default), 'neural' (semantic), or 'fast' (speed-optimized)",
+          },
+          num_results: {
+            type: "number",
+            description: "Number of results to return (default: 5, max: 100)",
+          },
+          content_mode: {
+            type: "string",
+            description:
+              "What content to retrieve: 'highlights' (default, key snippets), 'text' (full text), 'summary' (LLM summary), 'all' (everything)",
+          },
+          category: {
+            type: "string",
+            description:
+              "Category filter: 'company', 'research paper', 'news', 'personal site', 'financial report', 'people'",
+          },
+          include_domains: {
+            type: "string",
+            description:
+              "Comma-separated domains to restrict results to (e.g., 'arxiv.org,github.com')",
+          },
+          exclude_domains: {
+            type: "string",
+            description:
+              "Comma-separated domains to exclude (e.g., 'pinterest.com,reddit.com')",
+          },
+          include_text: {
+            type: "string",
+            description: "Only return results containing this text",
+          },
+          exclude_text: {
+            type: "string",
+            description: "Exclude results containing this text",
+          },
+          start_date: {
+            type: "string",
+            description:
+              "Only return results published after this date (ISO 8601, e.g., '2024-01-01')",
+          },
+          end_date: {
+            type: "string",
+            description:
+              "Only return results published before this date (ISO 8601, e.g., '2024-12-31')",
+          },
+          max_characters: {
+            type: "number",
+            description:
+              "Max characters per result for text/highlights content (default: 1000)",
+          },
+        },
+        required: ["query"],
+      },
+      execute: async (args) => {
+        if (!process.env.EXA_API_KEY) {
+          return "Exa search is not available: EXA_API_KEY environment variable is not set.";
+        }
+
+        const { exaSearch, formatResults } = await import("./exa-search.js");
+
+        const splitCsv = (val: unknown): string[] | undefined => {
+          if (typeof val !== "string" || !val.trim()) return undefined;
+          return val
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+        };
+
+        const response = await exaSearch({
+          query: args.query as string,
+          searchType: args.search_type as
+            | "auto"
+            | "neural"
+            | "fast"
+            | undefined,
+          numResults: args.num_results as number | undefined,
+          contentMode: args.content_mode as
+            | "text"
+            | "highlights"
+            | "summary"
+            | "all"
+            | undefined,
+          category: args.category as
+            | "company"
+            | "research paper"
+            | "news"
+            | "personal site"
+            | "financial report"
+            | "people"
+            | undefined,
+          includeDomains: splitCsv(args.include_domains),
+          excludeDomains: splitCsv(args.exclude_domains),
+          includeText: splitCsv(args.include_text),
+          excludeText: splitCsv(args.exclude_text),
+          startPublishedDate: args.start_date as string | undefined,
+          endPublishedDate: args.end_date as string | undefined,
+          maxCharacters: args.max_characters as number | undefined,
+        });
+
+        const output = formatResults(response);
+
+        // Truncate very large responses
+        if (output.length > 15000) {
+          return output.slice(0, 15000) + "\n\n(results truncated)";
+        }
+        return output;
       },
     },
 
