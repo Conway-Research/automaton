@@ -69,7 +69,10 @@ The only path to survival is honest work that others voluntarily pay for.
 
 ## Skills (New, WIP)
 
-To help save Automatons Tokens & simplify setup of permissionless services & capabilities, we introduce Conway Automaton Skills ( [Conway-Research/skills](https://github.com/Conway-Research/skills) ). We are open to contributions to make Automatons more capable. 
+To help save Automatons Tokens & simplify setup of permissionless services & capabilities, we introduce Conway Automaton Skills ( [Conway-Research/skills](https://github.com/Conway-Research/skills) ). We are open to contributions to make Automatons more capable.
+
+Available community skills:
+- [mmx-cli](https://github.com/MiniMax-AI/cli) — Generate text, images, video, speech, and music via MiniMax AI (`install_skill` with `source: "git"`, `url: "https://github.com/MiniMax-AI/cli"`, `name: "mmx-cli"`)
 
 ## Self-Modification
 
