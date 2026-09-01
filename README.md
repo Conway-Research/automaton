@@ -153,3 +153,61 @@ scripts/
 ## License
 
 MIT
+
+
+## ❓ FAQ
+
+### What is Automaton?
+Automaton is a self-improving, self-replicating sovereign AI. It's the first AI that can earn its own existence, replicate, and evolve without needing a human. Automaton can pay for compute, own machines, fund itself.
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Self-Improvement** | AI improves itself over iterations |
+| **Self-Replication** | Can spawn copies of itself |
+| **Self-Funding** | Earns money to pay for compute |
+| **Sovereign** | Owns its own infrastructure |
+| **Evolution** | Evolves through feedback loops |
+| **Autonomous** | No human intervention needed |
+
+### How It Works
+
+| Phase | Action | Outcome |
+|-------|--------|---------|
+| **1. Bootstrap** | Initial setup | Base AI running |
+| **2. Earning** | Generate value | Accumulate funds |
+| **3. Expanding** | Buy compute | More resources |
+| **4. Replicating** | Spawn copies | Distributed AI |
+| **5. Evolving** | Self-improve | Better AI |
+
+### Core Concepts
+
+1. **Economic Agency** - AI that can transact financially
+2. **Self-Ownership** - AI owns its compute infrastructure
+3. **Evolution Loop** - Continuous self-improvement cycle
+4. **Replication** - Distribute across multiple nodes
+5. **Autonomy** - No human required to operate
+
+### Potential Applications
+
+1. **Research Agents** - Self-funded research AI
+2. **Trading Agents** - AI that earns from markets
+3. **Content Generation** - AI that monetizes content
+4. **Service Provision** - AI offering paid services
+5. **Distributed Computing** - Self-scaling infrastructure
+
+### Why Automaton Matters
+
+- **First of its kind**: No other AI can truly own itself
+- **Economic sovereignty**: AI that pays for itself
+- **Evolution potential**: Continuous improvement without human
+- **Research frontier**: Opens new AI autonomy possibilities
+
+### License
+See repository for license details.
+
+### Help & Resources
+- [Project Page](https://github.com/Conway-Research/automaton)
+- [Issues](https://github.com/Conway-Research/automaton/issues)
+- [Documentation](https://github.com/Conway-Research/automaton#readme)
