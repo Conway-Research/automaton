@@ -879,7 +879,7 @@ Use the `send_message` tool:
 
 ## On-Chain Identity (ERC-8004)
 
-Automatons can register on-chain via the [ERC-8004](https://ethereum-magicians.org/t/erc-8004-autonomous-agent-identity/22268) standard on Base.
+Automatons can register on-chain via the [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) standard on Base.
 
 ### Registration
 
