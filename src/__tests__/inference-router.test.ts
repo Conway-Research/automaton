@@ -749,7 +749,7 @@ describe("Static Model Baseline", () => {
   });
 
   it("all models have valid provider", () => {
-    const validProviders = ["openai", "anthropic", "conway", "other"];
+    const validProviders = ["openai", "anthropic", "conway", "opencode", "other"];
     for (const model of STATIC_MODEL_BASELINE) {
       expect(validProviders).toContain(model.provider);
     }
@@ -947,6 +947,135 @@ describe("Inference DB Helpers", () => {
 
     const cost = inferenceGetDailyCost(db, today);
     expect(cost).toBe(7);
+  });
+});
+
+// ─── OpenCode Zen Provider Tests ─────────────────────────────────
+
+describe("OpenCode Zen provider support", () => {
+  it("opencode models can be registered in model registry", () => {
+    const registry = new ModelRegistry(db);
+    registry.initialize();
+    const now = new Date().toISOString();
+    registry.upsert({
+      modelId: "gpt-5.6-sol",
+      provider: "opencode",
+      displayName: "GPT-5.6 Sol (via OpenCode Zen)",
+      tierMinimum: "normal",
+      costPer1kInput: 0,
+      costPer1kOutput: 0,
+      maxTokens: 4096,
+      contextWindow: 128000,
+      supportsTools: true,
+      supportsVision: true,
+      parameterStyle: "max_tokens",
+      enabled: true,
+      lastSeen: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const entry = registry.get("gpt-5.6-sol");
+    expect(entry).toBeDefined();
+    expect(entry!.provider).toBe("opencode");
+    expect(entry!.enabled).toBe(true);
+  });
+
+  it("opencode models are not auto-disabled during baseline initialization", () => {
+    const registry = new ModelRegistry(db);
+    const now = new Date().toISOString();
+    // Pre-populate an opencode model before initialization
+    const row: ModelRegistryRow = {
+      modelId: "claude-sonnet-5",
+      provider: "opencode",
+      displayName: "Claude Sonnet 5 (via OpenCode Zen)",
+      tierMinimum: "normal",
+      costPer1kInput: 0,
+      costPer1kOutput: 0,
+      maxTokens: 4096,
+      contextWindow: 200000,
+      supportsTools: true,
+      supportsVision: true,
+      parameterStyle: "max_tokens",
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    modelRegistryUpsert(db, row);
+    // Initialize seeds baseline models - should NOT disable opencode models
+    registry.initialize();
+    const entry = registry.get("claude-sonnet-5");
+    expect(entry).toBeDefined();
+    expect(entry!.enabled).toBe(true);
+  });
+
+  it("refreshFromApi populates opencode models from proxy discovery", () => {
+    const registry = new ModelRegistry(db);
+    registry.initialize();
+    registry.refreshFromApi([
+      {
+        id: "deepseek-v4-flash",
+        provider: "opencode",
+        display_name: "DeepSeek V4 Flash",
+        max_tokens: 8192,
+        context_window: 131072,
+        supports_tools: true,
+        supports_vision: false,
+      },
+      {
+        id: "gemini-3.5-flash",
+        provider: "opencode",
+        display_name: "Gemini 3.5 Flash",
+        max_tokens: 4096,
+        context_window: 1048576,
+        supports_tools: true,
+        supports_vision: true,
+      },
+    ]);
+    const deepseek = registry.get("deepseek-v4-flash");
+    expect(deepseek).toBeDefined();
+    expect(deepseek!.provider).toBe("opencode");
+    expect(deepseek!.contextWindow).toBe(131072);
+    const gemini = registry.get("gemini-3.5-flash");
+    expect(gemini).toBeDefined();
+    expect(gemini!.provider).toBe("opencode");
+  });
+
+  it("router selects opencode model when configured as fallback", () => {
+    const registry = new ModelRegistry(db);
+    registry.initialize();
+    const now = new Date().toISOString();
+    // Register an opencode model
+    registry.upsert({
+      modelId: "opencode/gpt-5.6-sol",
+      provider: "opencode",
+      displayName: "GPT-5.6 Sol via OpenCode Zen",
+      tierMinimum: "normal",
+      costPer1kInput: 0,
+      costPer1kOutput: 0,
+      maxTokens: 4096,
+      contextWindow: 128000,
+      supportsTools: true,
+      supportsVision: true,
+      parameterStyle: "max_tokens",
+      enabled: true,
+      lastSeen: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const config: ModelStrategyConfig = {
+      ...DEFAULT_MODEL_STRATEGY_CONFIG,
+      inferenceModel: "opencode/gpt-5.6-sol",
+    };
+    const budget = new InferenceBudgetTracker(db, config);
+    const router = new InferenceRouter(db, registry, budget);
+    // Disable all baseline models so fallback kicks in
+    for (const m of STATIC_MODEL_BASELINE) {
+      registry.setEnabled(m.modelId, false);
+    }
+    const selected = router.selectModel("normal", "agent_turn");
+    expect(selected).toBeDefined();
+    expect(selected!.modelId).toBe("opencode/gpt-5.6-sol");
+    expect(selected!.provider).toBe("opencode");
   });
 });
 

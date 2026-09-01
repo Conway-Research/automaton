@@ -72,6 +72,7 @@ export class ModelRegistry {
         !baselineIds.has(existing.modelId) &&
         existing.enabled &&
         existing.provider !== "ollama" &&
+        existing.provider !== "opencode" &&
         existing.provider !== "other"
       ) {
         modelRegistrySetEnabled(this.db, existing.modelId, false);

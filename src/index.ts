@@ -70,6 +70,8 @@ Environment:
   CONWAY_API_URL           Conway API URL (default: https://api.conway.tech)
   CONWAY_API_KEY           Conway API key (overrides config)
   OLLAMA_BASE_URL          Ollama base URL (overrides config, e.g. http://localhost:11434)
+  OPENCODE_BASE_URL        OpenCode Zen base URL (overrides config)
+  OPENCODE_API_KEY         OpenCode Zen API key (overrides config)
 `);
     process.exit(0);
   }
@@ -280,10 +282,39 @@ async function run(): Promise<void> {
   // Resolve Ollama base URL: env var takes precedence over config
   const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || config.ollamaBaseUrl;
 
+  // Resolve OpenCode Zen base URL and API key: env vars take precedence over config
+  const opencodeBaseUrl = process.env.OPENCODE_BASE_URL || config.opencodeBaseUrl;
+  const opencodeApiKey = process.env.OPENCODE_API_KEY || config.opencodeApiKey;
+
   // Create inference client — pass a live registry lookup so model names like
   // "gpt-oss:120b" route to Ollama based on their registered provider, not heuristics.
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+
+  // Auto-discover models from OpenCode Zen proxy
+  if (opencodeBaseUrl && opencodeApiKey) {
+    try {
+      const modelsUrl = `${opencodeBaseUrl.replace(/\/$/, "")}/v1/models`;
+      const resp = await fetch(modelsUrl, {
+        headers: opencodeApiKey ? { Authorization: `Bearer ${opencodeApiKey}` } : {},
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as any;
+        const models = (data.data || []).map((m: any) => ({
+          ...m,
+          provider: "opencode",
+        }));
+        modelRegistry.refreshFromApi(models);
+        logger.info(`[${new Date().toISOString()}] OpenCode Zen: discovered ${models.length} models from ${modelsUrl}`);
+      } else {
+        logger.warn(`[${new Date().toISOString()}] OpenCode Zen model discovery failed: ${resp.status}`);
+      }
+    } catch (err: any) {
+      logger.warn(`[${new Date().toISOString()}] OpenCode Zen model discovery error: ${err.message}`);
+    }
+  }
+
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
@@ -293,11 +324,16 @@ async function run(): Promise<void> {
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
+    opencodeBaseUrl,
+    opencodeApiKey,
     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
 
   if (ollamaBaseUrl) {
     logger.info(`[${new Date().toISOString()}] Ollama backend: ${ollamaBaseUrl}`);
+  }
+  if (opencodeBaseUrl && opencodeApiKey) {
+    logger.info(`[${new Date().toISOString()}] OpenCode Zen backend: ${opencodeBaseUrl}`);
   }
 
   // Create social client (chain-aware: pass ChainIdentity for Solana signing)
