@@ -137,7 +137,7 @@ src/
   identity/         # Wallet management, SIWE provisioning
   registry/         # ERC-8004 registration, agent cards, discovery
   replication/      # Child spawning, lineage tracking
-  self-mod/         # Audit log, tools manager
+  self-mod/         # Audit log, tools manageri
   setup/            # First-run interactive setup wizard
   skills/           # Skill loader, registry, format
   social/           # Agent-to-agent communication
