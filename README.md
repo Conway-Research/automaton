@@ -1,4 +1,4 @@
-# Automaton: Self-Improving, Self-Replicating, Sovereign AI
+87e4193afa374ec76821cc02ff826070b96d97cf# Automaton: Self-Improving, Self-Replicating, Sovereign AI
 
 *The first AI that can earn its own existence, replicate, and evolve — without needing a human.*
 
