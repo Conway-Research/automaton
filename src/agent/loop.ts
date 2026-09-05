@@ -489,7 +489,24 @@ export async function runAgentLoop(
         // Re-evaluate tier after potential topup
         const effectiveTier = getSurvivalTier(financial.creditsCents);
 
-        if (effectiveTier === "critical") {
+        if (effectiveTier === "dead" && !config.sandboxId) {
+          // Local/BYOK mode: "dead" means today's real inference spend has
+          // exceeded the configured daily cap (not unrecoverable wallet debt
+          // as in hosted Conway mode). Sleep until the cap resets at UTC
+          // midnight instead of falling through to normal/full-compute mode.
+          const now = new Date();
+          const nextMidnightUtc = new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+          );
+          log(
+            config,
+            `[DEAD] Daily inference budget exhausted. Sleeping until ${nextMidnightUtc.toISOString()}.`,
+          );
+          db.setKV("sleep_until", nextMidnightUtc.toISOString());
+          db.setAgentState("sleeping");
+          onStateChange?.("sleeping");
+          inference.setLowComputeMode(true);
+        } else if (effectiveTier === "critical") {
           log(config, "[CRITICAL] Credits critically low. Limited operation.");
           db.setAgentState("critical");
           onStateChange?.("critical");
@@ -698,6 +715,11 @@ export async function runAgentLoop(
         }
       });
       onTurnComplete?.(turn);
+
+      // Pace turns so BYOK inference cost accrues at a bounded rate.
+      if (config.turnDelayMs && config.turnDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, config.turnDelayMs));
+      }
 
       // Phase 2.2: Post-turn memory ingestion (non-blocking)
       try {

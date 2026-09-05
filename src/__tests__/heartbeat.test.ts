@@ -276,6 +276,46 @@ describe("Heartbeat Tasks", () => {
       expect(result.shouldWake).toBe(true);
       expect(result.message).toContain("dead");
     });
+
+    it("does not wake or record distress on critical tier in local/BYOK mode (no sandboxId)", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: 5,
+        survivalTier: "critical",
+      });
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ sandboxId: "" }),
+        db,
+        conway,
+      };
+
+      const result = await BUILTIN_TASKS.heartbeat_ping(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      expect(db.getKV("last_distress")).toBeUndefined();
+      const note = JSON.parse(db.getKV("last_budget_note")!);
+      expect(note.level).toBe("critical");
+    });
+
+    it("does not wake or record distress on dead tier in local/BYOK mode (no sandboxId)", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: -20,
+        survivalTier: "dead",
+      });
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ sandboxId: "" }),
+        db,
+        conway,
+      };
+
+      const result = await BUILTIN_TASKS.heartbeat_ping(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      expect(db.getKV("last_distress")).toBeUndefined();
+      const note = JSON.parse(db.getKV("last_budget_note")!);
+      expect(note.level).toBe("dead");
+    });
   });
 
   // ─── check_credits ──────────────────────────────────────────
@@ -340,6 +380,27 @@ describe("Heartbeat Tasks", () => {
       const result = await BUILTIN_TASKS.check_credits(tickCtx, taskCtx);
 
       expect(result.shouldWake).toBe(false);
+    });
+
+    it("never escalates to 'dead' via the zero-credit grace timer in local/BYOK mode", async () => {
+      const tickCtx = createMockTickContext(db, {
+        creditBalance: 0,
+        survivalTier: "critical",
+      });
+      const taskCtx: HeartbeatLegacyContext = {
+        identity: createTestIdentity(),
+        config: createTestConfig({ sandboxId: "" }),
+        db,
+        conway,
+      };
+
+      // Simulate the grace period having already elapsed an hour ago.
+      db.setKV("zero_credits_since", new Date(Date.now() - 3_700_000).toISOString());
+
+      const result = await BUILTIN_TASKS.check_credits(tickCtx, taskCtx);
+
+      expect(result.shouldWake).toBe(false);
+      expect(db.getAgentState()).not.toBe("dead");
     });
   });
 

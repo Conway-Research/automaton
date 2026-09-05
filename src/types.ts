@@ -62,6 +62,8 @@ export interface AutomatonConfig {
   // Phase 2 config additions
   soulConfig?: SoulConfig;
   modelStrategy?: ModelStrategyConfig;
+  /** Minimum delay (ms) enforced between the end of one turn and the start of the next. */
+  turnDelayMs?: number;
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
@@ -77,6 +79,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   maxTurnsPerCycle: 25,
   childSandboxMemoryMb: 1024,
   socialRelayUrl: "https://social.conway.tech",
+  turnDelayMs: 60000,
 };
 
 // ─── Agent State ─────────────────────────────────────────────────

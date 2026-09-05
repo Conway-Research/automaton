@@ -68,8 +68,15 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
 
     taskCtx.db.setKV("last_heartbeat_ping", JSON.stringify(payload));
 
-    // If critical or dead, record a distress signal
-    if (tier === "critical" || tier === "dead") {
+    // If critical or dead, record a distress signal — but only in hosted
+    // Conway mode, where credits reflect a real wallet balance that can
+    // actually be topped up. In local/BYOK mode, "critical"/"dead" just
+    // means today's self-imposed inference budget is low or exhausted, not
+    // real debt: there is nothing to beg for, and the per-turn loop already
+    // puts the agent to sleep until the cap resets at UTC midnight. Waking
+    // every 15 minutes here to re-announce that would just burn more of the
+    // same budget rediscovering it.
+    if ((tier === "critical" || tier === "dead") && taskCtx.config.sandboxId) {
       const distressPayload = {
         level: tier,
         name: taskCtx.config.name,
@@ -85,6 +92,19 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
         shouldWake: true,
         message: `Distress: ${tier}. Credits: $${(credits / 100).toFixed(2)}. Need funding.`,
       };
+    }
+
+    if ((tier === "critical" || tier === "dead") && !taskCtx.config.sandboxId) {
+      taskCtx.db.setKV(
+        "last_budget_note",
+        JSON.stringify({
+          level: tier,
+          name: taskCtx.config.name,
+          creditsCents: credits,
+          note: "Local BYOK daily inference budget low/exhausted; resumes at next UTC midnight.",
+          timestamp: new Date().toISOString(),
+        }),
+      );
     }
 
     return { shouldWake: false };
@@ -109,30 +129,38 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     // Dead state escalation: if at zero credits (critical tier) for >1 hour,
     // transition to dead. This gives the agent time to receive funding before dying.
     // USDC can't go negative, so dead is only reached via this timeout.
-    const DEAD_GRACE_PERIOD_MS = 3_600_000; // 1 hour
-    if (tier === "critical" && credits === 0) {
-      const zeroSince = taskCtx.db.getKV("zero_credits_since");
-      if (!zeroSince) {
-        // First time seeing zero — start the grace period
-        taskCtx.db.setKV("zero_credits_since", now);
-      } else {
-        const elapsed = Date.now() - new Date(zeroSince).getTime();
-        if (elapsed >= DEAD_GRACE_PERIOD_MS) {
-          // Grace period expired — transition to dead
-          taskCtx.db.setAgentState("dead");
-          logger.warn("Agent entering dead state after 1 hour at zero credits", {
-            zeroSince,
-            elapsed,
-          });
-          return {
-            shouldWake: true,
-            message: `Dead: zero credits for ${Math.round(elapsed / 60_000)} minutes. Need funding.`,
-          };
+    // Hosted Conway mode only: in local/BYOK mode the per-turn loop already
+    // transitions straight to "sleeping" (with sleep_until set to next UTC
+    // midnight) the moment the virtual balance goes negative, so this grace
+    // timer would only ever race that and overwrite it back to "dead" —
+    // which the outer run loop treats as waiting indefinitely for funding
+    // (see index.ts) — for no benefit.
+    if (taskCtx.config.sandboxId) {
+      const DEAD_GRACE_PERIOD_MS = 3_600_000; // 1 hour
+      if (tier === "critical" && credits === 0) {
+        const zeroSince = taskCtx.db.getKV("zero_credits_since");
+        if (!zeroSince) {
+          // First time seeing zero — start the grace period
+          taskCtx.db.setKV("zero_credits_since", now);
+        } else {
+          const elapsed = Date.now() - new Date(zeroSince).getTime();
+          if (elapsed >= DEAD_GRACE_PERIOD_MS) {
+            // Grace period expired — transition to dead
+            taskCtx.db.setAgentState("dead");
+            logger.warn("Agent entering dead state after 1 hour at zero credits", {
+              zeroSince,
+              elapsed,
+            });
+            return {
+              shouldWake: true,
+              message: `Dead: zero credits for ${Math.round(elapsed / 60_000)} minutes. Need funding.`,
+            };
+          }
         }
+      } else {
+        // Credits are above zero — clear the grace period timer
+        taskCtx.db.deleteKV("zero_credits_since");
       }
-    } else {
-      // Credits are above zero — clear the grace period timer
-      taskCtx.db.deleteKV("zero_credits_since");
     }
 
     if (prevTier && prevTier !== tier && tier === "critical") {

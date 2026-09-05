@@ -49,3 +49,17 @@ export function getSurvivalTier(creditsCents: number): SurvivalTier {
 export function formatCredits(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
+
+/**
+ * Compute a virtual credit balance for local/BYOK mode, where there is no
+ * Conway-hosted wallet to check. Instead of a real balance, this returns
+ * the headroom left in today's real inference spend against dailyCapCents,
+ * so the existing survival-tier thresholds still degrade gracefully as the
+ * agent approaches its actual configured budget.
+ */
+export function computeLocalCreditsCents(
+  todaysSpendCents: number,
+  dailyCapCents: number,
+): number {
+  return dailyCapCents - todaysSpendCents;
+}

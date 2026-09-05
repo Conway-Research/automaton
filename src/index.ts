@@ -12,6 +12,8 @@ import { provision, loadApiKeyFromConfig } from "./identity/provision.js";
 import { loadConfig, resolvePath } from "./config.js";
 import { createDatabase } from "./state/database.js";
 import { createConwayClient } from "./conway/client.js";
+import { computeLocalCreditsCents } from "./conway/credits.js";
+import { inferenceGetDailyCost } from "./state/database.js";
 import { createInferenceClient } from "./conway/inference.js";
 import { createHeartbeatDaemon } from "./heartbeat/daemon.js";
 import {
@@ -227,6 +229,19 @@ async function run(): Promise<void> {
     apiKey,
     sandboxId: config.sandboxId,
   });
+
+  // Local/BYOK mode (no Conway sandbox): there is no hosted wallet balance to
+  // check, so derive a virtual balance from real local inference spend against
+  // the configured daily cap instead of hitting Conway's credits API. This
+  // keeps the survival-tier system honest and functional without a Conway
+  // account, and avoids spamming unauthenticated requests every tick.
+  if (!config.sandboxId) {
+    const dailyCapCents = config.treasuryPolicy?.maxInferenceDailyCents ?? 100;
+    conway.getCreditsBalance = async () => {
+      const todaysSpendCents = inferenceGetDailyCost(db.raw);
+      return computeLocalCreditsCents(todaysSpendCents, dailyCapCents);
+    };
+  }
 
   // Register automaton identity (one-time, immutable)
   const registrationState = db.getIdentity("conwayRegistrationStatus");
