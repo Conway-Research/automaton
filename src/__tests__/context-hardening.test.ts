@@ -43,9 +43,27 @@ function makeTurn(overrides?: Partial<AgentTurn>): AgentTurn {
   };
 }
 
+// estimateTokens() runs turn content through the real js-tiktoken encoder
+// (see context.ts), which has pathological, effectively-unbounded blowup on
+// long *repetitive* input (e.g. "x".repeat(50_000) never finished encoding
+// in manual testing, vs. ~100ms for equally-long varied text). Large turn
+// fixtures use non-repeating filler for exactly that reason — repeat() here
+// would make these tests hang rather than fail.
+function pseudoRandomText(length: number, seed = 42): string {
+  const chars =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,;:!?\n";
+  let state = seed;
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    out += chars[state % chars.length];
+  }
+  return out;
+}
+
 function makeLargeTurn(charCount: number): AgentTurn {
   return makeTurn({
-    thinking: "x".repeat(charCount),
+    thinking: pseudoRandomText(charCount),
     input: "y".repeat(100),
   });
 }
@@ -183,7 +201,7 @@ describe("buildContextMessages tool result truncation", () => {
           id: "call_1",
           name: "exec",
           arguments: { command: "ls" },
-          result: "x".repeat(MAX_TOOL_RESULT_SIZE + 1000),
+          result: pseudoRandomText(MAX_TOOL_RESULT_SIZE + 1000),
           durationMs: 100,
         },
       ],
