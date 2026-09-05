@@ -21,6 +21,13 @@ describe("computeLocalCreditsCents", () => {
   it("goes negative once spend exceeds the daily cap", () => {
     expect(computeLocalCreditsCents(137, 100)).toBe(-37);
   });
+
+  it("never returns -1, since callers treat it as an unrelated 'API unreachable' sentinel", () => {
+    // Spend exactly one cent over the cap is the only input that would
+    // naturally compute to -1 (see loop.ts's `creditsCents === -1` check).
+    expect(computeLocalCreditsCents(101, 100)).toBe(-2);
+    expect(computeLocalCreditsCents(101, 100)).not.toBe(-1);
+  });
 });
 
 describe("getSurvivalTier with a BYOK-style virtual balance", () => {
@@ -42,7 +49,7 @@ describe("getSurvivalTier with a BYOK-style virtual balance", () => {
   });
 
   it("only reaches 'dead' once real spend exceeds the daily cap", () => {
-    const virtual = computeLocalCreditsCents(101, dailyCapCents); // -1c
+    const virtual = computeLocalCreditsCents(101, dailyCapCents); // -2c (nudged off the -1 sentinel)
     expect(getSurvivalTier(virtual)).toBe("dead");
   });
 

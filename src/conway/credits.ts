@@ -56,10 +56,20 @@ export function formatCredits(cents: number): string {
  * the headroom left in today's real inference spend against dailyCapCents,
  * so the existing survival-tier thresholds still degrade gracefully as the
  * agent approaches its actual configured budget.
+ *
+ * -1 is never returned: callers of ConwayClient.getCreditsBalance() treat
+ * exactly -1 as a distinct sentinel meaning "balance API unreachable, no
+ * cached data" (see loop.ts), a convention from hosted Conway mode. A BYOK
+ * virtual balance can legitimately land on -1 whenever spend is exactly one
+ * cent over the daily cap; nudging that one value to -2 keeps it reading as
+ * real (if extreme) debt instead of silently being reinterpreted as an
+ * unrelated API failure, which was skipping the dead-tier sleep-until-
+ * midnight path entirely and left the turn loop spinning every tick.
  */
 export function computeLocalCreditsCents(
   todaysSpendCents: number,
   dailyCapCents: number,
 ): number {
-  return dailyCapCents - todaysSpendCents;
+  const virtual = dailyCapCents - todaysSpendCents;
+  return virtual === -1 ? -2 : virtual;
 }
