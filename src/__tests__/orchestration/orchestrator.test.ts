@@ -78,6 +78,7 @@ function makeOrchestrator(
     inference?: ReturnType<typeof makeInference>;
     config?: any;
     messaging?: ColonyMessaging;
+    isWorkerAlive?: (address: string) => boolean;
   } = {},
 ): Orchestrator {
   const { messaging } = makeMessaging(db);
@@ -89,6 +90,7 @@ function makeOrchestrator(
     inference: overrides.inference ?? (makeInference() as any),
     identity: IDENTITY,
     config: overrides.config ?? {},
+    isWorkerAlive: overrides.isWorkerAlive,
   });
 }
 
@@ -403,6 +405,47 @@ describe("orchestration/Orchestrator", () => {
       const result = await orc.matchTaskToAgent(makeTask(goalId));
       expect(result.agentAddress).toBe("0xbusy");
       expect(result.spawned).toBe(false);
+    });
+
+    it("skips a dead idle agent (direct role match) and falls through to spawn", async () => {
+      // Regression test: a local:// worker that finished a prior task gets
+      // recorded as "idle" in agentTracker (DB-persisted), but if the
+      // process has since restarted, LocalWorkerPool no longer has any
+      // record of it. Reusing that address for a new task would silently
+      // never execute — isWorkerAlive must be consulted before reuse, not
+      // only when recovering an already-assigned task.
+      const goalId = insertGoal(db);
+      const agentTracker = makeAgentTracker({
+        getIdle: vi.fn().mockReturnValue([
+          { address: "local://dead-worker", name: "Ghost", role: "generalist", status: "healthy" },
+        ]),
+      });
+      const spawnAgent = vi.fn().mockResolvedValue({ address: "0xspawned", name: "Spawned", sandboxId: "sb-2" });
+      const orc = makeOrchestrator(db, {
+        agentTracker,
+        config: { spawnAgent },
+        isWorkerAlive: (address) => address !== "local://dead-worker",
+      });
+      const result = await orc.matchTaskToAgent(makeTask(goalId));
+      expect(result.agentAddress).toBe("0xspawned");
+      expect(result.spawned).toBe(true);
+    });
+
+    it("skips a dead idle agent (best-for-task) and falls through to spawn", async () => {
+      const goalId = insertGoal(db);
+      const agentTracker = makeAgentTracker({
+        getIdle: vi.fn().mockReturnValue([]),
+        getBestForTask: vi.fn().mockReturnValue({ address: "local://dead-worker", name: "Ghost" }),
+      });
+      const spawnAgent = vi.fn().mockResolvedValue({ address: "0xspawned", name: "Spawned", sandboxId: "sb-2" });
+      const orc = makeOrchestrator(db, {
+        agentTracker,
+        config: { spawnAgent },
+        isWorkerAlive: (address) => address !== "local://dead-worker",
+      });
+      const result = await orc.matchTaskToAgent(makeTask(goalId));
+      expect(result.agentAddress).toBe("0xspawned");
+      expect(result.spawned).toBe(true);
     });
 
     it("self-assigns to parent when no child agent is available", async () => {

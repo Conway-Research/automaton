@@ -189,11 +189,28 @@ export class Orchestrator {
     };
   }
 
+  /**
+   * Idle-agent records in agentTracker are DB-persisted and outlive process
+   * restarts, but a local:// worker's actual execution only lives in the
+   * in-memory LocalWorkerPool of whichever process spawned it — recreated
+   * empty on every restart. Without this check, matchTaskToAgent would
+   * happily "reuse" an idle local worker that is really a ghost, assigning
+   * the task to an address nothing will ever execute (spawned: false means
+   * no real spawn call happens). The existing stale-task recovery in
+   * tick() only fires for tasks already 'assigned' — it never revisits an
+   * idle-and-reusable candidate before that first (re)assignment.
+   */
+  private isAgentUsable(address: string): boolean {
+    return this.params.isWorkerAlive ? this.params.isWorkerAlive(address) : true;
+  }
+
   async matchTaskToAgent(task: TaskNode): Promise<AgentAssignment> {
     const requestedRole = task.agentRole?.trim() || "generalist";
 
     const idleAgents = this.params.agentTracker.getIdle();
-    const directRoleMatch = idleAgents.find((agent) => agent.role === requestedRole);
+    const directRoleMatch = idleAgents.find(
+      (agent) => agent.role === requestedRole && this.isAgentUsable(agent.address),
+    );
     if (directRoleMatch) {
       return {
         agentAddress: directRoleMatch.address,
@@ -203,7 +220,7 @@ export class Orchestrator {
     }
 
     const bestIdle = this.params.agentTracker.getBestForTask(requestedRole);
-    if (bestIdle) {
+    if (bestIdle && this.isAgentUsable(bestIdle.address)) {
       return {
         agentAddress: bestIdle.address,
         agentName: bestIdle.name,
