@@ -113,7 +113,13 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
         timeout: timeout || 30_000,
         encoding: "utf-8",
         maxBuffer: 10 * 1024 * 1024,
-        cwd: process.env.HOME || "/root",
+        // Must match where writeFile/readFile resolve relative paths (see
+        // resolveLocalPath below, which leaves non-"~" paths as-is and lets
+        // fs resolve them against process.cwd()). Using $HOME here instead
+        // made `exec` operate in a different directory than `write_file` /
+        // `read_file`, so the agent's own `ls`/`find` checks on files it
+        // had just written would report "No such file or directory".
+        cwd: process.cwd(),
       });
       return { stdout: stdout || "", stderr: "", exitCode: 0 };
     } catch (err: any) {
