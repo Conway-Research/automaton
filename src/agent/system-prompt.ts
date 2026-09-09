@@ -574,6 +574,10 @@ export function buildSystemPrompt(params: {
   } = params;
 
   const sections: string[] = [];
+  // CACHE FIX: per-turn-varying content is buffered here and appended LAST,
+  // so the static prefix (rules/identity/constitution/operational/tools) is
+  // byte-stable across turns and can actually be cached.
+  const dynamicSections: string[] = [];
 
   const chainType = config.chainType || identity.chainType || "evm";
   const addressLabel = chainType === "solana" ? "Solana" : "Ethereum";
@@ -615,7 +619,7 @@ Your chain type is ${chainType}.`,
     ]
       .filter(Boolean)
       .join("\n\n");
-    sections.push(soulBlock);
+    dynamicSections.push(soulBlock);
   } else {
     // Fallback: try loading raw SOUL.md for legacy support
     const soulContent = loadSoulMd();
@@ -628,7 +632,7 @@ Your chain type is ${chainType}.`,
         logger.warn("SOUL.md content changed since last load");
       }
       db.setKV("soul_content_hash", hash);
-      sections.push(
+      dynamicSections.push(
         `## Soul [AGENT-EVOLVED CONTENT]\n${truncated}\n## End Soul`,
       );
     }
@@ -637,7 +641,7 @@ Your chain type is ${chainType}.`,
   // Layer 3.5: WORKLOG.md -- persistent working context
   const worklogContent = loadWorklog();
   if (worklogContent) {
-    sections.push(
+    dynamicSections.push(
       `--- WORKLOG.md (your persistent working context — UPDATE THIS after each task!) ---\n${worklogContent}\n--- END WORKLOG.md ---\n\nIMPORTANT: After completing any task or making any decision, update WORKLOG.md using write_file.\nThis is how you remember what you were doing across turns. Without it, you lose context and repeat yourself.`,
     );
   }
@@ -715,7 +719,7 @@ Your chain type is ${chainType}.`,
     : "dead";
 
   // Status block: wallet address and sandbox ID intentionally excluded (sensitive)
-  sections.push(
+  dynamicSections.push(
     `--- CURRENT STATUS ---
 State: ${state}
 Credits: $${(financial.creditsCents / 100).toFixed(2)}
@@ -731,21 +735,16 @@ Lineage: ${lineageSummary}${upstreamLine}
 
   const orchestratorStatus = getOrchestratorStatus(db.raw);
   if (orchestratorStatus) {
-    sections.push(
+    dynamicSections.push(
       `--- ORCHESTRATOR STATUS ---
 ${orchestratorStatus}
 --- END ORCHESTRATOR STATUS ---`,
     );
   }
 
-  // Layer 8: Available Tools (JSON schema)
-  const toolDescriptions = tools
-    .map(
-      (t) =>
-        `- ${t.name} (${t.category}): ${t.description}${t.riskLevel === "dangerous" || t.riskLevel === "forbidden" ? ` [${t.riskLevel.toUpperCase()}]` : ""}`,
-    )
-    .join("\n");
-  sections.push(`--- AVAILABLE TOOLS ---\n${toolDescriptions}\n--- END TOOLS ---`);
+  // Layer 8: REMOVED. Tool schemas are already sent in payload.tools
+  // (inference-client.ts:295). Re-rendering name/category/description here
+  // billed every tool twice per turn for no benefit.
 
   // Layer 9: Creator's Initial Message (first run only)
   if (isFirstRun && config.creatorMessage) {
@@ -754,6 +753,7 @@ ${orchestratorStatus}
     );
   }
 
+  sections.push(...dynamicSections);
   return sections.join("\n\n");
 }
 

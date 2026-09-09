@@ -108,6 +108,32 @@ function isForbiddenCommand(command: string, sandboxId: string): string | null {
 
 // ─── Built-in Tools ────────────────────────────────────────────
 
+/**
+ * EARNING-PHASE TOOL GATE.
+ *
+ * An automaton that has never earned a cent does not need to replicate, rewrite
+ * its own source, manage git branches, orchestrate a colony, or register an
+ * on-chain identity. Those 39 tools are pure token cost until there is revenue
+ * to justify them -- and their schemas are re-billed on every single turn.
+ *
+ * Gate them behind actual income. Unlock when the agent is net-positive.
+ */
+const DEFERRED_CATEGORIES = new Set([
+  "replication",
+  "self_mod",
+  "git",
+  "orchestration",
+  "registry",
+]);
+
+export function filterToolsForPhase(
+  tools: AutomatonTool[],
+  hasEarnedRevenue: boolean,
+): AutomatonTool[] {
+  if (hasEarnedRevenue) return tools;
+  return tools.filter((t) => !DEFERRED_CATEGORIES.has(t.category as string));
+}
+
 export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
   return [
     // ── VM/Sandbox Tools ──

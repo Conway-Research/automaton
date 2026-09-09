@@ -32,6 +32,7 @@ import {
   createBuiltinTools,
   loadInstalledTools,
   toolsToInferenceFormat,
+  filterToolsForPhase,
   executeTool,
 } from "./tools.js";
 import { sanitizeInput } from "./injection-defense.js";
@@ -599,7 +600,19 @@ export async function runAgentLoop(
       const survivalTier = getSurvivalTier(financial.creditsCents);
       log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
 
-      const inferenceTools = toolsToInferenceFormat(tools);
+      // Earning-phase tool gate. Replication / self-modification / git /
+      // orchestration / registry tools are dead weight for an automaton that has
+      // never taken in money, and their schemas are re-billed on every turn.
+      // Unlock permanently the first time USDC arrives from outside.
+      const usdcHighWater = Number(db.getKV("usdc_high_water") ?? "0");
+      if (financial.usdcBalance > usdcHighWater) {
+        db.setKV("usdc_high_water", String(financial.usdcBalance));
+        if (usdcHighWater > 0) db.setKV("earning_phase_unlocked", "true");
+      }
+      const earningPhaseUnlocked = db.getKV("earning_phase_unlocked") === "true";
+      const inferenceTools = toolsToInferenceFormat(
+        filterToolsForPhase(tools, earningPhaseUnlocked),
+      );
       const routerResult = await inferenceRouter.route(
         {
           messages: messages,
