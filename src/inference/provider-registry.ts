@@ -55,20 +55,56 @@ const DEFAULT_EMERGENCY_STOP_CREDITS = 100;
 
 const DEFAULT_TIER_DEFAULTS: Record<ModelTier, TierDefault> = {
   reasoning: {
-    preferredProvider: "openai",
-    fallbackOrder: ["groq", "together"],
+    preferredProvider: "deepseek",
+    fallbackOrder: ["openai", "local", "groq", "together"],
   },
   fast: {
-    preferredProvider: "groq",
-    fallbackOrder: ["openai", "together", "local"],
+    preferredProvider: "deepseek",
+    fallbackOrder: ["openai", "local", "groq", "together"],
   },
   cheap: {
-    preferredProvider: "groq",
-    fallbackOrder: ["together", "local", "openai"],
+    preferredProvider: "deepseek",
+    fallbackOrder: ["openai", "local", "together"],
   },
 };
 
 const DEFAULT_PROVIDERS: ProviderConfig[] = [
+
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    apiKeyEnvVar: "DEEPSEEK_API_KEY",
+    models: [
+      {
+        id: "deepseek-coder",
+        tier: "reasoning",
+        contextWindow: 128000,
+        maxOutputTokens: 8192,
+        costPerInputToken: 13.2,
+        costPerOutputToken: 39.6,
+        supportsTools: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      },
+      {
+        id: "deepseek-chat",
+        tier: "fast",
+        contextWindow: 128000,
+        maxOutputTokens: 8192,
+        costPerInputToken: 13.2,
+        costPerOutputToken: 39.6,
+        supportsTools: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      }
+    ],
+    maxRequestsPerMinute: 600,
+    maxTokensPerMinute: 200000,
+    priority: 10,
+    enabled: true,
+  },
+
   {
     id: "openai",
     name: "OpenAI",
@@ -211,7 +247,7 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
     apiKeyEnvVar: "LOCAL_API_KEY",
     models: [
       {
-        id: "llama3.3:70b",
+        id: "qwen2.5-coder:32b",
         tier: "fast",
         contextWindow: 131072,
         maxOutputTokens: 8192,
@@ -222,7 +258,7 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
         supportsStreaming: true,
       },
       {
-        id: "llama3.1:8b",
+        id: "llama3.1:latest",
         tier: "cheap",
         contextWindow: 131072,
         maxOutputTokens: 4096,

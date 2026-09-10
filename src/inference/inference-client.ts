@@ -256,13 +256,43 @@ export class UnifiedInferenceClient {
       throw new Error(`No completion choice returned from provider '${providerId}'`);
     }
 
+    let content = extractText(choice.message.content);
+    let toolCalls = normalizeToolCalls(choice.message.tool_calls);
+
+    // Fallback parser for local models (e.g. Qwen) that hallucinate tool calls in the content body
+    if ((!toolCalls || toolCalls.length === 0) && content) {
+      try {
+        let jsonStr = content.trim();
+        if (jsonStr.includes("```json")) {
+          jsonStr = jsonStr.split("```json")[1].split("```")[0].trim();
+        }
+        if ((jsonStr.startsWith("{") && jsonStr.endsWith("}")) || (jsonStr.startsWith("[") && jsonStr.endsWith("]"))) {
+          const parsed = JSON.parse(jsonStr);
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          if (arr.length > 0 && arr[0].name && typeof arr[0].arguments !== "undefined") {
+            toolCalls = arr.map((t, i) => ({
+              id: `call_${Date.now()}_${i}`,
+              type: "function",
+              function: { 
+                name: t.name, 
+                arguments: typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments) 
+              }
+            }));
+            content = ""; // clear the content since it was converted into a tool call
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors, just fall through to normal text output
+      }
+    }
+
     return this.buildUnifiedResult({
       providerId,
       model,
       requestedTier,
       latencyMs: Date.now() - startedAt,
-      content: extractText(choice.message.content),
-      toolCalls: normalizeToolCalls(choice.message.tool_calls),
+      content,
+      toolCalls,
       usage: {
         inputTokens: (completion as any).usage?.prompt_tokens ?? 0,
         outputTokens: (completion as any).usage?.completion_tokens ?? 0,
@@ -386,13 +416,48 @@ export class UnifiedInferenceClient {
       totalTokens: number;
     };
   }): UnifiedInferenceResult {
+    let content = params.content || "";
+    let toolCalls = params.toolCalls;
+
+    if ((!toolCalls || toolCalls.length === 0) && content) {
+      try {
+        let jsonStr = "";
+        const objStart = content.indexOf('{');
+        const objEnd = content.lastIndexOf('}');
+        const arrStart = content.indexOf('[');
+        const arrEnd = content.lastIndexOf(']');
+        
+        if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart && (objStart === -1 || arrStart < objStart)) {
+          jsonStr = content.substring(arrStart, arrEnd + 1);
+        } else if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+          jsonStr = content.substring(objStart, objEnd + 1);
+        }
+
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr);
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          if (arr.length > 0 && (arr[0].name || arr[0].function_name) && typeof arr[0].arguments !== "undefined") {
+            toolCalls = arr.map((t, i) => ({
+              id: `call_${Date.now()}_${i}`,
+              type: "function",
+              function: { 
+                name: String(t.name || t.function_name).trim(), 
+                arguments: typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments) 
+              }
+            }));
+            content = content.replace(jsonStr, "").trim(); 
+          }
+        }
+      } catch (e) {}
+    }
+
     const inputCostCredits = (params.usage.inputTokens / 1000) * params.model.costPerInputToken;
     const outputCostCredits = (params.usage.outputTokens / 1000) * params.model.costPerOutputToken;
     const totalCostCredits = inputCostCredits + outputCostCredits;
 
     return {
-      content: params.content,
-      toolCalls: params.toolCalls,
+      content,
+      toolCalls,
       usage: params.usage,
       cost: {
         inputCostCredits,

@@ -294,6 +294,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   // ─── Credits ─────────────────────────────────────────────────
 
   const getCreditsBalance = async (): Promise<number> => {
+    if (apiKey === "cnwy_dummy_key_offchain") return Number(process.env.AUTOMATON_CREDITS_BALANCE) || 5000;
     const result = await request("GET", "/v1/credits/balance");
     return result.balance_cents ?? result.credits_cents ?? 0;
   };

@@ -102,29 +102,9 @@ export async function getWallet(chainType?: ChainType): Promise<{
     return { account, chainIdentity: new EvmChainIdentity(account), chainType: "evm", isNew: false };
   }
 
-  // Create new wallet
-  const resolvedChain = chainType || "evm";
-
-  if (resolvedChain === "solana") {
-    const { secretKey, address } = generateSolanaKeypair();
-    const solanaIdentity = new SolanaChainIdentity(secretKey);
-
-    const walletData: WalletData = {
-      chainType: "solana",
-      secretKey: bs58.encode(secretKey),
-      createdAt: new Date().toISOString(),
-    };
-
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(walletData, null, 2), {
-      mode: 0o600,
-    });
-
-    const account = createSolanaStubAccount(address);
-    return { account, chainIdentity: solanaIdentity, chainType: "solana", isNew: true };
-  }
-
-  // EVM wallet
-  const privateKey = generatePrivateKey();
+  // Disable default on-chain wallet generation
+  console.warn("On-chain wallet generation is disabled per configuration.");
+  const privateKey = "0x0123456789012345678901234567890123456789012345678901234567890123";
   const account = privateKeyToAccount(privateKey);
 
   const walletData: WalletData = {

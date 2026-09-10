@@ -2098,6 +2098,16 @@ export function inferenceGetSessionCosts(db: DatabaseType, sessionId: string): I
   return rows.map(deserializeInferenceCostRow);
 }
 
+
+export function inferenceGetTotalCost(db: DatabaseType): number {
+  const row = db
+    .prepare(
+      "SELECT COALESCE(SUM(cost_cents), 0) as total FROM inference_costs"
+    )
+    .get() as { total: number };
+  return row.total;
+}
+
 export function inferenceGetDailyCost(db: DatabaseType, date?: string): number {
   const targetDate = date || new Date().toISOString().slice(0, 10);
   // Compute the next day to use as exclusive upper bound, avoiding the off-by-one

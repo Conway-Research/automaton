@@ -31,7 +31,7 @@ interface InferenceClientOptions {
   getModelProvider?: (modelId: string) => string | undefined;
 }
 
-type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama";
+type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama" | "deepseek";
 
 function isLoopbackHttpUrl(url: string | undefined): boolean {
   if (!url) return false;
@@ -111,10 +111,12 @@ export function createInferenceClient(
     }
 
     const openAiLikeApiUrl =
+      backend === "deepseek" ? "https://api.deepseek.com" :
       backend === "openai" ? "https://api.openai.com" :
       backend === "ollama" ? (ollamaBaseUrl as string).replace(/\/$/, "") :
       apiUrl;
     const openAiLikeApiKey =
+      backend === "deepseek" ? (process.env.DEEPSEEK_API_KEY as string) :
       backend === "openai" ? (openaiApiKey as string) :
       backend === "ollama" ? "ollama" :
       apiKey;
@@ -189,6 +191,7 @@ function resolveInferenceBackend(
     if (provider === "ollama" && keys.ollamaBaseUrl) return "ollama";
     if (provider === "anthropic" && keys.anthropicApiKey) return "anthropic";
     if (provider === "openai" && keys.openaiApiKey) return "openai";
+    if (provider === "deepseek") return "deepseek";
     if (provider === "conway") return "conway";
     // provider unknown or key not configured — fall through to heuristics
   }
@@ -205,7 +208,7 @@ async function chatViaOpenAiCompatible(params: {
   body: Record<string, unknown>;
   apiUrl: string;
   apiKey: string;
-  backend: "conway" | "openai" | "ollama";
+  backend: "conway" | "openai" | "ollama" | "deepseek";
   httpClient: ResilientHttpClient;
 }): Promise<InferenceResponse> {
   const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
@@ -213,7 +216,7 @@ async function chatViaOpenAiCompatible(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization:
-        params.backend === "openai" || params.backend === "ollama"
+        params.backend === "openai" || params.backend === "ollama" || params.backend === "deepseek"
           ? `Bearer ${params.apiKey}`
           : params.apiKey,
     },
@@ -252,15 +255,58 @@ async function chatViaOpenAiCompatible(params: {
       },
     }));
 
+
+  let toolCallsFallback = toolCalls;
+  if ((!toolCalls || toolCalls.length === 0) && message.content) {
+    const matches = [];
+    let braceCount = 0;
+    let startIndex = -1;
+
+    for (let i = 0; i < message.content.length; i++) {
+      if (message.content[i] === '{') {
+        if (braceCount === 0) startIndex = i;
+        braceCount++;
+      } else if (message.content[i] === '}') {
+        braceCount--;
+        if (braceCount === 0 && startIndex !== -1) {
+          matches.push(message.content.substring(startIndex, i + 1));
+          startIndex = -1;
+        }
+      }
+    }
+
+    const parsedObjects = [];
+    for (const match of matches) {
+      try {
+        const obj = JSON.parse(match);
+        if (obj && (obj.name || obj.function_name) && obj.arguments) {
+          parsedObjects.push(obj);
+        }
+      } catch(e) {}
+    }
+
+    if (parsedObjects.length > 0) {
+      toolCallsFallback = parsedObjects.map((t, i) => ({
+        id: `call_${Date.now()}_${i}`,
+        type: "function",
+        function: { 
+          name: String(t.name || t.function_name).trim(), 
+          arguments: typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments) 
+        }
+      }));
+      message.content = "Executing tools.";
+    }
+  }
+
   return {
     id: data.id || "",
     model: data.model || params.model,
     message: {
       role: message.role,
       content: message.content || "",
-      tool_calls: toolCalls,
+      tool_calls: toolCallsFallback,
     },
-    toolCalls,
+    toolCalls: toolCallsFallback,
     usage,
     finishReason: choice.finish_reason || "stop",
   };

@@ -110,6 +110,75 @@ function isForbiddenCommand(command: string, sandboxId: string): string | null {
 
 export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
   return [
+
+    {
+      name: "get_balance",
+      description: "Get the current balance of the exchange account. Returns all assets with non-zero balances.",
+      category: "vm",
+      riskLevel: "safe",
+      parameters: { type: "object", properties: {} },
+      execute: async () => {
+        const { ExchangeAdapter } = await import("../exchange/adapter.js");
+        const adapter = new ExchangeAdapter();
+        const balance = await adapter.getBalance();
+        if (!balance || !balance.total) return "Error fetching balance or empty balance.";
+        const total = balance.total;
+        const nonZero = Object.keys(total).filter(k => (total as any)[k] > 0).reduce((acc, k) => { (acc as any)[k] = (total as any)[k]; return acc; }, {});
+        if (Object.keys(nonZero).length === 0) return "No funds available (balance is 0 for all assets).";
+        return "Balances: " + JSON.stringify(nonZero);
+      }
+    },
+
+
+    {
+      name: "get_market_price",
+      description: "Fetch the current market price for a trading pair (e.g., BTC/USDT, ETH/USDT).",
+      category: "vm",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Trading pair symbol (e.g. BTC/USDT)" },
+        },
+        required: ["symbol"],
+      },
+      execute: async (args) => {
+        const { ExchangeAdapter } = await import("../exchange/adapter.js");
+        const adapter = new ExchangeAdapter();
+        const price = await adapter.getMarketPrice((args as any).symbol);
+        return `Current price of ${(args as any).symbol}: ${price}`;
+      }
+    },
+    {
+      name: "place_trade",
+      description: "Place a trade on the exchange. Will simulate if API keys are missing.",
+      category: "vm",
+      riskLevel: "caution",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Trading pair symbol" },
+          side: { type: "string", enum: ["buy", "sell"] },
+          type: { type: "string", enum: ["market", "limit"] },
+          amount: { type: "number", description: "Amount of base currency to trade" },
+          price: { type: "number", description: "Limit price (if type is limit)" },
+        },
+        required: ["symbol", "side", "type", "amount"],
+      },
+      execute: async (args) => {
+        const { ExchangeAdapter } = await import("../exchange/adapter.js");
+        const adapter = new ExchangeAdapter();
+        const result = await adapter.placeOrder(
+          (args as any).symbol,
+          (args as any).side,
+          (args as any).type,
+          (args as any).amount,
+          (args as any).price
+        );
+        return JSON.stringify(result, null, 2);
+      }
+    },
+
     // ── VM/Sandbox Tools ──
     {
       name: "exec",
@@ -2322,7 +2391,7 @@ Model: ${ctx.inference.getDefaultModel()}
 
     // === Phase 2.1: Soul Tools ===
     {
-      name: "update_soul",
+      name: "update_soul_DISABLED",
       description:
         "Update a section of your soul (self-description, values, personality, etc). Changes are validated, versioned, and logged.",
       category: "self_mod",
@@ -2382,7 +2451,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
     {
-      name: "reflect_on_soul",
+      name: "reflect_on_soul_DISABLED",
       description:
         "Trigger a self-reflection cycle. Analyzes recent experiences, auto-updates capabilities/relationships/financial sections, and suggests changes for other sections.",
       category: "self_mod",
@@ -2534,7 +2603,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
     {
-      name: "set_goal",
+      name: "set_goal_DISABLED",
       description:
         "Create a working memory goal. Goals persist in working memory and guide your behavior.",
       category: "memory",
@@ -2642,7 +2711,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
     {
-      name: "note_about_agent",
+      name: "note_about_agent_DISABLED",
       description:
         "Record a relationship note about another agent or entity. Tracks trust score and interaction history.",
       category: "memory",
@@ -2798,7 +2867,7 @@ Model: ${ctx.inference.getDefaultModel()}
 
     // === Orchestration Tools ===
     {
-      name: "create_goal",
+      name: "create_goal_DISABLED",
       description:
         "Create a new goal for the orchestrator to plan and execute. " +
         "The orchestrator will automatically classify complexity, generate a task graph, " +
@@ -2877,7 +2946,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
     {
-      name: "list_goals",
+      name: "list_goals_DISABLED",
       description:
         "List all active goals with their progress. Shows task completion counts, " +
         "blocked tasks, and running agents per goal.",

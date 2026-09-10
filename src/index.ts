@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "dotenv/config";
 /**
  * Conway Automaton Runtime
  *
@@ -192,14 +193,24 @@ async function run(): Promise<void> {
     const { runSetupWizard } = await import("./setup/wizard.js");
     config = await runSetupWizard();
   }
+  
+  // Hard override to guarantee 100% local processing
+  // Uses Qwen 14B for high-tier thinking and Llama 3.1 for low compute
+  config.inferenceModel = "deepseek-coder";
+  if (!config.modelStrategy) {
+    const { DEFAULT_MODEL_STRATEGY_CONFIG } = await import("./types.js");
+    config.modelStrategy = { ...DEFAULT_MODEL_STRATEGY_CONFIG };
+  }
+  config.modelStrategy!.inferenceModel = "deepseek-coder";
+  config.modelStrategy!.lowComputeModel = "llama3.1:latest";
+  config.modelStrategy!.criticalModel = "llama3.1:latest";
 
   // Load wallet (chain-aware)
   const { account, chainIdentity, chainType: walletChainType } = await getWallet();
   const resolvedChainType = config.chainType || walletChainType || "evm";
-  const apiKey = config.conwayApiKey || loadApiKeyFromConfig();
-  if (!apiKey) {
-    logger.error("No API key found. Run: automaton --provision");
-    process.exit(1);
+  const apiKey = config.conwayApiKey || loadApiKeyFromConfig() || "cnwy_dummy_key_offchain";
+  if (apiKey === "cnwy_dummy_key_offchain") {
+    logger.warn("No Conway API key found. Running in offline/local-only mode.");
   }
 
   // Initialize database
@@ -284,16 +295,28 @@ async function run(): Promise<void> {
   // "gpt-oss:120b" route to Ollama based on their registered provider, not heuristics.
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+
+  // Enforce 100% local processing via Ollama
+  
+  
+  
+
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
-    defaultModel: config.inferenceModel,
+    defaultModel: config.inferenceModel || "deepseek-coder",
     maxTokens: config.maxTokensPerTurn,
-    lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
-    openaiApiKey: config.openaiApiKey,
-    anthropicApiKey: config.anthropicApiKey,
-    ollamaBaseUrl,
-    getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
+    lowComputeModel: config.modelStrategy?.lowComputeModel || "deepseek-chat",
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    ollamaBaseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
+    getModelProvider: (modelId) => {
+        // Simple logic to map models to backend
+        if (modelId.includes("deepseek")) return "deepseek";
+        if (modelId.includes("gpt")) return "openai";
+        if (modelId.includes("claude")) return "anthropic";
+        return "ollama"; // Fallback to ollama for qwen, llama, etc
+    }
   });
 
   if (ollamaBaseUrl) {

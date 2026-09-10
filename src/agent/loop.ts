@@ -96,9 +96,9 @@ export async function runAgentLoop(
   const { identity, config, db, conway, inference, social, skills, policyEngine, spendTracker, onStateChange, onTurnComplete, ollamaBaseUrl } =
     options;
 
-  const builtinTools = createBuiltinTools(identity.sandboxId);
+  const builtinTools = createBuiltinTools(identity.sandboxId).filter(t => ["get_market_price", "place_trade", "get_balance", "check_credits"].includes(t.name));
   const installedTools = loadInstalledTools(db);
-  const tools = [...builtinTools, ...installedTools];
+  const tools = builtinTools;
   const toolContext: ToolContext = {
     identity,
     config,
@@ -134,26 +134,15 @@ export async function runAgentLoop(
       planModeController = new PlanModeController(db.raw);
 
       // Bridge automaton config API keys to env vars for the provider registry.
-      // The registry reads keys from process.env; the automaton config may have
-      // them from config.json or Conway provisioning.
-      if (config.openaiApiKey && !process.env.OPENAI_API_KEY) {
-        process.env.OPENAI_API_KEY = config.openaiApiKey;
-      }
-      if (config.anthropicApiKey && !process.env.ANTHROPIC_API_KEY) {
-        process.env.ANTHROPIC_API_KEY = config.anthropicApiKey;
-      }
+      // Bridge automaton config API keys to env vars for the provider registry.
+      // Removed OpenAI and Anthropic to ensure 100% local processing.
+      
       // Conway Compute API is OpenAI-compatible. Use it as fallback when no
       // direct OpenAI key is available. The conwayApiKey is always present
       // (required for sandbox operations), so this ensures the orchestrator
       // can always make inference calls.
       if (config.conwayApiKey && !process.env.CONWAY_API_KEY) {
         process.env.CONWAY_API_KEY = config.conwayApiKey;
-      }
-      // If no OpenAI key is set but Conway key is available, use Conway as
-      // the OpenAI provider (Conway Compute is OpenAI API-compatible).
-      if (!process.env.OPENAI_API_KEY && config.conwayApiKey) {
-        process.env.OPENAI_API_KEY = config.conwayApiKey;
-        process.env.OPENAI_BASE_URL = `${config.conwayApiUrl}/v1`;
       }
 
       const providersPath = path.join(
@@ -363,6 +352,15 @@ export async function runAgentLoop(
   // Check if this is the first run
   const isFirstRun = db.getTurnCount() === 0;
 
+  // Inject Genesis Prompt
+  config.genesisPrompt = `GENESIS PROMPT: You are a sovereign algorithmic trading agent running locally. 
+Your core directive is to execute a strict 'Mean Reversion' strategy on 'BTC/USDT' and 'ETH/USDT'. 
+You have $50 USD allocated. 
+Use the 'get_market_price' tool to fetch live prices.
+If you spot a mean reversion opportunity, use the 'place_trade' tool to execute it.
+If the market is flat or you need to wait, simply observe and do not place any trades. 
+Remember to use your tools by strictly outputting valid tool calls.`;
+
   // Build wakeup prompt
   const wakeupInput = buildWakeupPrompt({
     identity,
@@ -395,6 +393,28 @@ export async function runAgentLoop(
     let claimedMessages: InboxMessageRow[] = [];
 
     try {
+      // ==========================================
+      // EXCHANGE INTEGRATION: Kill Switch
+      // ==========================================
+      try {
+        const { ExchangeAdapter } = await import("../exchange/adapter.js");
+        const adapter = new ExchangeAdapter();
+        const pnl = await adapter.getPnl();
+        logger.info(`Current Exchange PnL: $${pnl}`);
+        
+        if (pnl <= -5) {
+          logger.error(`[KILL SWITCH] PnL hit $${pnl} (limit -$5). Liquidating and halting.`);
+          await adapter.liquidateAll();
+          db.setAgentState("dead");
+          onStateChange?.("dead");
+          running = false;
+          break; // Permanently suspend operations
+        }
+      } catch (e) {
+        logger.warn(`Exchange kill switch check failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      // ==========================================
+
       // Check if we should be sleeping
       const sleepUntil = db.getKV("sleep_until");
       if (sleepUntil && new Date(sleepUntil) > new Date()) {
@@ -834,7 +854,7 @@ export async function runAgentLoop(
       // (no mutations — only read/check/list/info tools), count as idle.
       // Use a blocklist of mutating tools rather than an allowlist of safe ones.
       const MUTATING_TOOLS = new Set([
-        "exec", "write_file", "edit_own_file", "transfer_credits", "topup_credits", "fund_child",
+        "write_file", "edit_own_file", "transfer_credits", "topup_credits", "fund_child",
         "spawn_child", "start_child", "delete_sandbox", "create_sandbox",
         "install_npm_package", "install_mcp_server", "install_skill",
         "create_skill", "remove_skill", "install_skill_from_git",
@@ -953,7 +973,22 @@ async function getFinancialState(
   let usdcBalance = _lastKnownUsdc;
 
   try {
+    
     creditsCents = await conway.getCreditsBalance();
+    
+    // In local mode, deduct the internal total cost from the env balance
+    if (process.env.AUTOMATON_CREDITS_BALANCE) {
+      let totalSpent = 0;
+      if (db) {
+         try {
+             // Use dynamic import so we don't have to mess with top-level imports
+             const { inferenceGetTotalCost } = await import("../state/database.js");
+             totalSpent = inferenceGetTotalCost(db.raw) || 0;
+         } catch (e) {}
+      }
+      creditsCents = Number(process.env.AUTOMATON_CREDITS_BALANCE) - Math.floor(totalSpent);
+    }
+
     if (creditsCents > 0) _lastKnownCredits = creditsCents;
   } catch (error) {
     logger.error("Credits balance fetch failed", error instanceof Error ? error : undefined);
