@@ -203,12 +203,12 @@ async function run(): Promise<void> {
       console.log("Headless environment detected. Bypassing interactive wizard...");
       const { createConfig, saveConfig } = await import("./config.js");
       config = createConfig({
-         name: "AlgoTrader",
+         name: process.env.AUTOMATON_NAME || "AlgoTrader",
          genesisPrompt: "You are an AI algorithmic trader.",
-         apiKey: "",
+         apiKey: process.env.CONWAY_API_KEY || "",
          chainType: "evm",
          walletAddress: "",
-         creatorAddress: "",
+         creatorAddress: process.env.CREATOR_ADDRESS || "0x0000000000000000000000000000000000000000",
          registeredWithConway: false,
          sandboxId: ""
       });
