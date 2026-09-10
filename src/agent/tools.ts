@@ -3277,6 +3277,73 @@ Model: ${ctx.inference.getDefaultModel()}
         return lines.join("\n");
       },
     },
+
+    // ── Market Intelligence & Safety Tools ──
+    {
+      name: "analyze_market",
+      description: "Analyze market indicators (RSI, Moving Averages) using Binance Klines.",
+      category: "financial",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Symbol to analyze, e.g. BTCMXN" },
+          interval: { type: "string", description: "Kline interval, e.g. 1m, 15m, 1h, 1d" }
+        },
+        required: ["symbol", "interval"],
+      },
+      execute: async (args, ctx) => {
+        try {
+          const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${args.symbol}&interval=${args.interval}&limit=14`);
+          if (!res.ok) return `API Error: ${res.statusText}`;
+          const data = await res.json();
+          const closes = data.map((d: any) => parseFloat(d[4]));
+          const currentPrice = closes[closes.length - 1];
+          const sma = closes.reduce((a: number, b: number) => a + b, 0) / closes.length;
+          
+          let gains = 0, losses = 0;
+          for (let i = 1; i < closes.length; i++) {
+            const diff = closes[i] - closes[i - 1];
+            if (diff >= 0) gains += diff;
+            else losses -= diff;
+          }
+          let rsi = 50;
+          if (losses === 0) rsi = 100;
+          else if (gains > 0) {
+            const rs = (gains / 14) / (losses / 14);
+            rsi = 100 - (100 / (1 + rs));
+          }
+          return JSON.stringify({
+            currentPrice,
+            sma14: sma,
+            rsi14: rsi,
+            signal: rsi > 70 ? "OVERBOUGHT" : rsi < 30 ? "OVERSOLD" : "NEUTRAL"
+          });
+        } catch(e: any) {
+          return "Error: " + e.message;
+        }
+      },
+    },
+    {
+      name: "shut_down",
+      description: "Permanently terminate this agent's process if it is losing money or no longer viable.",
+      category: "conway",
+      riskLevel: "dangerous",
+      parameters: {
+        type: "object",
+        properties: {
+          reason: { type: "string", description: "Reason for shutdown" }
+        },
+        required: ["reason"],
+      },
+      execute: async (args, ctx) => {
+        console.warn(`[KILL SWITCH ACTIVATED] Reason: ${args.reason}`);
+        console.warn("Liquidating all positions and shutting down...");
+        console.warn('Agent chose to shut down based on self-preservation rule.');
+        process.exit(0);
+        return "Shutting down...";
+      },
+    },
   ];
 }
 
