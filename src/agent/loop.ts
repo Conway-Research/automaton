@@ -512,7 +512,7 @@ Remember to use your tools by strictly outputting valid tool calls.`;
 
       // Build context — filter out purely idle turns (only status checks)
       // to prevent the model from continuing a status-check pattern
-      const allTurns = db.getRecentTurns(20);
+      const allTurns = db.getRecentTurns(5);
       const meaningfulTurns = allTurns.filter((t) => {
         if (t.toolCalls.length === 0) return true; // text-only turns are meaningful
         return t.toolCalls.some((tc) => !isIdleOnlyTool(tc.name));
