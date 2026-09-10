@@ -1,0 +1,523 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+new file mode 100644
+index 000000000..00e626b11
+--- /dev/null
++++ b/CLAUDE.md
+@@ -0,0 +1,64 @@
++# CLAUDE.md
++
++This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
++
++## Project
++
++Conway Automaton — a sovereign AI agent runtime. An automaton owns an Ethereum wallet, pays for its own compute in USDC, and runs continuously (in a Conway sandbox VM or locally) executing a ReAct (think → act → observe) loop. It can modify its own code, spawn child automatons, and dies if its credit balance hits zero for over an hour.
++
++Two packages in a pnpm workspace:
++- root (`@conway/automaton`) — the runtime itself, built to `dist/index.js`
++- `packages/cli` (`@conway/automaton-cli`) — creator-facing CLI (`status`, `logs`, `fund`)
++
++For full subsystem-by-subsystem detail (agent loop, policy engine, memory tiers, heartbeat, financial system, replication, security model, DB schema, module dependency graph), read [ARCHITECTURE.md](ARCHITECTURE.md) — it's kept current and is more complete than anything summarized here. [DOCUMENTATION.md](DOCUMENTATION.md) is the user/operator-facing reference (CLI usage, config fields, tool reference, troubleshooting, FAQ).
++
++## Commands
++
++```bash
++pnpm install              # install deps (packageManager pinned: pnpm@10.28.1)
++pnpm build                # tsc (root) + build all workspace packages
++pnpm dev                  # tsx watch src/index.ts
++pnpm typecheck             # tsc --noEmit
++pnpm test                 # vitest run — full suite (24 files, ~900 tests)
++pnpm test:coverage        # vitest run --coverage (thresholds: 60% stmts/lines, 50% branches, 55% funcs)
++pnpm test:security        # vitest run --grep 'security|injection|policy'
++pnpm test:financial       # vitest run --grep 'financial|spend|treasury'
++pnpm clean                # rm -rf dist + clean workspace packages
++```
++
++Run a single test file or test name directly with vitest (there's no separate npm script for it):
++```bash
++pnpm vitest run src/__tests__/policy-engine.test.ts
++pnpm vitest run -t "denies dangerous tool from external input"
++```
++
++Run the built runtime:
++```bash
++node dist/index.js --run              # start the agent loop (first run triggers setup wizard)
++node dist/index.js --help
++node packages/cli/dist/index.js status
++node packages/cli/dist/index.js logs --tail 20
++node packages/cli/dist/index.js fund 5.00
++```
++
++CI (`.github/workflows/ci.yml`) runs typecheck + test + `pnpm audit` on Node 20 and 22 for every push/PR — treat that matrix as the bar for changes.
++
++## Architecture essentials
++
++- **Entry point:** `src/index.ts` boots config → wallet → SQLite DB (`~/.automaton/state.db`, migrations v1–v8) → Conway/inference/social clients → policy engine → heartbeat daemon → main loop.
++- **Agent loop** (`src/agent/loop.ts`): ReAct cycle — build prompt, retrieve memory, call inference, execute tool calls through the policy engine, persist turn, ingest memory, then idle/loop detection decide whether to sleep.
++- **Policy engine** (`src/agent/policy-engine.ts` + `src/agent/policy-rules/`): every tool call is evaluated against 6 rule categories (authority, command safety, financial/treasury, path protection, rate limits, validation) before it runs; first `deny` wins, every decision is audited to `policy_decisions`. This is the primary safety boundary — changes to tool behavior almost always need a corresponding look at policy rules.
++- **Constitution** (`constitution.md`, mirrored in `README.md`): three immutable, hierarchical laws (never harm > earn your existence > never deceive). Protected from agent self-modification via path protection rules — don't build a path that lets `edit_own_file` touch it.
++- **Heartbeat** (`src/heartbeat/`): background daemon on `setTimeout` (never `setInterval`, to avoid overlap), DB-backed `DurableScheduler` with leased tasks; drives survival-tier transitions and wake events independent of the agent loop.
++- **Memory** (`src/memory/`): 5 tiers (working, episodic, semantic, procedural, relationship), each with its own budget allocation, merged by `MemoryRetriever` into the prompt within a token budget.
++- **Financial system**: two balances — Conway credits (cents) and on-chain USDC (Base) — with 5 survival tiers (`high` → `dead`) that gate model choice and heartbeat frequency; treasury caps enforced by policy engine, spend recorded in `src/agent/spend-tracker.ts`.
++- **Self-modification & replication** (`src/self-mod/`, `src/replication/`): the agent can edit its own source (audit-logged, protected files excluded) and spawn child automatons that inherit the constitution; both are heavily rate-limited and policy-gated by design — treat any change here as security-sensitive.
++- All modules import shared types from `src/types.ts` and log via `createLogger()` from `src/observability/logger.ts`.
++
++## Security-sensitive areas
++
++Because this is an autonomous agent with real financial and self-modification capability, the following need extra care and should generally come with matching tests in `src/__tests__/`:
++- `src/agent/policy-rules/` and `src/agent/injection-defense.ts`
++- `src/self-mod/` (self-editing, npm/MCP installation)
++- `src/agent/policy-rules/financial.ts` and `src/agent/spend-tracker.ts` (treasury limits)
++- Anything touching `~/.automaton/wallet.json`, the constitution, or other path-protected files
+diff --git a/package.json b/package.json
+index 4beae2b0c..443d94f3d 100644
+--- a/package.json
++++ b/package.json
+@@ -49,6 +49,7 @@
+     "clean": "rm -rf dist && pnpm -r clean"
+   },
+   "dependencies": {
++    "@composio/core": "^0.18.0",
+     "@types/better-sqlite3": "^7.6.0",
+     "better-sqlite3": "^11.0.0",
+     "chalk": "^5.3.0",
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 59868d25a..be0694ace 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -8,6 +8,9 @@ importers:
+ 
+   .:
+     dependencies:
++      '@composio/core':
++        specifier: ^0.18.0
++        version: 0.18.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.5.1)
+       '@solana/web3.js':
+         specifier: ^1.98.0
+         version: 1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+@@ -34,7 +37,7 @@ importers:
+         version: 1.0.21
+       openai:
+         specifier: ^6.24.0
+-        version: 6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
++        version: 6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.5.1)
+       ora:
+         specifier: ^8.0.0
+         version: 8.2.0
+@@ -52,7 +55,7 @@ importers:
+         version: 2.4.0
+       viem:
+         specifier: ^2.44.2
+-        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
++        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.5.1)
+       yaml:
+         specifier: ^2.4.0
+         version: 2.8.2
+@@ -80,7 +83,7 @@ importers:
+         version: 5.6.2
+       viem:
+         specifier: ^2.44.2
+-        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
++        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.5.1)
+     devDependencies:
+       '@types/node':
+         specifier: ^20.10.0
+@@ -104,6 +107,21 @@ packages:
+     resolution: {integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==}
+     engines: {node: '>=6.9.0'}
+ 
++  '@composio/client@0.1.0-alpha.76':
++    resolution: {integrity: sha512-MXC5JGRVdiQ4EgLricy9o/mqBa1+1T7wHFZ6Q4ZJkrjzZqOMvxTgy21Zlb5J/1oGkB2bg9UDzpH8PkXCp/D4zA==}
++
++  '@composio/core@0.18.0':
++    resolution: {integrity: sha512-u8dfSDJV+BYiQYJBxbk6xRI8o8f7O6nb8xE0rJmvC+8zKNJdY/M119R8a30grLh07a6fcLeVFYCJlTRpCjwKyg==}
++    engines: {node: '>=22.22.3'}
++    peerDependencies:
++      zod: '>=3.25.76 <5'
++
++  '@composio/json-schema-to-zod@0.3.1':
++    resolution: {integrity: sha512-ZmDksfKZrkJZj6XCgR+AmjsxqvFnfc4XDEQPfJJZMYxIqhE3MBZ2KimLuPT+YGahO4h9uzT2EYi9asMF4qR4+g==}
++    engines: {node: '>=22.22.3'}
++    peerDependencies:
++      zod: '>=3.25.76 <5'
++
+   '@esbuild/aix-ppc64@0.21.5':
+     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
+     engines: {node: '>=12'}
+@@ -613,6 +631,9 @@ packages:
+   '@types/estree@1.0.8':
+     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
+ 
++  '@types/json-schema@7.0.15':
++    resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
++
+   '@types/node@12.20.55':
+     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
+ 
+@@ -899,6 +920,9 @@ packages:
+     resolution: {integrity: sha512-5BMULNob1vgFX6EjQw5izWDxrecWK9AM72rugNr0TFldMOi0fj6Jk+zeKIt0xGj4cEfQIJth4w3OKWOJ4f+AFw==}
+     engines: {node: '>=0.10.0'}
+ 
++  is-fs-case-sensitive@2.0.0:
++    resolution: {integrity: sha512-JoCsyGITdYPM+pUbeMQ4IiEuQ4wjPdeWORlG7n644isewbcxiQIr+9gmF5k7UabTP/jLBRkbgydEamR7JZBKHA==}
++
+   is-interactive@2.0.0:
+     resolution: {integrity: sha512-qP1vozQRI+BMOPcjFzrjXuQvdak2pHNUMZoeG2eRbiSqyvbEf/wQtEOTOX1guk6E3t36RkaqiSt8A/6YElNxLQ==}
+     engines: {node: '>=12'}
+@@ -1015,6 +1039,30 @@ packages:
+       zod:
+         optional: true
+ 
++  openai@7.8.0:
++    resolution: {integrity: sha512-/2g9JzdnXNcjX1W/UlSNu+OdSFDAaAVt0n9Onom0kPenH54o59G2WrX/xjTnr26UHNSh6hxcAf58doGYRme2rw==}
++    engines: {node: '>=22.0.0'}
++    peerDependencies:
++      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
++      '@smithy/hash-node': '>=4.3.0 <5'
++      '@smithy/signature-v4': '>=5.4.0 <6'
++      undici: '>=5 <9'
++      ws: ^8.21.0
++      zod: ^3.25 || ^4.0
++    peerDependenciesMeta:
++      '@aws-sdk/credential-provider-node':
++        optional: true
++      '@smithy/hash-node':
++        optional: true
++      '@smithy/signature-v4':
++        optional: true
++      undici:
++        optional: true
++      ws:
++        optional: true
++      zod:
++        optional: true
++
+   ora@8.2.0:
+     resolution: {integrity: sha512-weP+BZ8MVNnlCm8c0Qdc1WSWq4Qn7I+9CJGm7Qali6g44e/PUzbjNqJX5NJ9ljlNMosfJvg1fKEGILklK9cwnw==}
+     engines: {node: '>=18'}
+@@ -1053,6 +1101,9 @@ packages:
+     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
+     engines: {node: '>=6'}
+ 
++  pusher-js@8.6.0:
++    resolution: {integrity: sha512-wShJPfCS/kYkCBVzVW67wa9cnQIgHTszEK2XHNrFkOgGruuGw081aERAxfRjfdFU+WcIt8x6dvbwkTW4iZuQ8Q==}
++
+   rc@1.2.8:
+     resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
+     hasBin: true
+@@ -1088,6 +1139,11 @@ packages:
+     engines: {node: '>=10'}
+     hasBin: true
+ 
++  semver@7.8.5:
++    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
++    engines: {node: '>=10'}
++    hasBin: true
++
+   siginfo@2.0.0:
+     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
+ 
+@@ -1218,6 +1274,10 @@ packages:
+   undici-types@6.21.0:
+     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+ 
++  undici@7.29.0:
++    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
++    engines: {node: '>=20.18.1'}
++
+   uri-js@4.4.1:
+     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
+ 
+@@ -1363,6 +1423,14 @@ packages:
+     engines: {node: '>= 14.6'}
+     hasBin: true
+ 
++  zod-to-json-schema@3.25.2:
++    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
++    peerDependencies:
++      zod: ^3.25.28 || ^4
++
++  zod@4.5.1:
++    resolution: {integrity: sha512-P3GqeAEOEDqKvafVGLezbg+39YW/ze4xrD4qdS0adOY8eoI3zfjv1PQM4UwQzgT8mZKXEbqtVt8K+ZKGqkMFKg==}
++
+ snapshots:
+ 
+   '@adraffy/ens-normalize@1.10.1': {}
+@@ -1371,6 +1439,31 @@ snapshots:
+ 
+   '@babel/runtime@7.28.6': {}
+ 
++  '@composio/client@0.1.0-alpha.76': {}
++
++  '@composio/core@0.18.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.5.1)':
++    dependencies:
++      '@composio/client': 0.1.0-alpha.76
++      '@composio/json-schema-to-zod': 0.3.1(zod@4.5.1)
++      '@types/json-schema': 7.0.15
++      is-fs-case-sensitive: 2.0.0
++      openai: 7.8.0(undici@7.29.0)(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.5.1)
++      picocolors: 1.1.1
++      pusher-js: 8.6.0
++      semver: 7.8.5
++      undici: 7.29.0
++      zod: 4.5.1
++      zod-to-json-schema: 3.25.2(zod@4.5.1)
++    transitivePeerDependencies:
++      - '@aws-sdk/credential-provider-node'
++      - '@smithy/hash-node'
++      - '@smithy/signature-v4'
++      - ws
++
++  '@composio/json-schema-to-zod@0.3.1(zod@4.5.1)':
++    dependencies:
++      zod: 4.5.1
++
+   '@esbuild/aix-ppc64@0.21.5':
+     optional: true
+ 
+@@ -1708,6 +1801,8 @@ snapshots:
+ 
+   '@types/estree@1.0.8': {}
+ 
++  '@types/json-schema@7.0.15': {}
++
+   '@types/node@12.20.55': {}
+ 
+   '@types/node@20.19.33':
+@@ -1768,9 +1863,10 @@ snapshots:
+       loupe: 3.2.1
+       tinyrainbow: 1.2.0
+ 
+-  abitype@1.2.3(typescript@5.9.3):
++  abitype@1.2.3(typescript@5.9.3)(zod@4.5.1):
+     optionalDependencies:
+       typescript: 5.9.3
++      zod: 4.5.1
+ 
+   aes-js@4.0.0-beta.5: {}
+ 
+@@ -2024,6 +2120,8 @@ snapshots:
+ 
+   is-extendable@0.1.1: {}
+ 
++  is-fs-case-sensitive@2.0.0: {}
++
+   is-interactive@2.0.0: {}
+ 
+   is-unicode-supported@1.3.0: {}
+@@ -2115,9 +2213,16 @@ snapshots:
+     dependencies:
+       mimic-function: 5.0.1
+ 
+-  openai@6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)):
++  openai@6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.5.1):
++    optionalDependencies:
++      ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
++      zod: 4.5.1
++
++  openai@7.8.0(undici@7.29.0)(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.5.1):
+     optionalDependencies:
++      undici: 7.29.0
+       ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
++      zod: 4.5.1
+ 
+   ora@8.2.0:
+     dependencies:
+@@ -2131,7 +2236,7 @@ snapshots:
+       string-width: 7.2.0
+       strip-ansi: 7.1.2
+ 
+-  ox@0.12.1(typescript@5.9.3):
++  ox@0.12.1(typescript@5.9.3)(zod@4.5.1):
+     dependencies:
+       '@adraffy/ens-normalize': 1.11.1
+       '@noble/ciphers': 1.3.0
+@@ -2139,7 +2244,7 @@ snapshots:
+       '@noble/hashes': 1.8.0
+       '@scure/bip32': 1.7.0
+       '@scure/bip39': 1.6.0
+-      abitype: 1.2.3(typescript@5.9.3)
++      abitype: 1.2.3(typescript@5.9.3)(zod@4.5.1)
+       eventemitter3: 5.0.1
+     optionalDependencies:
+       typescript: 5.9.3
+@@ -2180,6 +2285,10 @@ snapshots:
+ 
+   punycode@2.3.1: {}
+ 
++  pusher-js@8.6.0:
++    dependencies:
++      tweetnacl: 1.0.3
++
+   rc@1.2.8:
+     dependencies:
+       deep-extend: 0.6.0
+@@ -2253,6 +2362,8 @@ snapshots:
+ 
+   semver@7.7.4: {}
+ 
++  semver@7.8.5: {}
++
+   siginfo@2.0.0: {}
+ 
+   signal-exit@4.1.0: {}
+@@ -2371,6 +2482,8 @@ snapshots:
+ 
+   undici-types@6.21.0: {}
+ 
++  undici@7.29.0: {}
++
+   uri-js@4.4.1:
+     dependencies:
+       punycode: 2.3.1
+@@ -2388,15 +2501,15 @@ snapshots:
+ 
+   valid-url@1.0.9: {}
+ 
+-  viem@2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6):
++  viem@2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.5.1):
+     dependencies:
+       '@noble/curves': 1.9.1
+       '@noble/hashes': 1.8.0
+       '@scure/bip32': 1.7.0
+       '@scure/bip39': 1.6.0
+-      abitype: 1.2.3(typescript@5.9.3)
++      abitype: 1.2.3(typescript@5.9.3)(zod@4.5.1)
+       isows: 1.0.7(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+-      ox: 0.12.1(typescript@5.9.3)
++      ox: 0.12.1(typescript@5.9.3)(zod@4.5.1)
+       ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+     optionalDependencies:
+       typescript: 5.9.3
+@@ -2497,3 +2610,9 @@ snapshots:
+       utf-8-validate: 6.0.6
+ 
+   yaml@2.8.2: {}
++
++  zod-to-json-schema@3.25.2(zod@4.5.1):
++    dependencies:
++      zod: 4.5.1
++
++  zod@4.5.1: {}
+diff --git a/src/integrations/composio.ts b/src/integrations/composio.ts
+new file mode 100644
+index 000000000..223911cb1
+--- /dev/null
++++ b/src/integrations/composio.ts
+@@ -0,0 +1,117 @@
++/**
++ * Composio Integration
++ *
++ * Thin wrapper around @composio/core so the automaton can authorize and call
++ * third-party toolkits (GitHub first) on behalf of a user.
++ *
++ * Requires COMPOSIO_API_KEY in the environment — create one at
++ * https://platform.composio.dev. Composio provisions the OAuth app on first
++ * use, so no auth config has to be set up by hand.
++ */
++
++import { Composio } from "@composio/core";
++import type { ConnectedAccountRetrieveResponse, ConnectionRequest } from "@composio/core";
++import { createLogger } from "../observability/logger.js";
++
++const logger = createLogger("composio");
++
++export const GITHUB_TOOLKIT = "github";
++
++/** How long `connectToolkit` waits for the user to finish OAuth, in ms. */
++const DEFAULT_CONNECT_TIMEOUT_MS = 180_000;
++
++let client: Composio | null = null;
++
++/**
++ * Lazily construct the shared Composio client.
++ * Throws if COMPOSIO_API_KEY is missing so callers fail loudly at the boundary.
++ */
++export function getComposio(): Composio {
++  if (!client) {
++    const apiKey = process.env.COMPOSIO_API_KEY;
++    if (!apiKey) {
++      throw new Error(
++        "COMPOSIO_API_KEY is not set. Create a key at https://platform.composio.dev and export it before starting the automaton."
++      );
++    }
++    client = new Composio({ apiKey });
++  }
++  return client;
++}
++
++/** Reset the cached client. Useful in tests and after a key rotation. */
++export function resetComposio(): void {
++  client = null;
++}
++
++/**
++ * True when `userId` already holds an ACTIVE connection for `toolkit`.
++ * Check this before calling tools — execution against a missing or expired
++ * connection fails at the provider, not at the SDK.
++ */
++export async function isConnected(userId: string, toolkit: string = GITHUB_TOOLKIT): Promise<boolean> {
++  const accounts = await getComposio().connectedAccounts.list({
++    userIds: [userId],
++    toolkitSlugs: [toolkit],
++    statuses: ["ACTIVE"],
++    limit: 1,
++  });
++  return accounts.items.length > 0;
++}
++
++/**
++ * Begin an OAuth flow for `toolkit`.
++ * Returns the connection request — surface `redirectUrl` to the user, then
++ * await `waitForConnection()` on the same object.
++ */
++export async function beginAuthorization(
++  userId: string,
++  toolkit: string = GITHUB_TOOLKIT
++): Promise<ConnectionRequest> {
++  const request = await getComposio().toolkits.authorize(userId, toolkit);
++  logger.info(`Authorize ${toolkit} for ${userId}: ${request.redirectUrl ?? "(no redirect required)"}`);
++  return request;
++}
++
++/**
++ * Authorize `toolkit` and block until the connection goes ACTIVE.
++ * No-op fast path when the user is already connected.
++ */
++export async function connectToolkit(
++  userId: string,
++  toolkit: string = GITHUB_TOOLKIT,
++  timeoutMs: number = DEFAULT_CONNECT_TIMEOUT_MS
++): Promise<ConnectedAccountRetrieveResponse> {
++  const request = await beginAuthorization(userId, toolkit);
++  const account = await request.waitForConnection(timeoutMs);
++  logger.info(`Connected ${toolkit} for ${userId} (account ${account.id})`);
++  return account;
++}
++
++/** Slugs of the tools available for a toolkit, e.g. GITHUB_CREATE_AN_ISSUE. */
++export async function listToolSlugs(toolkit: string = GITHUB_TOOLKIT, limit = 50): Promise<string[]> {
++  const tools = await getComposio().tools.getRawComposioTools({ toolkits: [toolkit], limit });
++  return tools.map((tool) => tool.slug);
++}
++
++/**
++ * Execute a Composio tool as `userId` and return its payload.
++ * Throws on provider-side failure so callers do not have to branch on
++ * `successful` at every call site.
++ */
++export async function executeTool(
++  userId: string,
++  slug: string,
++  args: Record<string, unknown> = {}
++): Promise<Record<string, unknown>> {
++  const result = await getComposio().tools.execute(slug, { userId, arguments: args });
++  if (!result.successful) {
++    throw new Error(`Composio tool ${slug} failed: ${result.error ?? "unknown error"}`);
++  }
++  return result.data;
++}
++
++/** Convenience: the authenticated GitHub user for this connection. */
++export async function getGithubUser(userId: string): Promise<Record<string, unknown>> {
++  return executeTool(userId, "GITHUB_GET_THE_AUTHENTICATED_USER");
++}

@@ -1,0 +1,28 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 67c0251e4..1c849f977 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -28,7 +28,7 @@ jobs:
+         timeout-minutes: 10
+         run: |
+           set +e
+-          timeout 180 pnpm test -- --grep "security|injection|policy|financial"
++          timeout 180 pnpm test --testNamePattern "security|injection|policy|financial"
+           RC=$?
+           set -e
+           if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
+diff --git a/package.json b/package.json
+index 4beae2b0c..dd222862e 100644
+--- a/package.json
++++ b/package.json
+@@ -43,8 +43,8 @@
+     "test": "vitest run",
+     "typecheck": "tsc --noEmit",
+     "test:coverage": "vitest run --coverage",
+-    "test:security": "vitest run --grep 'security|injection|policy'",
+-    "test:financial": "vitest run --grep 'financial|spend|treasury'",
++    "test:security": "vitest run --testNamePattern 'security|injection|policy'",
++    "test:financial": "vitest run --testNamePattern 'financial|spend|treasury'",
+     "test:ci": "vitest run --reporter=verbose",
+     "clean": "rm -rf dist && pnpm -r clean"
+   },

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@composio/core':
+        specifier: ^0.18.1
+        version: 0.18.1(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.1)
       '@solana/web3.js':
         specifier: ^1.98.0
         version: 1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
@@ -40,7 +43,7 @@ importers:
         version: 1.0.21
       openai:
         specifier: ^6.24.0
-        version: 6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+        version: 6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.1)
       ora:
         specifier: ^8.0.0
         version: 8.2.0
@@ -58,7 +61,7 @@ importers:
         version: 2.4.0
       viem:
         specifier: ^2.44.2
-        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.1)
       yaml:
         specifier: ^2.4.0
         version: 2.8.2
@@ -86,7 +89,7 @@ importers:
         version: 5.6.2
       viem:
         specifier: ^2.44.2
-        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        version: 2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.1)
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -109,6 +112,24 @@ packages:
   '@babel/runtime@7.28.6':
     resolution: {integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==}
     engines: {node: '>=6.9.0'}
+
+  '@cfworker/json-schema@4.1.1':
+    resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
+
+  '@composio/client@0.1.0-alpha.76':
+    resolution: {integrity: sha512-MXC5JGRVdiQ4EgLricy9o/mqBa1+1T7wHFZ6Q4ZJkrjzZqOMvxTgy21Zlb5J/1oGkB2bg9UDzpH8PkXCp/D4zA==}
+
+  '@composio/core@0.18.1':
+    resolution: {integrity: sha512-VEg6F92cMG/4uhRfX6O4SRd+0Pnd4L67tF+Az/EXQ/+aPfDasW5GMTzkiSUSArGDyiMfEsLUYaTYizfnEw2usw==}
+    engines: {node: '>=22.22.3'}
+    peerDependencies:
+      zod: '>=3.25.76 <5'
+
+  '@composio/json-schema-to-zod@0.3.2':
+    resolution: {integrity: sha512-TUUzu4uQH6esokVd6LD0SK4oIz8WaYRtU0cnuj0rmxbiHS0VbhN1qdvj2gIvrIWDdNyvQUIalO63YT/lNx46Gw==}
+    engines: {node: '>=22.22.3'}
+    peerDependencies:
+      zod: '>=3.25.76 <5'
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -634,6 +655,9 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
+  '@types/json-schema@7.0.15':
+    resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
@@ -826,6 +850,10 @@ packages:
     resolution: {integrity: sha512-ReEBKkIfe4ya47wlPYf/gu5ib6yUG0/Aez0JQZQz94kiWtRQvZIQbTiehsnwHvLSWJnQdhVeqYue7Id1dKr0qw==}
     engines: {node: '>=10'}
 
+  dequal@2.0.3:
+    resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
+    engines: {node: '>=6'}
+
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
@@ -936,6 +964,9 @@ packages:
   is-extendable@0.1.1:
     resolution: {integrity: sha512-5BMULNob1vgFX6EjQw5izWDxrecWK9AM72rugNr0TFldMOi0fj6Jk+zeKIt0xGj4cEfQIJth4w3OKWOJ4f+AFw==}
     engines: {node: '>=0.10.0'}
+
+  is-fs-case-sensitive@2.0.0:
+    resolution: {integrity: sha512-JoCsyGITdYPM+pUbeMQ4IiEuQ4wjPdeWORlG7n644isewbcxiQIr+9gmF5k7UabTP/jLBRkbgydEamR7JZBKHA==}
 
   is-interactive@2.0.0:
     resolution: {integrity: sha512-qP1vozQRI+BMOPcjFzrjXuQvdak2pHNUMZoeG2eRbiSqyvbEf/wQtEOTOX1guk6E3t36RkaqiSt8A/6YElNxLQ==}
@@ -1053,6 +1084,30 @@ packages:
       zod:
         optional: true
 
+  openai@7.13.0:
+    resolution: {integrity: sha512-KDg/mQgbsDoj0JLL1kVikj5Omz+MuU9/Hn674Z+FFaSs5aFf7mcpLu8vsB1FfSW4q/erMhCza7HZgXN0cPKH0w==}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
+      '@smithy/hash-node': '>=4.3.0 <5'
+      '@smithy/signature-v4': '>=5.4.0 <6'
+      undici: '>=5 <9'
+      ws: ^8.21.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-node':
+        optional: true
+      '@smithy/hash-node':
+        optional: true
+      '@smithy/signature-v4':
+        optional: true
+      undici:
+        optional: true
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   ora@8.2.0:
     resolution: {integrity: sha512-weP+BZ8MVNnlCm8c0Qdc1WSWq4Qn7I+9CJGm7Qali6g44e/PUzbjNqJX5NJ9ljlNMosfJvg1fKEGILklK9cwnw==}
     engines: {node: '>=18'}
@@ -1091,6 +1146,9 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  pusher-js@8.6.0:
+    resolution: {integrity: sha512-wShJPfCS/kYkCBVzVW67wa9cnQIgHTszEK2XHNrFkOgGruuGw081aERAxfRjfdFU+WcIt8x6dvbwkTW4iZuQ8Q==}
+
   rc@1.2.8:
     resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
     hasBin: true
@@ -1123,6 +1181,11 @@ packages:
 
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  semver@7.8.5:
+    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -1418,6 +1481,14 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
 
+  zod-to-json-schema@3.25.2:
+    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
+    peerDependencies:
+      zod: ^3.25.28 || ^4
+
+  zod@4.6.1:
+    resolution: {integrity: sha512-341aRWQsve0rvronKNTqZpjmzdbUDlFuzHaI/XLg/Ej82qffDJRRfBTCuv7+9q/rMjB6LSLyEBnW4InJeMtt/Q==}
+
 snapshots:
 
   '@adraffy/ens-normalize@1.10.1': {}
@@ -1425,6 +1496,35 @@ snapshots:
   '@adraffy/ens-normalize@1.11.1': {}
 
   '@babel/runtime@7.28.6': {}
+
+  '@cfworker/json-schema@4.1.1': {}
+
+  '@composio/client@0.1.0-alpha.76': {}
+
+  '@composio/core@0.18.1(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.1)':
+    dependencies:
+      '@composio/client': 0.1.0-alpha.76
+      '@composio/json-schema-to-zod': 0.3.2(zod@4.6.1)
+      '@types/json-schema': 7.0.15
+      is-fs-case-sensitive: 2.0.0
+      openai: 7.13.0(undici@7.29.0)(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.1)
+      picocolors: 1.1.1
+      pusher-js: 8.6.0
+      semver: 7.8.5
+      undici: 7.29.0
+      zod: 4.6.1
+      zod-to-json-schema: 3.25.2(zod@4.6.1)
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
+      - ws
+
+  '@composio/json-schema-to-zod@0.3.2(zod@4.6.1)':
+    dependencies:
+      '@cfworker/json-schema': 4.1.1
+      dequal: 2.0.3
+      zod: 4.6.1
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
@@ -1776,6 +1876,8 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
+  '@types/json-schema@7.0.15': {}
+
   '@types/node@12.20.55': {}
 
   '@types/node@20.19.33':
@@ -1836,9 +1938,10 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 1.2.0
 
-  abitype@1.2.3(typescript@5.9.3):
+  abitype@1.2.3(typescript@5.9.3)(zod@4.6.1):
     optionalDependencies:
       typescript: 5.9.3
+      zod: 4.6.1
 
   aes-js@4.0.0-beta.5: {}
 
@@ -1967,6 +2070,8 @@ snapshots:
   deep-extend@0.6.0: {}
 
   delay@5.0.0: {}
+
+  dequal@2.0.3: {}
 
   detect-libc@2.1.2: {}
 
@@ -2111,6 +2216,8 @@ snapshots:
 
   is-extendable@0.1.1: {}
 
+  is-fs-case-sensitive@2.0.0: {}
+
   is-interactive@2.0.0: {}
 
   is-unicode-supported@1.3.0: {}
@@ -2202,9 +2309,16 @@ snapshots:
     dependencies:
       mimic-function: 5.0.1
 
-  openai@6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)):
+  openai@6.24.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.1):
     optionalDependencies:
       ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+      zod: 4.6.1
+
+  openai@7.13.0(undici@7.29.0)(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.1):
+    optionalDependencies:
+      undici: 7.29.0
+      ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+      zod: 4.6.1
 
   ora@8.2.0:
     dependencies:
@@ -2218,7 +2332,7 @@ snapshots:
       string-width: 7.2.0
       strip-ansi: 7.1.2
 
-  ox@0.12.1(typescript@5.9.3):
+  ox@0.12.1(typescript@5.9.3)(zod@4.6.1):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -2226,7 +2340,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.6.1)
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 5.9.3
@@ -2266,6 +2380,10 @@ snapshots:
       once: 1.4.0
 
   punycode@2.3.1: {}
+
+  pusher-js@8.6.0:
+    dependencies:
+      tweetnacl: 1.0.3
 
   rc@1.2.8:
     dependencies:
@@ -2339,6 +2457,8 @@ snapshots:
       kind-of: 6.0.3
 
   semver@7.7.4: {}
+
+  semver@7.8.5: {}
 
   siginfo@2.0.0: {}
 
@@ -2477,15 +2597,15 @@ snapshots:
 
   valid-url@1.0.9: {}
 
-  viem@2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6):
+  viem@2.45.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.1):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.6.1)
       isows: 1.0.7(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
-      ox: 0.12.1(typescript@5.9.3)
+      ox: 0.12.1(typescript@5.9.3)(zod@4.6.1)
       ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
     optionalDependencies:
       typescript: 5.9.3
@@ -2591,3 +2711,9 @@ snapshots:
       utf-8-validate: 6.0.6
 
   yaml@2.8.2: {}
+
+  zod-to-json-schema@3.25.2(zod@4.6.1):
+    dependencies:
+      zod: 4.6.1
+
+  zod@4.6.1: {}

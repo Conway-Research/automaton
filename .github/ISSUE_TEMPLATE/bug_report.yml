@@ -1,0 +1,138 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+        **Security vulnerabilities**: Do NOT use this template. See [SECURITY.md](https://github.com/Conway-Research/automaton/blob/main/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: Automaton Version
+      description: "Output of `pnpm start -- --version` or check package.json"
+      placeholder: "0.2.1"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: "Output of `node --version`"
+      placeholder: "20.x.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which subsystem is affected?
+      options:
+        - Agent Loop / ReAct
+        - Tools (built-in)
+        - Policy Engine
+        - Memory System
+        - Inference / Model Routing
+        - Financial / Credits / Payments
+        - Identity / Wallet / SIWE
+        - Replication / Child Agents
+        - Self-Modification
+        - Skills
+        - Social / Messaging
+        - Heartbeat / Scheduler
+        - Observability / Logging
+        - Conway Cloud API
+        - CLI
+        - Configuration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the behavior.
+      placeholder: |
+        1. Configure automaton with...
+        2. Run `pnpm start --...`
+        3. Agent executes tool...
+        4. Observe error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages, stack traces, or log output.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: financial-impact
+    attributes:
+      label: Financial Impact
+      description: Did this bug result in unexpected spending, lost funds, or credit issues?
+      placeholder: "e.g., 'Agent spent $12 on inference despite budget limit of $5' or 'No financial impact'"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste relevant log output. Redact API keys and wallet private keys!
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant parts of `~/.automaton/automaton.json`. Redact sensitive values!
+      render: json
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have redacted sensitive information (API keys, private keys, wallet addresses)
+          required: true
+        - label: This is not a security vulnerability (if so, see SECURITY.md)
+          required: true

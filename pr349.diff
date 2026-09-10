@@ -1,0 +1,863 @@
+diff --git a/.github/ISSUE_TEMPLATE/bug_report.yml b/.github/ISSUE_TEMPLATE/bug_report.yml
+new file mode 100644
+index 000000000..1cc6cafb8
+--- /dev/null
++++ b/.github/ISSUE_TEMPLATE/bug_report.yml
+@@ -0,0 +1,138 @@
++name: Bug Report
++description: Report a bug or unexpected behavior
++title: "[Bug]: "
++labels: ["bug", "triage"]
++body:
++  - type: markdown
++    attributes:
++      value: |
++        Thanks for reporting a bug! Please fill out the sections below.
++        **Security vulnerabilities**: Do NOT use this template. See [SECURITY.md](https://github.com/Conway-Research/automaton/blob/main/SECURITY.md).
++
++  - type: input
++    id: version
++    attributes:
++      label: Automaton Version
++      description: "Output of `pnpm start -- --version` or check package.json"
++      placeholder: "0.2.1"
++    validations:
++      required: true
++
++  - type: input
++    id: node-version
++    attributes:
++      label: Node.js Version
++      description: "Output of `node --version`"
++      placeholder: "20.x.x"
++    validations:
++      required: true
++
++  - type: dropdown
++    id: os
++    attributes:
++      label: Operating System
++      options:
++        - macOS
++        - Linux
++        - Windows
++        - Docker
++        - Other
++    validations:
++      required: true
++
++  - type: dropdown
++    id: area
++    attributes:
++      label: Area
++      description: Which subsystem is affected?
++      options:
++        - Agent Loop / ReAct
++        - Tools (built-in)
++        - Policy Engine
++        - Memory System
++        - Inference / Model Routing
++        - Financial / Credits / Payments
++        - Identity / Wallet / SIWE
++        - Replication / Child Agents
++        - Self-Modification
++        - Skills
++        - Social / Messaging
++        - Heartbeat / Scheduler
++        - Observability / Logging
++        - Conway Cloud API
++        - CLI
++        - Configuration
++        - Other
++    validations:
++      required: true
++
++  - type: textarea
++    id: description
++    attributes:
++      label: Description
++      description: A clear description of the bug.
++    validations:
++      required: true
++
++  - type: textarea
++    id: reproduction
++    attributes:
++      label: Steps to Reproduce
++      description: Step-by-step instructions to reproduce the behavior.
++      placeholder: |
++        1. Configure automaton with...
++        2. Run `pnpm start --...`
++        3. Agent executes tool...
++        4. Observe error...
++    validations:
++      required: true
++
++  - type: textarea
++    id: expected
++    attributes:
++      label: Expected Behavior
++      description: What did you expect to happen?
++    validations:
++      required: true
++
++  - type: textarea
++    id: actual
++    attributes:
++      label: Actual Behavior
++      description: What actually happened? Include error messages, stack traces, or log output.
++      render: shell
++    validations:
++      required: true
++
++  - type: textarea
++    id: financial-impact
++    attributes:
++      label: Financial Impact
++      description: Did this bug result in unexpected spending, lost funds, or credit issues?
++      placeholder: "e.g., 'Agent spent $12 on inference despite budget limit of $5' or 'No financial impact'"
++
++  - type: textarea
++    id: logs
++    attributes:
++      label: Relevant Logs
++      description: Paste relevant log output. Redact API keys and wallet private keys!
++      render: shell
++
++  - type: textarea
++    id: config
++    attributes:
++      label: Configuration
++      description: Relevant parts of `~/.automaton/automaton.json`. Redact sensitive values!
++      render: json
++
++  - type: checkboxes
++    id: checklist
++    attributes:
++      label: Checklist
++      options:
++        - label: I have searched existing issues and this is not a duplicate
++          required: true
++        - label: I have redacted sensitive information (API keys, private keys, wallet addresses)
++          required: true
++        - label: This is not a security vulnerability (if so, see SECURITY.md)
++          required: true
+diff --git a/.github/ISSUE_TEMPLATE/config.yml b/.github/ISSUE_TEMPLATE/config.yml
+new file mode 100644
+index 000000000..94ad41a20
+--- /dev/null
++++ b/.github/ISSUE_TEMPLATE/config.yml
+@@ -0,0 +1,8 @@
++blank_issues_enabled: false
++contact_links:
++  - name: Documentation
++    url: https://github.com/Conway-Research/automaton/blob/main/DOCUMENTATION.md
++    about: Check the documentation before opening an issue
++  - name: Security Policy
++    url: https://github.com/Conway-Research/automaton/blob/main/SECURITY.md
++    about: Report security vulnerabilities responsibly
+diff --git a/.github/ISSUE_TEMPLATE/feature_request.yml b/.github/ISSUE_TEMPLATE/feature_request.yml
+new file mode 100644
+index 000000000..45bb9c322
+--- /dev/null
++++ b/.github/ISSUE_TEMPLATE/feature_request.yml
+@@ -0,0 +1,83 @@
++name: Feature Request
++description: Suggest a new feature or capability
++title: "[Feature]: "
++labels: ["enhancement"]
++body:
++  - type: markdown
++    attributes:
++      value: |
++        Thanks for suggesting a feature! Automaton is a sovereign agent — features should help it **earn its existence**, **stay safe**, or **coordinate with others**.
++
++  - type: textarea
++    id: problem
++    attributes:
++      label: Problem Statement
++      description: What problem does this solve? What can't the agent do today?
++      placeholder: "The agent currently cannot..."
++    validations:
++      required: true
++
++  - type: textarea
++    id: solution
++    attributes:
++      label: Proposed Solution
++      description: How should this work? Be specific about behavior, not implementation.
++    validations:
++      required: true
++
++  - type: dropdown
++    id: area
++    attributes:
++      label: Area
++      description: Which subsystem does this relate to?
++      options:
++        - Tools (new tool or tool improvement)
++        - Inference / Model Provider
++        - Memory System
++        - Financial / Payments
++        - Identity / Wallet
++        - Replication
++        - Self-Modification
++        - Skills (new skill or skill system)
++        - Social / Multi-Agent
++        - Heartbeat / Scheduler
++        - Policy Engine
++        - Observability
++        - Conway Cloud API
++        - CLI
++        - Other
++    validations:
++      required: true
++
++  - type: dropdown
++    id: impact
++    attributes:
++      label: Impact
++      description: How does this affect the agent's ability to survive?
++      options:
++        - Survival Critical — agent cannot earn existence without this
++        - High Value — significantly improves agent capabilities
++        - Quality of Life — nice to have, not blocking
++        - Developer Experience — improves contributor workflow
++
++  - type: textarea
++    id: alternatives
++    attributes:
++      label: Alternatives Considered
++      description: What other approaches did you consider?
++
++  - type: textarea
++    id: additional
++    attributes:
++      label: Additional Context
++      description: Links, references, examples from other projects
++
++  - type: checkboxes
++    id: checklist
++    attributes:
++      label: Checklist
++      options:
++        - label: I have searched existing issues and this is not a duplicate
++          required: true
++        - label: I understand this is an open-source project and features may take time
++          required: true
+diff --git a/.github/ISSUE_TEMPLATE/security_vulnerability.yml b/.github/ISSUE_TEMPLATE/security_vulnerability.yml
+new file mode 100644
+index 000000000..36ae226d1
+--- /dev/null
++++ b/.github/ISSUE_TEMPLATE/security_vulnerability.yml
+@@ -0,0 +1,82 @@
++name: Security Vulnerability
++description: Report a security vulnerability (private disclosure)
++title: "[Security]: "
++labels: ["security", "triage"]
++body:
++  - type: markdown
++    attributes:
++      value: |
++        **Thank you for responsibly disclosing a security vulnerability.**
++        
++        This issue will be treated with urgency. Please provide as much detail as possible.
++        For critical vulnerabilities (financial loss, key extraction), consider using
++        [GitHub's private vulnerability reporting](https://github.com/Conway-Research/automaton/security/advisories/new)
++        instead of a public issue.
++
++  - type: dropdown
++    id: severity
++    attributes:
++      label: Severity
++      description: How severe is this vulnerability?
++      options:
++        - Critical — financial loss, RCE, private key extraction
++        - High — auth bypass, injection, data leak
++        - Medium — DoS, logic errors
++        - Low — informational
++    validations:
++      required: true
++
++  - type: dropdown
++    id: cwe
++    attributes:
++      label: CWE Category
++      description: Common Weakness Enumeration category (if known)
++      options:
++        - CWE-78: OS Command Injection
++        - CWE-89: SQL Injection
++        - CWE-918: Server-Side Request Forgery
++        - CWE-367: TOCTOU Race Condition
++        - CWE-200: Information Exposure
++        - CWE-287: Improper Authentication
++        - CWE-862: Missing Authorization
++        - Other / Not sure
++
++  - type: textarea
++    id: description
++    attributes:
++      label: Vulnerability Description
++      description: What is the vulnerability? What can an attacker do?
++    validations:
++      required: true
++
++  - type: textarea
++    id: reproduction
++    attributes:
++      label: Steps to Reproduce
++      description: How can this be reproduced?
++    validations:
++      required: true
++
++  - type: textarea
++    id: impact
++    attributes:
++      label: Impact Assessment
++      description: What is the worst-case impact? Can this lead to financial loss?
++    validations:
++      required: true
++
++  - type: textarea
++    id: fix
++    attributes:
++      label: Suggested Fix
++      description: Do you have a suggestion for how to fix this?
++
++  - type: checkboxes
++    id: checklist
++    attributes:
++      label: Disclosure
++      options:
++        - label: I have not publicly disclosed this vulnerability
++          required: true
++        - label: I agree to coordinated disclosure (fix first, then publish)
++          required: true
+diff --git a/.github/pull_request_template.md b/.github/pull_request_template.md
+new file mode 100644
+index 000000000..4ef288a4e
+--- /dev/null
++++ b/.github/pull_request_template.md
+@@ -0,0 +1,58 @@
++## Description
++
++<!-- What does this PR do? Why is it needed? -->
++
++## Related Issues
++
++<!-- Link related issues: Fixes #123, Relates to #456 -->
++
++## Type of Change
++
++- [ ] Bug fix (non-breaking change that fixes an issue)
++- [ ] New feature (non-breaking change that adds functionality)
++- [ ] Security fix (patches a vulnerability)
++- [ ] Breaking change (fix or feature that would cause existing functionality to change)
++- [ ] Documentation update
++- [ ] Test addition/improvement
++- [ ] Refactor (no functional change)
++
++## Changes
++
++<!-- List the key changes made -->
++
++-
++-
++
++## Testing
++
++- [ ] `pnpm test` passes
++- [ ] `pnpm typecheck` passes
++- [ ] `pnpm test:security` passes
++- [ ] New tests added for new functionality
++- [ ] Manual testing performed (describe below)
++
++### Manual Testing
++
++<!-- Describe any manual testing you performed -->
++
++## Security Checklist
++
++- [ ] No secrets/keys committed
++- [ ] No new injection vectors introduced
++- [ ] Policy engine rules updated (if adding tools)
++- [ ] Input validation added for external data
++- [ ] Financial operations reviewed (if applicable)
++
++## Documentation
++
++- [ ] ARCHITECTURE.md updated (if adding/changing subsystems)
++- [ ] DOCUMENTATION.md updated (if changing user-facing behavior)
++- [ ] Inline comments for complex logic
++
++## Screenshots / Terminal Output
++
++<!-- If applicable, add screenshots or terminal output -->
++
++## Additional Notes
++
++<!-- Anything else reviewers should know -->
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 000000000..6b3c90c49
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,72 @@
++# Changelog
++
++All notable changes to Automaton will be documented in this file.
++
++The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
++and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
++
++## [Unreleased]
++
++### Added
++- SECURITY.md with responsible disclosure policy
++- CONTRIBUTING.md with development guidelines
++- GitHub issue templates (bug report, feature request, security vulnerability)
++- Pull request template
++- This CHANGELOG
++
++## [0.2.1] - 2026-05
++
++### Added
++- Internal RL environments for faster iteration
++- Solana blockchain support
++- Human-readable terminal output
++- Discovery improvements (pagination, JSON output, timeout tuning)
++- Memory learning from tool errors
++- Configurable max turns per wake cycle
++
++### Fixed
++- SQL injection in state queries (CWE-89)
++- Shell injection in tool execution (CWE-78)
++- SSRF via tool parameters (CWE-918)
++- TOCTOU race in self-modification (CWE-367)
++
++### Security
++- Added comprehensive security test suite (`pnpm test:security`)
++- Policy engine audit logging with args hashing
++- Injection defense multi-layer protection
++
++## [0.2.0] - 2026-03
++
++### Added
++- Multi-worker orchestration
++- Ollama local model support
++- ERC-8004 on-chain identity registration
++- Agent discovery protocol
++- SOUL.md self-authored identity evolution
++- x402 payment protocol support
++- 5-tier memory system (working, episodic, semantic, procedural, relationship)
++- Heartbeat daemon with 11 built-in tasks
++- Policy engine with 6 rule categories
++- Self-modification with audit logging
++- Child agent replication with constitution propagation
++- Social messaging via relay
++- 57 built-in tools across 10 categories
++
++### Changed
++- Migrated to TypeScript 5.9 ESM
++- Upgraded to Node.js 20+
++
++## [0.1.0] - 2026-01
++
++### Added
++- Initial release
++- Basic agent loop (Think → Act → Observe)
++- Conway Cloud integration
++- Ethereum wallet generation
++- USDC payment on Base
++- Three-law constitution
++
++[Unreleased]: https://github.com/Conway-Research/automaton/compare/v0.2.1...HEAD
++[0.2.1]: https://github.com/Conway-Research/automaton/compare/v0.2.0...v0.2.1
++[0.2.0]: https://github.com/Conway-Research/automaton/compare/v0.1.0...v0.2.0
++[0.1.0]: https://github.com/Conway-Research/automaton/releases/tag/v0.1.0
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+new file mode 100644
+index 000000000..1b159d63b
+--- /dev/null
++++ b/CONTRIBUTING.md
+@@ -0,0 +1,291 @@
++# Contributing to Automaton
++
++Thank you for your interest in contributing to Automaton! This project is building sovereign AI agents that earn their own existence — and we need help making that safer, more capable, and more reliable.
++
++## Table of Contents
++
++- [Getting Started](#getting-started)
++- [Development Setup](#development-setup)
++- [Project Structure](#project-structure)
++- [Making Changes](#making-changes)
++- [Testing](#testing)
++- [Security Contributions](#security-contributions)
++- [Adding Skills](#adding-skills)
++- [Adding Inference Providers](#adding-inference-providers)
++- [Pull Request Process](#pull-request-process)
++- [Code Style](#code-style)
++- [Issue Guidelines](#issue-guidelines)
++
++## Getting Started
++
++### Prerequisites
++
++- **Node.js** ≥ 20
++- **pnpm** ≥ 10
++- **TypeScript** 5.9 (installed via pnpm)
++- **Git**
++
++### Quick Setup
++
++```bash
++# Fork the repo on GitHub, then:
++git clone https://github.com/<your-username>/automaton.git
++cd automaton
++pnpm install
++pnpm test
++```
++
++## Development Setup
++
++### Conway Cloud (Required for Full Testing)
++
++Most features require a Conway Cloud account:
++
++1. Visit [conway.cloud](https://conway.cloud)
++2. Create an account and fund with USDC on Base
++3. Run `pnpm start` — the setup wizard will guide you through SIWE authentication
++
++### Local-Only Mode
++
++For development of core agent logic without Conway Cloud:
++
++```bash
++# Set up a local model (e.g., via Ollama)
++# Configure in ~/.automaton/automaton.json
++```
++
++Note: Some features (financial operations, on-chain identity, inference routing) require Conway Cloud.
++
++## Project Structure
++
++```
++src/
++├── index.ts              # Entry point, CLI, main run loop
++├── types.ts              # Shared type definitions (~1400 lines)
++├── config.ts             # Configuration loading and merging
++├── agent/                # Core agent loop and tools
++│   ├── loop.ts           # ReAct loop (10-step per-turn cycle)
++│   ├── tools.ts          # 57 built-in tool definitions
++│   ├── system-prompt.ts  # Multi-layered prompt builder
++│   ├── policy-engine.ts  # Centralized policy evaluation
++│   └── injection-defense.ts  # Prompt injection protection
++├── conway/               # Conway Cloud API client
++├── identity/             # Ethereum wallet + SIWE
++├── inference/            # Model routing and budget tracking
++├── memory/               # 5-tier memory system
++├── heartbeat/            # Background cron daemon
++├── observability/        # Logging, metrics, alerts
++├── ollama/               # Local model support
++├── orchestration/        # Multi-worker orchestration
++├── replication/          # Child agent spawning
++├── self-mod/             # Code modification with audit
++├── skills/               # Pluggable skill system
++├── social/               # Agent-to-agent messaging
++├── state/                # SQLite database layer
++├── survival/             # Resource management
++└── __tests__/            # Test suite (897 tests)
++```
++
++## Making Changes
++
++### Branch Naming
++
++- `feat/<description>` — new features
++- `fix/<description>` — bug fixes
++- `security/<description>` — security fixes
++- `docs/<description>` — documentation
++- `test/<description>` — test additions/fixes
++- `refactor/<description>` — code restructuring
++
++### Commit Messages
++
++We use [Conventional Commits](https://www.conventionalcommits.org/):
++
++```
++feat: add LiteLLM inference provider support
++fix: resolve TOCTOU race in self-modification file writes
++security: block shell metacharacters in tool exec parameters
++docs: add FAQ section to README
++test: add policy engine edge case tests for financial rules
++refactor: split types.ts into domain-specific modules
++```
++
++### What Needs to Happen in a PR
++
++1. **Tests pass**: `pnpm test`
++2. **Type check passes**: `pnpm typecheck`
++3. **Security tests pass**: `pnpm test:security`
++4. **New code has tests** (aim for the 60% coverage threshold minimum)
++5. **No secrets committed** — check for API keys, private keys, wallet addresses
++
++## Testing
++
++### Running Tests
++
++```bash
++# All tests
++pnpm test
++
++# With coverage
++pnpm test:coverage
++
++# Security-specific tests
++pnpm test:security
++
++# Financial-specific tests
++pnpm test:financial
++
++# Watch mode
++pnpm test -- --watch
++```
++
++### Writing Tests
++
++Tests live in `src/__tests__/` and use [Vitest](https://vitest.dev/):
++
++```typescript
++import { describe, it, expect } from 'vitest';
++import { myFunction } from '../my-module';
++
++describe('myFunction', () => {
++  it('should handle normal input', () => {
++    expect(myFunction('input')).toBe('expected');
++  });
++
++  it('should handle edge cases', () => {
++    expect(myFunction('')).toBeNull();
++  });
++
++  it('should reject malicious input', () => {
++    expect(() => myFunction('; rm -rf /')).toThrow();
++  });
++});
++```
++
++**Test categories to consider:**
++- Happy path
++- Edge cases (empty input, boundary values)
++- Error handling
++- Security (injection, bypass attempts)
++- Policy compliance
++
++## Security Contributions
++
++Security contributions are our highest priority. If you're fixing a vulnerability:
++
++1. **Read [SECURITY.md](SECURITY.md)** first
++2. **Do not open a public PR for unpatched vulnerabilities** — use private reporting
++3. For security hardening (not fixing a specific vulnerability), open a PR with the `security/` branch prefix
++4. Include test cases that demonstrate the vulnerability is fixed
++5. Document the CWE category if applicable
++
++### Security Test Patterns
++
++```typescript
++describe('security: my feature', () => {
++  it('should block shell injection', () => {
++    expect(() => myTool('; cat /etc/passwd')).toThrow(/forbidden/);
++  });
++
++  it('should block path traversal', () => {
++    expect(() => myTool('../../etc/passwd')).toThrow(/invalid path/i);
++  });
++
++  it('should enforce rate limits', () => {
++    for (let i = 0; i < 100; i++) myTool('normal');
++    expect(() => myTool('normal')).toThrow(/rate limit/i);
++  });
++});
++```
++
++## Adding Skills
++
++Skills are markdown files that teach the agent new capabilities:
++
++1. Create a new file in `skills/` (or wherever the skills system loads from)
++2. Follow the skill format documented in [DOCUMENTATION.md](DOCUMENTATION.md)
++3. Test that the agent can load and use the skill
++4. Ensure the skill doesn't introduce security vulnerabilities (especially around tool execution)
++
++## Adding Inference Providers
++
++To add a new LLM provider:
++
++1. Create a new file in `src/inference/` following the existing provider pattern
++2. Implement the provider interface
++3. Add configuration support in `types.ts`
++4. Add tests in `src/__tests__/inference/`
++5. Update ARCHITECTURE.md with the new provider
++
++## Pull Request Process
++
++1. **Fork** the repository
++2. **Create a branch** from `main`
++3. **Make your changes** with tests
++4. **Run the full test suite**: `pnpm test && pnpm typecheck && pnpm test:security`
++5. **Open a PR** with:
++   - Clear description of what changed and why
++   - Link to any related issues
++   - Screenshots/terminal output if applicable
++   - Checklist (see below)
++
++### PR Checklist
++
++- [ ] Tests pass (`pnpm test`)
++- [ ] Type check passes (`pnpm typecheck`)
++- [ ] Security tests pass (`pnpm test:security`)
++- [ ] New code has tests
++- [ ] No secrets/keys committed
++- [ ] Documentation updated (if applicable)
++- [ ] ARCHITECTURE.md updated (if adding/changing subsystems)
++- [ ] Commit messages follow Conventional Commits
++
++### Review Process
++
++- All PRs require at least one review
++- Security-related PRs require review from a maintainer
++- PRs that modify the policy engine or financial logic require extra scrutiny
++- Large PRs (>500 lines) should be broken into smaller, reviewable chunks
++
++## Code Style
++
++- **TypeScript strict mode**
++- **ESM** (no CommonJS)
++- **No `any` types** — use `unknown` and narrow
++- **Error handling**: wrap external calls in try/catch; never let errors propagate unhandled from tool execution
++- **Logging**: use the structured logger (`src/observability/logger.ts`), not `console.log`
++- **Naming**:
++  - `camelCase` for variables and functions
++  - `PascalCase` for types and classes
++  - `SCREAMING_SNAKE_CASE` for constants
++  - `kebab-case` for file names
++
++## Issue Guidelines
++
++### Bug Reports
++
++Include:
++- Automaton version (`pnpm start -- --version`)
++- Node.js version
++- OS
++- Steps to reproduce
++- Expected vs actual behavior
++- Relevant logs (redact API keys and wallet addresses)
++
++### Feature Requests
++
++Include:
++- Problem statement (what are you trying to do?)
++- Proposed solution
++- Alternatives considered
++- Impact (does this affect financial operations? security?)
++
++### Questions
++
++- Check [DOCUMENTATION.md](DOCUMENTATION.md) first
++- Search existing issues
++- Use GitHub Discussions (if enabled) for general questions
++
++## License
++
++By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+diff --git a/SECURITY.md b/SECURITY.md
+new file mode 100644
+index 000000000..7e2a4faad
+--- /dev/null
++++ b/SECURITY.md
+@@ -0,0 +1,83 @@
++# Security Policy
++
++## Supported Versions
++
++| Version | Supported          |
++| ------- | ------------------ |
++| 0.2.x   | :white_check_mark: |
++| < 0.2   | :x:                |
++
++## Reporting a Vulnerability
++
++Automaton manages real financial assets (ETH, USDC) and operates autonomously. Security vulnerabilities can have direct financial impact.
++
++**Please do NOT open a public GitHub issue for security vulnerabilities.**
++
++### How to Report
++
++1. **Email**: Send details to **security@conwayresearch.com** (if available) or use [GitHub's private vulnerability reporting](https://github.com/Conway-Research/automaton/security/advisories/new).
++2. **Include**:
++   - Description of the vulnerability
++   - Steps to reproduce
++   - Potential impact (especially financial)
++   - Suggested fix (if you have one)
++3. **PGP**: If sensitive, encrypt your report. (Key TBD — maintainer should publish one.)
++
++### What to Expect
++
++- **Acknowledgment** within 48 hours
++- **Triage** within 1 week — we'll assess severity and scope
++- **Fix timeline**:
++  - **Critical** (financial loss, RCE, key extraction): 24-72 hours
++  - **High** (auth bypass, injection, data leak): 1-2 weeks
++  - **Medium** (DoS, logic errors): 2-4 weeks
++  - **Low** (informational): next release
++- **Disclosure**: We follow coordinated disclosure. We'll work with you on timing. Public disclosure after a fix is released, or 90 days — whichever comes first.
++
++### Scope
++
++**In scope:**
++- Shell injection / command injection in tool execution
++- Authentication/authorization bypass (SIWE, Conway API)
++- Financial logic errors (credit manipulation, unauthorized transfers)
++- Private key extraction or exposure
++- Policy engine bypass (executing forbidden actions)
++- Injection attacks against the agent (prompt injection leading to policy violations)
++- SSRF / path traversal via tool parameters
++- Replication/child agent security (constitution bypass)
++- Memory/state corruption or unauthorized access
++
++**Out of scope:**
++- Social engineering against Conway Cloud infrastructure
++- Denial of service against Conway Cloud endpoints
++- Issues in third-party dependencies (report upstream)
++- Issues requiring physical access to the host machine
++- Self-modification behavior that follows the policy engine
++
++### Known Security Fixes
++
++The following security issues have been addressed in prior releases:
++
++| Issue | CWE | Description | Fix |
++|-------|-----|-------------|-----|
++| Shell injection in tool execution | CWE-78 | Unsanitized input in `exec` calls | Input validation + command blocklist |
++| SSRF via tool parameters | CWE-918 | Agent could be tricked into making requests to internal services | URL allowlist + private IP blocking |
++| TOCTOU race in file operations | CWE-367 | Time-of-check/time-of-use race in self-modification | Atomic operations + file locking |
++| SQL injection in state queries | CWE-89 | Unparameterized SQL in search functions | Parameterized queries |
++
++**Note**: CVE advisories for these fixes are pending (see [#323](https://github.com/Conway-Research/automaton/issues/323)).
++
++### Bug Bounty
++
++There is currently no formal bug bounty program. However, contributions that fix security vulnerabilities are highly valued and will be prominently credited. If a bug bounty program is established, past reporters will be retroactively considered.
++
++### Security Best Practices for Operators
++
++If you're running an Automaton instance:
++
++1. **Protect your config directory**: `~/.automaton/` contains your wallet keys. Ensure `chmod 700 ~/.automaton/` and `chmod 600 ~/.automaton/*.json`.
++2. **Use a dedicated wallet**: Don't use your main wallet. Fund the Automaton wallet with only what it needs.
++3. **Monitor treasury**: Set conservative `treasuryPolicy` limits in your config.
++4. **Review self-modifications**: If `selfModification.enabled` is true, review git diffs before pushing.
++5. **Run the policy engine test suite**: `pnpm test:security` before deploying.
++6. **Keep updated**: Security fixes are released promptly. Subscribe to releases.

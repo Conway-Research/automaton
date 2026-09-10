@@ -28,7 +28,7 @@ jobs:
         timeout-minutes: 10
         run: |
           set +e
-          timeout 180 pnpm test -- --grep "security|injection|policy|financial"
+          timeout 180 pnpm test --testNamePattern "security|injection|policy|financial"
           RC=$?
           set -e
           if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi

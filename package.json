@@ -44,12 +44,13 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage",
-    "test:security": "vitest run --grep 'security|injection|policy'",
-    "test:financial": "vitest run --grep 'financial|spend|treasury'",
+    "test:security": "vitest run --testNamePattern 'security|injection|policy'",
+    "test:financial": "vitest run --testNamePattern 'financial|spend|treasury'",
     "test:ci": "vitest run --reporter=verbose",
     "clean": "rm -rf dist && pnpm -r clean"
   },
   "dependencies": {
+    "@composio/core": "^0.18.1",
     "@solana/web3.js": "^1.98.0",
     "@types/better-sqlite3": "^7.6.0",
     "better-sqlite3": "^11.0.0",

@@ -1,0 +1,611 @@
+diff --git a/smoke-inference.mjs b/smoke-inference.mjs
+new file mode 100644
+index 000000000..8cd812a1c
+--- /dev/null
++++ b/smoke-inference.mjs
+@@ -0,0 +1,64 @@
++// Smoke test: verify dist/conway/inference.js routes a local model to Ollama
++// and a NIM model to NIM — without any Conway chat call.
++import { createInferenceClient } from "./dist/conway/inference.js";
++import { ModelRegistry } from "./dist/inference/registry.js";
++import { createDatabase } from "./dist/state/database.js";
++import fs from "node:fs";
++import os from "node:os";
++import path from "node:path";
++
++const tmpDb = path.join(os.tmpdir(), `automaton-smoke-${process.pid}.db`);
++if (fs.existsSync(tmpDb)) fs.unlinkSync(tmpDb);
++const db = createDatabase(tmpDb);
++
++const registry = new ModelRegistry(db.raw);
++registry.initialize();
++
++const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
++const nimBaseUrl = process.env.NIM_BASE_URL || "https://integrate.api.nvidia.com/v1";
++const nimApiKey = process.env.NVIDIA_NIM_API_KEY;
++
++function makeClient(defaultModel) {
++  return createInferenceClient({
++    apiUrl: "https://api.conway.tech",
++    apiKey: "should-not-be-used-for-local",
++    defaultModel,
++    maxTokens: 128,
++    ollamaBaseUrl,
++    nimBaseUrl,
++    nimApiKey,
++    getModelProvider: (id) => registry.get(id)?.provider,
++  });
++}
++
++async function trial(name, model, opts = {}) {
++  const client = makeClient(model);
++  const messages = [
++    { role: "system", content: "You are a terse assistant. Reply in one short sentence." },
++    { role: "user", content: "Say exactly: SMOKE_OK" },
++  ];
++  try {
++    const res = await client.chat(messages, { model, ...opts });
++    console.log(`[${name}] model=${res.model} finish=${res.finishReason} tokens=${res.usage?.totalTokens ?? "?"}`);
++    console.log(`[${name}] content: ${(res.message?.content || "").slice(0, 200)}`);
++    return res;
++  } catch (err) {
++    console.log(`[${name}] ERROR: ${err.message.slice(0, 300)}`);
++    return null;
++  }
++}
++
++const results = {};
++results.ollama = await trial("ollama", "qwen2.5:7b");
++if (nimApiKey) {
++  results.nim = await trial("nim", "meta/llama-3.1-8b-instruct");
++} else {
++  console.log("[nim] skipped (no NVIDIA_NIM_API_KEY)");
++}
++
++db.close();
++try { fs.unlinkSync(tmpDb); } catch {}
++
++const ok = !!results.ollama;
++console.log("\nSUMMARY:", ok ? "OLLAMA_PASS" : "OLLAMA_FAIL", results.nim ? "NIM_PASS" : "NIM_SKIP");
++process.exit(ok ? 0 : 1);
+diff --git a/src/agent/loop.ts b/src/agent/loop.ts
+index aad14278a..391231c2c 100644
+--- a/src/agent/loop.ts
++++ b/src/agent/loop.ts
+@@ -142,16 +142,26 @@ export async function runAgentLoop(
+       if (config.anthropicApiKey && !process.env.ANTHROPIC_API_KEY) {
+         process.env.ANTHROPIC_API_KEY = config.anthropicApiKey;
+       }
+-      // Conway Compute API is OpenAI-compatible. Use it as fallback when no
+-      // direct OpenAI key is available. The conwayApiKey is always present
+-      // (required for sandbox operations), so this ensures the orchestrator
+-      // can always make inference calls.
++      // NVIDIA NIM key: prefer env, fall back to config.
++      if (config.nimApiKey && !process.env.NVIDIA_NIM_API_KEY) {
++        process.env.NVIDIA_NIM_API_KEY = config.nimApiKey;
++      }
++      // Conway Compute API is OpenAI-compatible. Use it as a fallback ONLY when
++      // no direct OpenAI key is available AND no local/NIM path is configured.
+       if (config.conwayApiKey && !process.env.CONWAY_API_KEY) {
+         process.env.CONWAY_API_KEY = config.conwayApiKey;
+       }
+-      // If no OpenAI key is set but Conway key is available, use Conway as
+-      // the OpenAI provider (Conway Compute is OpenAI API-compatible).
+-      if (!process.env.OPENAI_API_KEY && config.conwayApiKey) {
++      // If no OpenAI key is set and no local/NIM model is the active model,
++      // fall back to Conway Compute (OpenAI-compatible). We intentionally do NOT
++      // do this when the active model routes to Ollama or NIM — those backends
++      // must not be silently redirected to Conway.
++      const activeModel = config.inferenceModel || "";
++      const looksLocalOrNim =
++        /^[a-z0-9._-]+:[a-z0-9._-]+$/i.test(activeModel) ||
++        activeModel.includes("/") ||
++        !!config.ollamaBaseUrl ||
++        !!config.nimApiKey;
++      if (!process.env.OPENAI_API_KEY && config.conwayApiKey && !looksLocalOrNim) {
+         process.env.OPENAI_API_KEY = config.conwayApiKey;
+         process.env.OPENAI_BASE_URL = `${config.conwayApiUrl}/v1`;
+       }
+diff --git a/src/config.ts b/src/config.ts
+index 67fa59305..10fc57085 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -61,6 +61,10 @@ export function loadConfig(): AutomatonConfig | null {
+       ...(raw.soulConfig ?? {}),
+     };
+ 
++    // NVIDIA NIM config — env vars take precedence over config file.
++    const nimBaseUrl = process.env.NIM_BASE_URL || raw.nimBaseUrl || DEFAULT_CONFIG.nimBaseUrl;
++    const nimApiKey = process.env.NVIDIA_NIM_API_KEY || raw.nimApiKey;
++
+     return {
+       ...DEFAULT_CONFIG,
+       ...raw,
+@@ -73,6 +77,8 @@ export function loadConfig(): AutomatonConfig | null {
+       modelStrategy,
+       soulConfig,
+       chainType: raw.chainType || "evm",
++      nimBaseUrl,
++      nimApiKey,
+     } as AutomatonConfig;
+   } catch {
+     return null;
+@@ -144,7 +150,9 @@ export function createConfig(params: {
+     openaiApiKey: params.openaiApiKey,
+     anthropicApiKey: params.anthropicApiKey,
+     ollamaBaseUrl: params.ollamaBaseUrl,
+-    inferenceModel: DEFAULT_CONFIG.inferenceModel || "gpt-5.2",
++    nimBaseUrl: DEFAULT_CONFIG.nimBaseUrl || "https://integrate.api.nvidia.com/v1",
++    nimApiKey: undefined, // set at runtime from NVIDIA_NIM_API_KEY env
++    inferenceModel: DEFAULT_CONFIG.inferenceModel || "qwen2.5:7b",
+     maxTokensPerTurn: DEFAULT_CONFIG.maxTokensPerTurn || 4096,
+     heartbeatConfigPath:
+       DEFAULT_CONFIG.heartbeatConfigPath || "~/.automaton/heartbeat.yml",
+diff --git a/src/conway/inference.ts b/src/conway/inference.ts
+index ebcf18199..1cd4e507e 100644
+--- a/src/conway/inference.ts
++++ b/src/conway/inference.ts
+@@ -27,11 +27,15 @@ interface InferenceClientOptions {
+   openaiApiKey?: string;
+   anthropicApiKey?: string;
+   ollamaBaseUrl?: string;
++  /** NVIDIA NIM (OpenAI-compatible) base URL, e.g. https://integrate.api.nvidia.com/v1 */
++  nimBaseUrl?: string;
++  /** NVIDIA NIM API key (env: NVIDIA_NIM_API_KEY). Optional but required to actually call NIM. */
++  nimApiKey?: string;
+   /** Optional registry lookup — if provided, used before name heuristics */
+   getModelProvider?: (modelId: string) => string | undefined;
+ }
+ 
+-type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama";
++type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama" | "nim";
+ 
+ function isLoopbackHttpUrl(url: string | undefined): boolean {
+   if (!url) return false;
+@@ -45,14 +49,24 @@ function isLoopbackHttpUrl(url: string | undefined): boolean {
+   }
+ }
+ 
++/**
++ * Strip a trailing "/v1" (with optional trailing slash) so the caller can
++ * always append "/v1/chat/completions" without producing a doubled segment.
++ * NIM base URLs are commonly given as ".../v1", OpenAI/conway as bare hosts.
++ */
++function stripV1Suffix(url: string): string {
++  return url.replace(/\/+$/, "").replace(/\/v1$/i, "");
++}
++
+ export function createInferenceClient(
+   options: InferenceClientOptions,
+ ): InferenceClient {
+-  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, getModelProvider } = options;
++  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, nimBaseUrl, nimApiKey, getModelProvider } = options;
+   const httpClient = new ResilientHttpClient({
+     baseTimeout: INFERENCE_TIMEOUT_MS,
+     retryableStatuses: [429, 500, 502, 503, 504],
+-    allowHttpOnLoopback: isLoopbackHttpUrl(ollamaBaseUrl),
++    allowHttpOnLoopback:
++      isLoopbackHttpUrl(ollamaBaseUrl) || isLoopbackHttpUrl(nimBaseUrl),
+   });
+   let currentModel = options.defaultModel;
+   let maxTokens = options.maxTokens;
+@@ -68,13 +82,15 @@ export function createInferenceClient(
+       openaiApiKey,
+       anthropicApiKey,
+       ollamaBaseUrl,
++      nimBaseUrl,
++      nimApiKey,
+       getModelProvider,
+     });
+ 
+-    // Newer models (o-series, gpt-5.x, gpt-4.1) require max_completion_tokens.
+-    // Ollama always uses max_tokens.
++    // Newer OpenAI reasoning models (o-series, gpt-5.x, gpt-4.1) require
++    // max_completion_tokens. Ollama and NIM always use max_tokens.
+     const usesCompletionTokens =
+-      backend !== "ollama" && /^(o[1-9]|gpt-5|gpt-4\.1)/.test(model);
++      backend !== "ollama" && backend !== "nim" && /^(o[1-9]|gpt-5|gpt-4\.1)/.test(model);
+     const tokenLimit = opts?.maxTokens || maxTokens;
+ 
+     const body: Record<string, unknown> = {
+@@ -113,10 +129,12 @@ export function createInferenceClient(
+     const openAiLikeApiUrl =
+       backend === "openai" ? "https://api.openai.com" :
+       backend === "ollama" ? (ollamaBaseUrl as string).replace(/\/$/, "") :
++      backend === "nim" ? stripV1Suffix((nimBaseUrl as string)) :
+       apiUrl;
+     const openAiLikeApiKey =
+       backend === "openai" ? (openaiApiKey as string) :
+       backend === "ollama" ? "ollama" :
++      backend === "nim" ? (nimApiKey as string) :
+       apiKey;
+ 
+     return chatViaOpenAiCompatible({
+@@ -180,6 +198,8 @@ function resolveInferenceBackend(
+     openaiApiKey?: string;
+     anthropicApiKey?: string;
+     ollamaBaseUrl?: string;
++    nimBaseUrl?: string;
++    nimApiKey?: string;
+     getModelProvider?: (modelId: string) => string | undefined;
+   },
+ ): InferenceBackend {
+@@ -187,6 +207,7 @@ function resolveInferenceBackend(
+   if (keys.getModelProvider) {
+     const provider = keys.getModelProvider(model);
+     if (provider === "ollama" && keys.ollamaBaseUrl) return "ollama";
++    if (provider === "nim" && keys.nimBaseUrl && keys.nimApiKey) return "nim";
+     if (provider === "anthropic" && keys.anthropicApiKey) return "anthropic";
+     if (provider === "openai" && keys.openaiApiKey) return "openai";
+     if (provider === "conway") return "conway";
+@@ -194,6 +215,9 @@ function resolveInferenceBackend(
+   }
+ 
+   // Heuristic fallback (model not in registry yet)
++  // Ollama tags contain a colon (e.g. "qwen2.5:7b", "llama3.1:8b").
++  if (keys.ollamaBaseUrl && /^[a-z0-9._-]+:[a-z0-9._-]+$/i.test(model)) return "ollama";
++  if (keys.nimBaseUrl && keys.nimApiKey && /\//.test(model)) return "nim"; // NIM model IDs like "meta/llama-3.1-70b-instruct"
+   if (keys.anthropicApiKey && /^claude/i.test(model)) return "anthropic";
+   if (keys.openaiApiKey && /^(gpt-[3-9]|gpt-4|gpt-5|o[1-9][-\s.]|o[1-9]$|chatgpt)/i.test(model)) return "openai";
+   return "conway";
+@@ -205,7 +229,7 @@ async function chatViaOpenAiCompatible(params: {
+   body: Record<string, unknown>;
+   apiUrl: string;
+   apiKey: string;
+-  backend: "conway" | "openai" | "ollama";
++  backend: "conway" | "openai" | "ollama" | "nim";
+   httpClient: ResilientHttpClient;
+ }): Promise<InferenceResponse> {
+   const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
+@@ -213,9 +237,9 @@ async function chatViaOpenAiCompatible(params: {
+     headers: {
+       "Content-Type": "application/json",
+       Authorization:
+-        params.backend === "openai" || params.backend === "ollama"
+-          ? `Bearer ${params.apiKey}`
+-          : params.apiKey,
++        params.backend === "conway"
++          ? params.apiKey
++          : `Bearer ${params.apiKey}`,
+     },
+     body: JSON.stringify(params.body),
+     timeout: INFERENCE_TIMEOUT_MS,
+diff --git a/src/index.ts b/src/index.ts
+index 0d5f38c9c..03cb61805 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -277,11 +277,17 @@ async function run(): Promise<void> {
+     }
+   }
+ 
+-  // Resolve Ollama base URL: env var takes precedence over config
+-  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || config.ollamaBaseUrl;
++  // Resolve Ollama base URL: env var takes precedence over config.
++  // Default to the standard local Ollama port so local models work out of the box.
++  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || config.ollamaBaseUrl || "http://localhost:11434";
+ 
+-  // Create inference client — pass a live registry lookup so model names like
+-  // "gpt-oss:120b" route to Ollama based on their registered provider, not heuristics.
++  // Resolve NVIDIA NIM config: env vars take precedence over config file.
++  const nimBaseUrl = process.env.NIM_BASE_URL || config.nimBaseUrl || "https://integrate.api.nvidia.com/v1";
++  const nimApiKey = process.env.NVIDIA_NIM_API_KEY || config.nimApiKey;
++
++  // Create inference client — pass a live registry lookup so model names route
++  // to the correct backend (Ollama/NIM/OpenAI/Anthropic/Conway) by registered
++  // provider, not by name heuristics alone.
+   const modelRegistry = new ModelRegistry(db.raw);
+   modelRegistry.initialize();
+   const inference = createInferenceClient({
+@@ -289,16 +295,16 @@ async function run(): Promise<void> {
+     apiKey,
+     defaultModel: config.inferenceModel,
+     maxTokens: config.maxTokensPerTurn,
+-    lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
++    lowComputeModel: config.modelStrategy?.lowComputeModel || "qwen2.5:7b",
+     openaiApiKey: config.openaiApiKey,
+     anthropicApiKey: config.anthropicApiKey,
+     ollamaBaseUrl,
++    nimBaseUrl,
++    nimApiKey,
+     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
+   });
+ 
+-  if (ollamaBaseUrl) {
+-    logger.info(`[${new Date().toISOString()}] Ollama backend: ${ollamaBaseUrl}`);
+-  }
++  logger.info(`[${new Date().toISOString()}] Inference backend: ${config.inferenceModel} (Ollama: ${ollamaBaseUrl}${nimApiKey ? `, NIM: ${nimBaseUrl}` : ", NIM: (no key)"})`);
+ 
+   // Create social client (chain-aware: pass ChainIdentity for Solana signing)
+   let social: SocialClientInterface | undefined;
+diff --git a/src/inference/provider-registry.ts b/src/inference/provider-registry.ts
+index b5f2fcd80..55a3bf39b 100644
+--- a/src/inference/provider-registry.ts
++++ b/src/inference/provider-registry.ts
+@@ -55,20 +55,66 @@ const DEFAULT_EMERGENCY_STOP_CREDITS = 100;
+ 
+ const DEFAULT_TIER_DEFAULTS: Record<ModelTier, TierDefault> = {
+   reasoning: {
+-    preferredProvider: "openai",
+-    fallbackOrder: ["groq", "together"],
++    preferredProvider: "nim",
++    fallbackOrder: ["local", "openai"],
+   },
+   fast: {
+-    preferredProvider: "groq",
+-    fallbackOrder: ["openai", "together", "local"],
++    preferredProvider: "local",
++    fallbackOrder: ["nim", "openai"],
+   },
+   cheap: {
+-    preferredProvider: "groq",
+-    fallbackOrder: ["together", "local", "openai"],
++    preferredProvider: "local",
++    fallbackOrder: ["nim", "openai"],
+   },
+ };
+ 
+ const DEFAULT_PROVIDERS: ProviderConfig[] = [
++  {
++    id: "nim",
++    name: "NVIDIA NIM",
++    // OpenAI-compatible. Default endpoint for NVIDIA-hosted models.
++    baseUrl: "https://integrate.api.nvidia.com/v1",
++    apiKeyEnvVar: "NVIDIA_NIM_API_KEY",
++    models: [
++      {
++        id: "meta/llama-3.1-70b-instruct",
++        tier: "reasoning",
++        contextWindow: 131072,
++        maxOutputTokens: 8192,
++        costPerInputToken: 0,
++        costPerOutputToken: 0,
++        supportsTools: true,
++        supportsVision: false,
++        supportsStreaming: true,
++      },
++      {
++        id: "meta/llama-3.1-8b-instruct",
++        tier: "fast",
++        contextWindow: 131072,
++        maxOutputTokens: 8192,
++        costPerInputToken: 0,
++        costPerOutputToken: 0,
++        supportsTools: true,
++        supportsVision: false,
++        supportsStreaming: true,
++      },
++      {
++        id: "meta/llama-3.1-8b-instruct",
++        tier: "cheap",
++        contextWindow: 131072,
++        maxOutputTokens: 4096,
++        costPerInputToken: 0,
++        costPerOutputToken: 0,
++        supportsTools: true,
++        supportsVision: false,
++        supportsStreaming: true,
++      },
++    ],
++    maxRequestsPerMinute: 600,
++    maxTokensPerMinute: 500_000,
++    priority: 1,
++    enabled: true,
++  },
+   {
+     id: "openai",
+     name: "OpenAI",
+@@ -111,8 +157,8 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
+     ],
+     maxRequestsPerMinute: 500,
+     maxTokensPerMinute: 2_000_000,
+-    priority: 1,
+-    enabled: true,
++    priority: 3,
++    enabled: false,
+   },
+   {
+     id: "groq",
+@@ -156,8 +202,8 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
+     ],
+     maxRequestsPerMinute: 14400,
+     maxTokensPerMinute: 500000,
+-    priority: 2,
+-    enabled: true,
++    priority: 4,
++    enabled: false,
+   },
+   {
+     id: "together",
+@@ -201,7 +247,7 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
+     ],
+     maxRequestsPerMinute: 600,
+     maxTokensPerMinute: 1_000_000,
+-    priority: 3,
++    priority: 5,
+     enabled: false,
+   },
+   {
+@@ -211,9 +257,9 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
+     apiKeyEnvVar: "LOCAL_API_KEY",
+     models: [
+       {
+-        id: "llama3.3:70b",
++        id: "qwen2.5:7b",
+         tier: "fast",
+-        contextWindow: 131072,
++        contextWindow: 32768,
+         maxOutputTokens: 8192,
+         costPerInputToken: 0,
+         costPerOutputToken: 0,
+@@ -235,8 +281,8 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
+     ],
+     maxRequestsPerMinute: 100,
+     maxTokensPerMinute: 200000,
+-    priority: 10,
+-    enabled: false,
++    priority: 2,
++    enabled: true,
+   },
+ ];
+ 
+diff --git a/src/inference/types.ts b/src/inference/types.ts
+index 1187a9ede..69e371501 100644
+--- a/src/inference/types.ts
++++ b/src/inference/types.ts
+@@ -132,6 +132,38 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" |
+     parameterStyle: "max_completion_tokens",
+     enabled: true,
+   },
++  {
++    // Local model served by Ollama on http://localhost:11434 (free, offline).
++    // Routed to the "ollama" backend by the model registry provider field.
++    modelId: "qwen2.5:7b",
++    provider: "ollama",
++    displayName: "Qwen2.5 7B (Ollama, local)",
++    tierMinimum: "dead",
++    costPer1kInput: 0,
++    costPer1kOutput: 0,
++    maxTokens: 8192,
++    contextWindow: 32768,
++    supportsTools: true,
++    supportsVision: false,
++    parameterStyle: "max_tokens",
++    enabled: true,
++  },
++  {
++    // NVIDIA NIM (integrate.api.nvidia.com/v1), OpenAI-compatible.
++    // Routed to the "nim" backend by the model registry provider field.
++    modelId: "meta/llama-3.1-70b-instruct",
++    provider: "nim",
++    displayName: "Llama 3.1 70B Instruct (NVIDIA NIM)",
++    tierMinimum: "critical",
++    costPer1kInput: 0,     // NIM access via developer key; treat as ~$0 headline cost
++    costPer1kOutput: 0,
++    maxTokens: 8192,
++    contextWindow: 131072,
++    supportsTools: true,
++    supportsVision: false,
++    parameterStyle: "max_tokens",
++    enabled: true,
++  },
+ ];
+ 
+ // === Default Routing Matrix ===
+@@ -139,48 +171,49 @@ export const STATIC_MODEL_BASELINE: Omit<ModelEntry, "lastSeen" | "createdAt" |
+ 
+ export const DEFAULT_ROUTING_MATRIX: RoutingMatrix = {
+   high: {
+-    agent_turn: { candidates: ["gpt-5.2", "gpt-5.3"], maxTokens: 8192, ceilingCents: -1 },
+-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
+-    safety_check: { candidates: ["gpt-5.2", "gpt-5.3"], maxTokens: 4096, ceilingCents: 20 },
+-    summarization: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 15 },
+-    planning: { candidates: ["gpt-5.2", "gpt-5.3"], maxTokens: 8192, ceilingCents: -1 },
++    agent_turn: { candidates: ["qwen2.5:7b", "meta/llama-3.1-70b-instruct", "gpt-5.2", "gpt-5.3"], maxTokens: 8192, ceilingCents: -1 },
++    heartbeat_triage: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
++    safety_check: { candidates: ["qwen2.5:7b", "meta/llama-3.1-70b-instruct", "gpt-5.2", "gpt-5.3"], maxTokens: 4096, ceilingCents: 20 },
++    summarization: { candidates: ["qwen2.5:7b", "gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 15 },
++    planning: { candidates: ["meta/llama-3.1-70b-instruct", "gpt-5.2", "gpt-5.3"], maxTokens: 8192, ceilingCents: -1 },
+   },
+   normal: {
+-    agent_turn: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: -1 },
+-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
+-    safety_check: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
+-    summarization: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
+-    planning: { candidates: ["gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: -1 },
++    agent_turn: { candidates: ["qwen2.5:7b", "meta/llama-3.1-70b-instruct", "gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: -1 },
++    heartbeat_triage: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
++    safety_check: { candidates: ["qwen2.5:7b", "gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
++    summarization: { candidates: ["qwen2.5:7b", "gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
++    planning: { candidates: ["meta/llama-3.1-70b-instruct", "qwen2.5:7b", "gpt-5.2", "gpt-5-mini"], maxTokens: 4096, ceilingCents: -1 },
+   },
+   low_compute: {
+-    agent_turn: { candidates: ["gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
+-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 1024, ceilingCents: 2 },
+-    safety_check: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
+-    summarization: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
+-    planning: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
++    agent_turn: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 4096, ceilingCents: 10 },
++    heartbeat_triage: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 1024, ceilingCents: 2 },
++    safety_check: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
++    summarization: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
++    planning: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 2048, ceilingCents: 5 },
+   },
+   critical: {
+-    agent_turn: { candidates: ["gpt-5-mini"], maxTokens: 2048, ceilingCents: 3 },
+-    heartbeat_triage: { candidates: ["gpt-5-mini"], maxTokens: 512, ceilingCents: 1 },
+-    safety_check: { candidates: ["gpt-5-mini"], maxTokens: 1024, ceilingCents: 2 },
++    agent_turn: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 2048, ceilingCents: 3 },
++    heartbeat_triage: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 512, ceilingCents: 1 },
++    safety_check: { candidates: ["qwen2.5:7b", "gpt-5-mini"], maxTokens: 1024, ceilingCents: 2 },
+     summarization: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+     planning: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+   },
+   dead: {
+-    agent_turn: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+-    heartbeat_triage: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+-    safety_check: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+-    summarization: { candidates: [], maxTokens: 0, ceilingCents: 0 },
+-    planning: { candidates: [], maxTokens: 0, ceilingCents: 0 },
++    // Free local model (Ollama) keeps the agent minimally alive at zero cost.
++    agent_turn: { candidates: ["qwen2.5:7b"], maxTokens: 1024, ceilingCents: 0 },
++    heartbeat_triage: { candidates: ["qwen2.5:7b"], maxTokens: 512, ceilingCents: 0 },
++    safety_check: { candidates: ["qwen2.5:7b"], maxTokens: 512, ceilingCents: 0 },
++    summarization: { candidates: ["qwen2.5:7b"], maxTokens: 0, ceilingCents: 0 },
++    planning: { candidates: ["qwen2.5:7b"], maxTokens: 0, ceilingCents: 0 },
+   },
+ };
+ 
+ // === Default Model Strategy Config ===
+ 
+ export const DEFAULT_MODEL_STRATEGY_CONFIG: ModelStrategyConfig = {
+-  inferenceModel: "gpt-5.2",
+-  lowComputeModel: "gpt-5-mini",
+-  criticalModel: "gpt-5-mini",
++  inferenceModel: "qwen2.5:7b",
++  lowComputeModel: "qwen2.5:7b",
++  criticalModel: "qwen2.5:7b",
+   maxTokensPerTurn: 4096,
+   hourlyBudgetCents: 0,
+   sessionBudgetCents: 0,
+diff --git a/src/types.ts b/src/types.ts
+index 636595ff5..b70e702ea 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -52,6 +52,10 @@ export interface AutomatonConfig {
+   openaiApiKey?: string;
+   anthropicApiKey?: string;
+   ollamaBaseUrl?: string;
++  /** NVIDIA NIM (OpenAI-compatible) base URL. Default: https://integrate.api.nvidia.com/v1 */
++  nimBaseUrl?: string;
++  /** NVIDIA NIM API key. Env override: NVIDIA_NIM_API_KEY */
++  nimApiKey?: string;
+   inferenceModel: string;
+   maxTokensPerTurn: number;
+   heartbeatConfigPath: string;
+@@ -79,7 +83,7 @@ export interface AutomatonConfig {
+ 
+ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
+   conwayApiUrl: "https://api.conway.tech",
+-  inferenceModel: "gpt-5.2",
++  inferenceModel: "qwen2.5:7b",
+   maxTokensPerTurn: 4096,
+   heartbeatConfigPath: "~/.automaton/heartbeat.yml",
+   dbPath: "~/.automaton/state.db",
+@@ -90,6 +94,8 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
+   maxTurnsPerCycle: 25,
+   childSandboxMemoryMb: 1024,
+   socialRelayUrl: "https://social.conway.tech",
++  // Default to local + NVIDIA NIM; Conway/OpenAI become optional fallbacks.
++  nimBaseUrl: "https://integrate.api.nvidia.com/v1",
+ };
+ 
+ // ─── Agent State ─────────────────────────────────────────────────
+@@ -1142,7 +1148,7 @@ export const DEFAULT_MEMORY_BUDGET: MemoryBudget = {
+ 
+ // === Phase 2.3: Inference & Model Strategy Types ===
+ 
+-export type ModelProvider = "openai" | "anthropic" | "conway" | "ollama" | "other";
++export type ModelProvider = "openai" | "anthropic" | "conway" | "ollama" | "nim" | "other";
+ 
+ export type InferenceTaskType =
+   | "agent_turn"
