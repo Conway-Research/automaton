@@ -69,6 +69,7 @@ export interface WorkerInferenceClient {
   }): Promise<{
     content: string;
     toolCalls?: InferenceToolCall[];
+    costCents?: number;
   }>;
 }
 
