@@ -15,6 +15,8 @@ export class ExchangeAdapter {
       apiKey: process.env.EXCHANGE_API_KEY,
       secret: process.env.EXCHANGE_API_SECRET,
       enableRateLimit: true,
+      httpProxy: process.env.HTTPS_PROXY || process.env.HTTP_PROXY || undefined,
+      httpsProxy: process.env.HTTPS_PROXY || process.env.HTTP_PROXY || undefined,
     });
   }
 
