@@ -188,11 +188,29 @@ async function run(): Promise<void> {
   logger.info(`[${new Date().toISOString()}] Conway Automaton v${VERSION} starting...`);
 
   // Load config — first run triggers interactive setup wizard
+  
   let config = loadConfig();
   if (!config) {
-    const { runSetupWizard } = await import("./setup/wizard.js");
-    config = await runSetupWizard();
+    if (process.env.RAILWAY_PROJECT_ID || process.env.CI) {
+      console.log("Headless environment detected. Bypassing interactive wizard...");
+      const { createConfig, saveConfig } = await import("./config.js");
+      config = createConfig({
+         name: "AlgoTrader",
+         genesisPrompt: "You are an AI algorithmic trader.",
+         apiKey: "",
+         chainType: "evm",
+         walletAddress: "",
+         creatorAddress: "",
+         registeredWithConway: false,
+         sandboxId: ""
+      });
+      saveConfig(config);
+    } else {
+      const { runSetupWizard } = await import("./setup/wizard.js");
+      config = await runSetupWizard();
+    }
   }
+
   
   // Hard override to guarantee 100% local processing
   // Uses Qwen 14B for high-tier thinking and Llama 3.1 for low compute
