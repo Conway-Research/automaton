@@ -6,6 +6,7 @@ import {
   type ModelConfig,
   type ResolvedModel,
 } from "./provider-registry.js";
+import type { InferenceBudgetTracker } from "./budget.js";
 
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 503]);
 const RETRY_BACKOFF_MS = [1000, 2000, 4000] as const;
@@ -480,6 +481,46 @@ export class UnifiedInferenceClient {
 
     const credits = Number(rawCredits);
     return Number.isFinite(credits) && credits >= 100 && credits < 1000;
+  }
+}
+
+/**
+ * UnifiedInferenceClient that also records every call's real cost into the
+ * same `inference_costs` ledger / InferenceBudgetTracker that the main
+ * ReAct loop's InferenceRouter uses. Without this, colony/orchestration
+ * inference spend (routed through UnifiedInferenceClient) is invisible to
+ * the treasury system - see ARCHITECTURE.md "Inference Pipeline".
+ */
+export class CostTrackingInferenceClient extends UnifiedInferenceClient {
+  constructor(
+    registry: ProviderRegistry,
+    private readonly budgetTracker: InferenceBudgetTracker,
+    private readonly getSessionId: () => string,
+    private readonly taskType: string = "colony",
+  ) {
+    super(registry);
+  }
+
+  override async chat(params: UnifiedChatParams): Promise<UnifiedInferenceResult> {
+    const result = await super.chat(params);
+    try {
+      this.budgetTracker.recordCost({
+        sessionId: this.getSessionId(),
+        turnId: null,
+        model: result.metadata.modelId,
+        provider: result.metadata.providerId,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        costCents: result.cost.totalCostCredits,
+        latencyMs: result.metadata.latencyMs,
+        tier: result.metadata.tier,
+        taskType: this.taskType,
+        cacheHit: false,
+      });
+    } catch {
+      // Cost recording must never block inference.
+    }
+    return result;
   }
 }
 

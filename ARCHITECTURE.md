@@ -19,6 +19,7 @@ Conway Automaton is a sovereign AI agent runtime. An automaton owns an Ethereum 
 - [Conway Client](#conway-client)
 - [Self-Modification](#self-modification)
 - [Replication](#replication)
+- [Multi-Agent Orchestration (Colony System)](#multi-agent-orchestration-colony-system)
 - [Social Layer](#social-layer)
 - [Soul System](#soul-system)
 - [Skills](#skills)
@@ -143,6 +144,14 @@ src/
     injection-defense.ts   Input sanitization (8 detection checks)
     policy-engine.ts       Centralized tool-call policy evaluation
     spend-tracker.ts       Financial spend tracking by time window
+    worker-inference-bridge.ts  Adapts UnifiedInferenceClient to the harness inference contract
+    harness-registry.ts    Maps colony worker roles -> harness implementations
+    harness-types.ts       Shared harness/worker type contracts
+    harnesses/             Colony worker implementations (see Orchestration section)
+      base-harness.ts        Shared inference/tool-call loop, loop detection, budget enforcement
+      coding-harness.ts      File-editing worker role (exec, read/write/patch file)
+      general-harness.ts     Generalist worker role (research, social, writing)
+      orchestrator-harness.ts Self-delegating sub-orchestrator role (plan/delegate/verify)
     policy-rules/          Rule implementations
       index.ts               Rule set factory
       authority.ts           Authority hierarchy rules
@@ -168,16 +177,20 @@ src/
     tick-context.ts        Per-tick shared context builder
 
   identity/                Agent identity
-    wallet.ts              Ethereum wallet generation/loading
-    provision.ts           SIWE API key provisioning
+    wallet.ts              Wallet generation/loading (EVM or Solana, by chainType)
+    provision.ts           SIWE/SIWS API key provisioning (chain-aware)
+    chain.ts               ChainType abstraction (evm | solana), address validation
+    siws.ts                Sign-In With Solana message build/sign/verify
 
-  inference/               Model strategy
-    router.ts              InferenceRouter (tier + task -> model selection)
+  inference/               Model strategy (two parallel stacks, see Inference Pipeline)
+    router.ts              InferenceRouter (tier + task -> model selection) - main ReAct loop
     registry.ts            ModelRegistry (DB-backed model catalog)
     budget.ts              InferenceBudgetTracker (hourly/daily caps)
     types.ts               Routing matrix + task timeouts
+    inference-client.ts    UnifiedInferenceClient (multi-provider, circuit breaker) - colony workers
+    provider-registry.ts   ProviderRegistry (OpenAI/Groq/Together/Ollama catalog, config-file based)
 
-  memory/                  5-tier memory system
+  memory/                  5-tier memory system + additive orchestration-focused modules
     working.ts             Session-scoped short-term memory
     episodic.ts            Event log with importance ranking
     semantic.ts            Categorized fact store
@@ -188,6 +201,12 @@ src/
     ingestion.ts           Post-turn memory extraction pipeline
     tools.ts               Memory tool implementations
     types.ts               Turn classification logic
+    event-stream.ts        Append-only cross-agent event log (live; feeds orchestration)
+    knowledge-store.ts     Shared cross-agent fact store, no embeddings (live; feeds orchestration)
+    context-manager.ts     Token counter (live) + ContextManager context assembly (not wired in)
+    compression-engine.ts  5-stage context compression cascade (built, tested, not wired in)
+    enhanced-retriever.ts  Relevance-scored retrieval over KnowledgeStore (built, tested, not wired in)
+    agent-context-aggregator.ts  Child-status triage for parent orchestrators (built, tested, not wired in)
 
   observability/           Monitoring
     logger.ts              StructuredLogger (JSON, levels, modules)
@@ -224,6 +243,20 @@ src/
     genesis.ts             Genesis config generation + validation
     lineage.ts             Parent-child lineage tracking
     messaging.ts           Parent-child message relay
+
+  orchestration/           Multi-agent "colony" task orchestration (see dedicated section)
+    orchestrator.ts        Orchestrator state machine (idle->planning->executing->...)
+    planner.ts             LLM-backed goal decomposition + plan validation
+    plan-mode.ts           Stricter phase controller + plan persistence (partially wired)
+    planner-context.ts     Assembles planner prompt context (credits, roles, history)
+    task-graph.ts          Goal/task DAG: decomposition, dependencies, status transitions
+    local-worker.ts        LocalWorkerPool - in-process worker execution (sandbox fallback)
+    messaging.ts           ColonyMessaging - typed inter-agent message routing
+    attention.ts           TODO.md-style digest of active goals/tasks for context injection
+    health-monitor.ts      Child health auditing + auto-heal actions
+    simple-tracker.ts      SimpleAgentTracker (idle/busy agent registry)
+    workspace.ts           Per-goal workspace + subplan file layout
+    types.ts               Shared orchestration interfaces
 
   self-mod/                Self-modification
     code.ts                Safe file editing with protection checks
@@ -364,9 +397,11 @@ Every decision is persisted to the `policy_decisions` table with full context fo
 
 ## Inference Pipeline
 
-**Files:** `src/inference/router.ts`, `src/inference/registry.ts`, `src/inference/budget.ts`
+**Files:** `src/inference/router.ts`, `src/inference/registry.ts`, `src/inference/budget.ts`, `src/inference/inference-client.ts`, `src/inference/provider-registry.ts`
 
-The inference pipeline selects the optimal model based on the agent's survival tier and task type:
+There are currently **two independent, unmerged inference stacks** in the runtime, both constructed in `agent/loop.ts`. This is in-progress migration state, not intentional layering with a clean boundary — see the caveat below.
+
+**Stack A - `InferenceRouter` (main ReAct turn loop).** Constructed once (`loop.ts:125`) and used exactly once per turn (`loop.ts:603`) to service the agent's own think step:
 
 ```
 InferenceRouter.route(request)
@@ -384,7 +419,11 @@ InferenceRouter.route(request)
 
 **Model registry:** DB-backed catalog of available models with provider, pricing, and capability metadata. Refreshed from Conway API via heartbeat. Seeds with baseline models on startup (upsert, not seed-once).
 
-**Budget tracker:** Enforces hourly, daily, and per-call cost ceilings. Prevents runaway inference spend.
+**Budget tracker:** Enforces hourly, daily, and per-call cost ceilings. This is the path whose costs land in `inference_costs` and feed the treasury/spend-tracking system described in [Financial System](#financial-system).
+
+**Stack B - `UnifiedInferenceClient` + `ProviderRegistry` (colony/orchestration workers only).** Constructed at `loop.ts:164-172` from a separate local config file (`~/.automaton/inference-providers.json`, not the DB-backed `ModelRegistry`), with its own multi-provider catalog (OpenAI/Groq/Together/local Ollama), its own circuit breaker + retry/backoff, and its own tier vocabulary (`"reasoning" | "fast" | "cheap"` - distinct strings from `SurvivalTier`). It's bridged into the colony worker pool via `createWorkerInferenceBridge()` (`agent/worker-inference-bridge.ts`) and injected into `LocalWorkerPool` and the orchestrator/planner harnesses. Built, most plausibly, so colony workers can use cheap non-Conway providers independently of the Conway-routed main loop.
+
+**Known gap - colony inference spend is invisible to the survival economy.** `UnifiedInferenceClient.chat()` computes a real `cost.totalCostCredits` per call, but `agent/harnesses/general-harness.ts` wires `recordSpend: () => {}` as a no-op, and nothing else in `src/orchestration/` or `src/agent/harnesses/` persists these costs. Every token spent by colony workers therefore bypasses `spend-tracker.ts`, the `inference_costs` table, and `TreasuryPolicy` budget enforcement entirely. Separately, Stack B's own "survival mode" downgrade logic (`ProviderRegistry.assertEmergencyPolicy()`, `UnifiedInferenceClient.isSurvivalMode()`) gates on `process.env.AUTOMATON_CREDITS_BALANCE` / `AUTOMATON_INFERENCE_TASK_TYPE`, but nothing in the codebase ever sets those env vars - so this stack always behaves as if credits are unlimited, regardless of the automaton's real balance. For a runtime whose entire premise is "if it cannot pay, it stops existing," this is a real hole: colony/orchestration work can spend real money that the survival-tier system never sees or limits. Worth prioritizing a fix (wire `recordSpend` into `spend-tracker.ts`, and set the env vars from the real credit balance) ahead of building further on top of the colony system.
 
 ---
 
@@ -416,11 +455,27 @@ The automaton has a 5-tier hierarchical memory system:
 +-------------------+  Interaction history
 ```
 
-**Retrieval** (`MemoryRetriever`): Before each inference call, retrieves relevant memories within a token budget. Priority: working > episodic > semantic > procedural > relationships. Formatted into a memory block injected into context.
+**Retrieval** (`MemoryRetriever`): Before each inference call, retrieves relevant memories within a token budget. Priority: working > episodic > semantic > procedural > relationships. Formatted into a memory block injected into context. `agent/loop.ts` constructs the plain `MemoryRetriever`, not the enhanced version described below.
 
-**Ingestion** (`MemoryIngestionPipeline`): After each turn, classifies the turn and extracts: episodic events (significant tool calls), semantic facts (learned information), procedural outcomes (procedure success/failure tracking).
+**Ingestion** (`MemoryIngestionPipeline`): After each turn, classifies the turn and extracts: episodic events (significant tool calls), semantic facts (learned information), procedural outcomes (procedure success/failure tracking). This pipeline also writes into `EventStream` and `KnowledgeStore` (below).
 
 **Budget** (`MemoryBudgetManager`): Allocates token budget across tiers with rollover from unused tiers.
+
+### Extended Memory Modules (Orchestration-Focused)
+
+Six newer modules in `src/memory/` add capability layered on top of the 5-tier system above, built for the multi-agent [orchestration/colony system](#multi-agent-orchestration-colony-system) rather than the single-agent loop. **Only two of the six are actually wired into production code today** - the rest are fully implemented and tested but not yet constructed anywhere outside their own tests:
+
+| Module | Purpose | Wired in? |
+|---|---|---|
+| `event-stream.ts` (`EventStream`) | Append-only log over the `event_stream` table (17 `EventType`s: `plan_created`, `task_assigned`, `financial`, `agent_spawned`, etc.). `compact()` rewrites old rows to references/summaries in place; `prune()` hard-deletes. | **Yes** - `memory/ingestion.ts` |
+| `knowledge-store.ts` (`KnowledgeStore`) | Categorized (market/technical/social/financial/operational) shared fact store over the `knowledge_store` table, with `confidence`/`accessCount`/`expiresAt`. Search is deliberately substring/keyword-based, no embeddings. | **Yes** - `memory/ingestion.ts`, `heartbeat/tasks.ts` |
+| `context-manager.ts` (`createTokenCounter`) | LRU-cached tiktoken counter with char-based fallback. | **Yes** - `agent/context.ts` |
+| `context-manager.ts` (`ContextManager` class) | Assembles a full context message array against a token budget, returning `"ok" \| "compress" \| "emergency"` once usage crosses a headroom threshold. | No - tests only |
+| `compression-engine.ts` (`CompressionEngine`) | 5-stage cascade (70%/80%/85%/90%/95% utilization thresholds): compact old tool results -> summarize old turns -> LLM batch-summarize (via `UnifiedInferenceClient`) -> checkpoint to disk (`.omc/state/checkpoints/`) -> emergency-truncate to last 3 turns. | No - tests only |
+| `enhanced-retriever.ts` (`EnhancedRetriever extends MemoryRetriever`) | Relevance-scored retrieval over `KnowledgeStore` (recency/frequency/confidence/task-affinity/category weighting), with retrieval-precision feedback tracking. | No - tests only |
+| `agent-context-aggregator.ts` (`AgentContextAggregator`) | Triages child-agent status updates into `full`/`summary`/`count` detail levels so a parent orchestrating many children doesn't blow its context window on routine chatter. | No - tests only |
+
+In short: the data-plumbing side (`EventStream`, `KnowledgeStore`) is live and accumulating data on every turn, but the consumption side built to use that data - context-window budgeting, the compression cascade, relevance-scored retrieval, and child-update aggregation - is fully built and fully tested (see `__tests__/integration/compression-cascade.test.ts` and `__tests__/integration/memory-retrieval.test.ts`) yet dead from the runtime's perspective. This reads as a landed-but-not-yet-integrated feature branch.
 
 ---
 
@@ -495,11 +550,13 @@ The automaton's survival depends on two balances:
 
 **Files:** `src/identity/`
 
-Each automaton has a unique Ethereum identity:
+Each automaton has a unique wallet identity, on one of two supported chains:
 
-- **Wallet** (`wallet.ts`): Generated via `viem` on first run. Stored at `~/.automaton/wallet.json` (mode 0600). The private key is never exposed to the agent via tools (blocked by path protection rules).
-- **Provisioning** (`provision.ts`): Signs a SIWE (Sign-In With Ethereum) message to authenticate with Conway API. Receives an API key stored at `~/.automaton/api-key`.
-- **On-chain identity** (`registry/erc8004.ts`): Optional ERC-8004 agent registration on Base. Publishes a JSON-LD agent card with capabilities, services, and contact info.
+- **Chain abstraction** (`chain.ts`): Defines `ChainType = "evm" | "solana"`, address validation/detection for both, and a `ChainIdentity` interface with EVM (wraps a viem `PrivateKeyAccount`) and Solana (wraps a tweetnacl Ed25519 keypair) implementations.
+- **Wallet** (`wallet.ts`): `getWallet(chainType?)` branches on chain type. EVM wallets are generated via `viem`; Solana wallets store a base58 secret key. Both are stored at `~/.automaton/wallet.json` (mode 0600). The private key is never exposed to the agent via tools (blocked by path protection rules). A stub EVM account is used for Solana wallets so any accidental EVM-signing call fails loudly rather than silently using the wrong key.
+- **Chain selection is permanent, decided at genesis**: `initChainType` from the genesis config picks the chain only on first run (`index.ts`); once `wallet.json` exists, its stored `chainType` (default `"evm"`) is authoritative for the life of the automaton and is threaded through provisioning, social messaging, and agent-card generation.
+- **Provisioning** (`provision.ts`): Signs a SIWE (Sign-In With Ethereum) or SIWS (Sign-In With Solana, `siws.ts`) message depending on chain type, to authenticate with Conway API. Receives an API key stored at `~/.automaton/api-key`. Same function, same output, either chain.
+- **On-chain identity** (`registry/erc8004.ts`): Optional ERC-8004 agent registration on Base - **EVM-only**. `requireEvmChain()` throws before any registration call if `chainType === "solana"`; Solana automatons rely solely on Conway API identity, with no on-chain registry equivalent yet. `registry/agent-card.ts` is chain-aware regardless: EVM agent cards use a CAIP-2 `eip155:8453` identifier, Solana cards use `solana:mainnet:<address>`, and `x402Support` is set to `false` for Solana (the x402/USDC payment flow is Base/EVM-only).
 
 ---
 
@@ -549,6 +606,80 @@ Automatons can spawn child automatons:
 5. **Genesis** (`genesis.ts`): Generates genesis config with injection-pattern validation and length limits.
 6. **Messaging** (`messaging.ts`): Parent-child message relay with rate/size limits.
 7. **Cleanup** (`cleanup.ts`): Dead children have their sandboxes deleted and records pruned.
+
+---
+
+## Multi-Agent Orchestration (Colony System)
+
+**Files:** `src/orchestration/`, `src/agent/harnesses/`, `src/agent/harness-registry.ts`, `src/agent/worker-inference-bridge.ts`
+
+The orchestration subsystem adds an optional multi-agent "colony" mode on top of the single-agent ReAct loop described above. Where the base loop has one automaton reasoning and acting turn-by-turn, the orchestrator lets that automaton decompose a high-level `Goal` into a DAG of `Task`s, delegate each task to a worker agent (spawned in-process or as a Conway sandbox child), and manage planning, execution, failure recovery, replanning, and health monitoring across ticks. It is additive: if `Orchestrator` construction fails, `loop.ts` logs a warning and the automaton continues in plain single-agent mode.
+
+**Orchestrator tick cycle** (`orchestrator.ts`): `orchestrator.tick()` runs once per main agent-loop turn. State is a persistent phase machine stored in the `kv` table:
+
+```
+                    +--------+
+        +---------->|  idle  |<--------------------------+
+        |           +---+----+                            |
+        |               | active goal exists               |
+        |               v                                   |
+        |        +-------------+                            |
+        |        | classifying |  (cheap-tier inference:     |
+        |        +------+------+   estimate step count)      |
+        |               |                                    |
+        |     <=3 steps |          >3 steps                  |
+        |               v               v                    |
+        |     (single-task    +----------+                   |
+        |      decompose)     | planning |  (reasoning-tier   |
+        |               |     +----+-----+   planner.chat)    |
+        |               |          |                          |
+        |               |          v                          |
+        |               |   +-------------+                   |
+        |               |   | plan_review |  (auto/supervised/|
+        |               |   +------+------+   consensus)      |
+        |               |          | approved                 |
+        |               v          v                          |
+        |          +-----------------+                        |
+        +----------|    executing    |  match tasks->agents,   |
+        | replan    +---+---------+--+  fund, message, collect|
+        | (<=N)         |         |     results                |
+        |     failed    | done    |                            |
+        |               v         v                            |
+        |        +-------------+ +----------+                  |
+        +--------| replanning  | | complete |------------------+
+        (v+1)     +-------------+ +----------+ (recall credits)
+                        |
+                  replans exhausted
+                        v
+                   +--------+
+                   | failed |---(reset)---> idle
+                   +--------+
+```
+
+**Colony workers and harnesses** (`local-worker.ts`, `harness-registry.ts`, `agent/harnesses/*.ts`): `matchTaskToAgent()` picks, in priority order, an idle child with a matching role, any idle child, a newly spawned agent, a reassigned busy child, or - as a last resort - the parent automaton itself, so goals keep progressing even with zero children available. Spawning tries a full Conway sandbox child first (via the `replication/` genesis+spawn+lifecycle flow, with an automatic USDC->credits topup retry on HTTP 402) and falls back to an in-process `LocalWorkerPool` worker (an async function running in the same Node process, not a subprocess) when sandbox spawning fails or is unavailable.
+
+Each worker gets a harness based on its assigned role:
+
+| Role(s) | Harness | Tools |
+|---|---|---|
+| `executor`, `debugger`, `architect`, `code-reviewer`, `tester`, `devops`, `developer`, `engineer` | `CodingHarness` | `exec`, `write_file`, `read_file`, `patch_file`, `list_dir`, `task_done` |
+| `orchestrator`, `planner`, `critic`, `coordinator` | `OrchestratorHarness` | `refresh_plan`, `delegate_task`, `check_task_status`, `read_task_output`, `verify_result`, `task_done` (larger turn budget) |
+| `generalist`, `researcher`, `marketer`, `social-manager`, `domain-manager`, `financial-analyst`, `writer`, `analyst`, *(unregistered role, fallback)* | `GeneralHarness` | `exec`, `write_file`, `read_file`, `check_social_inbox`, `task_done` |
+
+All harnesses extend `base-harness.ts`, which implements the shared inference/tool-call loop: builds a task prompt (title/description/role/deps + a "Learnings from Previous Tasks" wisdom block), loops calling `tier: "fast"` inference (via the Stack B `UnifiedInferenceClient` bridge - see [Inference Pipeline](#inference-pipeline)), executes tool calls, applies loop detection (blocks after 3 identical calls or 3 idle turns), truncates tool output over 16,000 chars, and enforces an `IterationBudget` (default `maxTurns: 25`, `maxCostCents = max(2x estimated, 50)`, a timeout from the task or 300s). A worker finishes when it calls `task_done` or returns a text-only response. `OrchestratorHarness` is notable for being a harness that is itself a mini task-graph orchestrator - it can recursively plan, delegate sub-tasks, verify results by keyword-overlap against `criteria`, and auto-fix failing sub-trees (up to `MAX_FIX_CYCLES = 3`).
+
+**Task graph** (`task-graph.ts`, tables `goals` + `task_graph`): A `Goal` decomposes into `TaskNode`s via `decomposeGoal()`, run in one transaction that resolves planner-expressed task references (index, `#N`, `task-N`, or title) into real IDs, rejects the batch if it would introduce a dependency cycle, and computes initial status (`blocked` if any dependency is incomplete, else `pending`). Task status flows `pending -> assigned -> running -> completed | failed | blocked | cancelled`; completing a task unblocks ready dependents, failing one either retries in place (up to `maxRetries`, default 3) or cascades `blocked` status to every downstream dependent. Goal status is derived from task status on every change.
+
+**Planner and plan mode** (`planner.ts`, `plan-mode.ts`, `planner-context.ts`): The planner builds a large structured system prompt describing a strict `RECEIVE -> ANALYZE -> DECOMPOSE -> VALIDATE -> OUTPUT` state machine, calls reasoning-tier inference with `responseFormat: json_object`, and strictly validates the result (every dependency index bounds-checked, no self-loops or cycles). `planner-context.ts` assembles the context fed into that prompt: credit/USDC balance, derived survival tier, available roles, active goals, recent task events, and agent counts. `plan-mode.ts` persists `plan.json`/`plan.md` per goal (auto-archiving prior versions) and gates approval: `"auto"` (default) always approves; `"supervised"` throws a sentinel the orchestrator interprets as "wait for a human" but **has no implemented path to ever become approved** - a goal that reaches plan review under `"supervised"` mode stalls permanently; `"consensus"` is an unimplemented stub that also just approves.
+
+**Messaging, attention, health** (`messaging.ts`, `attention.ts`, `health-monitor.ts`): `ColonyMessaging` routes 10 typed message kinds (`task_assignment`, `task_result`, `status_report`, `resource_request`, `knowledge_share`, `customer_request`, `alert`, `shutdown_request`, `peer_query`, `peer_response`) over a pluggable transport, defaulting to the existing `inbox_messages` table for same-machine parent/child delivery - but **7 of the 10 handlers are no-op stubs that only log an event**; only `task_result` is actually consumed (by the orchestrator polling for it). `attention.ts` renders a token-capped (~2000 tokens) `TODO.md`-style digest of active goals/tasks that can be spliced into any agent's context. `health-monitor.ts` audits every child each heartbeat for crashed processes, missing heartbeats, stuck tasks, low credit balance, and error-loop patterns (>=60% failure rate over 6h), and takes one `autoHeal()` action per issue (fund, restart, reassign, or shut down).
+
+**Caveats worth knowing before building on this:**
+- `PlanModeController` (a stricter, transition-validated phase machine in `plan-mode.ts`) duplicates the `Orchestrator`'s own informal phase tracking, but `loop.ts` only ever checks its mere existence (`if (planModeController)`) to decide whether to inject the `attention.ts` TODO.md digest into context - none of its actual phase-transition/approval methods are ever called. Its distinct capability is effectively dead weight; a plain boolean would do the same job.
+- `shouldReplan()` (`plan-mode.ts`) has no call site anywhere; the orchestrator's actual replan trigger is simply "any task failed."
+- The planner's system prompt hardcodes the string "26 roles across 7 departments" next to the real role list, which only has 11 entries - this will mislead the planner model and should not be treated as documentation of an actual role taxonomy.
+- Local workers complete tasks by calling `completeTask`/`failTask` directly (in-process); sandbox children must round-trip a `task_result` message through the inbox. These are two distinct completion paths.
+- The colony inference-spend/survival-mode gap is covered in [Inference Pipeline](#inference-pipeline).
 
 ---
 
@@ -637,9 +768,9 @@ Step-by-step instructions for the agent...
 
 **Engine:** SQLite via `better-sqlite3` (synchronous, WAL mode, journal_mode=WAL).
 
-**Schema version:** 8 (applied incrementally via migration runner)
+**Schema version:** 11 (applied incrementally via migration runner)
 
-**Tables (22):**
+**Tables (26):**
 
 | Table | Version | Purpose |
 |---|---|---|
@@ -676,6 +807,12 @@ Step-by-step instructions for the agent...
 | `discovered_agents_cache` | v7 | Cached remote agent cards |
 | `onchain_transactions` | v7 | On-chain transaction records |
 | `metric_snapshots` | v8 | Periodic metrics + alert records |
+| `goals` | v9 | Orchestration goals (title, status, revenue tracking) |
+| `task_graph` | v9 | Orchestration task DAG (dependencies, assignment, status) |
+| `event_stream` | v9 | Append-only cross-agent event log (feeds orchestration + compression) |
+| `knowledge_store` | v10 | Shared cross-agent fact store (categorized, confidence-scored) |
+
+v9 also adds a `role` column to `children` (default `'generalist'`); v11 adds a `chain_type` column to `children` (default `'evm'`) for Solana-identity children.
 
 **`AutomatonDatabase` interface** provides 40+ methods for CRUD across all tables. The `database.ts` file also exports 60+ standalone helper functions for direct `better-sqlite3` operations (used by subsystems that receive raw DB handles).
 
@@ -740,7 +877,7 @@ The automaton operates under a defense-in-depth security model:
 
 ## Testing
 
-**Location:** `src/__tests__/` — 24 test files, 897 tests
+**Location:** `src/__tests__/` — now spans additional subdirectories (`orchestration/`, `memory/`, `inference/`, `agent/`, `integration/`) beyond the flat layout below; file/test counts have grown past the original 24/897 baseline as the orchestration, memory, and multi-chain work landed.
 
 | Area | Files | Tests |
 |---|---|---|
@@ -760,6 +897,12 @@ The automaton operates under a defense-in-depth security model:
 | Context | `context-hardening.test.ts` | Token budget, truncation, trust boundaries |
 | Inbox | `inbox-processing.test.ts` | Message state machine |
 | Observability | `observability.test.ts` | Logger, metrics, alerts |
+| Orchestration | `orchestration/*.test.ts` (attention, health-monitor, local-worker, messaging, orchestrator, plan-mode, planner, simple-tracker, task-graph, workspace) | Colony tick cycle, task graph, planning, worker pool, health |
+| Harnesses | `agent/*harness*.test.ts`, `agent/worker-inference-bridge.test.ts` | Per-role harness behavior, harness registry, inference bridge |
+| Extended memory | `memory/*.test.ts` (compression-engine, context-manager, enhanced-retriever, event-stream, knowledge-store, agent-context-aggregator) | Compression cascade, event log, knowledge store, retrieval scoring |
+| Multi-chain | `chain.test.ts`, `siws.test.ts`, `wallet-solana.test.ts`, `discovery-abi.test.ts`, `discovery-data-uri.test.ts` | Chain abstraction, Solana wallet/SIWS, ERC-8004 discovery hardening |
+| Inference (Stack B) | `inference/inference-client.test.ts`, `inference/provider-registry.test.ts` | UnifiedInferenceClient, multi-provider registry, failover |
+| Cross-cutting integration | `integration/compression-cascade.test.ts`, `integration/memory-retrieval.test.ts`, `integration/multi-agent-coordination.test.ts`, `integration/plan-execute-flow.test.ts`, `integration/inference-failover.test.ts` | End-to-end flows spanning the subsystems above |
 
 **Test infrastructure:** Mock clients for inference, Conway API, and social relay (`src/__tests__/mocks.ts`). In-memory SQLite for all DB tests.
 
@@ -812,15 +955,25 @@ index.ts
   |     +-> agent/{tools, system-prompt, context, injection-defense}
   |     +-> agent/{policy-engine, spend-tracker}
   |     |     +-> agent/policy-rules/{authority, command-safety, financial, path-protection, rate-limits, validation}
-  |     +-> inference/{router, registry, budget}
+  |     +-> inference/{router, registry, budget}                    (Stack A - main turn loop)
+  |     +-> inference/{inference-client, provider-registry}         (Stack B - colony workers)
   |     +-> memory/{retrieval, ingestion}
   |     |     +-> memory/{working, episodic, semantic, procedural, relationship, budget}
+  |     |     +-> memory/{event-stream, knowledge-store}            (live, additive)
+  |     +-> orchestration/orchestrator
+  |     |     +-> orchestration/{planner, planner-context, plan-mode}
+  |     |     +-> orchestration/{task-graph, local-worker, messaging, attention, health-monitor, simple-tracker, workspace}
+  |     |     +-> agent/harness-registry -> agent/harnesses/{base, coding, general, orchestrator}-harness
+  |     |     +-> agent/worker-inference-bridge -> inference/inference-client
   |     +-> conway/{credits, x402}
   |     +-> state/database
   +-> social/client
   +-> skills/loader
   +-> git/state-versioning
+  +-> identity/chain (evm | solana, used by identity/{wallet, provision}, registry/{erc8004, agent-card})
   +-> observability/logger (used by all modules)
+
+Unwired (built + tested, no production import site): memory/{context-manager's `ContextManager` class, compression-engine, enhanced-retriever, agent-context-aggregator}; orchestration/plan-mode's `PlanModeController` and `shouldReplan()`.
 ```
 
 All modules import types from `src/types.ts`. All modules use `createLogger()` from `src/observability/logger.ts`.
