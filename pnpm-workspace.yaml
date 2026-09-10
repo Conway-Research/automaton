@@ -1,2 +1,23 @@
 packages:
   - "packages/*"
+
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
+
+overrides:
+  # js-yaml is bundled by gray-matter (used to parse skill frontmatter, which
+  # can come from untrusted skill files) at 3.14.2, vulnerable to several
+  # quadratic-CPU DoS advisories. gray-matter's own range (^3.13.1) permits
+  # this newer patch release.
+  js-yaml: ^3.15.2
+  # ws memory-exhaustion DoS (GHSA advisories). jayson (a @solana/web3.js
+  # dependency) needs the 7.x line pinned separately since it can't take a
+  # major bump; the blanket 8.x override fixes rpc-websockets and ethers.
+  # NOTE: openai declares ws as an optional peer dependency, and pnpm
+  # overrides do not apply to peer-dependency resolution - openai>ws stays
+  # on an older 8.x release regardless of this override. Not exploitable
+  # via this codebase (nothing here uses OpenAI's realtime/websocket API),
+  # but flagged here since `pnpm audit` will keep reporting it.
+  jayson>ws: ^7.5.11
+  ws: ^8.21.0
