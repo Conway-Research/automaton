@@ -187,6 +187,14 @@ Version:    ${config.version}
 async function run(): Promise<void> {
   logger.info(`[${new Date().toISOString()}] Conway Automaton v${VERSION} starting...`);
 
+  try {
+    const ipRes = await fetch('https://api.ipify.org');
+    const ip = await ipRes.text();
+    logger.info(`[NETWORK] Current Public IP Address: ${ip}`);
+  } catch (e) {
+    logger.warn(`[NETWORK] Could not determine Public IP`);
+  }
+
   // Load config — first run triggers interactive setup wizard
   
   let config = loadConfig();
