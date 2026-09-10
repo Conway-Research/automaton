@@ -21,6 +21,7 @@ export function createWorkerInferenceBridge(
       return {
         content: response.content,
         toolCalls: response.toolCalls as InferenceToolCall[] | undefined,
+        costCents: response.cost?.totalCostCredits,
       };
     },
   };

@@ -63,7 +63,7 @@ import { SimpleAgentTracker, SimpleFundingProtocol } from "../orchestration/simp
 import { HarnessRegistry } from "./harness-registry.js";
 import { createWorkerInferenceBridge } from "./worker-inference-bridge.js";
 import { ProviderRegistry } from "../inference/provider-registry.js";
-import { UnifiedInferenceClient } from "../inference/inference-client.js";
+import { CostTrackingInferenceClient } from "../inference/inference-client.js";
 import { isIdleOnlyTool } from "./idle-only-tools.js";
 
 const logger = createLogger("loop");
@@ -169,7 +169,14 @@ export async function runAgentLoop(
         registry.overrideBaseUrl("openai", process.env.OPENAI_BASE_URL);
       }
 
-      const unifiedInference = new UnifiedInferenceClient(registry);
+      // CostTrackingInferenceClient records every colony/worker inference call's
+      // real cost into the same inference_costs ledger the main-loop
+      // InferenceRouter uses, so it's no longer invisible to the treasury system.
+      const unifiedInference = new CostTrackingInferenceClient(
+        registry,
+        budgetTracker,
+        () => db.getKV("session_id") || "colony",
+      );
       const agentTracker = new SimpleAgentTracker(db);
       const funding = new SimpleFundingProtocol(conway, identity, db);
       const messaging = new ColonyMessaging(
@@ -427,6 +434,20 @@ export async function runAgentLoop(
 
       // Refresh financial state periodically
       financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm");
+
+      // Keep Stack B (UnifiedInferenceClient/ProviderRegistry) survival-mode
+      // gates in sync with the real balance. Without this, isSurvivalMode()
+      // and assertEmergencyPolicy() always read "unlimited credits" since
+      // nothing else in the codebase sets this env var. Note: we deliberately
+      // do NOT set AUTOMATON_INFERENCE_TASK_TYPE here — it's read per-call and
+      // colony workers can run concurrently, so a process-global env var can't
+      // safely distinguish "this call is a planner call" per in-flight
+      // request. Leaving it unset means assertEmergencyPolicy's emergency
+      // stop blocks ALL calls (not just non-planner ones) once credits are
+      // critical, which is the conservative/safe failure mode.
+      if (financial.creditsCents !== -1) {
+        process.env.AUTOMATON_CREDITS_BALANCE = String(financial.creditsCents);
+      }
 
       // Check survival tier
       // api_unreachable: creditsCents === -1 means API failed with no cache.

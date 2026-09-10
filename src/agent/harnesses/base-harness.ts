@@ -111,7 +111,7 @@ export abstract class BaseHarness implements AgentHarness {
         throw new Error("Harness execution aborted by abort signal");
       }
 
-      let response: { content: string; toolCalls?: InferenceToolCall[] };
+      let response: { content: string; toolCalls?: InferenceToolCall[]; costCents?: number };
       try {
         response = await this.context.inference.chat({
           tier: "fast",
@@ -119,6 +119,9 @@ export abstract class BaseHarness implements AgentHarness {
           tools: toolDefs,
           toolChoice: "auto",
         });
+        if (typeof response.costCents === "number") {
+          this.context.budget.costUsedCents += response.costCents;
+        }
         consecutiveInferenceErrors = 0;
       } catch (error) {
         consecutiveInferenceErrors++;
