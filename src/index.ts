@@ -335,6 +335,8 @@ async function run(): Promise<void> {
     lowComputeModel: config.modelStrategy?.lowComputeModel || "deepseek-chat",
     openaiApiKey: process.env.OPENAI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    nimApiKey: process.env.NVIDIA_NIM_API_KEY,
+    nimBaseUrl: process.env.NIM_BASE_URL,
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
     getModelProvider: (modelId) => {
         // Simple logic to map models to backend

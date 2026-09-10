@@ -178,7 +178,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
   });
 
   saveConfig(config);
-  console.log(chalk.green("  automaton.json written"));
+  console.log(chalk.green("  .env written"));
 
   writeDefaultHeartbeatConfig();
   console.log(chalk.green("  heartbeat.yml written"));

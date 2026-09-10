@@ -135,7 +135,7 @@ export async function runAgentLoop(
 
       // Bridge automaton config API keys to env vars for the provider registry.
       // Bridge automaton config API keys to env vars for the provider registry.
-      // Removed OpenAI and Anthropic to ensure 100% local processing.
+      // Removed OpenAI and Anthropic to ensure 100% local processing.\n      if (config.nimApiKey && !process.env.NVIDIA_NIM_API_KEY) {\n        process.env.NVIDIA_NIM_API_KEY = config.nimApiKey;\n      }
       
       // Conway Compute API is OpenAI-compatible. Use it as fallback when no
       // direct OpenAI key is available. The conwayApiKey is always present

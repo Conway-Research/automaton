@@ -1,0 +1,105 @@
+--- src/conway/inference.ts
++++ src/conway/inference.ts
+@@ -27,6 +27,8 @@
+   openaiApiKey?: string;
+   anthropicApiKey?: string;
+   ollamaBaseUrl?: string;
++  nimApiKey?: string;
++  nimBaseUrl?: string;
+   /** Optional registry lookup — if provided, used before name heuristics */
+   getModelProvider?: (modelId: string) => string | undefined;
+ }
+ 
+-type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama" | "deepseek";
++type InferenceBackend = "conway" | "openai" | "anthropic" | "ollama" | "deepseek" | "nim";
+ 
+@@ -46,7 +48,7 @@
+ export function createInferenceClient(
+   options: InferenceClientOptions,
+ ): InferenceClient {
+-  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, getModelProvider } = options;
++  const { apiUrl, apiKey, openaiApiKey, anthropicApiKey, ollamaBaseUrl, nimApiKey, nimBaseUrl, getModelProvider } = options;
+   const httpClient = new ResilientHttpClient({
+@@ -62,4 +64,6 @@
+       openaiApiKey,
+       anthropicApiKey,
+       ollamaBaseUrl,
++      nimApiKey,
++      nimBaseUrl,
+       getModelProvider,
+     });
+@@ -118,5 +122,6 @@
+     const openAiLikeApiUrl =
+       backend === "ollama" ? ollamaBaseUrl
++      : backend === "nim" ? (nimBaseUrl || "https://integrate.api.nvidia.com/v1")
+       : backend === "deepseek" ? "https://api.deepseek.com/v1"
+       : apiUrl;
+@@ -124,4 +129,5 @@
+     const openAiLikeApiKey =
+       backend === "openai" ? (openaiApiKey as string) :
++      backend === "nim" ? (nimApiKey as string) :
+       backend === "ollama" ? "ollama" :
+       apiKey;
+@@ -176,14 +182,17 @@
+   keys: {
+     openaiApiKey?: string;
+     anthropicApiKey?: string;
+     ollamaBaseUrl?: string;
++    nimApiKey?: string;
++    nimBaseUrl?: string;
+     getModelProvider?: (modelId: string) => string | undefined;
+   },
+ ): InferenceBackend {
+   // Registry-based routing: most accurate, no name guessing
+   if (keys.getModelProvider) {
+     const provider = keys.getModelProvider(model);
+     if (provider === "ollama" && keys.ollamaBaseUrl) return "ollama";
++    if (provider === "nim" && keys.nimApiKey) return "nim";
+     if (provider === "anthropic" && keys.anthropicApiKey) return "anthropic";
+     if (provider === "openai" && keys.openaiApiKey) return "openai";
+--- src/inference/provider-registry.ts
++++ src/inference/provider-registry.ts
+@@ -62,7 +62,7 @@
+ const DEFAULT_TIER_DEFAULTS: Record<ModelTier, TierDefault> = {
+   reasoning: {
+     preferredProvider: "deepseek",
+-    fallbackOrder: ["openai", "local", "groq", "together"],
++    fallbackOrder: ["nim", "local", "openai", "groq", "together"],
+   },
+   fast: {
+     preferredProvider: "deepseek",
+-    fallbackOrder: ["openai", "local", "groq", "together"],
++    fallbackOrder: ["nim", "local", "openai", "groq", "together"],
+   },
+   cheap: {
+     preferredProvider: "deepseek",
+-    fallbackOrder: ["openai", "local", "together"],
++    fallbackOrder: ["local", "nim", "openai", "together"],
+   },
+ };
+ 
+@@ -69,6 +69,32 @@
+ const DEFAULT_PROVIDERS: ProviderConfig[] = [
++  {
++    id: "nim",
++    name: "NVIDIA NIM",
++    baseUrl: process.env.NIM_BASE_URL || "https://integrate.api.nvidia.com/v1",
++    apiKeyEnvVar: "NVIDIA_NIM_API_KEY",
++    priority: 3,
++    enabled: true,
++    maxRequestsPerMinute: 60,
++    maxTokensPerMinute: 100000,
++    models: [
++      {
++        id: "meta/llama-3.1-70b-instruct",
++        tier: "reasoning",
++        contextWindow: 128000,
++        maxOutputTokens: 8192,
++        costPerInputToken: 8.8,
++        costPerOutputToken: 8.8,
++        supportsTools: true,
++        supportsVision: false,
++        supportsStreaming: true,
++      }
++    ]
++  },
