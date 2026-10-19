@@ -1,3 +1,4 @@
+import {reportStatusLabel} from './model.mjs';
 import {restoreFinancePeriod,saveFinancePeriod} from './finance-refresh.mjs';
 import {parseSourceOverview,renderSourceOverview} from './interaction.mjs';
 import {mergeFinanceSnapshot,financeRefreshMessage} from './finance-refresh.mjs';
@@ -571,7 +572,7 @@ function renderOperations(){
 
  for(const [name,report] of [['Auftragsüberwachung',reports?.orders],['Domains',reports?.domains],['Paper-Beobachtung',reports?.paper]]){
 
-  const panel=el('details',undefined,'notice');panel.append(el('summary',name),el('strong',report?.status==='recent'?'Aktueller lokaler Bericht':report?.status==='observing'?'Datenfeed aktuell':report?.status==='feed-degraded'?'Datenfeed gestört':report?.status==='initial-window-ended'?'Beobachtungsfenster beendet':report?.status==='stale'?'Bericht veraltet':'Kein auswertbarer Bericht'));
+  const panel=el('details',undefined,'notice');panel.append(el('summary',name),el('strong',reportStatusLabel(report?.status)));
 
   if(name==='Paper-Beobachtung'&&report?.at)panel.append(el('p','Status: '+report.status+' · '+report.accounts+' virtuelle Konten · '+report.virtualPositions+' virtuelle Positionen. Keine Echtgeld-Ausführung.')) ;
 

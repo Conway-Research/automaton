@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {reportStatusLabel} from '../web/founder/model.mjs';
+test('partial report is distinct from unavailable and stale reports',()=>{assert.equal(reportStatusLabel('partial'),'Teilweise');assert.equal(reportStatusLabel('unavailable'),'Kein auswertbarer Bericht');assert.equal(reportStatusLabel('stale'),'Bericht veraltet');assert.equal(reportStatusLabel('recent'),'Aktueller lokaler Bericht');});

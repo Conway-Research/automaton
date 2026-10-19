@@ -170,3 +170,7 @@ export function automaticContinuation(task){
  if(task.reason==='Voraussetzung nicht erfolgreich abgeschlossen.')return 'numaron wartet auf die Vorarbeit und setzt diese Aufgabe nach deren erfolgreichem Abschluss automatisch fort. Eine gescheiterte Vorarbeit bleibt separat sichtbar.';
  return null;
 }
+
+export function reportStatusLabel(status){
+ return ({recent:'Aktueller lokaler Bericht',partial:'Teilweise',observing:'Datenfeed aktuell','feed-degraded':'Datenfeed gestört','initial-window-ended':'Beobachtungsfenster beendet',stale:'Bericht veraltet'})[status]??'Kein auswertbarer Bericht';
+}
