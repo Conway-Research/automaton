@@ -4,6 +4,7 @@ import { InferenceRouter } from "../inference/router.js";
 import { ModelRegistry } from "../inference/registry.js";
 import { InferenceBudgetTracker } from "../inference/budget.js";
 import { createConfig } from "../config.js";
+import { registerGeminiModels, GEMINI_BASELINE_MODELS } from "../gemini/discover.js";
 import Database from "better-sqlite3";
 import type BetterSqlite3 from "better-sqlite3";
 import { MIGRATION_V6 } from "../state/schema.js";
@@ -56,6 +57,24 @@ describe("Gemini BYOK Integration", () => {
 
     const deadTurn = router.selectModel("dead", "agent_turn");
     expect(deadTurn).toBeNull();
+  });
+
+  it("registerGeminiModels seeds database registry idempotently", () => {
+    const ids = registerGeminiModels(db);
+    expect(ids).toEqual(["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]);
+
+    const registry = new ModelRegistry(db);
+    const flash = registry.get("gemini-2.5-flash");
+    expect(flash).toBeDefined();
+    expect(flash?.provider).toBe("gemini");
+    expect(flash?.supportsTools).toBe(true);
+    expect(flash?.costPer1kInput).toBe(0);
+
+    // Call again to verify idempotency
+    const secondCall = registerGeminiModels(db);
+    expect(secondCall.length).toBe(4);
+    const all = registry.getAll();
+    expect(all.filter((m) => m.provider === "gemini").length).toBe(4);
   });
 
   it("InferenceClient routes requests to Google OpenAI-compatible endpoint for Gemini", async () => {

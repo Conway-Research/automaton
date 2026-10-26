@@ -23,6 +23,7 @@ import {
 import { consumeNextWakeEvent, insertWakeEvent } from "./state/database.js";
 import { runAgentLoop } from "./agent/loop.js";
 import { ModelRegistry } from "./inference/registry.js";
+import { registerGeminiModels } from "./gemini/discover.js";
 import { loadSkills } from "./skills/loader.js";
 import { initStateRepo } from "./git/state-versioning.js";
 import { createSocialClient } from "./social/client.js";
@@ -284,6 +285,11 @@ async function run(): Promise<void> {
   // "gpt-oss:120b" route to Ollama based on their registered provider, not heuristics.
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
+  const geminiApiKey = config.geminiApiKey || process.env.GEMINI_API_KEY;
+  if (geminiApiKey) {
+    registerGeminiModels(db.raw);
+    logger.info(`[${new Date().toISOString()}] Gemini backend configured`);
+  }
   const inference = createInferenceClient({
     apiUrl: config.conwayApiUrl,
     apiKey,
@@ -293,7 +299,7 @@ async function run(): Promise<void> {
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
-    geminiApiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,
+    geminiApiKey,
     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
 
