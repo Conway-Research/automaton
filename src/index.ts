@@ -196,7 +196,7 @@ async function run(): Promise<void> {
   // Load wallet (chain-aware)
   const { account, chainIdentity, chainType: walletChainType } = await getWallet();
   const resolvedChainType = config.chainType || walletChainType || "evm";
-  const apiKey = config.conwayApiKey || loadApiKeyFromConfig();
+  const apiKey = config.conwayApiKey || loadApiKeyFromConfig() || config.geminiApiKey || config.openaiApiKey || "local";
   if (!apiKey) {
     logger.error("No API key found. Run: automaton --provision");
     process.exit(1);
@@ -293,6 +293,7 @@ async function run(): Promise<void> {
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
+    geminiApiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,
     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
 

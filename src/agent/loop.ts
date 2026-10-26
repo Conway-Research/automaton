@@ -358,7 +358,7 @@ export async function runAgentLoop(
   onStateChange?.("waking");
 
   // Get financial state
-  let financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm");
+  let financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm", config);
 
   // Check if this is the first run
   const isFirstRun = db.getTurnCount() === 0;
@@ -426,7 +426,7 @@ export async function runAgentLoop(
       }
 
       // Refresh financial state periodically
-      financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm");
+      financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm", config);
 
       // Check survival tier
       // api_unreachable: creditsCents === -1 means API failed with no cache.
@@ -948,7 +948,17 @@ async function getFinancialState(
   address: string,
   db?: AutomatonDatabase,
   chainType?: string,
+  config?: AutomatonConfig,
 ): Promise<FinancialState> {
+  const hasExternalKey = !!(config?.geminiApiKey || config?.openaiApiKey || config?.anthropicApiKey);
+  if (hasExternalKey) {
+    return {
+      creditsCents: 10000,
+      usdcBalance: _lastKnownUsdc,
+      lastChecked: new Date().toISOString(),
+    };
+  }
+
   let creditsCents = _lastKnownCredits;
   let usdcBalance = _lastKnownUsdc;
 
