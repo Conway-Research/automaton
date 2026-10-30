@@ -293,7 +293,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
 
   // ─── Credits ─────────────────────────────────────────────────
 
+  const isLocalKey = !apiKey || apiKey === "local" || apiKey === "cnwy_k_local";
+
   const getCreditsBalance = async (): Promise<number> => {
+    if (isLocalKey) {
+      return 10000;
+    }
     const result = await request("GET", "/v1/credits/balance");
     return result.balance_cents ?? result.credits_cents ?? 0;
   };
