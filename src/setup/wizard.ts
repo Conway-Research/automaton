@@ -107,16 +107,22 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     console.log(chalk.yellow("  Warning: Anthropic keys usually start with sk-ant-. Saving anyway."));
   }
 
+  const geminiApiKey = await promptOptional("Google Gemini API key (AIza..., optional)");
+  if (geminiApiKey && !geminiApiKey.startsWith("AIza")) {
+    console.log(chalk.yellow("  Warning: Gemini keys usually start with AIza. Saving anyway."));
+  }
+
   const ollamaInput = await promptOptional("Ollama base URL (http://localhost:11434, optional)");
   const ollamaBaseUrl = ollamaInput || undefined;
   if (ollamaBaseUrl) {
     console.log(chalk.green(`  Ollama URL saved: ${ollamaBaseUrl}`));
   }
 
-  if (openaiApiKey || anthropicApiKey || ollamaBaseUrl) {
+  if (openaiApiKey || anthropicApiKey || geminiApiKey || ollamaBaseUrl) {
     const providers = [
       openaiApiKey ? "OpenAI" : null,
       anthropicApiKey ? "Anthropic" : null,
+      geminiApiKey ? "Gemini" : null,
       ollamaBaseUrl ? "Ollama" : null,
     ].filter(Boolean).join(", ");
     console.log(chalk.green(`  Provider keys/URLs saved: ${providers}\n`));
@@ -172,6 +178,7 @@ export async function runSetupWizard(): Promise<AutomatonConfig> {
     apiKey,
     openaiApiKey: openaiApiKey || undefined,
     anthropicApiKey: anthropicApiKey || undefined,
+    geminiApiKey: geminiApiKey || undefined,
     ollamaBaseUrl,
     treasuryPolicy,
     chainType: walletChainType,

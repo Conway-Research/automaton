@@ -16,6 +16,7 @@ import type { AutomatonConfig, ModelStrategyConfig, TreasuryPolicy, ModelEntry }
 import { closePrompts } from "./prompts.js";
 import { createDatabase } from "../state/database.js";
 import { ModelRegistry } from "../inference/registry.js";
+import { registerGeminiModels } from "../gemini/discover.js";
 
 // ─── Readline helpers ─────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic",
   conway: "Conway",
   ollama: "Ollama",
+  gemini: "Gemini",
   other: "Other",
 };
 
@@ -173,6 +175,7 @@ function printMainMenu(config: AutomatonConfig): void {
   const providers = [
     config.openaiApiKey ? "OpenAI" : null,
     config.anthropicApiKey ? "Anthropic" : null,
+    config.geminiApiKey ? "Gemini" : null,
     config.ollamaBaseUrl ? "Ollama" : null,
     "Conway",
   ].filter(Boolean).join(", ");
@@ -205,6 +208,7 @@ async function configureProviders(config: AutomatonConfig): Promise<void> {
 
   config.openaiApiKey = await askString("OpenAI API key  (sk-...)", config.openaiApiKey) || undefined;
   config.anthropicApiKey = await askString("Anthropic API key  (sk-ant-...)", config.anthropicApiKey) || undefined;
+  config.geminiApiKey = await askString("Google Gemini API key  (AIza...)", config.geminiApiKey) || undefined;
   config.ollamaBaseUrl = await askString("Ollama base URL  (http://localhost:11434)", config.ollamaBaseUrl) || undefined;
 
   console.log("");
@@ -226,6 +230,11 @@ async function configureModelStrategy(config: AutomatonConfig): Promise<void> {
     console.log(chalk.dim(`  Checking Ollama at ${ollamaBaseUrl}...`));
     const { discoverOllamaModels } = await import("../ollama/discover.js");
     await discoverOllamaModels(ollamaBaseUrl, db.raw);
+  }
+
+  const geminiApiKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
+  if (geminiApiKey) {
+    registerGeminiModels(db.raw);
   }
 
   const models = registry.getAll().filter((m) => m.enabled);

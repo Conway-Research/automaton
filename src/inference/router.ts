@@ -190,6 +190,31 @@ export class InferenceRouter {
    *      (free/Ollama models are allowed at any tier, including dead)
    */
   selectModel(tier: SurvivalTier, taskType: InferenceTaskType): ModelEntry | null {
+    const userStrategy = this.budget.config;
+    if (userStrategy.inferenceModel?.startsWith("gemini")) {
+      if (tier === "dead") return null;
+      if (tier === "critical" && (taskType === "summarization" || taskType === "planning")) {
+        return null;
+      }
+      return {
+        modelId: userStrategy.inferenceModel,
+        provider: "gemini",
+        displayName: userStrategy.inferenceModel,
+        tierMinimum: "critical",
+        costPer1kInput: 0,
+        costPer1kOutput: 0,
+        maxTokens: 8192,
+        contextWindow: 1000000,
+        supportsTools: true,
+        supportsVision: true,
+        parameterStyle: "max_tokens",
+        enabled: true,
+        lastSeen: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     const TIER_ORDER: Record<string, number> = {
       dead: 0, critical: 1, low_compute: 2, normal: 3, high: 4,
     };
@@ -209,11 +234,10 @@ export class InferenceRouter {
 
     // 2. Fall back to user-configured models.
     //    This handles local/Ollama setups where routing-matrix models are absent.
-    const strategy = this.budget.config;
     const fallbackIds: (string | undefined)[] =
       tier === "critical" || tier === "dead"
-        ? [strategy.criticalModel, strategy.inferenceModel, strategy.lowComputeModel]
-        : [strategy.inferenceModel, strategy.lowComputeModel, strategy.criticalModel];
+        ? [userStrategy.criticalModel, userStrategy.inferenceModel, userStrategy.lowComputeModel]
+        : [userStrategy.inferenceModel, userStrategy.lowComputeModel, userStrategy.criticalModel];
 
     for (const modelId of fallbackIds) {
       if (!modelId) continue;

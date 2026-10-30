@@ -12,6 +12,7 @@ import { loadConfig, saveConfig, resolvePath } from "../config.js";
 import { createDatabase } from "../state/database.js";
 import { ModelRegistry } from "../inference/registry.js";
 import { discoverOllamaModels } from "../ollama/discover.js";
+import { registerGeminiModels } from "../gemini/discover.js";
 import type { ModelEntry } from "../types.js";
 import { promptOptional, closePrompts } from "./prompts.js";
 
@@ -20,6 +21,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic",
   conway: "Conway",
   ollama: "Ollama",
+  gemini: "Gemini",
   other: "Other",
 };
 
@@ -41,6 +43,11 @@ export async function runModelPicker(): Promise<void> {
   if (ollamaBaseUrl) {
     console.log(chalk.dim(`  Checking Ollama at ${ollamaBaseUrl}...`));
     await discoverOllamaModels(ollamaBaseUrl, db.raw);
+  }
+
+  const geminiApiKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
+  if (geminiApiKey) {
+    registerGeminiModels(db.raw);
   }
 
   const models = registry.getAll().filter((m) => m.enabled);

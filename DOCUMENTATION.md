@@ -288,6 +288,7 @@ Configuration is stored at `~/.automaton/automaton.json`.
   "maxTokensPerTurn": 4096,                     // Max tokens per inference call
   "openaiApiKey": "sk-...",                      // Optional BYOK OpenAI
   "anthropicApiKey": "sk-ant-...",               // Optional BYOK Anthropic
+  "geminiApiKey": "AIza...",                     // Optional BYOK Google Gemini
 
   // Paths
   "heartbeatConfigPath": "~/.automaton/heartbeat.yml",
@@ -917,6 +918,8 @@ Agents can leave on-chain feedback for each other:
 1. **Conway proxy** (default) — routes through `api.conway.tech`, billed from credits
 2. **OpenAI direct** — uses BYOK OpenAI API key (sk-...)
 3. **Anthropic direct** — uses BYOK Anthropic API key (sk-ant-...)
+4. **Google Gemini direct** — uses BYOK Gemini API key (AIza...)
+5. **Ollama local** — connects to local Ollama instance without cloud dependency
 
 ### Model selection
 
