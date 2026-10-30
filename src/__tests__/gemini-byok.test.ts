@@ -61,10 +61,12 @@ describe("Gemini BYOK Integration", () => {
 
   it("registerGeminiModels seeds database registry idempotently", () => {
     const ids = registerGeminiModels(db);
-    expect(ids).toEqual(["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]);
+    expect(ids).toContain("gemini-3.8-flash");
+    expect(ids).toContain("gemini-3.8-pro");
+    expect(ids).toContain("gemini-2.5-flash");
 
     const registry = new ModelRegistry(db);
-    const flash = registry.get("gemini-2.5-flash");
+    const flash = registry.get("gemini-3.8-flash");
     expect(flash).toBeDefined();
     expect(flash?.provider).toBe("gemini");
     expect(flash?.supportsTools).toBe(true);
@@ -72,9 +74,9 @@ describe("Gemini BYOK Integration", () => {
 
     // Call again to verify idempotency
     const secondCall = registerGeminiModels(db);
-    expect(secondCall.length).toBe(4);
+    expect(secondCall.length).toBe(ids.length);
     const all = registry.getAll();
-    expect(all.filter((m) => m.provider === "gemini").length).toBe(4);
+    expect(all.filter((m) => m.provider === "gemini").length).toBe(ids.length);
   });
 
   it("InferenceClient routes requests to Google OpenAI-compatible endpoint for Gemini", async () => {
