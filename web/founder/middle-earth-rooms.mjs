@@ -44,8 +44,8 @@ export const roomPlans={
  forge:{round:true,wall:'#44413c',trim:'#2a2824',height:64,segments:10,rough:true},
  treasury:{round:true,wall:'#55503f',trim:'#34302a',height:64,segments:10,rough:true},
  council:{round:true,wall:'#39352a',trim:'#22261a',height:56,segments:10,rough:true},
- // Amon Sûl: a broken ring, open to the sky.
- scouts:{round:true,wall:'#79745f',trim:'#58543f',height:34,segments:12,ruin:true},
+ // The Hornburg: old stone of Númenor, rough with age.
+ scouts:{round:true,wall:'#7a7666',trim:'#5c5848',height:58,segments:10},
  // Caras Galadhon: a talan high in the tree, only a white rail around it.
  lorien:{round:true,wall:'#dcdccb',trim:'#b5b6a2',height:13,segments:14,rail:true},
  // Osgiliath: the round Dome of Stars.
@@ -142,14 +142,18 @@ export const roomInteriors={
   longTable(k,0,72,60,24,'#5e4322','#3a2a18');k.box(-8,13.9,72,30,1,16,'#d8cfae');k.box(16,13.9,72,6,5,6,'#c9962d');candles(k,g,-24,13.9,76);for(let i=0;i<5;i++)k.column(22,13.9+i*.6,64,2.4,.5,'#ffdc7a',8);
  },
  scouts(k,g){
-  discFloor(k,'#5e5a48');for(let i=0;i<60;i++){const a=i*2.399,r=8+i*1.8;k.box(Math.cos(a)*r,.1,Math.sin(a)*r,5+(i%4)*2,.3,4+(i%3)*2,'#6d6854',a);}
-  // Rangers camp in the ring of the old watchtower: fire, bedrolls, the map on a fallen block, the beacon.
-  k.box(-6,0,-72,62,12,28,'#6d6854');k.box(-6,12,-72,50,.4,20,'#c9bf96');k.box(-14,12.4,-72,28,.2,.8,'#4f7f9b',.3);for(const [a,b] of [[-20,-76],[4,-68],[14,-78]])g.ball(a,13,b,.8,'#ff4a1a');
-  for(const [x,z] of [[64,-58],[-70,-40],[-90,6],[92,-8],[40,-92]])k.rock(x,3,z,9+Math.abs(x%5),6,8,'#6c675e',Math.abs(x));
-  for(let i=0;i<9;i++){const a=i*.7;k.box(44+Math.cos(a)*11,.8,-24+Math.sin(a)*11,8,1.6,1.6,'#2e2519',a);k.ball(44+Math.cos(a)*16,1.6,-24+Math.sin(a)*16,2.2,'#55524c');}fire(g,44,0,-24,5,16);k.column(38,0,-30,.5,16,'#26211a');k.box(44,14,-30,14,.5,.5,'#26211a');
-  for(const [x,z,r] of [[-84,50,.4],[-54,74,-.3],[84,58,1.1]]){k.local(x,z,r,()=>{k.box(0,.2,0,24,1.4,11,'#3b4a2e');k.add(k.cylinder(3,3,11),-11,3,0,1,1,1,'#55472c',0,Math.PI/2);});}
-  atWall(k,.2,ROUND_R-14,()=>{k.column(0,0,0,2.6,44,'#3f2c18',8);k.column(0,44,0,6,6,'#26211a',8);fire(g,0,50,0,3.6,12);});
-  atWall(k,1.2,ROUND_R-12,()=>{k.box(0,0,0,20,12,10,'#6a4a26');k.box(0,12,0,4,6,4,'#3f2c18');k.column(-14,0,0,.5,30,'#4a3219',6);k.column(-10,0,0,.5,28,'#4a3219',6);});
+  // The hall of the Hornburg: worn flagstones, a fire in its ring of stone, the horses of Rohan on green banners, the shields of the Westfold.
+  discFloor(k,'#5e5a4c');flagstones(k,'#6d6854');
+  for(const [x,z] of [[-46,-78],[46,-78]])column(k,x,z,6,56,'#716d5e','#8a8674',2);
+  longTable(k,0,-72,54,18,'#5e4322','#3a2a18');k.box(0,13.9,-72,40,.3,12,'#c9bf96');k.box(-8,14.2,-72,20,.2,.8,'#4f7f9b',.2);candles(k,g,14,13.9,-76);
+  k.column(0,0,10,13,1.6,'#54503f',18);for(let i=0;i<14;i++){const a=i/14*TAU;k.box(Math.sin(a)*12,1.2,10+Math.cos(a)*12,4,1.6,3,'#6d6854',a);}fire(g,0,1.6,10,6,16);
+  for(const a of [-.62,.62])atWall(k,a,ROUND_R-8,()=>{k.box(0,44,1,30,1.2,1.2,'#26211a');k.box(0,12,.8,26,32,.5,'#2f5a30');k.box(0,8,.8,26,4,.5,'#c9a23c');k.box(0,26,1.1,12,7,.3,'#e8e4d4');k.box(5,32,1.1,3.4,7,.3,'#e8e4d4');for(const s of [-5,-2,2,5])k.box(s,19,1.1,1.2,7,.3,'#e8e4d4');});
+  for(const a of [-1.5,-1.15,1.15,1.5])atWall(k,a,ROUND_R-7,()=>{k.add(k.cylinder(1,1,1,16),0,30,1,7,.8,7,a<0?'#2f5a30':'#7a3a28',0,Math.PI/2);k.ball(0,30,1.6,1.8,'#c9a23c',.5);k.box(-1,14,1,1.2,12,.6,'#c5cbd2');});
+  atWall(k,0,ROUND_R-9,()=>{k.box(0,0,0,26,6,14,'#6d6854');k.box(0,6,-2,16,4,8,'#4a3219');k.box(0,10,-5.4,16,22,1.6,'#4a3219');k.box(0,32,-5.4,20,3,2,'#c9a23c');});
+  atWall(k,.28,ROUND_R-7,()=>{k.box(-5,34,.5,1,6,1,'#26211a');k.box(5,34,.5,1,6,1,'#26211a');k.limb([[-10,30,1.2,.7],[-2,33,1.4,1.1],[6,32,1.4,1.8],[11,29,1.3,2.6]],'#d8cfae',8);});
+  atWall(k,2.25,ROUND_R-10,()=>{barrel(k,-12,0,14,5.4);barrel(k,2,2,14,5.4);crate(k,16,1,11);});
+  atWall(k,-2.25,ROUND_R-9,()=>{k.box(0,0,0,30,5,10,'#b39a4a');for(let i=0;i<7;i++)k.ball(-11+i*3.6,6,(i%2)*2-1,2.8,'#c9ad5a',.7);});
+  for(const [x,z] of [[-46,-22],[46,-22]])hangingLamp(k,g,x,z,54,12,'#ffd08a');
  },
  observatory(k,g){
   // The Dome of Stars: a starred floor, the great palantír, and the walls hung with charts of the markets.
@@ -251,13 +255,7 @@ const roomDetails={
   for(const a of [-.34,.34])atWall(k,a,ROUND_R-7,()=>{k.box(0,0,.5,24,40,1.2,'#2a1d0c');for(const s of [-1,1]){k.box(s*14,0,.8,5,46,2.6,'#6f6a58');k.box(s*14,46,.8,7,3,3.2,'#c9962d');}k.box(0,40,.8,30,6,2.6,'#6f6a58');k.box(0,41,1.5,22,3,.4,'#c9962d');k.box(0,18,1.4,3,3,.5,'#c9962d');});
   for(const [x,z] of [[-48,-30],[48,-30]]){k.column(x,0,z,1.2,28,'#c9962d',8);k.cyl(x,28,z,3,1.2,3,'#c9962d',8);g.cone(x,30.6,z,2.4,7,'#ffb23a',7);}
  },
- scouts(k,g){
-  // Packs and a cooking pot by the fire, a lean-to of cloth over the sleepers.
-  k.column(44,8,-24,.25,8,'#26211a',4);k.dome(44,7.4,-24,3.8,'#26211a',-.8);
-  for(const [x,z] of [[64,-36],[20,-44]]){k.limb([[x,0,z,3.6],[x,4,z,4.2],[x,8,z,3.4],[x,11,z,1.8]],'#54502e',8);k.box(x,11,z,4,1.2,4,'#3a2a1a');}
-  k.local(-70,62,.2,()=>{k.gable(0,0,0,34,44,16,'#3a4530',Math.PI/2);});
-  for(let i=0;i<4;i++)k.column(-20+i*9,0,-96-(i%2)*4,.6,20,'#3a2a18',5);
- },
+ scouts(k,g){},
  observatory(k,g){
   // Instruments of the watchers: a railing around the great stone, an astrolabe, a globe, lamps from above.
   for(let i=0;i<10;i++){const a=i/10*TAU;k.column(Math.sin(a)*26,0,-72-Math.cos(a)*26,.7,13,'#c9962d',6);if(i<10)k.box(Math.sin(a+.31)*25.2,13,-72-Math.cos(a+.31)*25.2,16.6,.7,.7,'#c9962d',-a-.31+Math.PI/2);}
@@ -277,25 +275,25 @@ function rugRound(k,x,z,r,a,b){k.column(x,.1,z,r,.3,a,28);k.column(x,.2,z,r-4,.3
 function rugRect(k,x,z,w,d,a,b){k.box(x,.1,z,w,.3,d,a);k.box(x,.2,z,w-5,.3,d-5,b);k.box(x,.3,z,w-9,.3,d-9,a);}
 
 // The stub of the wall always remains, so a room stays a room when its walls lift away.
-function wallFoot(id,k){
+export function wallFoot(id,k){
  const plan=roomPlans[id];if(plan.rail||plan.ruin)return;
  if(!plan.round){for(const s of [-1,1]){k.box(0,0,s*(S+1),S*2+10,7,5,plan.trim);k.box(s*(S+1),0,0,5,7,S*2+10,plan.trim);}return;}
  for(let i=0;i<16;i++)k.arc(ROUND_R+1.4,9.8,i/16*TAU,(i+1)/16*TAU,0,7,plan.trim);
 }
-for(const id of Object.keys(roomInteriors)){const base=roomInteriors[id];roomInteriors[id]=(k,g)=>{base(k,g);roomDetails[id](k,g);wallFoot(id,k);};}
+for(const id of Object.keys(roomInteriors)){const base=roomInteriors[id];roomInteriors[id]=(k,g)=>{base(k,g);roomDetails[id](k,g);};}
 
 // Where each room's own light comes from: [x,y,z,colour,strength], and how much daylight reaches in.
 export const roomLight={
  messengers:{day:.62,lamps:[[89,16,-64,'#ff9440',620],[0,34,-22,'#ffd08a',260]]},
- isengard:{day:.42,lamps:[[0,16,-82,'#ff6a1a',760],[-83,14,-72,'#ff7a2a',380]]},
+ isengard:{day:.62,lamps:[[0,22,-66,'#ff8a3a',1700],[-50,30,-10,'#ffc08a',1100]]},
  forge:{day:.42,lamps:[[-83,18,-72,'#ff7a2a',900],[52,30,-56,'#ff5a1a',760]]},
  treasury:{day:.42,lamps:[[0,34,-70,'#ffc27a',620],[0,24,66,'#ffb45a',340]]},
- council:{day:.6,lamps:[[-6,34,-30,'#d8ec9a',900],[50,34,-50,'#ffd08a',520]]},
+ council:{day:.66,lamps:[[-6,34,-20,'#e0f0a8',1300],[40,34,-40,'#ffd08a',800]]},
  observatory:{day:.7,lamps:[[0,36,-50,'#ff9a4a',300],[0,44,10,'#ffd98a',280]]},
  gate:{day:.72,lamps:[[-44,28,-84,'#ff9a4a',360],[44,28,-84,'#ff9a4a',360]]},
  library:{day:.86,lamps:[[0,44,-20,'#ffe2a8',220],[0,44,50,'#ffe2a8',180]]},
  lorien:{day:.84,lamps:[[-20,24,-58,'#cfeaff',320],[60,30,-30,'#fff0b0',180]]},
- scouts:{day:.8,lamps:[[44,16,-24,'#ff8a3a',520],[-6,30,-72,'#ff7a3a',120]]},
+ scouts:{day:.6,lamps:[[0,22,10,'#ff9a4a',1400],[0,36,-50,'#ffd08a',800]]},
 };
 
 // Thick walls in pieces, so that whichever part faces the camera can lift away.

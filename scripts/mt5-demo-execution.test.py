@@ -134,6 +134,17 @@ class Lifecycle(unittest.TestCase):
  def test_unprotected_fill_is_closed_on_following_cycle(self):
   with tempfile.TemporaryDirectory() as td:
    m,b,p=self.fixture();m.unprotected=True;s=d.Journal(str(Path(td)/'demo.db'));result=d.cycle(b,p,s);self.assertEqual(result['events'][0]['status'],'closed');self.assertEqual(len(m.sent),2);s.close()
+ def test_protection_run_after_off_closes_only_unprotected_position(self):
+  with tempfile.TemporaryDirectory() as td:
+   m,b,p=self.fixture();m.unprotected=True;s=d.Journal(str(Path(td)/'demo.db'));calls=[]
+   original=b.power;b.power=lambda:(calls.append(1) or len(calls)<2)
+   d.cycle(b,p,s);sent=len(m.sent);self.assertEqual(sent,1);self.assertEqual(s.active()[0][2]['status'],'unknown')
+   b.close_only=True;result=d.protect_only(b,s)
+   self.assertEqual(result['status'],'protect-only');self.assertEqual(len(m.sent),2);self.assertIn('position',m.sent[1]);self.assertEqual(result['unprotected'],0);self.assertEqual(s.active(),[]);s.close()
+ def test_protection_run_refuses_any_entry(self):
+  m,b,p=self.fixture();b.close_only=True
+  with self.assertRaises(RuntimeError):b.order_send({'magic':d.MAGIC,'symbol':'X','volume':1})
+  self.assertEqual(m.sent,[])
  def test_definite_rejection_is_recorded_once(self):
   with tempfile.TemporaryDirectory() as td:
    m,b,p=self.fixture();m.reject=True;s=d.Journal(str(Path(td)/'demo.db'));self.assertEqual(d.cycle(b,p,s)['events'][0]['status'],'rejected');d.cycle(b,p,s);self.assertEqual(len(m.sent),1);s.close()

@@ -157,6 +157,12 @@ test('Q05 OFF restoration with candidates schedules nothing and reports no readi
  try{const status=r.status();assert.equal(status.liveReady,false);assert.equal(r.store.snapshot().orders.length,0);}finally{r.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
 
+test('Q07 wording: AI bans are found, missing AI experience is no ban',()=>{
+ for(const text of ['AI must not be used.','AI may not be used for this work.','Use of artificial intelligence is prohibited.','Artificial intelligence must not be used.'])
+  {const a=assessListing(normalizeListing(base({text}),{now}),{now});assert.equal(a.selection.decision,'exclude',text);assert.ok(a.selection.reasons.includes('aiForbidden'),text);}
+ for(const text of ['No AI experience needed.','No AI knowledge required.','Keine KI-Erfahrung nötig.','No ChatGPT skills required.'])
+  assert.equal(assessListing(normalizeListing(base({text}),{now}),{now}).selection.reasons.includes('aiForbidden'),false,text);
+});
 test('Q07 forbidden AI, automation and misrepresentation exclude the listing',()=>{
  for(const text of ['No AI tools allowed for this job.','ChatGPT use is prohibited and will be rejected.','Do not use AI.','Automated bids are not allowed.','Keine KI verwenden.','Der Einsatz von KI ist untersagt.'])
   {const a=assessListing(normalizeListing(base({text}),{now}),{now});assert.equal(a.selection.decision,'exclude',text);assert.ok(a.selection.reasons.includes('aiForbidden'),text);}

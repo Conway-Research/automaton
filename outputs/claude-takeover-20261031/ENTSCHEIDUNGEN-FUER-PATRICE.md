@@ -54,3 +54,40 @@ Ziel selbstständiges Handeln: Ablauf in `trading-supplement-20261101/STUFENPLAN
 - **Altkopien entfernt** (dein Ja vom 2.11.). `scripts/scripts`: alle 1421 Dateien inhaltsgleich anderswo vorhanden, liegt im Windows-Papierkorb. `docs/superpowers/docs`: 3080 leere Ordner, entfernt.
 - **Reader:** Plan und fünf Entscheidungen in `PLAN-READER-BESTAETIGTE-ZAHLUNG.md`.
 - **`src/src` und `web/web` bleiben** (Entscheidung Patrice, 2.11.). Sie sind nicht im Commit und fließen weiter in den Quell-Fingerabdruck ein.
+
+## Entscheidung Grenzwerte Kundengewinnung, 2.11.2026: „wie vorgeschlagen“
+
+Stundensatz durch Sachkosten ersetzen, Mindeststichprobe 20 abgeschlossene Aufträge, höchstens 2 Nachfassungen je 7 Tage, routinemäßig nur das Dokumentenprojekt A/B. Die Werte sind Vorschläge ohne Datengrundlage und nach echten Läufen zu prüfen. Damit erledigt: Punkt 8 und die genannten Teile von Punkt 9. Forschungslimits bleiben offen.
+
+## Freigabe Patrice, 2.11.2026: „numaron hat die handelsfreigabe. alle freigaben“
+
+So umgesetzt:
+- **Trading-Arbeit:** Sperre für Änderungen, Offline-Tests und Reviews der Handelsbausteine aufgehoben.
+- **Demo-Handel:** Numaron darf nach deinem Knopfdruck auf dem Demokonto handeln, innerhalb der dokumentierten Limits.
+- **Apply:** Gilt für den nächsten stabilen, geprüften Stand, mit Numaron aus.
+- **Reader:** Darf nach bestandenem Review angeschlossen werden.
+
+Bleibt, weil die Freigabe dazu nichts Bestimmtes sagt oder es nicht von mir kommen kann:
+- **Echtgeld:** Es gibt kein Live-Konto im Code, keine Einzahlung und keinen Kandidaten, der die Regel aus dem Stufenplan besteht. Konto, Einzahlung und Zugang kommen nur von dir. Eine Echtgeld-Anbindung braucht deine Angaben zu Konto, Kapital und Verlustgrenze.
+- **Orders durch Claude:** Ich gebe selbst keine Orders auf, auch nicht auf Anweisung.
+- **Einschalten:** Nur dein Knopf (AGENTS.md).
+- **Budgets und Limits:** Unverändert, solange du keine neuen Zahlen nennst.
+- **Codex-HOLD:** Besteht weiter, bis du ihn ausdrücklich aufhebst.
+
+## Aus dem Review der Handelsbausteine (2.11.2026), Details in `INDEPENDENT-TRADING-REVIEW-v1.md`
+
+**Korrektur:** „Innerhalb der dokumentierten Limits“ stimmte nicht. Im Code stehen 5 % je Trade, 15 % gesamt, 30 % Tagesverlust (`trading-risk.mjs:1`); gespeicherte Demo-Vorgänge erreichten laut Review rund das Fünffache des Kapitals. 0,5 / 3 / 2 %, 15 % Drawdown, 50 CHF, 500 CHF und „kein Hebel“ sind dort nicht umgesetzt.
+
+Zu entscheiden:
+1. **Gültiger Limitsatz:** 5/15/30 (bestätigt 13.10.) oder 0,5/3/2 mit 15 % Drawdown, 50 CHF Nominal, 500 CHF, kein Hebel (neuerer Stand). Empfehlung: der neuere.
+2. **Märkte:** Es gibt keine Freigabeliste, Krypto wird auf dem Demokonto bevorzugt. Empfehlung: Aktien, ETFs, Währungen, keine Krypto, wie zuletzt dokumentiert.
+3. **Offene Positionen bei OFF:** Heute bleiben sie offen und auch das Schließen ist gesperrt. Empfehlung: Schließen und Schutz bleiben bei OFF möglich, neue Einstiege nicht.
+4. **Offene Demo-Position:** Vermutlich BCHUSD vom 23.10. Beim nächsten Einschalten kann sie sofort zu Markt geschlossen werden. Demo, kein echtes Geld.
+
+## Entscheidung Limits, 2.11.2026: „5 / 15 / 30 behalten“
+
+Gültig: 5 % je Trade, 15 % gesamt, 30 % Tagesverlust, wie im Code. Der Satz 0,5/3/2 mit 15 % Drawdown, 50 CHF und „kein Hebel“ ist damit nicht Vorgabe; die Demo kann weiter ein Mehrfaches des Kapitals als Nominal erreichen. Märkte und OFF-Regel wie vorgeschlagen: Aktien, ETFs, Währungen, keine Krypto; Schließen und Schutz bleiben bei OFF möglich.
+
+## Entscheidung Märkte und Hebel, 2.11.2026: „auch mit hebel traden und unter anderem auch crypto. alles zugängliche traden“
+
+Ersetzt den Vorschlag „keine Krypto“. Keine Freigabeliste für Märkte und keine Hebelgrenze auf dem Demokonto; es gelten 5/15/30. Die offene Frage nach dem Echtgeld ändert das nicht: Kein Live-Konto ist angeschlossen.

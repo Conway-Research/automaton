@@ -16,7 +16,7 @@ const SURFACES=['rock','ground','grass','bricks','stone','wood','bark','metal','
 export async function loadSurfaces(){
  const out={};
  const lifts={rock:3.6,ground:3,bark:3.4,metal:2.6,bricks:2.5,stone:2.4,wood:2.3,grass:3.2,thatch:2.6,marble:1.3};
- await Promise.all(SURFACES.map(async name=>{out[name]={map:await loadTexture(name+'_color',true),normalMap:await loadTexture(name+'_normal',false),lift:lifts[name]};}));
+ await Promise.all(SURFACES.map(async name=>{out[name]={map:await loadTexture(name+'_color',true),normalMap:await loadTexture(name+'_normal',false),lift:lifts[name],cool:{stone:1.09,marble:1.07}[name]??1};}));
  return out;
 }
 export const loadSky=()=>new RGBELoader().loadAsync(`${ROOT}sky/qwantani_dusk_2.hdr`);
@@ -47,7 +47,7 @@ export function addTerrainDetail(material,surfaces,light,extent,hub){
    vec3 fine=texture2D(groundDetail,landP.xz/15.5).rgb;
    diffuseColor.rgb*=clamp(soft/landMean(soft),.5,1.5)*clamp(fine/landMean(fine),.72,1.28)*(.8+big*.4);
    float mordor=1.-smoothstep(560.,720.,length((landP.xz-landHub)/vec2(1.,.72)));
-   float slope=1.-smoothstep(.62,.84,landN.y);
+   float upland=smoothstep(70.,175.,landP.y),slope=1.-smoothstep(mix(.3,.62,upland),mix(.55,.84,upland),landN.y);
    float scree=smoothstep(170.,320.,landP.y+(mid-.5)*140.);
    float rockAmount=max(slope,scree*.94)*smoothstep(3.,18.,landP.y);
    float bands=.5+.5*sin(landP.y*.045+landMean(rockFar)*5.+big*12.+mid*5.);
@@ -79,28 +79,58 @@ export function addTerrainDetail(material,surfaces,light,extent,hub){
 export function surfaceMaterial(surface,{roughness=.9,transparent=false}={}){
  // The photographed surface carries its own darkness; the lift keeps the building's colour at its intended brightness.
  const lift=surface.lift??2.3;
- return new T.MeshStandardMaterial({color:new T.Color(lift,lift,lift),vertexColors:true,map:surface.map,normalMap:surface.normalMap,normalScale:new T.Vector2(.8,.8),roughness,metalness:.02,transparent});
+ const cool=surface.cool??1;return new T.MeshStandardMaterial({color:new T.Color(lift*(2-cool),lift,lift*cool),vertexColors:true,map:surface.map,normalMap:surface.normalMap,normalScale:new T.Vector2(.8,.8),roughness,metalness:.02,transparent});
 }
+
+// Walls take on the ground they stand in: earth and moss climb them unevenly from the foot, so buildings grow out of the land.
+export function blendIntoLand(material,land,extent,reach=20){
+ material.onBeforeCompile=shader=>{
+  Object.assign(shader.uniforms,{landTint:{value:land},landBox:{value:new T.Vector4(extent.x,extent.y,extent.w,extent.h)},landReach:{value:reach}});
+  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vLandSpot;varying float vFootY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvFootY=position.y;vLandSpot=(modelMatrix*vec4(position,1.)).xz;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vLandSpot;varying float vFootY;uniform sampler2D landTint;uniform vec4 landBox;uniform float landReach;').replace('#include <color_fragment>',`#include <color_fragment>
+   {vec2 spot=(vLandSpot-landBox.xy)/landBox.zw;vec3 earth=texture2D(landTint,vec2(spot.x,1.-spot.y)).rgb;float rag=dot(texture2D(map,vMapUv*.31).rgb,vec3(.3333))*2.6;float foot=1.-smoothstep(.5,landReach,vFootY+(rag-.5)*landReach*.55);diffuseColor.rgb=mix(diffuseColor.rgb,earth,foot*.86);}`);
+ };
+ material.customProgramCacheKey=()=>'land-foot';
+ return material;
+}
+
+// A building opens without changing its look: the wall towards the viewer breaks down to a ragged sill, the roof crumbles away.
+export function cutaway(material){
+ const before=material.onBeforeCompile,key=material.customProgramCacheKey;
+ material.onBeforeCompile=function(shader,renderer){
+  before?.call(this,shader,renderer);
+  const u=this.userData.cut??={dir:{value:new T.Vector2(0,1)},open:{value:0},gone:{value:0}};
+  Object.assign(shader.uniforms,{cutDir:u.dir,cutOpen:u.open,cutGone:u.gone});
+  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vCutP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvCutP=position;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vCutP;uniform vec2 cutDir;uniform float cutOpen;uniform float cutGone;').replace('#include <map_fragment>',`
+   if(cutGone>0.){vec2 cell=floor(vCutP.xz/2.6+vCutP.y/5.);if(fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453)<cutGone)discard;}
+   if(cutOpen>0.&&length(vCutP.xz)<168.){float rag=sin(vCutP.x*.43+vCutP.z*.37)*sin(vCutP.x*.17-vCutP.z*.23+vCutP.y*.3);float sill=mix(190.,9.+rag*4.,cutOpen);if(vCutP.y>sill&&dot(vCutP.xz,cutDir)>28.+rag*10.)discard;}
+   #include <map_fragment>`);
+ };
+ material.customProgramCacheKey=function(){return (key?key.call(this):'')+'|cutaway';};
+ return material;
+}
+export function setCut(material,x,z,open,gone=0){const u=material.userData.cut??={dir:{value:new T.Vector2(0,1)},open:{value:0},gone:{value:0}};u.dir.value.set(x,z);u.open.value=open;u.gone.value=gone;}
 
 // ---- Scanned models, fetched the first time their region comes near ----
 const loader=new GLTFLoader(),cache=new Map();
 const loadModel=id=>{if(!cache.has(id))cache.set(id,loader.loadAsync(id.startsWith('props/')?`${ROOT}${id}.gltf`:`${ROOT}models/${id}/${id}.gltf`).then(g=>{g.scene.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});const box=new T.Box3().setFromObject(g.scene);return {scene:g.scene,height:box.max.y-box.min.y||1,width:Math.max(box.max.x-box.min.x,box.max.z-box.min.z)||1,base:box.min.y};}));return cache.get(id);};
 
-export async function placeModels(group,items){
+export async function placeModels(group,items,ground){
  await Promise.all(items.map(async ([id,x,y,z,h,ry=0,rx=0])=>{
-  const m=await loadModel(id),c=m.scene.clone(true),s=Math.min(h/m.height,h*1.5/m.width);c.scale.setScalar(s);c.position.set(x,y-m.base*s,z);c.rotation.set(rx,ry,0);group.add(c);
+  const m=await loadModel(id),c=m.scene.clone(true),s=Math.min(h/m.height,h*1.5/m.width);c.scale.setScalar(s);c.position.set(x,y-m.base*s+(ground?ground(x,z):0),z);c.rotation.set(rx,ry,0);group.add(c);
  }));
 }
 
 // What stands where. Heights are in world units; a person is about 34 tall. Coordinates are inside the district.
 export const regionProps={
- library:[['GothicCabinet_01',-100,0,92,40,1.57],['WoodenChair_01',96,0,50,20,-1.57],['lantern_chandelier_01',0,36,10,20],['fern_02',-158,0,120,16],['fern_02',156,0,124,18,1.2],['fern_02',-120,0,150,14,2.2],['moss_01',-140,0,150,4],['props/BookStand',-44,0,-30,16],['props/Book_Stack_1',24,13.9,-52,5],['props/BookGroup_Medium_2',-30,13.9,-56,6],['props/Book_Stack_2',-100,0,60,10]],
- gate:[['gothic_statue',-74,0,-66,48,1.57],['gothic_statue',74,0,-66,48,-1.57],['gothic_statue',-74,0,22,48,1.57],['gothic_statue',74,0,22,48,-1.57],['kite_shield',-96,18,-112,20],['kite_shield',96,18,-112,20],['lantern_chandelier_01',0,38,6,20],['gothic_statue',-150,0,170,46,.3],['gothic_statue',150,0,170,46,-.3],['props/Banner_1',-40,0,-106,50],['props/Banner_1',40,0,-106,50],['props/Scroll_2',-52,13.9,-4,3]],
- forge:[['namaqualand_boulder_02',-92,0,-24,16,.6],['namaqualand_boulder_02',-168,0,130,34,1.2],['namaqualand_boulder_03',170,0,134,30,2.1],['dry_branches_medium_01',-100,0,110,8],['props/Chain_Coil',18,0,-24,7],['props/Pickaxe_Bronze',-30,0,20,14,.6,1.4],['props/Anvil',-48,0,-88,13,.6],['props/Crate_Wooden',84,0,76,13],['props/Cauldron',-86,0,-74,16],['props/Workbench',-20,0,-96,18],['props/Torch_Metal',-98,0,46,30],['props/Torch_Metal',96,0,-30,30]],
- treasury:[['brass_pot_01',-48,14,-72,10],['brass_pot_01',52,16,-74,12,1],['kite_shield',-30,26,-112,22],['kite_shield',30,26,-112,22],['lantern_chandelier_01',0,40,6,20],['namaqualand_boulder_03',-214,0,110,40],['props/Chalice',-12,13.9,70,6],['props/Coin_Pile',-48,0,-58,10],['props/Coin_Pile_2',44,0,-60,12],['props/Coin_Pile',-78,0,-14,9],['props/Coin_Pile_2',78,0,-10,8],['props/Stall_Cart_Empty',0,0,184,34],['props/Chest_Wood',84,0,18,14,-1]],
- council:[['fern_02',-160,0,130,16],['fern_02',-120,0,160,18,1],['fern_02',-60,0,170,15,2],['fern_02',60,0,168,17,.5],['fern_02',130,0,150,19,3],['fern_02',-96,0,70,10,1],['moss_01',-20,0,150,4],['moss_01',40,0,160,4],['dead_tree_trunk',188,0,120,60,1],['dead_tree_trunk_02',-200,0,100,64,2],['props/Crate_Wooden',84,0,62,13],['props/Scroll_1',6,14.2,-46,3],['props/Chalice',-26,13.9,-58,5]],
+ library:[['GothicCabinet_01',-88,0,66,40,1.57],['WoodenChair_01',96,0,50,20,-1.57],['lantern_chandelier_01',0,36,10,20],['fern_02',-158,0,120,16],['fern_02',156,0,124,18,1.2],['fern_02',-120,0,150,14,2.2],['moss_01',-140,0,150,4],['props/BookStand',-44,0,-30,16],['props/Book_Stack_1',24,13.9,-52,5],['props/BookGroup_Medium_2',-30,13.9,-56,6],['props/Book_Stack_2',-100,0,60,10]],
+ gate:[['gothic_statue',-74,0,-66,48,1.57],['gothic_statue',74,0,-66,48,-1.57],['gothic_statue',-74,0,22,48,1.57],['gothic_statue',74,0,22,48,-1.57],['kite_shield',-96,18,-112,20],['kite_shield',96,18,-112,20],['lantern_chandelier_01',0,38,6,20],['gothic_statue',-82,0,206,46,.3],['gothic_statue',82,0,206,46,-.3],['props/Banner_1',-40,0,-106,50],['props/Banner_1',40,0,-106,50],['props/Scroll_2',-52,13.9,-4,3]],
+ forge:[['namaqualand_boulder_02',-92,0,-24,16,.6],['namaqualand_boulder_02',-214,0,176,30,1.2],['namaqualand_boulder_03',214,0,178,26,2.1],['props/Chain_Coil',18,0,-24,7],['props/Pickaxe_Bronze',-30,0,20,14,.6,1.4],['props/Anvil',-48,0,-88,13,.6],['props/Crate_Wooden',84,0,76,13],['props/Cauldron',-86,0,-74,16],['props/Workbench',-20,0,-96,18],['props/Torch_Metal',-98,0,46,30],['props/Torch_Metal',96,0,-30,30]],
+ treasury:[['brass_pot_01',-48,14,-72,10],['brass_pot_01',52,16,-74,12,1],['kite_shield',-30,26,-112,22],['kite_shield',30,26,-112,22],['lantern_chandelier_01',0,40,6,20],['namaqualand_boulder_03',-214,0,110,40],['props/Chalice',-12,13.9,70,6],['props/Coin_Pile',-48,0,-58,10],['props/Coin_Pile_2',44,0,-60,12],['props/Coin_Pile',-78,0,-14,9],['props/Coin_Pile_2',78,0,-10,8],['props/Stall_Cart_Empty',-78,0,196,34,.4],['props/Chest_Wood',84,0,18,14,-1]],
+ council:[['fern_02',-160,0,130,16],['fern_02',-120,0,160,18,1],['fern_02',-60,0,170,15,2],['fern_02',130,0,150,19,3],['fern_02',-96,0,70,10,1],['dead_tree_trunk',188,0,120,60,1],['dead_tree_trunk_02',-200,0,100,64,2],['props/Crate_Wooden',84,0,62,13],['props/Scroll_1',6,14.2,-46,3],['props/Chalice',-26,13.9,-58,5]],
  messengers:[['brass_pot_01',-2,13.9,-72,7],['lantern_chandelier_01',0,38,-6,18],['fern_02',-170,0,172,14],['fern_02',170,0,170,14,1],['props/Book_Stack_1',26,13.9,-68,5],['props/Scroll_2',-22,13.9,-56,3],['props/Crate_Wooden',96,0,-32,12],['props/Stall_Cart_Empty',-120,0,184,30,.5]],
- scouts:[['namaqualand_boulder_02',-96,0,-62,26,.4],['namaqualand_boulder_03',92,0,-68,28,2],['namaqualand_boulder_02',-150,0,120,30,1],['namaqualand_boulder_02',158,0,110,26,2.6],['mountainside',-210,0,-30,64,1],['dry_branches_medium_01',36,0,-40,8],['fern_02',-90,0,140,13],['props/Crate_Wooden',-58,0,-98,12],['props/Scroll_1',-16,12.4,-68,3],],
+ scouts:[['namaqualand_boulder_02',-196,0,150,30,1],['namaqualand_boulder_02',190,0,120,26,2.6],['namaqualand_boulder_03',-172,0,206,20,2],['dry_branches_medium_01',146,0,206,8],],
  isengard:[['dead_tree_trunk',-168,0,120,66,.6],['dead_tree_trunk_02',172,0,118,60,2.3],['namaqualand_boulder_02',-210,0,-30,30],['dry_branches_medium_01',120,0,170,16],['props/Cauldron',36,0,-96,18],['props/Chain_Coil',-40,0,8,8],['props/Anvil',-30,0,-96,14],['props/Chain_Coil',84,0,8,8,1],['props/Workbench',60,0,-82,16,-.6],['props/Pickaxe_Bronze',40,0,-14,14,1,1.4]],
  lorien:[['fern_02',-150,0,120,20],['fern_02',-100,0,146,18,1],['fern_02',110,0,142,20,2],['fern_02',160,0,110,16,3],['moss_01',-40,0,130,4],['moss_01',60,0,140,4],['props/Scroll_1',60,13.9,-60,3],['props/Chalice',48,13.9,-70,5]],
  observatory:[['marble_bust_01',-84,0,8,22,1.2],['WoodenChair_01',84,0,16,20,-1.2],['namaqualand_boulder_02',-170,0,150,24,.7],['namaqualand_boulder_02',176,0,120,30,1.8],['dry_branches_medium_01',-60,0,170,10],['props/CandleStick_Triple',92,0,-28,22],['props/Chandelier',0,42,-4,18],['props/Book_Stack_2',46,0,-90,10],['props/Scroll_2',60,13.9,-40,3]],

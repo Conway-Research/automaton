@@ -237,3 +237,21 @@ Einziger echter Fehlschlag dieser Sitzung: git auto-gc nach Commit e0c5bc97 (Pla
 Von der Dashboard-Sitzung ausgefuehrt, laut ihr nach Freigabe von Patrice dort. Nachgeprueft: loaded.json Batch fff197712f8f435cb1151c6a39aeb0e4, go-live ready true, HTTP 200 auf 127.0.0.1:51439, OFF Revision 101. Ihre Regression 2393/2399 nicht selbst wiederholt. Dashboard-Aenderungen geladen, aber uncommittet.
 Beobachtung: erster Anlauf mit startup-evidence-mismatch (reason matching-runtime-health-missing), Dienst nach 45 s beendet, zweiter Anlauf bestaetigt. Pruefung in founder-supervisor.mjs:22 verlangt h.pid===pid, at>=startedAt und at<=Date.now(); jede dieser Bedingungen und jeder Lesefehler ergibt denselben Grund. Vermutung der Sitzung (2 ms Uhrabweichung) nicht belegt. watchFounderStartup bricht nach einer falschen Pruefung nicht neu ab, sondern laeuft in den 45-s-Timeout. Nichts geaendert.
 Naechste Aktion: Commit der Dashboard-Runden bei Patrice; Knopf nur Patrice.
+
+## Review Handelsbausteine und Mutationen, 2.11.2026
+
+Review: blocker 1, hoch 6, mittel 5, niedrig 2. Demo vor Echtgeld gut geschuetzt, aber Limits nicht umgesetzt (trading-risk.mjs:1 nachgeprueft: 5/15/30). Echtgeld derzeit nicht sicher anschliessbar. Reader-Gate-Mutationen: 69 von 75 erkannt; A16+A17 als Paar erkannt, A13+A29 als Paar ueberlebt (Test fehlt noch), R05/R06 durch zweite Pruefung in der Engine abgedeckt. Reader-Review und Regression laufen.
+Naechste Aktion: Limit-Entscheidung von Patrice, dann H1, H2, H3 und B1 im Demo-Pfad; danach Apply.
+
+## Handel: Entscheidungen und Korrekturen, 2.11.2026
+
+Patrice: 5/15/30 bleibt, Hebel und Krypto und alle zugaenglichen Maerkte auf Demo. H1 und B1 damit entschieden, nicht behoben. H2 behoben: Demo liest den Founder-Stopp aus Research, Schutzabgleich laeuft weiter, keine neuen Einstiege. H4: Adapter-CLI nur noch read. Offen: H3 (Aktion nach OFF widerspricht AGENTS.md, braucht ausdrueckliches Ja), H5 und H6 vor jedem Echtgeld-Anschluss.
+Naechste Aktion: Reader-Review auswerten, Regression auf stillstehendem Stand, Apply.
+
+## Schutz nach OFF, 2.11.2026
+
+Patrice: "Ja, nur Schutz". Umgesetzt: Nach OFF oder Stopp laeuft ein begrenzter Lauf (6 Versuche, Abstand 10 s), nur wenn zuvor gestartet, nur Positionen ohne bestaetigten Stop, nur Schliessen; DemoExecutionBroker close_only lehnt jede Order ohne position ab; ON beendet den Lauf; bleibt etwas offen, meldet snapshot protectionAfterOff unconfirmed. AGENTS.md um die Regel ergaenzt. Nicht fuer Echtgeld. Altfassungen in pre-reader-20261102.
+
+## Review Gate und Reader, Apply-Vorbereitung, 2.11.2026
+
+Review: Stand tauglich zum Laden, Reader noch nicht zum Anschluss; 0 blocker, 2 hoch, 9 mittel, 11 niedrig. Behoben: R-H1 (eigenes Zeitlimit im Reader, Scheduler-Signal offen), R-H2 (Frist wird geprueft, wenn die Antwort sie nennt; die Liste nennt sie laut Belegen nicht), Brutto-Rundung, Timer-Fehler. Offen vor Reader-Anschluss: echter Lesetest und Fristquelle, M4-Aufrufer, Luecken bei Symlink und Bindung nach Neustart, uebrige mittlere Befunde. Regression evidence/regression-apply2-20261102.tap: 2641 Tests, 2635 gruen, 4 uebersprungen, 2 rot (founder-sofa-key, trade-radar-ui).

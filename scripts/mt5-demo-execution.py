@@ -19,13 +19,16 @@ MAGIC=170102601
 class DemoExecutionBroker(reader.DemoOnly):
  READS=reader.DemoOnly.READS
  CONSTANTS=reader.DemoOnly.CONSTANTS|frozenset(['TRADE_ACTION_DEAL','TRADE_RETCODE_DONE','TRADE_RETCODE_DONE_PARTIAL','ORDER_FILLING_IOC','ORDER_FILLING_FOK','ACCOUNT_MARGIN_MODE_RETAIL_HEDGING','DEAL_ENTRY_IN','DEAL_ENTRY_OUT'])
- def __init__(self,*args,offset=0,power=lambda:True):super().__init__(*args);self.offset=offset;self.power=power
+ def __init__(self,*args,offset=0,power=lambda:True,close_only=False):super().__init__(*args);self.offset=offset;self.power=power;self.close_only=close_only
  def order_check(self,request):
   self.account_info();result=self._broker.order_check(request);self.account_info();return result
  def order_send(self,request):
   account=self.account_info();terminal=self.terminal_info()
   if getattr(terminal,'trade_allowed',None) is not True or getattr(terminal,'tradeapi_disabled',None) is not False or getattr(account,'trade_allowed',None) is not True or getattr(account,'trade_expert',None) is not True:raise RuntimeError('Demo terminal or account trading disabled')
-  if not self.power():raise RuntimeError('Manual power is OFF or unreadable')
+  # After OFF only closing an own open position remains possible; every entry stays behind the power check.
+  if self.close_only:
+   if not request.get('position'):raise RuntimeError('Protection run may only close a position')
+  elif not self.power():raise RuntimeError('Manual power is OFF or unreadable')
   if request.get('magic')!=MAGIC:raise RuntimeError('Demo ownership required')
   result=self._broker.order_send(request)
   self.account_info();return result
@@ -184,6 +187,16 @@ def protect(m,intent,result):
    return reconcile(m,intent)
  return result
 
+def protect_only(m,journal):
+ """Patrice's decision of 2.11.2026: after OFF, positions without a confirmed stop may still be protected. Never enters."""
+ if m.account_info().trade_mode!=0:raise RuntimeError('Demo account required')
+ unprotected=0
+ for id,intent,old in journal.active():
+  if old.get('protectionVerified') and old.get('status') in ['accepted','partial']:continue
+  result=protect(m,intent,reconcile(m,intent));journal.finish(id,result)
+  if result['status'] not in ['closed','rejected'] and not result.get('protectionVerified'):unprotected+=1
+ return {'mode':'demo-only','status':'protect-only','executionEnabled':False,'liveAuthorized':False,'unprotected':unprotected}
+
 def enter(m,signal,payload,journal):
  a=m.account_info();day=payload['day'];limits=payload['limits'];now=time.time()*1000
  if not day.get('verified') or day.get('account')!=str(a.login) or day.get('server')!=a.server or day.get('currency')!=a.currency or not finite(day.get('startsAt')) or not finite(day.get('endsAt')) or not day['startsAt']<=now<day['endsAt'] or not positive(day.get('openingEquity')) or not finite(day.get('netExternalFlow')):return {'outcome':'not_submitted','reason':'day_binding_or_balance_unverified'}
@@ -246,7 +259,7 @@ def cycle(m,payload,journal):
  return result
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--terminal',required=True);p.add_argument('--login',type=int,required=True);p.add_argument('--server',required=True);p.add_argument('--operation',choices=['cycle'],required=True);args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--terminal',required=True);p.add_argument('--login',type=int,required=True);p.add_argument('--server',required=True);p.add_argument('--operation',choices=['cycle','protect'],required=True);args=p.parse_args()
  raw=sys.stdin.read(1048577)
  if len(raw)>1048576:raise RuntimeError('Oversized demo payload')
  payload=json.loads(raw);binding=payload['binding']
@@ -263,11 +276,12 @@ def main():
  power_file=Path(__file__).resolve().parents[1]/'artifacts/founder-integration-20261012/power-state.jsonl'
  controller_file=Path(__file__).resolve().parents[1]/'artifacts/founder-autonomy-20261013/controller.db'
  def power():return operating_power(power_file,controller_file)
- if not power():raise RuntimeError('Manual power is OFF or unreadable')
- broker=DemoExecutionBroker(mt5,args.terminal,args.login,args.server,offset=offset,power=power);journal=Journal(payload['journal'])
+ protecting=args.operation=='protect'
+ if not protecting and not power():raise RuntimeError('Manual power is OFF or unreadable')
+ broker=DemoExecutionBroker(mt5,args.terminal,args.login,args.server,offset=offset,power=power,close_only=protecting);journal=Journal(payload['journal'])
  try:
   if not broker.initialize(args.terminal):raise RuntimeError('Demo terminal unavailable')
-  result=cycle(broker,payload,journal)
+  result=protect_only(broker,journal) if protecting else cycle(broker,payload,journal)
   try:
    report=Path(__file__).resolve().parents[1]/'artifacts/demo-execution-20261017/signal-history.html'
    temp=report.with_suffix('.tmp');temp.write_text(signal_audit.render(journal.db),encoding='utf-8');temp.replace(report)

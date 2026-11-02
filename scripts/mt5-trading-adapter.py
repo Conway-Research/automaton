@@ -327,7 +327,7 @@ def manage_exit(m,intent,position_ticket,authorization):
 
 if __name__=='__main__':
  import sys
- p=argparse.ArgumentParser();p.add_argument('--terminal',required=True);p.add_argument('--login',required=True,type=int);p.add_argument('--server',required=True);p.add_argument('--start',type=int,default=0);p.add_argument('--watch',action='append',default=[]);p.add_argument('--day-start',type=int);p.add_argument('--day-end',type=int);p.add_argument('--operation',choices=['read','submit','reconcile','cancel','exit'],default='read');args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--terminal',required=True);p.add_argument('--login',required=True,type=int);p.add_argument('--server',required=True);p.add_argument('--start',type=int,default=0);p.add_argument('--watch',action='append',default=[]);p.add_argument('--day-start',type=int);p.add_argument('--day-end',type=int);p.add_argument('--operation',choices=['read'],default='read');args=p.parse_args()
  import MetaTrader5 as mt5
  if args.operation=='read':result=collect_market(mt5,args.terminal,args.login,args.server,args.start,args.watch,{'startsAt':args.day_start,'endsAt':args.day_end} if args.day_start is not None and args.day_end is not None else None)
  else:

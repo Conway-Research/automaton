@@ -29,9 +29,9 @@ export class Kit{
   for(let i=0;i<points.length-1;i++)for(let n=0;n<(i===points.length-2?5:4);n++){const t=n/4,p0=at(i-1),p1=at(i),p2=at(i+1),p3=at(i+2),q=[];for(let d=0;d<4;d++)q[d]=.5*(2*p1[d]+(p2[d]-p0[d])*t+(2*p0[d]-5*p1[d]+4*p2[d]-p3[d])*t*t+(3*p1[d]-p0[d]-3*p2[d]+p3[d])*t*t*t);q[3]=Math.max(.05,q[3]);path.push(q);}
   const rings=[],T0=new T.Vector3(),A=new T.Vector3(1,0,.3).normalize(),B=new T.Vector3(),o=new T.Vector3();
   path.forEach((p,i)=>{const a=path[Math.max(0,i-1)],b=path[Math.min(path.length-1,i+1)];T0.set(b[0]-a[0],b[1]-a[1],b[2]-a[2]).normalize();A.addScaledVector(T0,-A.dot(T0));if(A.lengthSq()<1e-5)A.set(0,0,1).addScaledVector(T0,-T0.z);A.normalize();B.crossVectors(T0,A);const ring=[];for(let j=0;j<=sides;j++){const w=j/sides*6.2832;o.copy(A).multiplyScalar(Math.cos(w)).addScaledVector(B,Math.sin(w));ring.push([p[0]+o.x*p[3],p[1]+o.y*p[3],p[2]+o.z*p[3],o.x,o.y,o.z]);}rings.push(ring);});
-  const put=v=>{this.pos.push(v[0],v[1],v[2]);this.nor.push(v[3],v[4],v[5]);this.col.push(c.r,c.g,c.b);};
-  for(let i=0;i<rings.length-1;i++)for(let j=0;j<sides;j++){const a=rings[i][j],b=rings[i][j+1],d=rings[i+1][j],e=rings[i+1][j+1];put(a);put(b);put(d);put(b);put(e);put(d);}
-  return this;
+  const rise=this.ground?this.ground(points[0][0],points[0][2]):0;const put=v=>{this.pos.push(v[0],v[1]+rise,v[2]);this.nor.push(v[3],v[4],v[5]);this.col.push(c.r,c.g,c.b);};
+  const from=this.pos.length;for(let i=0;i<rings.length-1;i++)for(let j=0;j<sides;j++){const a=rings[i][j],b=rings[i][j+1],d=rings[i+1][j],e=rings[i+1][j+1];put(a);put(b);put(d);put(b);put(e);put(d);}
+  this.note(from);return this;
  }
  cylinder(top,bottom,h,segments=10){const key=`g${top}|${bottom}|${h}|${segments}`;if(!cylinders.has(key))cylinders.set(key,new T.CylinderGeometry(top,bottom,h,segments).toNonIndexed());return cylinders.get(key);}
  icosa(r){const key='i'+r;if(!cylinders.has(key))cylinders.set(key,new T.IcosahedronGeometry(r,0).toNonIndexed());return cylinders.get(key);}
@@ -41,11 +41,14 @@ export class Kit{
  // A thick curved wall from angle a0 to a1, where angle 0 is north and angles grow clockwise.
  arc(radius,thick,a0,a1,y,h,color){const shape=new T.Shape(),steps=8;for(let i=0;i<=steps;i++){const a=a0+(a1-a0)*i/steps,px=Math.sin(a)*radius,py=Math.cos(a)*radius;i?shape.lineTo(px,py):shape.moveTo(px,py);}for(let i=steps;i>=0;i--){const a=a0+(a1-a0)*i/steps;shape.lineTo(Math.sin(a)*(radius-thick),Math.cos(a)*(radius-thick));}shape.closePath();const g=new T.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false}).toNonIndexed();g.rotateX(-Math.PI/2);this.add(g,0,y,0,1,1,1,color);return this;}
  add(geometry,x,y,z,sx,sy,sz,color,ry=0,rx=0,rz=0){
+  const from=this.pos.length;
   helper.position.set(x,y,z);helper.scale.set(sx,sy,sz);helper.rotation.set(rx,ry,rz);helper.updateMatrix();if(this.parent)helper.matrix.premultiply(this.parent);
   const p=geometry.attributes.position,n=geometry.attributes.normal,normalMatrix=new T.Matrix3().getNormalMatrix(helper.matrix),v=new T.Vector3();tint.set(color);
-  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(helper.matrix);this.pos.push(v.x,v.y,v.z);v.fromBufferAttribute(n,i).applyMatrix3(normalMatrix).normalize();this.nor.push(v.x,v.y,v.z);this.col.push(tint.r,tint.g,tint.b);}
-  return this;
+  const lift=this.ground?this.ground(helper.matrix.elements[12],helper.matrix.elements[14]):0;for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(helper.matrix);this.pos.push(v.x,v.y+lift,v.z);v.fromBufferAttribute(n,i).applyMatrix3(normalMatrix).normalize();this.nor.push(v.x,v.y,v.z);this.col.push(tint.r,tint.g,tint.b);}
+  this.note(from);return this;
  }
+ // Remembers what stands on the ground, so that nothing else grows through it.
+ note(from){if(!this.record)return;let x0=1e9,y0=1e9,z0=1e9,x1=-1e9,y1=-1e9,z1=-1e9;for(let i=from;i<this.pos.length;i+=3){x0=Math.min(x0,this.pos[i]);x1=Math.max(x1,this.pos[i]);y0=Math.min(y0,this.pos[i+1]);y1=Math.max(y1,this.pos[i+1]);z0=Math.min(z0,this.pos[i+2]);z1=Math.max(z1,this.pos[i+2]);}if(y0<12&&y1>3)this.record.push([x0,z0,x1,z1]);}
  box(x,y,z,w,h,d,color,ry=0){return this.add(unit.box,x,y+h/2,z,w,h,d,color,ry);}
  cyl(x,y,z,rTop,rBottom,h,color,segments=12){return this.add(cylinder(1,rBottom/(rTop||1),segments),x,y+h/2,z,rTop||1,h,rTop||1,color);}
  column(x,y,z,r,h,color,segments=12){return this.add(cylinder(1,1,segments),x,y+h/2,z,r,h,r,color);}
@@ -239,23 +242,25 @@ export function buildDistrict(id,crew,art){
  const group=new T.Group(),inside=new Kit(),light=new Kit(),out=new Kit(),near=new Kit(),nearLight=new Kit(),fx={smoke:[],embers:[],spray:[],leaves:[]};
  inside.lights=light;art.interiors[id](inside,light);inside.lights=null;
  for(const m of crew){const q=crewPoint(m);stationInto(inside,m.tool,q.x,q.z,light);}
+ out.ground=near.ground=nearLight.ground=light.ground=art.ground;
+ art.footing(id,out);
  art.landmarks[id](out,light,fx);
  art.closeDetails[id](near,nearLight);
- const lit=k=>{const m=k.mesh(glowing);m.castShadow=false;m.receiveShadow=false;return m;};
- const mats=art.materials[id];const interior=inside.mesh(mats.inside);group.add(interior);if(light.pos.length)group.add(lit(light));const outside=out.mesh(mats.outside);group.add(outside);
+ const lit=k=>{const m=k.mesh(glowing);m.castShadow=false;m.receiveShadow=false;return m;};const roomGlow=glowing.clone();art.cutaway(roomGlow);
+ const mats=art.materials[id];const interior=inside.mesh(mats.inside);group.add(interior);const glow=light.pos.length?lit(light):null;if(glow){glow.material=roomGlow;group.add(glow);}const outside=out.mesh(mats.outside);group.add(outside);
  const closeMesh=new T.Group();closeMesh.add(near.mesh(mats.outside));if(nearLight.pos.length)closeMesh.add(lit(nearLight));group.add(closeMesh);
- const wallKit=(build,base=mats.wall)=>{const k=new Kit();build(k);const material=base.clone();material.transparent=true;material.alphaTest=.02;const m=k.mesh(material);group.add(m);return m;};
+ const wallKit=(build,base=mats.wall)=>{const k=new Kit();build(k);const material=base.clone();material.onBeforeCompile=base.onBeforeCompile;material.customProgramCacheKey=base.customProgramCacheKey;material.transparent=false;material.alphaTest=.02;const m=k.mesh(material);group.add(m);return m;};
  const walls=art.buildWalls(id,build=>wallKit(build)).map(w=>({mesh:w.mesh,normal:new T.Vector3(w.normal[0],0,w.normal[1])}));
- const roof=wallKit(k=>art.roofs[id](k),mats.roof);
+ const portal=new Kit(),roof=wallKit(k=>art.roofs[id](k,portal),mats.roof),portalGlow=glowing.clone();art.cutaway(portalGlow);const portalMesh=portal.pos.length?portal.mesh(portalGlow):null;if(portalMesh){portalMesh.castShadow=false;portalMesh.receiveShadow=false;roof.add(portalMesh);}
  const props=new T.Group();props.visible=false;group.add(props);
- return {group,walls,roof,closeMesh,props,outside,fx};
+ return {group,walls,roof,portalGlow:portalMesh?portalGlow:null,closeMesh,props,outside,interior,glow,fx};
 }
 
 // ---- Barad-dûr ----
 // The Dark Tower: a rock foundation, a spiked curtain wall, four buttressed tiers and the iron fork that holds the eye.
 export function buildHub(material=solid){
  const group=new T.Group(),k=new Kit(),g=new Kit(),black='#6a5f56',dark='#564c44',iron='#3a332e';
- k.crag(0,0,0,205,40,178,'#5e544a',1);
+ k.crag(0,0,-26,205,40,150,'#5e544a',1);k.add(unit.box,0,4.2,173,32,1.4,68,'#3a332e',0,.125);for(const s of [-1,1])k.add(unit.box,s*15.5,5.4,173,1.6,3,68,'#26211e',0,.125);
  for(const [x,z,sx,sy,seed] of [[-130,-90,70,46,2],[130,-96,74,52,3],[-150,40,54,32,1],[152,36,56,34,2]])k.crag(x,0,z,sx,sy,sx,'#544a41',seed);
  // The curtain wall, open only towards the road from the south.
  const R=142,N=22;
@@ -323,7 +328,7 @@ function tier(radius,height,seed){
 // Wind in the crowns and light and shade across the leaves. Trunks stay still at their foot.
 export const forestTime={value:0};
 function foliage(radius){
- const m=new T.MeshStandardMaterial({color:'#ffffff',roughness:.92});
+ const m=new T.MeshLambertMaterial({color:new T.Color(1.6,1.6,1.6)});
  m.onBeforeCompile=shader=>{
   shader.uniforms.forestTime=forestTime;shader.uniforms.leafSize={value:radius};
   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float forestTime;varying vec3 vLeaf;').replace('#include <begin_vertex>',`#include <begin_vertex>
@@ -332,13 +337,13 @@ function foliage(radius){
    {float seed=instanceMatrix[3].x*.031+instanceMatrix[3].z*.043;transformed.x+=sin(forestTime*1.15+seed)*.55+sin(forestTime*2.9+seed+position.y*.3)*.2;transformed.z+=cos(forestTime*.93+seed)*.42;}
    #endif`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vLeaf;uniform float leafSize;').replace('#include <color_fragment>',`#include <color_fragment>
-   {float low=smoothstep(-leafSize,leafSize*.8,vLeaf.y);float dapple=sin(vLeaf.x*1.7+vLeaf.y*2.3)*sin(vLeaf.z*1.9-vLeaf.y*1.3)*sin(vLeaf.x*.6+vLeaf.z*.8);diffuseColor.rgb*=(.5+.72*low)*(.96+dapple*.12);}`);
+   {float low=smoothstep(-leafSize,leafSize*.8,vLeaf.y);float dapple=sin(vLeaf.x*1.7+vLeaf.y*2.3)*sin(vLeaf.z*1.9-vLeaf.y*1.3)*sin(vLeaf.x*.6+vLeaf.z*.8);diffuseColor.rgb*=(.5+.72*low)*(.96+dapple*.12);}`).replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*.2;');
  };
  return m;
 }
 // Crowns of painted leaves: tiers of boughs, so light falls through their edges. Every kind of tree has its own leaf and shape.
 const leafKinds={
- gold:{picture:'gold',r:30,tiers:[[-.42,.92,34],[-.1,1,46],[.2,.78,36],[.46,.48,20]],size:[.27,.24],tilt:[.25,1.05]},
+ gold:{picture:'gold',r:23,tiers:[[-.42,.92,34],[-.1,1,46],[.2,.78,36],[.46,.48,20]],size:[.27,.24],tilt:[.25,1.05]},
  oak:{picture:'oak',r:22,tiers:[[-.35,.9,18],[0,1,24],[.35,.75,16],[.6,.4,8]],size:[.3,.22],tilt:[.25,1.05]},
  birch:{picture:'birch',r:13,tiers:[[-.6,.8,10],[-.1,1,16],[.5,.7,12],[.9,.35,6]],size:[.32,.22],tilt:[.5,1]},
  dark:{picture:'dark',r:30,tiers:[[-.4,.95,24],[-.08,1,30],[.24,.75,20],[.5,.42,10]],size:[.3,.24],tilt:[.2,.9]},
@@ -378,7 +383,7 @@ function leafyCrown(kind,seed=4){
  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('normal',new T.Float32BufferAttribute(nor,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(index);g.userData.leaves=kind;return g;
 }
 function leafCards(kind){
- const spec=leafKinds[kind],m=new T.MeshStandardMaterial({map:leafPicture(spec.picture),alphaTest:.34,side:T.DoubleSide,roughness:.85,metalness:0});
+ const spec=leafKinds[kind],m=new T.MeshLambertMaterial({map:leafPicture(spec.picture),color:new T.Color(1.75,1.75,1.75),alphaTest:.34,side:T.DoubleSide});
  m.onBeforeCompile=shader=>{
   shader.uniforms.forestTime=forestTime;shader.uniforms.leafR={value:spec.r};
   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float forestTime;varying float vTier;').replace('#include <begin_vertex>',`#include <begin_vertex>
@@ -387,16 +392,28 @@ function leafCards(kind){
    {float seed=instanceMatrix[3].x*.031+instanceMatrix[3].z*.043+position.x*.09;transformed.x+=sin(forestTime*1.2+seed)*.6;transformed.y+=sin(forestTime*1.7+seed*1.3)*.28;transformed.z+=cos(forestTime+seed)*.48;}
    #endif`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTier;uniform float leafR;').replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);').replace('#include <color_fragment>',`#include <color_fragment>
-   diffuseColor.rgb*=mix(.56,1.08,smoothstep(-.5*leafR,.5*leafR,vTier));`);
+   diffuseColor.rgb*=mix(.56,1.08,smoothstep(-.5*leafR,.5*leafR,vTier));`).replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*.2;');
  };
  return m;
 }
 const leafShadow=kind=>new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,map:leafPicture(leafKinds[kind].picture),alphaTest:.34,side:T.DoubleSide});
 // Crowns standing on great trees of a district: [x,y,z,radius] in its own space.
 export function leafCrowns(kind,list){
- const material=leafCards(kind),mesh=new T.InstancedMesh(leafyCrown(kind,5),material,list.length),m=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0);
+ const material=clearView(leafCards(kind),'leaf'),mesh=new T.InstancedMesh(leafyCrown(kind,5),material,list.length),m=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0);
  list.forEach(([x,y,z,r],i)=>{q.setFromAxisAngle(up,x*.13+z*.07);const k=r/leafKinds[kind].r;m.compose(new T.Vector3(x,y,z),q,new T.Vector3(k,k*.82,k));mesh.setMatrixAt(i,m);});
- mesh.castShadow=true;mesh.customDepthMaterial=leafShadow(kind);mesh.frustumCulled=false;return mesh;
+ mesh.castShadow=kind==='gold';mesh.customDepthMaterial=leafShadow(kind);mesh.frustumCulled=false;return mesh;
+}
+// Whatever grows between the camera and the place being looked at gives way, so a tree never stands in front of it.
+export const viewClear={a:{value:new T.Vector2()},b:{value:new T.Vector2(0,1)},r:{value:0}};
+function clearView(m,tag){
+ const before=m.onBeforeCompile;
+ m.onBeforeCompile=function(s,renderer){
+  before?.call(this,s,renderer);Object.assign(s.uniforms,{clearA:viewClear.a,clearB:viewClear.b,clearR:viewClear.r});
+  s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vClearP;').replace('#include <project_vertex>','#include <project_vertex>\n#ifdef USE_INSTANCING\nvClearP=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xz;\n#else\nvClearP=(modelMatrix*vec4(transformed,1.)).xz;\n#endif');
+  s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vClearP;uniform vec2 clearA;uniform vec2 clearB;uniform float clearR;').replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(clearR>0.){vec2 ab=clearB-clearA;float t=clamp(dot(vClearP-clearA,ab)/dot(ab,ab),0.,1.);if(distance(vClearP,clearA+ab*t)<clearR*smoothstep(.2,.5,t))discard;}');
+ };
+ m.customProgramCacheKey=()=>`clear|${tag}`;
+ return m;
 }
 const limbInto=(pieces)=>{const out=[],normals=[];for(const [len,r,tilt,turn,y] of pieces){const g=new T.CylinderGeometry(r*.3,r,len,5).toNonIndexed();g.translate(0,len/2,0);g.rotateZ(tilt);g.rotateY(turn);g.translate(0,y,0);out.push(...g.attributes.position.array);normals.push(...g.attributes.normal.array);}const merged=new T.BufferGeometry();merged.setAttribute('position',new T.Float32BufferAttribute(out,3));merged.setAttribute('normal',new T.Float32BufferAttribute(normals,3));return merged;};
 export function buildForest(trees,groundAt){
@@ -410,11 +427,12 @@ export function buildForest(trees,groundAt){
   dark:[[new T.CylinderGeometry(2.6,6.2,42,8),'#1d1712',21],[limbInto([[22,2.4,1.1,0,0],[20,2.2,1.2,2.1,0],[21,2.3,1,4.2,0]]),'#1d1712',30],[crown(17,7),'#0f2419',54],[leafyCrown('dark',3),'#ffffff',58]],
   birch:[[new T.CylinderGeometry(.9,1.8,32,7),'#c2c0b4',16],[crown(6,10),'#3f5a2a',36],[leafyCrown('birch',6),'#ffffff',38]],
   bush:[[crown(4,13,1,1),'#26401f',4],[leafyCrown('bush',7),'#ffffff',6]],darkbush:[[crown(4,15,1,1),'#102418',4],[leafyCrown('darkbush',8),'#ffffff',6]],goldbush:[[crown(4,17,1,1),'#6a5a24',4],[leafyCrown('goldbush',9),'#ffffff',6]],
+  stone:[[(()=>{const g=new T.IcosahedronGeometry(5,1),p=g.attributes.position,v=new T.Vector3();for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);v.multiplyScalar(1+Math.sin(v.x*.9)*.2+Math.sin(v.y*1.3+1)*.16+Math.sin(v.z*1.1+2)*.18);v.y*=.62;p.setXYZ(i,v.x,v.y,v.z);}g.computeVertexNormals();return g;})(),'#4c4a44',1.4]],
   log:[[new T.CylinderGeometry(1.8,2.4,26,7).rotateZ(1.53),'#33271a',2],[new T.CylinderGeometry(2.7,2.7,1,7),'#33271a',.5]],
  };
  const m=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0),tint=new T.Color();
  for(const [kind,list] of byKind)for(const [geometry,color,y] of shapes[kind]){
-  geometry.computeBoundingSphere();const isLeaf=!/#(3a2a|3a2a1a|1a15|1d17|b9bb|9fa1|c2c0|3327)/.test(color);const mesh=new T.InstancedMesh(geometry,geometry.userData.leaves?leafCards(geometry.userData.leaves):isLeaf?foliage(geometry.boundingSphere.radius):new T.MeshStandardMaterial({color:'#ffffff',roughness:.92}),list.length);mesh.castShadow=!/bush|log/.test(kind);mesh.receiveShadow=!isLeaf;if(geometry.userData.leaves)mesh.customDepthMaterial=leafShadow(geometry.userData.leaves);
+  geometry.computeBoundingSphere();const isLeaf=!/#(3a2a|3a2a1a|1a15|1d17|b9bb|9fa1|c2c0|3327|4c4a)/.test(color);const mesh=new T.InstancedMesh(geometry,geometry.userData.leaves?clearView(leafCards(geometry.userData.leaves),'leaf'):isLeaf?clearView(foliage(geometry.boundingSphere.radius),'foliage'):clearView(new T.MeshStandardMaterial({color:'#ffffff',roughness:.92}),'plain'),list.length);mesh.castShadow=!/bush|log|stone/.test(kind)&&(!geometry.userData.leaves||kind==='mallorn');mesh.receiveShadow=!isLeaf;if(geometry.userData.leaves)mesh.customDepthMaterial=leafShadow(geometry.userData.leaves);
   list.forEach((t,i)=>{const tall=t.s*(.88+((t.tone??1)-.82)*.8);q.setFromAxisAngle(up,t.x*.37);m.compose(new T.Vector3(t.x,groundAt(t.x,t.y)+y*tall,t.y),q,new T.Vector3(t.s,tall,t.s));mesh.setMatrixAt(i,m);tint.set(color).multiplyScalar(t.tone??1);tint.offsetHSL((Math.sin(t.x*.021+t.y*.017)+Math.sin(t.x*.13))*.008,(Math.sin(t.y*.031))*.05,0);mesh.setColorAt(i,tint);});
   mesh.frustumCulled=false;group.add(mesh);
  }

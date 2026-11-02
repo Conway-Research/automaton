@@ -20,7 +20,7 @@ export function createUgigCompletion({isEnabled,request,credential,evidence,reco
   const ref=await recordEvidence({kind:'ugig-net-payment',invoice:i,netReceipt:r,orderKey:orderKey(order)},ctx);client.active(ctx);
   if(!bounded(ref,2000))throw Error('Durable payment evidence required');
   if(digest(evidence.pack(order))!==digest(p))throw Error('Payment evidence changed during recording');
-  return {...orderKey(order),sourceRevision:order.sourceRevision,deliveryDigest:order.deliveryDigest??null,confirmed:true,amountMinor:r.netAmountMinor,currency:r.currency,recipient:r.recipient,evidenceRef:'ugig-receipt:'+digest([r.kind,r.receiptId]),recordedEvidenceRef:ref,observedAt:now(),expiresAt:now()+59000};
+  return {...orderKey(order),sourceRevision:order.sourceRevision,deliveryDigest:order.deliveryDigest??null,confirmed:true,receiptKind:r.kind,amountMinor:r.netAmountMinor,currency:r.currency,recipient:r.recipient,evidenceRef:'ugig-receipt:'+digest([r.kind,r.receiptId]),recordedEvidenceRef:ref,observedAt:now(),expiresAt:now()+59000};
  }
  return {readPayment:settlement,
   async verifyFunding(order,ctx){await settlement(order,ctx,{funding:true});return true;},

@@ -1,20 +1,19 @@
 import {capabilityStatus,taskWaitText} from './model.mjs';
 import {stations,HUB,workshopView,observedFlows,previewFlows,reportFlows,taskName} from './middle-earth-model.mjs';
-import {WORLD,HUB_SITE,sitePlaces,crews,wanderers,workstationNames,roadLoop,hubGate,spokes,mountDoom,rohan,buildWorld,groundAt,EXTENT,SUN} from './middle-earth-world.mjs';
-import {THREE as T,Kit,solid,glowing,HALL,crewPoint,makeFigure,buildDistrict,buildHub,buildForest,forestTime,leafCrowns,eyeSprites,smokeTexture} from './middle-earth-3d.mjs';
-import {loadSurfaces,loadSky,addTerrainDetail,surfaceMaterial,placeModels,regionProps,worldProps,loadRigs,dressFigure} from './middle-earth-assets.mjs';
-import {landmarks,roofs,closeDetails,buildBalrog,buildBlackGate,regionLeaves} from './middle-earth-regions.mjs';
-import {roomInteriors,roomLight,buildWalls} from './middle-earth-rooms.mjs';
+import {WORLD,HUB_SITE,sitePlaces,crews,wanderers,workstationNames,roadLoop,ringPaths,lanes,crossings,hubGate,spokes,mountDoom,rohan,buildWorld,groundAt,onRoad,EXTENT,SUN} from './middle-earth-world.mjs';
+import {THREE as T,Kit,solid,glowing,HALL,crewPoint,makeFigure,buildDistrict,buildHub,buildForest,forestTime,leafCrowns,viewClear,eyeSprites,smokeTexture} from './middle-earth-3d.mjs';
+import {loadSurfaces,loadSky,addTerrainDetail,surfaceMaterial,blendIntoLand,cutaway,setCut,placeModels,regionProps,worldProps,loadRigs,dressFigure} from './middle-earth-assets.mjs';
+import {landmarks,roofs,closeDetails,buildBalrog,buildBlackGate,regionLeaves,groundFootprints} from './middle-earth-regions.mjs';
+import {roomInteriors,roomLight,buildWalls,wallFoot} from './middle-earth-rooms.mjs';
 // Display only. The on/off switch stays in renderPower (app.js); this module never talks to the server.
 const statusLabels={queued:'wartet',planned:'geplant',running:'in Arbeit',verifying:'wird geprüft',working:'in Arbeit',blocked:'blockiert',failed:'fehlgeschlagen',review:'wartet auf dich',done:'erledigt',cancelled:'abgebrochen'};
 const stateColors={working:'#e4b24a',trouble:'#ff7a3c',waiting:'#8cc4dc',idle:'#cfc6ab'};
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const shorten=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
 const dist2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const roadStop=id=>roadLoop[stations.findIndex(s=>s.id===id)];
 const hallCentre=id=>({x:sitePlaces[id].x,y:sitePlaces[id].y+HALL.offset});
 const FAR=3300,NEAR=150;
-const homeOf=id=>id==='rohan'?rohan:{x:sitePlaces[id].x,y:sitePlaces[id].y+210};
+const homeOf=id=>id==='rohan'?rohan:{x:sitePlaces[id].x,y:sitePlaces[id].y+HALL.offset+212};
 
 export function createMiddleEarth(host,{openTask}={}){
  let selected=null,hovered=null,view=null,health=null,power=null,previousTasks=null,preview=false,previewTimer=null,ready=false;
@@ -46,14 +45,14 @@ export function createMiddleEarth(host,{openTask}={}){
  // Two lamps move to whichever room is being looked at, so a world of rooms costs only these two.
  const roomLamps=[new T.PointLight('#ffffff',0,420,1.25),new T.PointLight('#ffffff',0,420,1.25)];scene.add(...roomLamps);let litRoom=null,daylight=1;
  // A low evening sun: long shadows and warm light give the land its depth.
- const sun=new T.DirectionalLight('#ffe6c4',3.1);sun.castShadow=true;sun.shadow.mapSize.set(3072,3072);sun.shadow.bias=-.0006;sun.shadow.normalBias=1.2;scene.add(sun,sun.target);
+ const sun=new T.DirectionalLight('#ffe6c4',3.1);sun.castShadow=true;sun.shadow.mapSize.setScalar(matchMedia('(pointer:coarse)').matches?2048:4096);sun.shadow.bias=-.0006;sun.shadow.normalBias=1.2;scene.add(sun,sun.target);
 
  // Camera: a point on the ground, distance, turn. The tilt follows the distance, as in a strategy game.
  const home=()=>({x:WORLD.w/2,y:WORLD.h/2-20,d:2880,yaw:0,lift:-.14});
  const cam={...home()},goal={...home()};
- let W=1,H=1,dpr=1;
+ let W=1,H=1,dpr=1,renderScale=null,slowWindows=0,fastWindows=0,frameTotal=0,frameCount=0;
  function resize(){
-  W=stage.clientWidth||1;H=stage.clientHeight||1;dpr=Math.min(2,devicePixelRatio||1);renderer.setPixelRatio(dpr);renderer.setSize(W,H,false);labels.width=W*dpr;labels.height=H*dpr;camera.aspect=W/H;camera.updateProjectionMatrix();
+  W=stage.clientWidth||1;H=stage.clientHeight||1;dpr=Math.min(2,devicePixelRatio||1);renderScale??=matchMedia('(pointer:coarse)').matches?dpr:Math.max(1.35,dpr);renderer.setPixelRatio(renderScale);renderer.setSize(W,H,false);labels.width=W*dpr;labels.height=H*dpr;camera.aspect=W/H;camera.updateProjectionMatrix();
  }
  new ResizeObserver(resize).observe(stage);
  const limit=()=>{goal.d=Math.max(NEAR,Math.min(FAR,goal.d));goal.x=Math.max(-100,Math.min(WORLD.w+100,goal.x));goal.y=Math.max(-100,Math.min(WORLD.h+100,goal.y));};
@@ -86,7 +85,7 @@ export function createMiddleEarth(host,{openTask}={}){
   selected=id;jump.value=id??'';host.dataset.focused=id?'true':'false';panel.hidden=!id;
   if(id){
    const c=id===HUB?{x:HUB_SITE.x,y:HUB_SITE.y}:hallCentre(id),shift=W>=1000?205:0;
-   goal.d=id===HUB?1500:Math.max(500,620*(H<700?1.2:1));goal.yaw=cam.yaw;
+   goal.d=id===HUB?1500:380;goal.yaw=cam.yaw;
    const s=goal.d/H*.68,co=Math.cos(goal.yaw),si=Math.sin(goal.yaw);goal.x=c.x+shift*s*co;goal.y=c.y-shift*s*si;limit();renderPanel();
   }else Object.assign(goal,home());
  }
@@ -134,7 +133,7 @@ export function createMiddleEarth(host,{openTask}={}){
  // ---- Actors. Workers move only for real tasks or the labelled preview; the known figures are scenery. ----
  const actors=[],couriers=[],districts=new Map();
  const addFigure=a=>{a.mesh=makeFigure(a.f.people,a.f.tool);a.mesh.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=false;}});scene.add(a.mesh);return a;};
- const wayToHub=id=>spokes[stations.findIndex(s=>s.id===id)]??[hubGate];
+ const wayToHub=id=>{const i=Object.keys(sitePlaces).indexOf(id);return i<0?[hubGate]:[...lanes[id],...spokes[i]];};
  const setPath=(a,points,speed)=>{a.path=points;a.seg=0;a.speed=speed;a.mode='walk';};
  function stepAlong(a,dt){
   let left=a.speed*dt;
@@ -146,6 +145,9 @@ export function createMiddleEarth(host,{openTask}={}){
   a.phase+=dt*a.speed*.24;
   return false;
  }
+ let standing=[];
+ const blocked=(x,y)=>groundAt(x,y)<4||standing.some(({c,boxes})=>{const u=x-c.x,v=y-c.y;return Math.hypot(u,v)<640&&boxes.some(q=>u>q[0]-5&&u<q[2]+5&&v>q[1]-5&&v<q[3]+5);});
+ const clearWalk=(a,q)=>{const n=Math.ceil(Math.hypot(q.x-a.x,q.y-a.y)/10);for(let i=1;i<=n;i++)if(blocked(a.x+(q.x-a.x)*i/n,a.y+(q.y-a.y)*i/n))return false;return true;};
  function updateActor(a,now,dt){
   if(a.kind==='worker'){
    if(a.mode==='walk'){if(stepAlong(a,dt)){if(a.returning){a.returning=false;a.carrying=false;a.mode=a.busy?'work':'rest';a.heading=a.station;a.until=now+9000+Math.random()*9000;}else{a.mode='fetch';a.until=now+1100+Math.random()*1500;}}}
@@ -153,13 +155,13 @@ export function createMiddleEarth(host,{openTask}={}){
    else if(a.mode==='rest'){a.mode='work';a.until=now+4000+Math.random()*9000;}
    else if(now>a.until){
     if(a.mode==='fetch'){a.returning=true;a.carrying=true;setPath(a,[a.home],38);}
-    else{const c=hallCentre(a.site);setPath(a,[{x:c.x+(Math.random()-.5)*150,y:c.y+(Math.random()-.5)*110}],38);}
+    else{const c=hallCentre(a.site),forward=a.home.y-c.y<10;setPath(a,[{x:a.home.x,y:c.y+(forward?46:-12)}],38);}
    }
   }else{
    if(a.mode==='walk'){if(stepAlong(a,dt)){a.mode='rest';a.until=now+3500+Math.random()*8000;}}
    else if(now>a.until){
-    if(a.f.home){const c=homeOf(a.f.home),q={x:c.x+(Math.random()-.5)*230,y:c.y+(Math.random()-.5)*70};setPath(a,[q],a.f.people==='hobbit'||a.f.people==='gollum'?20:26);}
-    else{const n=roadLoop.length,next=(a.stop+1+Math.floor(Math.random()*2))%n,path=[];for(let i=a.stop;i!==next;i=(i+1)%n)path.push(roadLoop[(i+1)%n]);setPath(a,path,48);a.stop=next;}
+    if(a.f.home){const c=homeOf(a.f.home),q={x:c.x+(Math.random()-.5)*230,y:c.y+(Math.random()-.5)*60};if(clearWalk(a,q))setPath(a,[q],a.f.people==='hobbit'||a.f.people==='gollum'?20:26);else a.until=now+1500;}
+    else{const n=roadLoop.length,next=(a.stop+1+Math.floor(Math.random()*2))%n,path=[];for(let i=a.stop;i!==next;i=(i+1)%n)path.push(...ringPaths[i]);setPath(a,path,48);a.stop=next;}
    }
   }
  }
@@ -171,15 +173,15 @@ export function createMiddleEarth(host,{openTask}={}){
   if(couriers.length>=8||reduced())return;
   if(flow.from===HUB)return sendCourier(hubGate,[...wayToHub(flow.to)].reverse(),flow.to,flow.title);
   // A worker of the district carries it along its road to the gate of Barad-dûr, another one takes it on.
-  sendCourier(roadStop(flow.from),wayToHub(flow.from),flow.from,flow.title,flow.to===HUB?null:{to:flow.to,title:flow.title});
+  const way=wayToHub(flow.from);sendCourier(way[0],way,flow.from,flow.title,flow.to===HUB?null:{to:flow.to,title:flow.title});
  }
  const smokePoints=[],smokeParticles=[],particleSources={embers:[],spray:[],leaves:[]},particleSets=[];let smokeMesh=null,eye=null,miniBase=null,balrog=null;
 
  async function buildScene(){
   const surfaces=await loadSurfaces(),hdr=await loadSky();
   hdr.mapping=T.EquirectangularReflectionMapping;scene.background=hdr;scene.environment=hdr;scene.backgroundIntensity=1;scene.environmentIntensity=.62;
-  const plan={scouts:['rock','rock','rock','rock'],isengard:['rock','marble','rock','rock'],library:['stone','marble','marble','stone'],lorien:['bark','wood','marble','grass'],council:['bark','bark','rock','rock'],forge:['rock','stone','rock','rock'],gate:['marble','marble','marble','marble'],messengers:['grass','wood','wood','grass'],treasury:['rock','stone','rock','rock'],observatory:['stone','stone','stone','marble']};
-  const materialsFor=id=>{const [outer,floor,wall,roof]=plan[id];return {outside:surfaceMaterial(surfaces[outer]),inside:surfaceMaterial(surfaces[floor]),wall:surfaceMaterial(surfaces[wall]),roof:surfaceMaterial(surfaces[roof])};};
+  const plan={scouts:['stone','stone','stone','stone'],isengard:['rock','marble','rock','rock'],library:['stone','marble','marble','stone'],lorien:['bark','wood','marble','grass'],council:['bark','bark','rock','rock'],forge:['rock','stone','rock','rock'],gate:['marble','marble','marble','marble'],messengers:['grass','wood','wood','grass'],treasury:['rock','stone','rock','rock'],observatory:['stone','stone','stone','marble']};
+  const materialsFor=id=>{const [outer,floor,wall,roof]=plan[id];const grown=(name,reach)=>blendIntoLand(surfaceMaterial(surfaces[name]),texture,EXTENT,reach);return {outside:grown(outer,22),inside:cutaway(surfaceMaterial(surfaces[floor])),wall:cutaway(grown(wall,12)),roof:cutaway(grown(roof,20))};};
   const world=await buildWorld();
   const texture=new T.CanvasTexture(world.land);texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=renderer.capabilities.getMaxAnisotropy();
   // One seamless ground: finest around the places, ever coarser towards the horizon.
@@ -188,23 +190,27 @@ export function createMiddleEarth(host,{openTask}={}){
   for(let j=0;j<NZ;j++){for(let i=0;i<NX;i++){const o=j*NX+i;vertices[o*3]=xs[i];vertices[o*3+1]=groundAt(xs[i],zs[j]);vertices[o*3+2]=zs[j];uvs[o*2]=(xs[i]-EXTENT.x)/EXTENT.w;uvs[o*2+1]=1-(zs[j]-EXTENT.y)/EXTENT.h;}if(j%48===0)await new Promise(done=>setTimeout(done));}
   {let n=0;for(let j=0;j<NZ-1;j++)for(let i=0;i<NX-1;i++){const a=j*NX+i,b=a+1,c=a+NX,d=c+1;order[n++]=a;order[n++]=c;order[n++]=b;order[n++]=b;order[n++]=c;order[n++]=d;}}
   const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.BufferAttribute(vertices,3));geometry.setAttribute('uv',new T.BufferAttribute(uvs,2));geometry.setIndex(new T.BufferAttribute(order,1));geometry.computeVertexNormals();
-  const landMaterial=new T.MeshStandardMaterial({map:texture,roughness:.95});addTerrainDetail(landMaterial,surfaces,world.light,EXTENT,HUB_SITE);landTime=landMaterial.userData.time;const land=new T.Mesh(geometry,landMaterial);land.receiveShadow=true;land.frustumCulled=false;scene.add(land);
+  const landMaterial=new T.MeshStandardMaterial({map:texture,roughness:.95});addTerrainDetail(landMaterial,surfaces,world.light,EXTENT,HUB_SITE);landTime=landMaterial.userData.time;const land=new T.Mesh(geometry,landMaterial);land.receiveShadow=true;land.frustumCulled=false;land.renderOrder=2;scene.add(land);
   // Beyond it a plain, coarse ground carries the far ranges to the horizon. It lies a little lower, so the fine ground always wins where they meet.
   {const x0=xs[0],x1=xs[NX-1],z0=zs[0],z1=zs[NZ-1],cell=90,cols=Math.round(20000/cell),rows=Math.round(19000/cell),far=new Float32Array((cols+1)*(rows+1)*3),farUv=new Float32Array((cols+1)*(rows+1)*2),index=[];
    for(let j=0;j<=rows;j++){for(let i=0;i<=cols;i++){const x=-9000+i*cell,z=-9000+j*cell,o=j*(cols+1)+i;far[o*3]=x;far[o*3+1]=groundAt(x,z)-(x>x0-cell&&x<x1+cell&&z>z0-cell&&z<z1+cell?14:0);far[o*3+2]=z;farUv[o*2]=(x-EXTENT.x)/EXTENT.w;farUv[o*2+1]=1-(z-EXTENT.y)/EXTENT.h;if(i<cols&&j<rows&&!(x>x0+cell&&x+cell<x1-cell&&z>z0+cell&&z+cell<z1-cell)){const a=o,b=a+1,c=a+cols+1,d=c+1;index.push(a,c,b,b,c,d);}}if(j%24===0)await new Promise(done=>setTimeout(done));}
-   const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(far,3));g.setAttribute('uv',new T.BufferAttribute(farUv,2));g.setIndex(index);g.computeVertexNormals();const horizon=new T.Mesh(g,landMaterial);horizon.frustumCulled=false;scene.add(horizon);}
+   const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(far,3));g.setAttribute('uv',new T.BufferAttribute(farUv,2));g.setIndex(index);g.computeVertexNormals();const horizon=new T.Mesh(g,landMaterial);horizon.frustumCulled=false;horizon.renderOrder=2;scene.add(horizon);}
   // Water with moving ripples, drawn from a generated surface map.
   const ripple=document.createElement('canvas');ripple.width=ripple.height=256;{const c=ripple.getContext('2d'),img=c.createImageData(256,256),H=(x,y)=>Math.sin(x*.098+Math.sin(y*.049)*2)*.5+Math.sin(y*.147+Math.sin(x*.074)*2)*.35+Math.sin((x+y)*.196)*.2;for(let y=0;y<256;y++)for(let x=0;x<256;x++){const nx=H(x+1,y)-H(x-1,y),ny=H(x,y+1)-H(x,y-1),o=(y*256+x)*4;img.data[o]=128+nx*90;img.data[o+1]=128+ny*90;img.data[o+2]=255;img.data[o+3]=255;}c.putImageData(img,0,0);}
   waterNormal=new T.CanvasTexture(ripple);waterNormal.wrapS=waterNormal.wrapT=T.RepeatWrapping;waterNormal.repeat.set(200,180);
   const sea=new T.Mesh(new T.PlaneGeometry(40000,36000),new T.MeshStandardMaterial({color:'#174a60',roughness:.16,metalness:.35,normalMap:waterNormal,normalScale:new T.Vector2(.4,.4),transparent:true,opacity:.9}));sea.rotation.x=-Math.PI/2;sea.position.set(WORLD.w/2,1,WORLD.h/2);sea.receiveShadow=true;scene.add(sea);
-  scene.add(buildForest(world.trees,groundAt));
+  // Nothing grows through a building, a wall or a stall.
+  standing=Object.keys(sitePlaces).map(id=>{const c=hallCentre(id);return {c,boxes:groundFootprints(id)};});const free=t=>!standing.some(({c,boxes})=>{const x=t.x-c.x,z=t.y-c.y,m=t.kind==='stone'||/bush/.test(t.kind)?3:11;return Math.hypot(x,z)<640&&boxes.some(q=>x>q[0]-m&&x<q[2]+m&&z>q[1]-m&&z<q[3]+m);});
+  scene.add(buildForest(world.trees.filter(free),groundAt));
   for(const s of stations){
-   const d=buildDistrict(s.id,crews[s.id],{interiors:roomInteriors,buildWalls,landmarks,roofs,closeDetails,materials:{[s.id]:materialsFor(s.id)}}),c=hallCentre(s.id),y=groundAt(c.x,c.y)+2;d.group.position.set(c.x,y,c.y);scene.add(d.group);districts.set(s.id,{...d,id:s.id,c,y,tray:new T.Group()});d.group.add(districts.get(s.id).tray);
+   const c=hallCentre(s.id),y=groundAt(c.x,c.y)+2,settle=(x,z)=>{const r=Math.hypot(x,z);if(r<128)return 0;const k=Math.min(1,(r-128)/48);return Math.max(-30,Math.min(46,groundAt(c.x+x,c.y+z)-y+2))*k*k*(3-2*k);},d=buildDistrict(s.id,crews[s.id],{interiors:roomInteriors,cutaway,buildWalls,footing:wallFoot,landmarks,roofs,closeDetails,ground:settle,materials:{[s.id]:materialsFor(s.id)}});d.group.position.set(c.x,y,c.y);scene.add(d.group);districts.set(s.id,{...d,id:s.id,c,y,settle,tray:new T.Group()});d.group.add(districts.get(s.id).tray);
    const at=q=>new T.Vector3(c.x+q[0],y+q[1],c.y+q[2]);for(const q of d.fx.smoke)smokePoints.push(at(q));for(const q of d.fx.embers)particleSources.embers.push(at(q));for(const q of d.fx.spray)particleSources.spray.push(at(q));for(const q of d.fx.leaves)particleSources.leaves.push(at(q));
    crews[s.id].forEach((m,index)=>{const p=crewPoint(m),home={x:c.x+p.x,y:c.y+p.z};actors.push(addFigure({kind:'worker',site:s.id,index,f:m,home,x:home.x,y:home.y,heading:Math.PI/2,station:Math.PI/2,phase:Math.random()*6,mode:'rest',until:0,path:null,busy:false,note:''}));});
   }
   // Great trees wear painted crowns; those over a hall thin out leaf by leaf when zooming in.
-  for(const [id,plan] of Object.entries(regionLeaves)){const d=districts.get(id);d.outside.add(leafCrowns(plan.kind,plan.outside));const over=leafCrowns(plan.kind,plan.roof);d.roof.add(over);roofLeaves.push(over.material);}
+  for(const [id,plan] of Object.entries(regionLeaves)){const d=districts.get(id);d.outside.add(leafCrowns(plan.kind,plan.outside));const over=leafCrowns(plan.kind,plan.roof);d.roof.add(over);roofLeaves.push({d,material:over.material});}
+  // Stone bridges carry the roads across the rivers.
+  {const k=new Kit();for(const line of crossings)for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1],mx=(a.x+b.x)/2,mz=(a.y+b.y)/2,len=Math.hypot(b.x-a.x,b.y-a.y)+1.5,ry=Math.atan2(b.x-a.x,b.y-a.y);k.box(mx,1.1,mz,17,1.2,len,'#8a8574',ry);for(const s of [-1,1]){const ox=Math.cos(ry)*s*8,oz=-Math.sin(ry)*s*8;k.box(mx+ox,2.3,mz+oz,1.2,2.6,len,'#77725f',ry);if(i%2===0)k.box(mx+ox,-3,mz+oz,2.6,4.2,3.4,'#5f5a4c',ry);}}if(k.pos.length){const m=k.mesh(surfaceMaterial(surfaces.stone));scene.add(m);}}
   // Grass, stones and fallen leaves around every place, each in the colours of its land.
   const litter={scouts:['#7c7a4a','#6d6a44','#8a8a60'],library:['#3e6a36','#4c7a3e','#35602f'],forge:['#34362a','#3f402e','#2c2d24'],treasury:['#46482f','#515336','#3b3d29'],council:['#23391f','#2d4a26','#4a3a1e'],lorien:['#b0962e','#c9a93a','#7f8a3a'],gate:['#6a7a48','#7c8850','#5c6c40'],observatory:['#7c8048','#8a8a54','#6a6e3e'],isengard:['#3a342a','#4a4232','#2c2822'],messengers:['#4f8a3a','#5f9a45','#437a32']};
   const bladeGeometry=new T.ConeGeometry(.42,8,3),pebbleGeometry=new T.IcosahedronGeometry(1,0),matrix=new T.Matrix4(),quat=new T.Quaternion(),scale=new T.Vector3(),pos=new T.Vector3(),color=new T.Color(),yAxis=new T.Vector3(0,1,0);
@@ -213,7 +219,7 @@ export function createMiddleEarth(host,{openTask}={}){
    let seed=id.length*97;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
    for(let i=0;i<2600+360;i++){
     const a=rnd()*6.283,r=136+rnd()*rnd()*300,x=d.c.x+Math.cos(a)*r,z=d.c.y+Math.sin(a)*r,y=groundAt(x,z)-d.y,tall=i<2600;
-    pos.set(x-d.c.x,y+(tall?3:0),z-d.c.y);quat.setFromAxisAngle(yAxis,a*7);const q=(tall?.6+rnd()*.9:.7+rnd()*rnd()*3.4)*(Math.hypot(x-HUB_SITE.x,(z-HUB_SITE.y)/.72)<680||groundAt(x,z)>135?0:1);scale.set(q,tall?q:q*.6,q);matrix.compose(pos,quat,scale);
+    pos.set(x-d.c.x,y+(tall?3:0),z-d.c.y);quat.setFromAxisAngle(yAxis,a*7);const q=(tall?.6+rnd()*.9:.7+rnd()*rnd()*3.4)*(Math.hypot(x-HUB_SITE.x,(z-HUB_SITE.y)/.72)<680||groundAt(x,z)>135||onRoad(x,z)?0:1);scale.set(q,tall?q:q*.6,q);matrix.compose(pos,quat,scale);
     color.set(tones[i%tones.length]).multiplyScalar(.75+rnd()*.5);
     if(tall){blades.setMatrixAt(i,matrix);blades.setColorAt(i,color);}else{pebbles.setMatrixAt(i-2600,matrix);color.set('#6c675e').multiplyScalar(.7+rnd()*.5);pebbles.setColorAt(i-2600,color);}
    }
@@ -232,7 +238,7 @@ export function createMiddleEarth(host,{openTask}={}){
   const rim=groundAt(mountDoom.x+54,mountDoom.y),glowSprite=new T.Sprite(new T.SpriteMaterial({map:puff,color:'#ff6a1a',transparent:true,opacity:.75,depthWrite:false,blending:T.AdditiveBlending,fog:false}));glowSprite.scale.set(240,170,1);glowSprite.position.set(mountDoom.x,rim+24,mountDoom.y);scene.add(glowSprite);
   plume=Array.from({length:30},(_,i)=>{const sprite=new T.Sprite(new T.SpriteMaterial({map:puff,transparent:true,depthWrite:false,fog:false}));scene.add(sprite);return {sprite,k:i/30,base:rim,seed:i*2.399};});
   // The Black Gate stands exactly on the road from the west, where it crosses the mountains of Mordor.
-  {const way=spokes[9];let best=1,gap=1e9;const middle=i=>({x:(way[i].x+way[i+1].x)/2,y:(way[i].y+way[i+1].y)/2});for(let i=1;i<way.length-2;i++){const q=middle(i),miss=Math.abs(Math.hypot(q.x-HUB_SITE.x,(q.y-HUB_SITE.y)/.72)-530);if(miss<gap){gap=miss;best=i;}}const q=middle(best),morannon=buildBlackGate(surfaceMaterial(surfaces.rock,{roughness:.85}));morannon.position.set(q.x,Math.max(1,groundAt(q.x,q.y)),q.y);morannon.rotation.y=Math.atan2(way[best+1].x-way[best].x,way[best+1].y-way[best].y);scene.add(morannon);}
+  {const way=spokes[9];let best=1,gap=1e9;const middle=i=>({x:(way[i].x+way[i+1].x)/2,y:(way[i].y+way[i+1].y)/2});for(let i=3;i<way.length-4;i++){const q=middle(i),miss=Math.abs(Math.hypot(q.x-HUB_SITE.x,(q.y-HUB_SITE.y)/.72)-530);if(miss<gap){gap=miss;best=i;}}const q=middle(best),morannon=buildBlackGate(surfaceMaterial(surfaces.rock,{roughness:.85}));morannon.position.set(q.x,Math.max(1,groundAt(q.x,q.y)),q.y);morannon.rotation.y=Math.atan2(way[best+3].x-way[best-2].x,way[best+3].y-way[best-2].y);scene.add(morannon);}
   // The Balrog lives in the chasm of Moria.
   {const skin=surfaceMaterial(surfaces.rock,{roughness:.72});skin.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
    float seam=1.-smoothstep(.012,.034,dot(texture2D(map,vMapUv*3.1).rgb,vec3(.3333)));totalEmissiveRadiance+=vec3(1.5,.38,.05)*seam;`);};balrog=buildBalrog(skin,puff);}const moria=districts.get('forge');balrog.root.position.set(58,.4,-62);balrog.root.scale.setScalar(.72);moria.group.add(balrog.root);
@@ -240,23 +246,24 @@ export function createMiddleEarth(host,{openTask}={}){
   addParticles(particleSources.embers,160,'#ff8a3a',7,puff,(o,p,k,s)=>p.set(o.x+Math.cos(s)*40*k,o.y+k*220,o.z+Math.sin(s)*40*k));
   addParticles(particleSources.spray,60,'#dff1f7',10,puff,(o,p,k,s)=>p.set(o.x+Math.cos(s)*22*k,o.y+Math.sin(k*3.14)*22,o.z+Math.sin(s)*22*k));
   addParticles(particleSources.leaves,80,'#ffd968',7,puff,(o,p,k,s)=>p.set(o.x+Math.cos(s+k*5)*46,o.y-k*210,o.z+Math.sin(s+k*5)*46));
-  wanderers.forEach((f,i)=>{const at=(i*3)%roadLoop.length,start=f.home?homeOf(f.home):roadLoop[at];actors.push(addFigure({kind:'wanderer',f,stop:at,x:start.x+(i%3)*24-24,y:start.y,heading:0,phase:i,mode:'rest',until:performance.now()+1500+i*1500,path:null}));});
+  wanderers.forEach((f,i)=>{const at=(i*3)%roadLoop.length,start=f.home?homeOf(f.home):roadLoop[at],side=f.home?(i%2?1:-1)*(28+(i%3)*14):0;let startY=start.y;if(f.home)for(let t=0;t<14&&blocked(start.x+side,startY);t++)startY+=t%2?-12*(t+1):12*(t+1);actors.push(addFigure({kind:'wanderer',f,stop:at,x:start.x+side,y:startY,heading:0,phase:i,mode:'rest',until:performance.now()+1500+i*1500,path:null}));});
   const count=Math.max(1,smokePoints.length*6),positions=new Float32Array(count*3);if(smokePoints.length)for(let i=0;i<count;i++)smokeParticles.push({at:i%smokePoints.length,k:Math.random()});
   const smokeGeometry=new T.BufferGeometry();smokeGeometry.setAttribute('position',new T.BufferAttribute(positions,3));
   smokeMesh=new T.Points(smokeGeometry,new T.PointsMaterial({map:smokeTexture(),color:'#4a4640',size:26,transparent:true,opacity:.5,depthWrite:false}));smokeMesh.frustumCulled=false;scene.add(smokeMesh);
-  const m=mini.getContext('2d');m.drawImage(world.land,-EXTENT.x,-EXTENT.y,WORLD.w,WORLD.h,0,0,280,175);miniBase=m.getImageData(0,0,280,175);
-  const rohanGroup=new T.Group();rohanGroup.position.set(rohan.x,Math.max(2,groundAt(rohan.x,rohan.y)),rohan.y);scene.add(rohanGroup);placeModels(rohanGroup,worldProps).catch(e=>console.error(e));
+  const m=mini.getContext('2d');m.drawImage(world.land,-EXTENT.x*world.landScale,-EXTENT.y*world.landScale,WORLD.w*world.landScale,WORLD.h*world.landScale,0,0,280,175);miniBase=m.getImageData(0,0,280,175);
+  const rohanGroup=new T.Group();{let near=roadLoop[0],gap=1e9;for(const way of [...ringPaths,...spokes])for(const q of way){const d=Math.hypot(q.x-rohan.x,q.y-rohan.y);if(d<gap){gap=d;near=q;}}const len=gap||1,x=near.x+(rohan.x-near.x)/len*42,y=near.y+(rohan.y-near.y)/len*42;rohanGroup.position.set(x,Math.max(2,groundAt(x,y)),y);}scene.add(rohanGroup);placeModels(rohanGroup,worldProps).catch(e=>console.error(e));
   // The light and leaf programs are prepared while the loading note still shows, so the first picture does not freeze.
-  await renderer.compileAsync(scene,camera).catch(()=>{});
+  await Promise.race([renderer.compileAsync(scene,camera).catch(()=>{}),new Promise(done=>setTimeout(done,6000))]);
   loading.remove();ready=true;renderCrew();renderTrays();
   // The 3D world works without them; simple figures simply stay until these have arrived.
   loadRigs().then(all=>{rigMap=all;}).catch(e=>console.error(e));
  }
  const ease=(from,to,k)=>from+(to-from)*k;
- const tilt=d=>.58+Math.min(1,Math.max(0,(d-300)/1800))*.3;
+ const tilt=d=>.58+Math.min(1,Math.max(0,(d-300)/1800))*.3+Math.min(1,Math.max(0,(520-d)/130))*.24;
  const viewProjection=new T.Matrix4(),viewFrustum=new T.Frustum(),figureBounds=new T.Sphere(new T.Vector3(),46),projected=new T.Vector3(),beamFrom=new T.Vector3(),beamTo=new T.Vector3();
  const screenOf=(x,y,z)=>{projected.set(x,y,z).project(camera);return projected.z<1?{x:(projected.x+1)/2*W,y:(1-projected.y)/2*H}:null;};
- const pill=(text,x,y,bg,fg,font='600 12px "Palatino Linotype",Georgia,serif')=>{ctx.font=font;const w=ctx.measureText(text).width+12;ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(x-w/2,y-9,w,18,5);ctx.fill();ctx.fillStyle=fg;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y+.5);};
+ const taken=[],clash=(x,y,w,h)=>taken.some(r=>Math.abs(r[0]-x)<(r[2]+w)/2+3&&Math.abs(r[1]-y)<(r[3]+h)/2+2);
+ const pill=(text,x,y,bg,fg,font='600 12px "Palatino Linotype",Georgia,serif')=>{ctx.font=font;const w=ctx.measureText(text).width+12;if(clash(x,y,w,18))return;taken.push([x,y,w,18]);ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(x-w/2,y-9,w,18,5);ctx.fill();ctx.fillStyle=fg;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y+.5);};
  let roofLeaves=[],ashClouds=[],plume=[],sauronBeam=null,waterNormal=null,landTime=null;
  let rigMap=null,focusY=0,lastFrame=performance.now(),lastMini=0,lastReport=performance.now(),frames=0,frameMark=performance.now();
  function frame(now){
@@ -264,8 +271,9 @@ export function createMiddleEarth(host,{openTask}={}){
   if(!ready)return;
   frames++;if(now-frameMark>1000){host.dataset.fps=String(Math.round(frames*1000/(now-frameMark)));frames=0;frameMark=now;}
   const dt=Math.min(.1,(now-lastFrame)/1000);lastFrame=now;
+  frameTotal+=dt;frameCount++;if(frameTotal>2){const slow=frameTotal/frameCount>.021;slowWindows=slow?slowWindows+1:0;fastWindows=frameTotal/frameCount<.0176?fastWindows+1:0;frameTotal=0;frameCount=0;if(slowWindows>=2&&renderScale>1){slowWindows=0;fastWindows=0;renderScale=Math.max(1,renderScale-.15);resize();}else if(fastWindows>=8&&renderScale<Math.max(1.35,dpr)){fastWindows=0;renderScale=Math.min(Math.max(1.35,dpr),renderScale+.15);resize();}}
   const k=reduced()?1:1-Math.pow(.003,dt);cam.x=ease(cam.x,goal.x,k);cam.y=ease(cam.y,goal.y,k);cam.d=ease(cam.d,goal.d,k);cam.yaw=ease(cam.yaw,goal.yaw,k);cam.lift=ease(cam.lift,goal.lift,k);
-  const pitch=Math.max(.3,tilt(cam.d)+cam.lift);focusY=ease(focusY,Math.max(0,Math.min(150,groundAt(cam.x,cam.y))),k);const groundY=focusY,flat=cam.d*Math.cos(pitch),eyeX=cam.x+Math.sin(cam.yaw)*flat,eyeZ=cam.y+Math.cos(cam.yaw)*flat;
+  const pitch=Math.max(.3,tilt(cam.d)+cam.lift);focusY=ease(focusY,Math.max(0,Math.min(460,groundAt(cam.x,cam.y))),k);const groundY=focusY,flat=cam.d*Math.cos(pitch),eyeX=cam.x+Math.sin(cam.yaw)*flat,eyeZ=cam.y+Math.cos(cam.yaw)*flat;
   camera.position.set(eyeX,Math.max(groundY+cam.d*Math.sin(pitch),groundAt(eyeX,eyeZ)+50),eyeZ);
   camera.lookAt(cam.x,groundY,cam.y);camera.updateMatrixWorld();
   // The shadow area follows the view, so shadows stay sharp up close.
@@ -276,34 +284,38 @@ export function createMiddleEarth(host,{openTask}={}){
   let dressing=1;
   viewProjection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);viewFrustum.setFromProjectionMatrix(viewProjection);
   for(const a of [...actors,...couriers]){
-   const inside=a.kind==='worker';a.mesh.position.set(a.x,(inside?districts.get(a.site).y:Math.max(2,groundAt(a.x,a.y)))+.3,a.y);a.mesh.rotation.y=a.heading;
+   const inside=a.kind==='worker';a.mesh.position.set(a.x,(inside?districts.get(a.site).y:Math.max(1.9,groundAt(a.x,a.y)))+.3,a.y);a.mesh.rotation.y=a.heading;
    const walking=a.mode==='walk',working=a.mode==='work';
    a.mesh.userData.pose(walking?a.phase:0,walking?Math.sin(a.phase)*.6:working?-1.15+Math.sin(t*.009+(a.index??0)*2)*.95:0,(a.carrying||a.kind==='courier')&&walking);
    // Near the camera the simple figure gives way to a fully animated one.
    // Whoever is out of sight costs nothing, and only those near the camera are fully animated.
-   figureBounds.center.copy(a.mesh.position);const seen=viewFrustum.intersectsSphere(figureBounds);a.mesh.visible=seen;
+   figureBounds.center.copy(a.mesh.position);const seen=viewFrustum.intersectsSphere(figureBounds)&&(a.kind!=='worker'||districts.get(a.site).open>0);a.mesh.visible=seen;
    const near=seen&&rigMap&&Math.hypot(camera.position.x-a.x,camera.position.y-a.mesh.position.y,camera.position.z-a.y)<900;
    if(near&&!a.rich&&dressing>0){dressing--;a.rich=dressFigure(rigMap,a.f.people,a.f.tool);a.mesh.add(a.rich.group);}
    if(a.rich){const show=Boolean(near);a.rich.group.visible=show;a.mesh.userData.body.visible=!show;if(show)a.rich.play(a.mode,a.speed??0,reduced()?0:dt,(a.carrying||a.kind==='courier')&&walking);}
   }
-  // Roofs lift while zooming in; of the walls only those facing the camera go away.
-  const closed=Math.max(0,Math.min(1,(cam.d-760)/380));
+  // Every hall is a closed building. Only the one being looked at opens, and only when the camera goes in.
+  let closed=1;
   for(const d of districts.values()){
-   d.roof.visible=closed>.01;d.roof.material.opacity=closed;d.roof.material.depthWrite=closed>.98;
-   for(const w of d.walls){const toCam=(camera.position.x-d.c.x)*w.normal.x+(camera.position.z-d.c.y)*w.normal.z,facing=toCam>0,alpha=facing?closed:1;w.mesh.visible=alpha>.01;w.mesh.material.opacity=alpha;w.mesh.material.depthWrite=alpha>.98;}
+   const aimed=Math.hypot(cam.x-d.c.x,cam.y-d.c.y)<HALL.half*1.75,open=aimed?Math.max(0,Math.min(1,(450-cam.d)/55)):0,toX=camera.position.x-d.c.x,toZ=camera.position.z-d.c.y,len=Math.hypot(toX,toZ)||1;
+   d.open=open;closed=Math.min(closed,1-open);
+   d.roof.visible=open<.99;setCut(d.roof.material,0,1,0,open);if(d.portalGlow)setCut(d.portalGlow,0,1,0,open);d.interior.visible=open>0;
+   setCut(d.interior.material,toX/len,toZ/len,open);if(d.glow)setCut(d.glow.material,toX/len,toZ/len,open);
+   for(const w of d.walls){setCut(w.mesh.material,toX/len,toZ/len,open);w.mesh.castShadow=open<.5||(toX*w.normal.x+toZ*w.normal.z)<=0;}
   }
   // Inside, the room's own fires and lamps take over from the daylight.
   {let nearest=null,best=520;for(const d of districts.values()){const q=Math.hypot(cam.x-d.c.x,cam.y-d.c.y);if(q<best){best=q;nearest=d;}}
    const inside=nearest?1-closed:0,plan=nearest?roomLight[nearest.id]:null,target=plan?1+(plan.day-1)*inside:1;daylight=ease(daylight,target,Math.min(1,dt*3));sun.intensity=3.1*daylight;sky.intensity=.4*daylight;scene.environmentIntensity=.62*(.4+.6*daylight);
    if(nearest!==litRoom&&plan){litRoom=nearest;plan.lamps.forEach(([x,y,z,color],i)=>{roomLamps[i].position.set(nearest.c.x+x,nearest.y+y,nearest.c.y+z);roomLamps[i].color.set(color);});}
    roomLamps.forEach((lamp,i)=>{const strength=plan&&litRoom===nearest?plan.lamps[i][4]:0,flicker=reduced()?1:1+Math.sin(now*.011+i*2)*.07+Math.sin(now*.027+i)*.05;lamp.intensity=strength*inside*flicker;});}
-  for(const leaves of roofLeaves)leaves.alphaTest=.34+(1-closed)*.64;
+  for(const leaves of roofLeaves)leaves.material.alphaTest=.34+leaves.d.open*.64;
   // Close-up life appears as the camera comes near; far away only the great shapes remain.
-  for(const d of districts.values()){const near=Math.hypot(camera.position.x-d.c.x,camera.position.z-d.c.y)<1500&&cam.d<1500;d.closeMesh.visible=near;const inPlace=near&&Math.hypot(cam.x-d.c.x,cam.y-d.c.y)<620;d.props.visible=inPlace;if(inPlace&&!d.propsAsked&&d.id&&regionProps[d.id]){d.propsAsked=true;placeModels(d.props,regionProps[d.id]).catch(e=>console.error(e));}}
+  for(const d of districts.values()){const near=Math.hypot(camera.position.x-d.c.x,camera.position.z-d.c.y)<1500&&cam.d<1500;d.closeMesh.visible=near;const inPlace=near&&Math.hypot(cam.x-d.c.x,cam.y-d.c.y)<620;d.props.visible=inPlace;if(inPlace&&!d.propsAsked&&d.id&&regionProps[d.id]){d.propsAsked=true;placeModels(d.props,regionProps[d.id],d.settle).catch(e=>console.error(e));}}
   // Up close, a neighbour's tall landmark must not stand between the camera and what is being looked at.
   {const ax=cam.x,ay=cam.y,bx=camera.position.x-ax,by=camera.position.z-ay,len=bx*bx+by*by||1;
-   for(const d of districts.values()){const u=Math.max(0,Math.min(1,((d.c.x-ax)*bx+(d.c.y-ay)*by)/len)),gap=Math.hypot(d.c.x-(ax+bx*u),d.c.y-(ay+by*u)),own=Math.hypot(d.c.x-ax,d.c.y-ay)<HALL.half*2;d.outside.visible=cam.d>1100||own||u<.02||gap>420;if(!own&&u>.02&&gap<300&&cam.d<1700)d.roof.visible=false;}}
+   for(const d of districts.values()){const u=Math.max(0,Math.min(1,((d.c.x-ax)*bx+(d.c.y-ay)*by)/len)),gap=Math.hypot(d.c.x-(ax+bx*u),d.c.y-(ay+by*u)),own=Math.hypot(d.c.x-ax,d.c.y-ay)<HALL.half*2;d.outside.visible=cam.d>1100||own||u<.02||gap>420;if(!own&&u>.02&&gap<300&&cam.d<1700)d.roof.visible=false;const up=d.roof.visible||d.open>0;if(d.glow)d.glow.visible=up;for(const w of d.walls)w.mesh.visible=up;if(!up)d.props.visible=false;}}
   if(balrog){const moria=districts.get('forge');balrog.stage.visible=closed<.995&&Math.hypot(cam.x-moria.c.x,cam.y-moria.c.y)<950;if(balrog.stage.visible&&!reduced())balrog.animate(now);}
+  viewClear.a.value.set(cam.x,cam.y);viewClear.b.value.set(camera.position.x,camera.position.z);viewClear.r.value=cam.d<1150?175:0;
   if(landTime&&!reduced()){landTime.value=now/1000;forestTime.value=now/1000;}
   if(waterNormal&&!reduced()){waterNormal.offset.x=now*.000012;waterNormal.offset.y=now*.000008;}
   for(const p of plume){if(!reduced())p.k=(p.k+dt*.016)%1;const q=p.k,w=70+q*420;p.sprite.position.set(mountDoom.x+Math.sin(p.seed)*(14+q*60)+q*q*520,p.base+16+q*680,mountDoom.y+Math.cos(p.seed)*(14+q*60)-q*q*230);p.sprite.scale.set(w,w*.82,1);p.sprite.material.color.setRGB(.5*(1-q)+.11,.2*(1-q)+.09,.09*(1-q)+.085);p.sprite.material.opacity=Math.min(1,q*14)*(1-q)*.62;}
@@ -318,20 +330,22 @@ export function createMiddleEarth(host,{openTask}={}){
   renderer.render(scene,camera);
   // Text lies over the picture, so it stays crisp at every distance.
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
-  for(const s of stations){
+  taken.length=0;taken.push([215,42,440,92],[W-116,H-76,240,164]);if(!panel.hidden)taken.push([panel.offsetLeft+panel.offsetWidth/2,panel.offsetTop+panel.offsetHeight/2,panel.offsetWidth+8,panel.offsetHeight+8]);
+  {const q=screenOf(HUB_SITE.x,groundAt(HUB_SITE.x,HUB_SITE.y)+20,HUB_SITE.y+220);if(q)pill(`Das Auge · Barad-dûr · ${!power?'Zustand wird geprüft':power.enabled?'Auge offen · Numaron an':'Auge zu · Numaron aus'}`,q.x,q.y,hovered===HUB||selected===HUB?'#3a1a0cf2':'#160b08e0','#ffd9a0','700 14px "Palatino Linotype",Georgia,serif');}
+  for(const s of [...stations].sort((a,b)=>(hovered===b.id||selected===b.id)-(hovered===a.id||selected===a.id))){
    const v=view?.stations.find(x=>x.id===s.id),d=districts.get(s.id),q=screenOf(d.c.x,d.y+(closed>0?HALL.height+90:HALL.height+24),d.c.y-(closed>0?0:HALL.half)),state=preview?'working':v?.state.code??'idle',focus=hovered===s.id||selected===s.id;
    if(!q||q.x<-200||q.x>W+200||q.y<-60||q.y>H+60)continue;
    const label=`${s.district}${cam.d<1300?` · ${s.title}`:''}`;ctx.font='700 14px "Palatino Linotype",Georgia,serif';const w=ctx.measureText(label).width+34;
+   const place=[q.y,q.y-32,q.y+32,q.y-64,q.y+64].find(y=>!clash(q.x,y,w,26));if(place===undefined&&!focus)continue;if(place!==undefined)q.y=place;taken.push([q.x,q.y,w,26]);
    ctx.fillStyle=focus?'#2a2210ee':'#0d0e12cc';ctx.strokeStyle=focus?'#e4b24a':'#6d5a2e';ctx.lineWidth=focus?2:1;ctx.beginPath();ctx.roundRect(q.x-w/2,q.y-13,w,26,7);ctx.fill();ctx.stroke();
    ctx.fillStyle=stateColors[state];ctx.beginPath();ctx.arc(q.x-w/2+13,q.y,5,0,7);ctx.fill();
    ctx.fillStyle='#fff3cf';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(label,q.x-w/2+24,q.y+.5);
    if(cam.d<1300||focus){const extra=preview?'Probelauf':v?`${v.state.label}${v.counts.waiting?` · ${v.counts.waiting} wartend`:''}${v.counts.trouble?` · ${v.counts.trouble} Hindernisse`:''}`:'';if(extra)pill(extra,q.x,q.y+23,'#0d0e12b0',stateColors[state],'600 11.5px "Palatino Linotype",Georgia,serif');}
   }
-  {const q=screenOf(HUB_SITE.x,groundAt(HUB_SITE.x,HUB_SITE.y)+20,HUB_SITE.y+220);if(q)pill(`Das Auge · Barad-dûr · ${!power?'Zustand wird geprüft':power.enabled?'Auge offen · Numaron an':'Auge zu · Numaron aus'}`,q.x,q.y,hovered===HUB||selected===HUB?'#3a1a0cf2':'#160b08e0','#ffd9a0','700 14px "Palatino Linotype",Georgia,serif');}
   const nearNames=cam.d<1000;
   for(const a of actors){
    if(a.kind==='worker'){
-    if(!(a.note||nearNames))continue;
+    if(!a.mesh.visible||!(a.note||nearNames))continue;
     const y=a.mesh.position.y,q=screenOf(a.x,y+44,a.y);if(!q||q.x<-120||q.x>W+120||q.y<-30||q.y>H+30)continue;
     if(a.note&&closed<1)pill(shorten(a.note,cam.d<650?38:24),q.x,q.y-8,'#f2e6c8f2','#2b2115','700 11.5px "Palatino Linotype",Georgia,serif');
     if(nearNames){const n=screenOf(a.x,y-3,a.y+7);if(n)pill(a.f.name,n.x,n.y,'#0d0e12a8','#fff3cf','600 11px "Palatino Linotype",Georgia,serif');}

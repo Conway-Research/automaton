@@ -1,8 +1,8 @@
 // Pure mapping from the real founder snapshot to the places of the Middle-earth desktop.
 // Nothing here starts work or changes state; it only describes what the controller reports.
 export const stations=[
- {id:'scouts',step:1,district:'Bounty Hunting und Aufträge',title:'Wetterspitze',folk:'Waldläufer des Nordens',verb:'Aufträge aufspüren',link:'#operations',
-  about:'Auf den Ruinen von Amon Sûl halten die Waldläufer Ausschau. Sie werten die Auftragsquellen aus und markieren auf der Karte, was sich lohnen könnte.',
+ {id:'scouts',step:1,district:'Bounty Hunting und Aufträge',title:'Helms Klamm',folk:'Rohirrim der Westfold',verb:'Aufträge aufspüren',link:'#operations',
+  about:'In der Hornburg vor der Klamm halten die Rohirrim der Westfold Ausschau. Sie werten die Auftragsquellen aus und markieren auf der Karte, was sich lohnen könnte.',
   kinds:['order-discovery','github-orders','gmail-orders','dealwork-escrow']},
  {id:'library',step:3,district:'Forschung',title:'Schloss von Bruchtal',folk:'Noldor unter Elrond',verb:'Quellen lesen',link:'#operations',
   about:'Im Haus Elronds, dem Schloss von Imladris zwischen den Wasserfällen, lesen die Noldor Quellen, vertiefen Fundstellen und halten Belege und Gegenbelege fest.',

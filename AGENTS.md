@@ -11,6 +11,7 @@ Numaron must remain OFF until Patrice deliberately uses the dashboard's "Numaron
 - Restarting the local UI must leave Numaron OFF. Preserve existing OFF states and check them after maintenance.
 - A confirmed running ON session must not be interrupted merely to activate repairs or UI changes. Do not click OFF, send stop requests, kill the service/supervisor, or restart it for maintenance without Patrice's explicit authorization to interrupt that session. Finish offline checks and leave changes pending instead. The maintenance launcher must refuse restart while ON or when power state is unreadable; never bypass this guard by first switching OFF.
 - Reading status and turning Numaron OFF when requested are allowed. Do not silently restart research, market collection, background provider reads, or AI work while OFF.
+- Patrice's decision of 2 November 2026: after OFF or a founder stop, the demo execution may run one bounded protection run (at most six attempts). It only closes own positions without a confirmed stop and never enters. It does not apply to any real-money account and starts no other work.
 - If real collection requires ON, finish the implementation and offline checks, leave the system OFF, and tell Patrice to use the manual button when ready.
 
 Do not discard unrelated work or disclose credentials. Preserve the existing permissions, budgets, trading gates, and risk limits.

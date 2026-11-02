@@ -62,3 +62,13 @@ Der Reader muss nicht vor dem Start fertig sein. Empfehlung: erst Founder-Versio
 - Ob die Synmerco-API noch so antwortet wie am 28.10. und ob ein Escrow vor der Arbeit tatsächlich als gehalten sichtbar ist. Die gespeicherten drei stehen alle auf `released`, den Zustandsnamen für „gehalten“ kenne ich daraus nicht.
 - Ob Synmerco neue Aufträge liefert. Der Plan schafft die Voraussetzung, keine Nachfrage.
 - Der Aufwand. Ich nenne keine Zeit, weil Schritt 10 von der Plattform abhängt.
+
+## Entscheidungen Patrice, 2.11.2026: „wie empfohlen“
+
+1. Synmerco zuerst.
+2. USDC zusätzlich zu Dreibuchstaben-Währungen, Originalpräzision, keine Umrechnung.
+3. Als Beleg zählen Kontoauszug, finalisierter Chain-Beleg und Abrechnung des Anbieters; die Plattformanzeige allein nicht.
+4. Patrice prüft jedes Auftragsblatt, Minuten werden erfasst.
+5. Echter Lesetest wird erst nach dem Review entschieden.
+
+Offline, Numaron aus. Anschluss, Einreichen und echtes Lesen sind damit nicht freigegeben.

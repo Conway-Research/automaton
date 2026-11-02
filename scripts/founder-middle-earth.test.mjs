@@ -21,7 +21,7 @@ test('every place exists in the world with its own workers and a named workstati
  assert.deepEqual(wanderers.filter(w=>!w.home).map(w=>w.name),['Gandalf']);
  for(const w of wanderers)if(w.home&&w.home!=='rohan')assert.ok(sitePlaces[w.home],w.name);
  const peoples=new Set(Object.values(crews).flat().map(m=>m.people));
- for(const people of ['uruk','orc','hobbit','dwarf','noldor','galadhrim','silvan','numenorean','gondor','ranger','dale'])assert.ok(peoples.has(people),people);
+ for(const people of ['uruk','orc','hobbit','dwarf','noldor','galadhrim','silvan','numenorean','gondor','rohirrim','dale'])assert.ok(peoples.has(people),people);
 });
 
 test('every task kind recorded so far has a workplace and unknown kinds stay visible as unassigned',()=>{
@@ -29,7 +29,7 @@ test('every task kind recorded so far has a workplace and unknown kinds stay vis
  assert.equal(stations.length,10);
  assert.equal(stationForKind('source-reconcile-application').id,'isengard');
  assert.equal(stationForKind('private-analysis').id,'lorien');
- const titles=stations.map(s=>s.title);for(const place of ['Minen von Moria','Orthanc in Isengart','Minas Tirith','Wetterspitze','Schloss von Bruchtal','Beutelsend in Hobbingen','Lothlórien','Hallen des Thranduil','Erebor und Thal','Osgiliath'])assert.ok(titles.includes(place),place);
+ const titles=stations.map(s=>s.title);for(const place of ['Minen von Moria','Orthanc in Isengart','Minas Tirith','Helms Klamm','Schloss von Bruchtal','Beutelsend in Hobbingen','Lothlórien','Hallen des Thranduil','Erebor und Thal','Osgiliath'])assert.ok(titles.includes(place),place);
  assert.equal(stationForKind('order-report').id,'gate');
  assert.equal(stationForKind('order-build').id,'forge');
  assert.equal(stationForKind('new-kind'),null);
