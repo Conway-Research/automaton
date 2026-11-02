@@ -10,6 +10,19 @@ _evidence=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_evide
 
 from datetime import datetime, timezone
 
+# These exact feeds have been observed with broker-local UTC+3 timestamps.
+# Eligibility only permits measurement; every scan still needs fresh consensus.
+BROKER_CLOCK_SERVERS=frozenset(['AdmiralsGroup-Live','AdmiralsGroup-Demo'])
+
+# Bounded clock witnesses, not a trading universe or permission. Each scan must
+# still prove three advancing sources with one allowed offset. Forex can stop
+# while the same broker continues publishing crypto quotes over the weekend.
+CLOCK_WITNESSES=frozenset(['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD',
+    'BTCUSD','ETHUSD','LTCUSD','BCHUSD','LNKUSD','ADAUSD','UNIUSD','XRPUSD','SOLUSD'])
+
+def clock_witnesses(visible):
+    return list(dict.fromkeys(s.name for s in visible if s.name in CLOCK_WITNESSES or str(getattr(s,'path','')).lower().startswith('cryptocurrencies\\')))[:32]
+
 
 
 def verify_clock(samples, server):
@@ -56,9 +69,9 @@ def verify_clock(samples, server):
 
         offset = round((ticks[-1]-last['utc'])/900)*900
 
-        allowed = (0,10800) if server == 'AdmiralsGroup-Live' else (0,)
+        allowed = (0,10800) if server in BROKER_CLOCK_SERVERS else (0,)
 
-        # UTC+3 measured on 2026-10-13, not a guessed permanent DST rule.
+        # Live measured 2026-10-13, Demo 2026-10-16; never a permanent DST rule.
 
         if offset not in allowed or not -1 <= last['utc']-ticks[-1]+offset <= 3:
 
@@ -82,7 +95,7 @@ def sample_clock(m, visible, sample_interval=1):
 
     if not isinstance(sample_interval,(int,float)) or not math.isfinite(sample_interval) or not 2/7<=sample_interval<=1:raise ValueError("Clock sampling must span at least two seconds")
 
-    names = [s.name for s in visible if s.name in ('EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD')]
+    names = clock_witnesses(visible)
 
     if len(names) < 3:
 
@@ -108,6 +121,27 @@ def sample_clock(m, visible, sample_interval=1):
 
 
 
+def read_clock(m, visible, server, sample_interval=1):
+    samples=sample_clock(m,visible,sample_interval=sample_interval)
+    proof=verify_clock(samples,server)
+    # Extend this call's fresh window instead of discarding 2.8 seconds and
+    # starting a second 7-second window. Never cache a prior call's clock proof.
+    if proof is None and samples and server=='AdmiralsGroup-Demo' and sample_interval<1:
+        names=clock_witnesses(visible)
+        deadline=samples[0]['mono']+7
+        for _ in range(24):
+            remaining=deadline-time.monotonic()
+            if remaining<=.000001:break
+            time.sleep(min(sample_interval,remaining))
+            ticks={}
+            for name in names:
+                tick=m.symbol_info_tick(name)
+                if tick is not None:ticks[name]=tick.time_msc/1000
+            samples.append(dict(utc=time.time(),mono=time.monotonic(),ticks=ticks))
+            proof=verify_clock(samples,server)
+            if proof is not None:break
+    return proof
+
 def read_market(m, terminal, login, server, start=0):
 
     if not m.initialize(terminal, timeout=10000):
@@ -130,7 +164,7 @@ def read_market(m, terminal, login, server, start=0):
 
         visible = [s for s in universe if s.visible]
 
-        clock = verify_clock(sample_clock(m, visible), server)
+        clock = read_clock(m, visible, server)
 
         offset = clock['offsetSeconds'] if clock else 0
 
@@ -150,7 +184,7 @@ def read_market(m, terminal, login, server, start=0):
 
             tick = m.symbol_info_tick(s.name)
 
-            if tick is None or (server == 'AdmiralsGroup-Live' and clock is None) or not -1 <= time.time()-tick.time_msc/1000+offset <= 15:
+            if tick is None or (server in BROKER_CLOCK_SERVERS and clock is None) or not -1 <= time.time()-tick.time_msc/1000+offset <= 15:
 
                 row['status'] = 'quote_time_unverified'
 

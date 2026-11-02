@@ -48,9 +48,9 @@ import {
   MIGRATION_V11,
   MIGRATION_V12,
   MIGRATION_V13,
-  MIGRATION_V16,
-  MIGRATION_V15,
   MIGRATION_V14,
+  MIGRATION_V15,
+  MIGRATION_V16,
 } from "./schema.js";
 import type {
   RiskLevel,
@@ -89,8 +89,19 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
 
   const db = new Database(dbPath);
 
+  try {
+  // Reject newer databases before changing journal mode or creating tables.
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'").get()) {
+    const existing = db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as {v:number|null};
+    if(existing.v!==null&&(!Number.isSafeInteger(existing.v)||existing.v<0||existing.v>SCHEMA_VERSION)) {
+      throw new Error('Database schema is incompatible with this build');
+    }
+  }
+
   // Enable WAL mode for better concurrent read performance
   db.pragma("journal_mode = WAL");
+  // A committed cost hold must survive a host crash, not merely a process restart.
+  db.pragma("synchronous = FULL");
   db.pragma("wal_autocheckpoint = 1000");
   db.pragma("foreign_keys = ON");
 
@@ -103,11 +114,10 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
   // Initialize schema in a transaction
   const createSchema = db.transaction(() => {
     db.exec(CREATE_TABLES);
+    // All migration versions commit together; failures leave no partial upgrade.
+    applyMigrations(db);
   });
-  createSchema();
-
-  // Apply migrations
-  applyMigrations(db);
+  createSchema.immediate();
 
   // Ensure version is recorded
   const versionRow = db
@@ -118,6 +128,10 @@ export function createDatabase(dbPath: string): AutomatonDatabase {
     db.prepare(
       "INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, datetime('now'))",
     ).run(SCHEMA_VERSION);
+  }
+  } catch(error) {
+    db.close();
+    throw error;
   }
 
   // â”€â”€â”€ Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2122,59 +2136,52 @@ export function inferenceGetSessionCosts(db: DatabaseType, sessionId: string): I
 }
 
 
-export function inferenceGetExperimentCost(db: DatabaseType, experimentId: string): number {
-  const row = db
-    .prepare(
-      "SELECT COALESCE(SUM(cost_cents), 0) as total FROM inference_costs WHERE experiment_id = ?",
-    )
-    .get(experimentId) as { total: number };
-  return row.total;
+// Predicates below are fixed by internal callers; all values remain bound parameters.
+// Accept persisted SQL/ISO date-time values, never SQLite's dynamic 'now' or
+// time-only/numeric forms. Invalid dates must not vanish from budget windows.
+const inferenceTimestampValid = "typeof(created_at)='text' AND created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][ T][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*' AND julianday(created_at) IS NOT NULL AND date(substr(created_at,1,10),'+0 days')=substr(created_at,1,10)";
+function checkedInferenceSum(db:DatabaseType,where:string,args:string[]){
+  try{
+    const valid=`typeof(cost_cents)='integer' AND cost_cents>=0 AND cost_cents<=9007199254740991 AND (${inferenceTimestampValid})`;
+    const row=db.prepare(`SELECT COALESCE(SUM(CASE WHEN ${valid} THEN cost_cents ELSE 0 END),0) total,
+      COALESCE(SUM(CASE WHEN ${valid} THEN 0 ELSE 1 END),0) invalid,COUNT(*) count FROM inference_costs WHERE ${where}`).get(...args) as {total:number;invalid:number;count:number};
+    if(row.invalid!==0||!Number.isSafeInteger(row.total)||row.total<0||!Number.isSafeInteger(row.count))throw Error();
+    return row;
+  }catch{throw Error('Invalid settled inference accounting; reconciliation required');}
 }
-export function inferenceGetDailyCost(db: DatabaseType, date?: string): number {
-  const targetDate = date || new Date().toISOString().slice(0, 10);
-  // Compute the next day to use as exclusive upper bound, avoiding the off-by-one
-  // that missed records created at exactly 23:59:59 or fractional seconds after it.
-  const d = new Date(targetDate + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + 1);
-  const nextDate = d.toISOString().slice(0, 10);
-  const row = db
-    .prepare(
-      "SELECT COALESCE(SUM(cost_cents), 0) as total FROM inference_costs WHERE created_at >= ? AND created_at < ?",
-    )
-    .get(`${targetDate} 00:00:00`, `${nextDate} 00:00:00`) as { total: number };
-  return row.total;
+export function inferenceGetSessionCost(db:DatabaseType,sessionId:string):number{
+  return checkedInferenceSum(db,'session_id = ?',[sessionId]).total;
 }
-
-export function inferenceGetHourlyCost(db: DatabaseType): number {
-  const now = new Date();
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  const hourStart = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())} ${pad(now.getUTCHours())}:00:00`;
-  const row = db
-    .prepare(
-      "SELECT COALESCE(SUM(cost_cents), 0) as total FROM inference_costs WHERE created_at >= ?",
-    )
-    .get(hourStart) as { total: number };
-  return row.total;
+export function inferenceGetExperimentCost(db:DatabaseType,experimentId:string):number{
+  return checkedInferenceSum(db,'experiment_id = ?',[experimentId]).total;
 }
-
-export function inferenceGetModelCosts(db: DatabaseType, model: string, days?: number): { totalCents: number; callCount: number } {
-  const since = days
-    ? new Date(Date.now() - days * 86400000).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "")
-    : "1970-01-01 00:00:00";
-  const row = db
-    .prepare(
-      "SELECT COALESCE(SUM(cost_cents), 0) as total, COUNT(*) as count FROM inference_costs WHERE model = ? AND created_at >= ?",
-    )
-    .get(model, since) as { total: number; count: number };
-  return { totalCents: row.total, callCount: row.count };
+export function inferenceGetDailyCost(db:DatabaseType,date?:string):number{
+  const targetDate=date||new Date().toISOString().slice(0,10);
+  const d=new Date(targetDate+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);
+  const nextDate=d.toISOString().slice(0,10);
+  return checkedInferenceSum(db,`NOT (${inferenceTimestampValid}) OR (julianday(created_at) >= julianday(?) AND julianday(created_at) < julianday(?))`,[targetDate+' 00:00:00',nextDate+' 00:00:00']).total;
+}
+export function inferenceGetHourlyCost(db:DatabaseType):number{
+  const now=new Date(),pad=(n:number)=>n.toString().padStart(2,'0');
+  const hourStart=now.getUTCFullYear()+'-'+pad(now.getUTCMonth()+1)+'-'+pad(now.getUTCDate())+' '+pad(now.getUTCHours())+':00:00';
+  return checkedInferenceSum(db,`NOT (${inferenceTimestampValid}) OR julianday(created_at) >= julianday(?)`,[hourStart]).total;
+}
+export function inferenceGetModelCosts(db:DatabaseType,model:string,days?:number):{totalCents:number;callCount:number}{
+  const since=days?new Date(Date.now()-days*86400000).toISOString().replace('T',' ').replace(/\.\d{3}Z$/,''):'1970-01-01 00:00:00';
+  const row=checkedInferenceSum(db,`model = ? AND (NOT (${inferenceTimestampValid}) OR julianday(created_at) >= julianday(?))`,[model,since]);
+  return {totalCents:row.total,callCount:row.count};
 }
 
-export function inferencePruneCosts(db: DatabaseType, retentionDays: number): number {
-  const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
-  const result = db
-    .prepare("DELETE FROM inference_costs WHERE created_at < ?")
-    .run(cutoff);
-  return result.changes;
+/**
+ * @deprecated Financial records are not disposable telemetry. Capital, session
+ * and experiment budgets still consume their lifetime totals. Keep this API as
+ * a non-destructive no-op until an audited archive preserves all consumers.
+ */
+export function inferencePruneCosts(_db: DatabaseType, retentionDays: number): number {
+  if (!Number.isSafeInteger(retentionDays) || retentionDays < 1) {
+    throw new Error("Invalid inference cost retention period");
+  }
+  return 0;
 }
 
 // â”€â”€â”€ Phase 2.3: Model Registry Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

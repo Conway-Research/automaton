@@ -1,0 +1,37 @@
+{
+  "at": "2026-10-31T13:05:44.902Z",
+  "powerUnchanged": true,
+  "budgetLogicalStateUnchanged": true,
+  "before": {
+    "powerHash": "3453767fed23dca6a7cb5744285a4a792b6cbea52617f616829ccc8c8e476db0",
+    "power": {
+      "enabled": false,
+      "revision": 101,
+      "changedAt": "2026-10-23T01:37:43.917Z",
+      "cause": "stop-request",
+      "startupAt": "2026-10-31T03:15:48.516Z",
+      "startupPid": 50328,
+      "startupCall": "openFounderPower",
+      "startupCaller": "founder-dashboard",
+      "startupId": "c0eb8efe-9996-41e0-a7bf-73e3bbb39da9"
+    },
+    "budgetLogicalHash": "3868d4cc24072b28155f183ab6ddadb012173d676a83f800c6cf7cbb01a586ac"
+  },
+  "after": {
+    "powerHash": "3453767fed23dca6a7cb5744285a4a792b6cbea52617f616829ccc8c8e476db0",
+    "power": {
+      "enabled": false,
+      "revision": 101,
+      "changedAt": "2026-10-23T01:37:43.917Z",
+      "cause": "stop-request",
+      "startupAt": "2026-10-31T03:15:48.516Z",
+      "startupPid": 50328,
+      "startupCall": "openFounderPower",
+      "startupCaller": "founder-dashboard",
+      "startupId": "c0eb8efe-9996-41e0-a7bf-73e3bbb39da9"
+    },
+    "budgetLogicalHash": "3868d4cc24072b28155f183ab6ddadb012173d676a83f800c6cf7cbb01a586ac"
+  },
+  "restartPerformed": false,
+  "providerCalls": 0
+}

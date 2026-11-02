@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { BaseHarness } from "../../agent/harnesses/base-harness.js";
 import type { HarnessContext, HarnessTool } from "../../agent/harness-types.js";
+import { InferenceAdmissionError } from "../../agent/harness-types.js";
 import type { TaskNode, TaskResult } from "../../orchestration/task-graph.js";
 import { AgentWorkspace } from "../../orchestration/workspace.js";
 import { createInMemoryDb } from "../orchestration/test-db.js";
@@ -131,8 +132,75 @@ describe("agent/BaseHarness integration", () => {
     const result = await harness.execute();
     expect(result.success).toBe(true);
     expect(result.output).toBe("finished");
+    expect(result.quality?.status).toBe('UNVERIFIED');
     expect(context.budget.turnsUsed).toBe(1);
     (context.db as any).close?.();
+  });
+
+  it('sends the shared quality policy to the actual inference boundary',async()=>{
+    const harness=new TestHarness(),context=createContext();
+    const original=context.inference.chat;
+    let observed=false;
+    context.inference.chat=async(...args)=>{
+      observed=JSON.stringify(args).includes('Quality applies to every task') &&
+        JSON.stringify(args).includes('Quality remains UNVERIFIED');
+      return original(...args);
+    };
+    try{await harness.initialize(createTask(),context);await harness.execute();expect(observed).toBe(true);}
+    finally{(context.db as any).close?.();}
+  });
+
+  it.each(['research','marketing','support','data delivery','software','trading analysis','new unfamiliar sector'])
+  ('sends task-specific continuing education to inference for %s',async(domain)=>{
+    const harness=new TestHarness(),context=createContext(),task=createTask();
+    task.title=domain;task.description='Complete a bounded assignment with domain-specific acceptance criteria';
+    const original=context.inference.chat;let observed=false;
+    context.inference.chat=async(...args)=>{
+      const request=JSON.stringify(args);
+      observed=request.includes('every assigned activity and future domain')&&request.includes('assess_task_specific_gap')&&
+        request.includes('subject_knowledge')&&request.includes('No open-ended study');
+      return original(...args);
+    };
+    try{await harness.initialize(task,context);await harness.execute();expect(observed).toBe(true);}
+    finally{(context.db as any).close?.();}
+  });
+
+  it('rejects a batch with actions after completion before executing any tool',async()=>{
+    const harness=new TestHarness(),context=createContext();let executed=0;
+    const tools=harness.getToolDefs();harness.getToolDefs=()=>tools.map(t=>({...t,execute:async(args)=>{executed++;return t.execute(args);}}));
+    context.inference.chat=async()=>({content:'',toolCalls:[
+      {id:'done',type:'function',function:{name:'task_done',arguments:JSON.stringify({summary:'done',success:true})}},
+      {id:'after',type:'function',function:{name:'ping',arguments:'{}'}},
+    ]});
+    try{await harness.initialize(createTask(),context);await expect(harness.execute()).rejects.toThrow('final tool call');expect(executed).toBe(0);}
+    finally{(context.db as any).close?.();}
+  });
+
+  it('rejects malformed completion before tool execution and permits a bounded corrected retry',async()=>{
+    const harness=new TestHarness(),context=createContext();let calls=0,executed=0;
+    const tools=harness.getToolDefs();harness.getToolDefs=()=>tools.map(t=>({...t,execute:async(args)=>{executed++;return t.execute(args);}}));
+    context.inference.chat=async()=>({content:'',toolCalls:[{id:`c-${++calls}`,type:'function',function:{name:'task_done',
+      arguments:JSON.stringify({summary:'synthetic result',success:calls===1?'false':true})}}]});
+    try{await harness.initialize(createTask(),context);const result=await harness.execute();expect(calls).toBe(2);expect(executed).toBe(1);expect(result.quality?.status).toBe('UNVERIFIED');}
+    finally{(context.db as any).close?.();}
+  });
+
+  it.each(['pause','abort'] as const)('stops a response tool batch after %s during the first tool',async(mode)=>{
+    const harness=new TestHarness(),context=createContext(),controller=new AbortController();
+    context.abortSignal=controller.signal;
+    let paused=false,executions=0;
+    context.assertExecutionAllowed=()=>{if(paused)throw new InferenceAdmissionError('Fixture paused');};
+    const tools=harness.getToolDefs();
+    harness.getToolDefs=()=>tools.map(tool=>({...tool,execute:async(args)=>{
+      executions++;
+      if(mode==='pause')paused=true;else controller.abort();
+      return tool.execute(args);
+    }}));
+    try{
+      await harness.initialize(createTask(),context);
+      await expect(harness.execute()).rejects.toBeInstanceOf(InferenceAdmissionError);
+      expect(executions).toBe(1);
+    }finally{(context.db as any).close?.();}
   });
 
   it("fails immediately when the turn budget is already exhausted", async () => {
@@ -145,7 +213,21 @@ describe("agent/BaseHarness integration", () => {
     (context.db as any).close?.();
   });
 
-  it("does not consume turn budget or reset per-turn state on inference retry", async () => {
+  it("stops on typed admission denial without retries or consumed turns", async () => {
+    const harness = new TestHarness();
+    const context = createContext();
+    const denial = new InferenceAdmissionError('Evidence withdrawn');
+    let calls = 0;
+    context.inference = {chat: async () => { calls++; throw denial; }};
+    try {
+      await harness.initialize(createTask(), context);
+      await expect(harness.execute()).rejects.toBe(denial);
+      expect(calls).toBe(1);
+      expect(context.budget.turnsUsed).toBe(0);
+    } finally { (context.db as any).close?.(); }
+  });
+
+  it("retains retries for transient unclassified inference failures", async () => {
     const harness = new TestHarness();
     const task = createTask();
     const context = createContext();

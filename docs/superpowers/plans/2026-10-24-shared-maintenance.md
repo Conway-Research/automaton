@@ -1,0 +1,11 @@
+# Shared maintenance coordination
+
+User scope: prevent parallel/unnecessary restarts across chats, batch deployments, offline tests only, keep OFF, no restart or paper start. Implement in existing shared launcher; never run it against production during this task.
+
+Design: exclusive FileStream lock (FileShare.None), canonical workspace-specific maintenance directory, held through all launcher work and released in finally. No PID expiry, force unlock, sleeps, background jobs or automatic applies. All old -Restart calls become staging only. Explicit -Restart -ApplyMaintenance requires an existing batch and >=30 seconds without a new source fingerprint/request. Labels are bounded fixed-character identifiers, not prompts or secrets. Duplicate requests for an identical fingerprint/label are merged. Source hashes include scripts/src/web, root package manifests and launch config; all content paths deterministically sorted. Queue state is separate from power and budgets.
+
+A successful explicit apply verifies OFF before process actions, unchanged exact source fingerprint, fresh matching service/health evidence and OFF again before recording a loaded receipt. Receipt identity includes PID and startedAt; identical source + matching live identity skips a restart. Missing/invalid identity is never treated as loaded. Source drift or failed startup leaves pending batch intact; no false success receipt. No filesystem lock deletion or timeout takeover.
+
+Files: new scripts/founder-maintenance.ps1 helper, existing scripts/start-numaron-founder.ps1 integration, existing fake restart test plus new helper/concurrency/batch integration tests, AGENTS.md usage instructions. Preserve prior dirty work, save baseline copies under outputs/shared-maintenance-20261024.
+
+Verification: red tests before implementation; fake processes and temporary roots only. Exercise cross-process lock conflict and release after owner death, old -Restart staging without process discovery, two requests/one apply, duplicate and loaded no-op, OFF race, malformed/unknown queue, source drift before stop and during startup, failure leaves queue, cleanup unlock. Reviewer checks bypasses and claim limits. No production constructor, HTTP/provider read or actual launcher invocation. Record final minimal read-only OFF/PID status and pending activation limitation.

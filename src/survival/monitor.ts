@@ -21,7 +21,9 @@ export interface ResourceStatus {
   tier: SurvivalTier;
   previousTier: SurvivalTier | null;
   tierChanged: boolean;
-  sandboxHealthy: boolean;
+  /** null means Conway sandbox health is not applicable, never a health pass. */
+  sandboxHealthy: boolean | null;
+  creditStatus?: 'available' | 'unavailable_local' | 'unverified';
 }
 
 /**
@@ -33,9 +35,12 @@ export async function checkResources(
   db: AutomatonDatabase,
 ): Promise<ResourceStatus> {
   // Check credits
-  let creditsCents = 0;
-  try {
+  const local = conway.isLocal === true;
+  let creditStatus: ResourceStatus['creditStatus'] = local ? 'unavailable_local' : 'unverified';
+  let creditsCents = local ? -1 : 0;
+  if (!local) try {
     creditsCents = await conway.getCreditsBalance();
+    creditStatus = 'available';
   } catch {}
 
   // Check USDC
@@ -45,8 +50,8 @@ export async function checkResources(
   } catch {}
 
   // Check sandbox health
-  let sandboxHealthy = true;
-  try {
+  let sandboxHealthy: boolean | null = local ? null : true;
+  if (!local) try {
     const result = await conway.exec("echo ok", 5000);
     sandboxHealthy = result.exitCode === 0;
   } catch {
@@ -59,7 +64,9 @@ export async function checkResources(
     lastChecked: new Date().toISOString(),
   };
 
-  const tier = getSurvivalTier(creditsCents);
+  // The same conservative scheduling tier as local heartbeat ticks. This is
+  // neither a capital balance nor permission to spend on direct inference.
+  const tier = local ? 'low_compute' : getSurvivalTier(creditsCents);
   const prevTierStr = db.getKV("current_tier");
   const previousTier = (prevTierStr as SurvivalTier) || null;
   const tierChanged = previousTier !== null && previousTier !== tier;
@@ -68,7 +75,7 @@ export async function checkResources(
   db.setKV("current_tier", tier);
 
   // Store financial state
-  db.setKV("financial_state", JSON.stringify(financial));
+  db.setKV("financial_state", JSON.stringify({...financial, creditStatus}));
 
   return {
     financial,
@@ -76,6 +83,7 @@ export async function checkResources(
     previousTier,
     tierChanged,
     sandboxHealthy,
+    creditStatus,
   };
 }
 
@@ -85,10 +93,10 @@ export async function checkResources(
 export function formatResourceReport(status: ResourceStatus): string {
   const lines = [
     `=== RESOURCE STATUS ===`,
-    `Credits: ${formatCredits(status.financial.creditsCents)}`,
+    `Credits: ${status.creditStatus === 'unavailable_local' ? 'unavailable in local mode' : status.creditStatus === 'unverified' ? 'unverified' : formatCredits(status.financial.creditsCents)}`,
     `USDC: ${status.financial.usdcBalance.toFixed(6)}`,
     `Tier: ${status.tier}${status.tierChanged ? ` (changed from ${status.previousTier})` : ""}`,
-    `Sandbox: ${status.sandboxHealthy ? "healthy" : "UNHEALTHY"}`,
+    `Sandbox: ${status.sandboxHealthy === null ? 'unavailable in local mode' : status.sandboxHealthy ? "healthy" : "UNHEALTHY"}`,
     `Checked: ${status.financial.lastChecked}`,
     `========================`,
   ];

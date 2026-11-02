@@ -1,0 +1,36 @@
+Arbeite im bestehenden Projekt:
+C:\Users\Patrice\automaton
+
+Prüfe zuerst ausschließlich lesend die gespeicherte Trading-Übergabe. Ändere keine Dateien und setze keine früheren Arbeitsaufträge fort.
+
+Lies in dieser Reihenfolge:
+1. AGENTS.md
+2. docs/claude-handoff-20261031/TAKEOVER-COORDINATION.json
+3. docs/claude-handoff-20261031/TAKEOVER-REPORT.md
+4. docs/claude-handoff-20261031/README.md
+5. docs/claude-handoff-20261031/TRADING-START-PROMPT.txt
+6. docs/claude-handoff-20261031/TRADING-HANDOFF.md
+7. docs/claude-handoff-20261031/TRADING-EVIDENCE-INDEX.json
+8. docs/claude-handoff-20261031/TRADING-LINK-CHECK.md
+
+Gleiche die lokalen Dateipfade und gespeicherten Hashes lesend ab. Lies die verknüpften Forschungsbelege gezielt, soweit sie für die Einordnung erforderlich sind. Unterscheide historische Ergebnisse, Modellannahmen, bestätigte Kontokonditionen und ungeklärte Betriebszustände. Alte Statusdateien sind kein Nachweis einer heutigen Brokerverbindung.
+
+Wichtige offene Punkte:
+- Für Admirals mit 500 CHF ist bislang keine über getrennte Zeiträume robust profitable Strategie nach Kosten bestätigt.
+- Persönliche Live-Gebühren und Freitrade-Berechtigung sind teilweise ungeklärt; ein Invest.MT5-Konto ist nicht nachgewiesen.
+- Forex-Mindestlots überschreiten die bisherigen Positionslimits.
+- Weder mindestens 90 % Gewinner noch mindestens 50 % Jahresrendite sind robust bestätigt.
+- Der BTC-Paper-Runner meldet zuletzt gespeichert „stopped-no-auto-resume“, der Admirals-Demo-Adapter „blocked“. Nichts wiederaufnehmen oder unklare Requests erneut ausführen.
+
+Strikte Grenzen:
+Keine Änderungen, Tests, Backtests, Downloads, externen Abfragen, Modell-/Provider-/Brokeraufrufe, Installationen, Starts, Neustarts oder Wartungsübernahmen. Keine Demo- oder Echtgeldorders. Keine Zugangsdaten auslesen oder ausgeben. Keine Locks, Journale oder Zustände verändern. Bereits laufende Prozesse nicht unterbrechen.
+
+Numaron bleibt OFF. Keine Start-/Resume-Funktionen aufrufen und den Paper-Test nicht starten. Der Übergabe-HOLD bleibt bestehen; diese Anweisung erlaubt nur die lesende Prüfung.
+
+Berichte anschließend hier im Chat:
+1. Welche Belege und Pfade stimmen.
+2. Welche Ergebnisse nach Kosten tatsächlich belegt sind.
+3. Welche Widersprüche, veralteten Angaben oder Lücken bestehen.
+4. Welche nächsten Schritte erst eine separate Freigabe benötigen.
+
+Führe diese nächsten Schritte nicht aus. Falls Dateien fehlen oder Hashes abweichen, benenne das mit dem genauen Pfad, ohne etwas zu reparieren oder zu überschreiben.

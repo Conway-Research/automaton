@@ -7,6 +7,7 @@
 
 import type BetterSqlite3 from "better-sqlite3";
 import { ulid } from "ulid";
+import { assertNoKnownSecrets } from "../observability/redaction.js";
 import type { EpisodicMemoryEntry, TurnClassification } from "../types.js";
 import { estimateTokens } from "../agent/context.js";
 import { createLogger } from "../observability/logger.js";
@@ -30,6 +31,7 @@ export class EpisodicMemoryManager {
     embeddingKey?: string | null;
     classification?: TurnClassification;
   }): string {
+    assertNoKnownSecrets(entry);
     const id = ulid();
     const tokenCount = estimateTokens(entry.summary + (entry.detail || ""));
     try {
@@ -50,6 +52,7 @@ export class EpisodicMemoryManager {
       );
     } catch (error) {
       logger.error("Failed to record entry", error instanceof Error ? error : undefined);
+      throw new Error("Memory persistence failed");
     }
     return id;
   }

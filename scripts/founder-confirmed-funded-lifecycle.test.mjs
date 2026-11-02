@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {guardOrderAction,planOrderActions} from './founder-order-lifecycle.mjs';
+const now=Date.now(),key={sourceId:'fixture',externalId:'one',ownerId:'own'};
+function context(kind){const order={...key,rootTaskId:'root',sourceRevision:'rev',termsVerified:true,state:{prepare:'assigned',work:'prepared',verify:'worked',submit:'verified'}[kind],funding:{...key,verified:true,evidenceRef:'fixture:funding',expiresAt:now+60000},verification:{passed:true,digest:'fixture-delivery'}};return {action:{kind,orderKey:key,rootTaskId:'root',sourceRevision:'rev',maxCostRappen:0},ctx:{order,source:{id:'fixture',capabilities:Object.fromEntries(['work','verify','submit'].map(c=>[c,{state:'live-verified',expiresAt:now+60000,evidenceRefs:['fixture:cap']}]))},powerEnabled:true,controllerRunning:true,now,budget:{active:true,rootRemainingRappen:0},requireConfirmedFundedOrders:true}};}
+for(const kind of ['prepare','work','verify','submit'])test('strict '+kind+' blocks legacy funding Boolean without confirmed award and terms',()=>{const {action,ctx}=context(kind);assert.equal(guardOrderAction(action,ctx).allowed,false);});
+test('strict funded policy does not inherit a postpaid allowance',()=>{const {action,ctx}=context('work');ctx.order.paymentAuthorization={paymentMode:'postpaid-limited'};ctx.paymentAuthority={allows:()=>true};assert.equal(guardOrderAction(action,ctx).allowed,false);});
+test('planner must propagate strict confirmed-funded policy instead of bypassing it',()=>{const {ctx}=context('work');assert.deepEqual(planOrderActions(ctx),[]);});

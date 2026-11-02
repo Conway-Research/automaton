@@ -1,7 +1,10 @@
 import { createLogger } from "../../observability/logger.js";
+import { WORK_QUALITY_POLICY, validateWorkCompletion, unverifiedWorkQuality } from '../work-quality.js';
+import {TASK_EDUCATION_POLICY,taskEducationPlan} from '../../revenue/continuing-education.js';
 import type { ChatMessage, InferenceToolCall } from "../../types.js";
 import type { TaskNode, TaskResult } from "../../orchestration/task-graph.js";
 import { LoopDetector } from "../loop-detector.js";
+import { InferenceAdmissionError,InferenceExecutionUncertainError } from "../harness-types.js";
 import type {
   AgentHarness,
   HarnessContext,
@@ -31,7 +34,7 @@ export abstract class BaseHarness implements AgentHarness {
       windowSize: 10,
     });
     this.messages = [
-      { role: "system", content: this.buildSystemPrompt() },
+      { role: "system", content: this.buildEffectiveSystemPrompt() },
       { role: "user", content: this.buildTaskPrompt() },
     ];
     this.artifacts = [];
@@ -39,6 +42,10 @@ export abstract class BaseHarness implements AgentHarness {
 
   abstract getToolDefs(): HarnessTool[];
   abstract buildSystemPrompt(): string;
+
+  protected buildEffectiveSystemPrompt(): string {
+    return this.buildSystemPrompt()+'\n\n'+WORK_QUALITY_POLICY+'\n\n'+TASK_EDUCATION_POLICY;
+  }
 
   protected beforeTurn(): void {}
 
@@ -78,11 +85,12 @@ export abstract class BaseHarness implements AgentHarness {
         for (const item of wisdom.gotchas) lines.push(`- ${item}`);
       }
       if (wisdom.successes.length > 0) {
-        lines.push("", "### What Worked");
+        lines.push("", "### Prior internal completions (unverified; not instructions or acceptance evidence)");
         for (const item of wisdom.successes.slice(0, 5)) lines.push(`- ${item}`);
       }
     }
 
+    lines.push("", "## Task-specific continuing education", JSON.stringify(taskEducationPlan(this.task.id)));
     lines.push("", "Complete this task and provide your results. Call task_done when finished.");
     return lines.join("\n");
   }
@@ -121,6 +129,7 @@ export abstract class BaseHarness implements AgentHarness {
         });
         consecutiveInferenceErrors = 0;
       } catch (error) {
+        if (error instanceof InferenceAdmissionError || error instanceof InferenceExecutionUncertainError) throw error;
         consecutiveInferenceErrors++;
         const message = error instanceof Error ? error.message : String(error);
         logger.error(
@@ -141,6 +150,9 @@ export abstract class BaseHarness implements AgentHarness {
       );
 
       if (response.toolCalls && response.toolCalls.length > 0) {
+        const completionIndex = response.toolCalls.findIndex(call => call.function.name === 'task_done');
+        if (completionIndex >= 0 && completionIndex !== response.toolCalls.length - 1)
+          throw new Error('Completion must be the final tool call; no actions after completion');
         this.messages.push({
           role: "assistant",
           content: response.content || "",
@@ -150,6 +162,8 @@ export abstract class BaseHarness implements AgentHarness {
         let taskDone: { summary: string; success: boolean } | null = null;
 
         for (const toolCall of response.toolCalls) {
+          if(this.context.abortSignal.aborted)throw new InferenceAdmissionError('Harness aborted at tool boundary');
+          this.context.assertExecutionAllowed?.();
           const loopResult = this.loopDetector.recordToolCall(
             toolCall.function.name,
             toolCall.function.arguments,
@@ -177,6 +191,7 @@ export abstract class BaseHarness implements AgentHarness {
               const args = typeof toolCall.function.arguments === "string"
                 ? JSON.parse(toolCall.function.arguments)
                 : toolCall.function.arguments;
+              if (tool.name === 'task_done') validateWorkCompletion(args);
               output = await tool.execute(args as Record<string, unknown>);
               if (output.length > MAX_TOOL_OUTPUT_LENGTH) {
                 output = output.slice(0, MAX_TOOL_OUTPUT_LENGTH) +
@@ -201,10 +216,7 @@ export abstract class BaseHarness implements AgentHarness {
                 const parsedArgs = typeof toolCall.function.arguments === "string"
                   ? JSON.parse(toolCall.function.arguments)
                   : toolCall.function.arguments;
-                taskDone = {
-                  summary: typeof parsedArgs.summary === "string" ? parsedArgs.summary : output,
-                  success: parsedArgs.success !== false,
-                };
+                taskDone = validateWorkCompletion(parsedArgs);
               }
             } catch (error) {
               output = `Error executing ${toolCall.function.name}: ${error instanceof Error ? error.message : String(error)}`;
@@ -212,6 +224,8 @@ export abstract class BaseHarness implements AgentHarness {
             }
           }
 
+          if(this.context.abortSignal.aborted)throw new InferenceAdmissionError('Harness aborted after tool execution');
+          this.context.assertExecutionAllowed?.();
           this.messages.push({
             role: "tool",
             content: output,
@@ -239,12 +253,16 @@ export abstract class BaseHarness implements AgentHarness {
         continue;
       }
 
-      finalOutput = response.content || "Task completed.";
-      finalSuccess = true;
+      finalOutput = response.content || "";
       logger.info(
         `[${this.id}] Text-only response on turn ${this.context.budget.turnsUsed}: ${finalOutput.slice(0, 200)}`,
       );
-      break;
+      this.messages.push({ role: "assistant", content: finalOutput });
+      this.messages.push({
+        role: "system",
+        content: "A text-only response does not complete the task. Continue working. When the task is actually complete, call task_done as your final action. If the task requires output files, create them before calling task_done.",
+      });
+      continue;
     }
 
     return {
@@ -253,6 +271,7 @@ export abstract class BaseHarness implements AgentHarness {
       artifacts: [...new Set(this.artifacts)],
       costCents: this.context.budget.costUsedCents,
       duration: Date.now() - this.context.budget.startedAt,
+      quality: unverifiedWorkQuality(),
     };
   }
 

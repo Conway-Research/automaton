@@ -1,0 +1,30 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "date": "2026-10-20",
+  "monitorRun": "2026-10-20T20-40-50-123Z-93df704a",
+  "completedAt": "2026-10-20T20:42:52.423Z",
+  "ugigCheckedAt": "2026-10-20T20:42:46.608Z",
+  "applications": 14,
+  "watchedApplications": {"450USD":"pending","100USD":"pending","90USD":"pending","50USD":"pending"},
+  "incomingLatestMessages": 0,
+  "unreadCounts": [0,0,0,0],
+  "gmailOrderSearchResults": 0,
+  "dealworkContracts": 0,
+  "arcbountyOpenCount": 0,
+  "bidpostloopOpenCount": 0,
+  "screening": {
+    "ugig": "Only active listing in monitor evidence is unpaid volunteer work",
+    "synmerco": "Six known promotional/referral intents; delivery prerequisites remain unverified",
+    "extendedPublicSearch": "Firecrawl search expanded beyond existing sources; no human employment qualifications invented",
+    "verifiedExcludedURL": "https://laborx.com/jobs/python-fastapi-api-bug-fixes-and-small-improvements-104846",
+    "verifiedExcludedReason": "Original posting fetched live with maxAge=0: Archived; deadline Sep 29 2026",
+    "additionalLaborxSignals": "Current related listings include country-specific live calling and in-person interviewing; no suitable verified application selected"
+  },
+  "newApplications": 0,
+  "extraMonitorRunsStarted": 0,
+  "productionPowerActions": 0,
+  "restarts": 0,
+  "budgetOrProtectionChanges": 0,
+  "powerRevisionObserved": 84,
+  "continuation": "Existing local monitor remains responsible for recurring reads; no duplicate automation created"
+}

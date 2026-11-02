@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { symlinkSync, linkSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -104,6 +104,74 @@ describe("agent/CodingHarness confinement", () => {
     return harness;
   }
 
+  it("never reads local files after a remote read failure", async () => {
+    const filePath = path.join(testRoot, "remote-unavailable.txt");
+    writeFileSync(filePath, "LOCAL_ONLY_FIXTURE");
+    const client = createConwayStub({isLocal: false, readFile: async () => { throw new Error("Remote denied"); }});
+    const result = await runTool(client, "read_file", {path: filePath});
+    expect(result).not.toContain("LOCAL_ONLY_FIXTURE");
+    expect(result).toMatch(/Blocked|read error/);
+  });
+
+  it("preserves silent backend failures and unknown exit status", async () => {
+    for (const exitCode of [0, 1, 137, undefined, Number.NaN]) {
+      const client = createConwayStub({exec: async () => ({stdout: "", stderr: "", exitCode}) as Awaited<ReturnType<ConwayClient["exec"]>>});
+      const result = await runTool(client, "exec", {command: "node --version"});
+      expect(result).toBe(`exitCode: ${Number.isInteger(exitCode) ? exitCode : "unknown"}\n(no output)`);
+    }
+  });
+
+  it("keeps failure status visible before truncated backend output", async () => {
+    const client = createConwayStub({exec: async () => ({stdout: "x".repeat(20_000), stderr: "", exitCode: 1})});
+    const result = await runTool(client, "exec", {command: "node --version"});
+    expect(result.startsWith("exitCode: 1\n")).toBe(true);
+    expect(result).toContain("TRUNCATED");
+  });
+
+  it("does not execute a shell fallback after backend failure", async () => {
+    for (const isLocal of [true, false]) {
+      const client = createConwayStub({isLocal, exec: async () => { throw new Error("Backend denied"); }});
+      const result = await runTool(client, "exec", {command: "echo LOCAL_SHELL_SENTINEL"});
+      expect(result).toContain("Blocked");
+      expect(result).not.toContain("LOCAL_SHELL_SENTINEL");
+    }
+  });
+
+  it("never creates or changes local files after remote write failure", async () => {
+    const existing = path.join(testRoot, "existing.txt"), missing = path.join(testRoot, "new-folder", "new.txt");
+    writeFileSync(existing, "LOCAL_ORIGINAL");
+    for (const isLocal of [false, undefined]) {
+      const client = createConwayStub({isLocal, writeFile: async () => { throw new Error("Remote denied"); }});
+      for (const target of [existing, missing]) expect(await runTool(client, "write_file", {path: target, content: "REPLACEMENT"})).toContain("Blocked");
+    }
+    expect(readFileSync(existing, "utf8")).toBe("LOCAL_ORIGINAL");
+    expect(existsSync(path.dirname(missing))).toBe(false);
+  });
+
+  it("keeps remote patch failures and remote directory listing off the controller filesystem", async () => {
+    const target = path.join(testRoot, "private-controller-fixture.txt");writeFileSync(target, "LOCAL_ORIGINAL");
+    for (const isLocal of [false, undefined]) {
+      const client = createConwayStub({isLocal, readFile: async () => "REMOTE_BEFORE", writeFile: async () => { throw new Error("Remote denied"); }});
+      expect(await runTool(client, "patch_file", {path: target, search: "BEFORE", replace: "AFTER"})).toContain("Blocked");
+      const listing = await runTool(client, "list_dir", {path: testRoot});expect(listing).toContain("Blocked");expect(listing).not.toContain("private-controller-fixture");
+    }
+    expect(readFileSync(target, "utf8")).toBe("LOCAL_ORIGINAL");
+    expect(await runTool(createConwayStub({isLocal:true}), "list_dir", {path:testRoot})).toContain("private-controller-fixture.txt");
+  });
+
+  it("rejects local write aliases before changing their targets", async () => {
+    const original = path.join(testRoot, "original.txt");writeFileSync(original, "KEEP");
+    const hard = path.join(testRoot, "hard.txt");linkSync(original, hard);
+    const nested = path.join(testRoot, "target");mkdirSync(nested);
+    const alias = path.join(testRoot, "alias");symlinkSync(nested, alias, process.platform === "win32" ? "junction" : "dir");
+    let backendWrites = 0;
+    const client = createConwayStub({isLocal: true, writeFile: async () => { backendWrites++; }});
+    for (const target of [hard, path.join(alias,"new.txt")]) expect(await runTool(client,"write_file",{path:target,content:"OVERWRITE"})).toContain("Blocked");
+    expect(readFileSync(original,"utf8")).toBe("KEEP");expect(existsSync(path.join(nested,"new.txt"))).toBe(false);expect(backendWrites).toBe(0);
+    expect(await runTool(client,"list_dir",{path:alias})).toContain("Blocked");
+    expect(await runTool(client,"patch_file",{path:hard,search:"KEEP",replace:"BAD"})).toContain("Blocked");
+  });
+
   async function runTool(conway: ConwayClient, toolName: string, args: Record<string, unknown>): Promise<string> {
     const harness = await createHarness(conway);
     const tool = harness.getToolDefs().find((entry) => entry.name === toolName);
@@ -135,6 +203,7 @@ describe("agent/CodingHarness confinement", () => {
     writeFileSync(filePath, "const value = 'before';\n", "utf8");
 
     const conway = createConwayStub({
+      isLocal: true,
       readFile: async () => {
         throw new Error("force local fallback");
       },

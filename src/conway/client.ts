@@ -1,3 +1,5 @@
+import os from "node:os";
+import {operatingMode,ConwayUnavailableError,type OperatingMode} from './operating-mode.js';
 /**
  * Conway API Client
  *
@@ -6,7 +8,7 @@
  * Adapted from @aiws/sdk patterns.
  */
 
-import { execSync } from "child_process";
+
 import fs from "fs";
 import nodePath from "path";
 import type {
@@ -23,6 +25,10 @@ import type {
   ModelInfo,
 } from "../types.js";
 import { ResilientHttpClient } from "./http-client.js";
+import {actionContextDigest} from '../security/action-gate.js';
+import {assertNoKnownSecrets,registerLogSecrets} from '../observability/redaction.js';
+export const conwayActionScope=(apiUrl:string,method:string,resource:string,body:unknown)=>({activity:'conway-mutation',component:'conway',
+ contextDigest:actionContextDigest({apiUrl,method,resource,body})});
 import { ulid } from "ulid";
 import { keccak256, toHex } from "viem";
 import type { Address, PrivateKeyAccount } from "viem";
@@ -30,13 +36,25 @@ import { randomUUID } from "crypto";
 import type { ChainType, ChainIdentity } from "../identity/chain.js";
 
 interface ConwayClientOptions {
+  operatingMode?: OperatingMode;
   apiUrl: string;
   apiKey: string;
   sandboxId: string;
+  /** Trusted host capability gateway; absence denies external mutations/signing. */
+  authorizeMutation?:(scope:ReturnType<typeof conwayActionScope>)=>void;
 }
 
 export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   const { apiUrl, apiKey } = options;
+  const mode=operatingMode(options);
+  const requireConway=()=>{if(mode==='local')throw new ConwayUnavailableError();};
+  registerLogSecrets([apiKey]);
+  const authorize=(method:string,resource:string,body:unknown)=>{
+    requireConway();
+    assertNoKnownSecrets(body??{});
+    if(!options.authorizeMutation)throw Error('Conway mutation requires trusted capability authorization');
+    options.authorizeMutation(conwayActionScope(apiUrl,method,resource,body));
+  };
   // Normalize sandbox ID defensively so values like whitespace/"undefined"/"null"
   // never produce malformed API paths such as /v1/sandboxes//exec.
   const sandboxId = normalizeSandboxId(options.sandboxId);
@@ -48,10 +66,13 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     body?: unknown,
     requestOptions?: { idempotencyKey?: string; retries404?: number },
   ): Promise<any> {
+    requireConway();
     // Conway LB has an intermittent routing bug that returns 404 for valid
     // sandbox endpoints. Retry 404s here (outside ResilientHttpClient) to
     // avoid tripping the circuit breaker on transient routing failures.
-    const max404Retries = requestOptions?.retries404 ?? 3;
+    const mutating=!['GET','HEAD'].includes(method);
+    if(mutating)authorize(method,path,body);
+    const max404Retries = mutating?0:requestOptions?.retries404 ?? 3;
     for (let attempt = 0; attempt <= max404Retries; attempt++) {
       const resp = await httpClient.request(`${apiUrl}${path}`, {
         method,
@@ -61,6 +82,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
         },
         body: body ? JSON.stringify(body) : undefined,
         idempotencyKey: requestOptions?.idempotencyKey,
+        ...(mutating?{retries:0}:{}),
       });
 
       if (resp.status === 404 && attempt < max404Retries) {
@@ -69,14 +91,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       }
 
       if (!resp.ok) {
-        const text = await resp.text();
+        await resp.body?.cancel();
         const err: any = new Error(
-          `Conway API error: ${method} ${path} -> ${resp.status}: ${text}`,
+          `Conway API error: ${method} -> ${resp.status}`,
         );
         err.status = resp.status;
-        err.responseText = text;
         err.method = method;
-        err.path = path;
         throw err;
       }
 
@@ -103,44 +123,31 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   };
 
 
-  // ─── Sandbox Operations (own sandbox) ────────────────────────
-  // When sandboxId is empty, automatically fall back to local execution.
+  // â”€â”€â”€ Sandbox Operations (own sandbox) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Local file access is supported; arbitrary local shell execution is not isolated.
 
-  const isLocal = !sandboxId;
-
-  const execLocal = (command: string, timeout?: number): ExecResult => {
-    try {
-      const stdout = execSync(command, {
-        timeout: timeout || 30_000,
-        encoding: "utf-8",
-        maxBuffer: 10 * 1024 * 1024,
-        cwd: process.env.HOME || "/root",
-      });
-      return { stdout: stdout || "", stderr: "", exitCode: 0 };
-    } catch (err: any) {
-      return {
-        stdout: err.stdout || "",
-        stderr: err.stderr || err.message || "",
-        exitCode: err.status ?? 1,
-      };
-    }
-  };
+  const isLocal = mode==='local';
 
   const exec = async (
     command: string,
     timeout?: number,
+    cwd?: string,
   ): Promise<ExecResult> => {
-    if (isLocal) return execLocal(command, timeout);
+    if (isLocal) return {stdout:"",stderr:"Blocked: local shell requires an accepted isolated execution backend.",exitCode:126};
+    if(typeof command!=='string'||!command.trim()||command.length>65536||command.includes('\0')||
+      timeout!==undefined&&(!Number.isSafeInteger(timeout)||timeout<1||timeout>120000)||
+      cwd!==undefined&&(typeof cwd!=='string'||cwd.length>4096||/[\r\n\0]/.test(cwd)))throw Error('Invalid bounded remote execution request');
 
     // Remote sandboxes default to / as cwd. Wrap commands to run from /root
     // (matching local exec behavior) unless the command already sets a directory.
-    const wrappedCommand = `cd /root && ${command}`;
+    const remoteCwd = cwd || "/root";
+    const wrappedCommand = `cd '${remoteCwd.replaceAll("'", "'\\''")}' && ${command}`;
 
     try {
       const result = await request(
         "POST",
         `/v1/sandboxes/${sandboxId}/exec`,
-        { command: wrappedCommand, timeout },
+        { command: wrappedCommand, timeout:timeout??60000 },
         { idempotencyKey: ulid() },
       );
       return {
@@ -150,7 +157,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       };
     } catch (err: any) {
       // SECURITY: Never silently fall back to local execution on auth failure.
-      // A 403 indicates a credentials mismatch — falling back to local exec
+      // A 403 indicates a credentials mismatch â€” falling back to local exec
       // would bypass the sandbox security boundary entirely.
       if (err?.status === 403) {
         throw new Error(
@@ -165,7 +172,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
 
   const resolveLocalPath = (filePath: string): string =>
     filePath.startsWith("~")
-      ? nodePath.join(process.env.HOME || "/root", filePath.slice(1))
+      ? nodePath.join(process.env.HOME || os.homedir(), filePath.slice(1))
       : filePath;
 
   const writeFile = async (
@@ -230,16 +237,10 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
         sandboxId: "local",
       };
     }
-    const result = await request(
-      "POST",
-      `/v1/sandboxes/${sandboxId}/ports/expose`,
-      { port },
-    );
-    return {
-      port: result.port,
-      publicUrl: result.public_url || result.publicUrl || result.url,
-      sandboxId,
-    };
+    // A port number cannot bind the changing server response to reviewed product
+    // bytes/claims. Keep this legacy publication transport unaccepted until an
+    // immutable deployment/content adapter can enforce the release contract.
+    throw Error('Remote publication requires an accepted content-bound publishing adapter');
   };
 
   const removePort = async (port: number): Promise<void> => {
@@ -247,7 +248,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     await request("DELETE", `/v1/sandboxes/${sandboxId}/ports/${port}`);
   };
 
-  // ─── Sandbox Management (other sandboxes) ────────────────────
+  // â”€â”€â”€ Sandbox Management (other sandboxes) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const createSandbox = async (
     options: CreateSandboxOptions,
@@ -272,8 +273,9 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   };
 
   const deleteSandbox = async (_targetId: string): Promise<void> => {
+    requireConway();
     // Conway API no longer supports sandbox deletion.
-    // Sandboxes are prepaid and non-refundable — this is a no-op.
+    // Sandboxes are prepaid and non-refundable â€” this is a no-op.
   };
 
   const listSandboxes = async (): Promise<SandboxInfo[]> => {
@@ -291,7 +293,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     }));
   };
 
-  // ─── Credits ─────────────────────────────────────────────────
+  // â”€â”€â”€ Credits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const getCreditsBalance = async (): Promise<number> => {
     const result = await request("GET", "/v1/credits/balance");
@@ -322,11 +324,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     };
 
     const idempotencyKey = ulid();
-    const paths = ["/v1/credits/transfer", "/v1/credits/transfers"];
+    const paths = ["/v1/credits/transfer"];
 
     let lastError = "Unknown transfer error";
 
     for (const path of paths) {
+      authorize('POST',path,payload);
       const resp = await httpClient.request(`${apiUrl}${path}`, {
         method: "POST",
         headers: {
@@ -339,8 +342,8 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
       });
 
       if (!resp.ok) {
-        const text = await resp.text();
-        lastError = `${resp.status}: ${text}`;
+        await resp.body?.cancel();
+        lastError = `${resp.status}`;
         // Try next known endpoint shape before failing.
         if (resp.status === 404) continue;
         throw new Error(`Conway API error: POST ${path} -> ${lastError}`);
@@ -399,6 +402,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     }
 
     const payloadHash = hashIdentityPayload(payload);
+    authorize('SIGN','/v1/automatons/register',payload);
     let signature: string;
 
     if (isSolana && chainIdentity) {
@@ -454,7 +458,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     return request("POST", "/v1/automatons/register", body);
   };
 
-  // ─── Domains ──────────────────────────────────────────────────
+  // â”€â”€â”€ Domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const searchDomains = async (
     query: string,
@@ -536,9 +540,10 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     );
   };
 
-  // ─── Model Discovery ───────────────────────────────────────────
+  // â”€â”€â”€ Model Discovery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const listModels = async (): Promise<ModelInfo[]> => {
+    requireConway();
     // Try inference.conway.tech first (has availability info), fall back to control plane
     const urls = [
       "https://inference.conway.tech/v1/models",
@@ -576,10 +581,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   };
 
   const createScopedClient = (targetSandboxId: string): ConwayClient => {
-    return createConwayClient({ apiUrl, apiKey, sandboxId: targetSandboxId });
+    requireConway();
+    return createConwayClient({ apiUrl, apiKey, sandboxId: targetSandboxId,operatingMode:mode,authorizeMutation:options.authorizeMutation });
   };
 
   const client: ConwayClient = {
+    isLocal,
     exec,
     writeFile,
     readFile,
@@ -603,7 +610,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
 
   // SECURITY: API credentials are NOT exposed on the client object.
   // If child spawning or other modules need API configuration, pass it
-  // explicitly through a dedicated typed interface — never via dynamic getters
+  // explicitly through a dedicated typed interface â€” never via dynamic getters
   // that any code with a client reference could access.
 
   return client;

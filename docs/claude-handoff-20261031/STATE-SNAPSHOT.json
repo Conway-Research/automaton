@@ -1,0 +1,72 @@
+{
+  "at": "2026-10-31T13:05:44.818Z",
+  "head": "543d0623ee94cc1f5e84c11faf2dee3e15eeb180",
+  "powerHash": "3453767fed23dca6a7cb5744285a4a792b6cbea52617f616829ccc8c8e476db0",
+  "power": {
+    "enabled": false,
+    "revision": 101,
+    "changedAt": "2026-10-23T01:37:43.917Z",
+    "cause": "stop-request",
+    "startupAt": "2026-10-31T03:15:48.516Z",
+    "startupPid": 50328,
+    "startupCall": "openFounderPower",
+    "startupCaller": "founder-dashboard",
+    "startupId": "c0eb8efe-9996-41e0-a7bf-73e3bbb39da9"
+  },
+  "budgetLogicalHash": "3868d4cc24072b28155f183ab6ddadb012173d676a83f800c6cf7cbb01a586ac",
+  "loaded": {
+    "schema": 1,
+    "batchId": "ee2886da296041ea912472160ab50bfe",
+    "fingerprint": "57ba8865093b920601f08094fd34c35bcd2b01d08bc1024311ad4ec4c58e74ee",
+    "pid": 50328,
+    "startedAt": "2026-10-31T03:15:50.0770000+00:00",
+    "completedAt": "2026-10-31T03:15:50.6446836Z",
+    "requests": [
+      {
+        "id": "dd6a3d8fcdd34224896185a3ca72cfd2",
+        "name": "unspecified",
+        "requestedAt": "2026-10-31T01:34:31.1758452Z"
+      },
+      {
+        "id": "351b371dd776437ead91873238046cf9",
+        "name": "coordinated-pending-20261024",
+        "requestedAt": "2026-10-31T02:43:15.3841539Z"
+      },
+      {
+        "id": "f05092d83fb444ed80b5cdd2f338c73c",
+        "name": "founder-dashboard-blocker-fixes-20261031",
+        "requestedAt": "2026-10-31T02:43:36.5555694Z"
+      }
+    ]
+  },
+  "service": {
+    "at": "2026-10-31T03:15:50.085Z",
+    "status": "running",
+    "supervisorPid": 40928,
+    "childPid": 50328,
+    "restarts": 0,
+    "url": "http://127.0.0.1:51439",
+    "paidExecution": "See authenticated controller budget and capabilities"
+  },
+  "health": {
+    "startedAt": "2026-10-31T03:15:50.077Z",
+    "pid": 50328,
+    "officeOrderFlow": {
+      "configured": true,
+      "visualConfigured": true,
+      "generatorVersion": "3f766603e422d706fee41d7da24714e0797f29ecb7851421640aeca25172c9e5",
+      "liveReady": false,
+      "releaseRequired": true
+    },
+    "budget": {
+      "currency": "CHF",
+      "periodRappen": 15000,
+      "dailyRappen": 2000,
+      "taskRappen": 250,
+      "periodDays": 30,
+      "maxWorkers": 10,
+      "scope": "Nur Aufrufe durch den Founder-Budgetadapter. Andere Prozesse sind nicht abgedeckt."
+    }
+  },
+  "caution": "Health is startup evidence. Loaded marker is not proof of source equality, authorization provenance or complete production function."
+}

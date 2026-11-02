@@ -11,6 +11,7 @@ import type {
 } from "../types.js";
 import { logModification } from "./audit-log.js";
 import { ulid } from "ulid";
+import { assertNoKnownSecrets } from "../observability/redaction.js";
 
 /**
  * Install an npm package globally in the sandbox.
@@ -21,10 +22,11 @@ export async function installNpmPackage(
   packageName: string,
 ): Promise<{ success: boolean; error?: string }> {
   // Sanitize package name (prevent command injection)
-  if (!/^[@a-zA-Z0-9._/-]+$/.test(packageName)) {
+  if (typeof packageName !== "string" || packageName.length > 214 ||
+      !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
     return {
       success: false,
-      error: `Invalid package name: ${packageName}`,
+      error: "Invalid registry package name",
     };
   }
 
@@ -36,7 +38,7 @@ export async function installNpmPackage(
   if (result.exitCode !== 0) {
     return {
       success: false,
-      error: `npm install failed: ${result.stderr}`,
+      error: "npm install failed",
     };
   }
 
@@ -71,6 +73,16 @@ export async function installMcpServer(
   args?: string[],
   env?: Record<string, string>,
 ): Promise<{ success: boolean; error?: string }> {
+  // Persist capabilities, not raw authentication material. A separate trusted
+  // credential gateway is required for authenticated servers.
+  try {
+    assertNoKnownSecrets({name,command,args,env});
+    if (env && Object.keys(env).some(key => /key|token|secret|password|credential|authorization|cookie|mnemonic/i.test(key))) {
+      throw new Error("Credential environment is not supported");
+    }
+  } catch {
+    return {success:false,error:"MCP credential configuration requires a protected gateway"};
+  }
   // Record in database
   const tool: InstalledTool = {
     id: ulid(),

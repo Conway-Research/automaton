@@ -6,6 +6,8 @@ import type { PlannerContext, PlannerOutput } from "./planner.js";
 import type { FundingProtocol } from "./types.js";
 import type { AgentWorkspace } from "./workspace.js";
 import { getActiveGoals } from "../state/database.js";
+import {redactLogText} from '../observability/redaction.js';
+import {efficiencySnapshot,efficiencyContext} from '../inference/efficiency.js';
 
 export interface PlannerContextOptions {
   db: Database;
@@ -54,6 +56,11 @@ export async function buildPlannerContext(options: PlannerContextOptions): Promi
       status: goal.status,
     })),
     recentOutcomes: loadRecentOutcomes(options.db),
+    costLearning: efficiencyContext(efficiencySnapshot(options.db,50)),
+    reviewFeedback:options.db.prepare("SELECT key,value FROM kv WHERE key LIKE 'orchestrator.review_feedback.%' ORDER BY updated_at DESC,key LIMIT 5").all().map(row=>{
+      const item=row as {key:string;value:string};
+      return {goalId:item.key.slice('orchestrator.review_feedback.'.length),feedback:redactLogText(item.value).slice(0,2000)};
+    }),
     marketIntel: normalizeLabel(options.marketIntel, "none"),
     idleAgents: clampCount(options.idleAgents),
     busyAgents: clampCount(options.busyAgents),

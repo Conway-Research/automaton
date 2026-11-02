@@ -1,0 +1,36 @@
+{
+  "schema": "numaron-offline-it-reference-evidence-v1",
+  "checkedAt": "2026-10-24T05:54:31.946Z",
+  "status": "implemented-real-offline-engine-verified-not-production-enabled",
+  "report": "outputs/it-reference-20261024/REPORT.md",
+  "delivery": "outputs/it-reference-20261024/numaron-document-operations-desk.zip",
+  "deliverySha256": "54dacfd2066f28dcfc55d311539a5947a0afa42c81cb8d5f50e353e46b9f8728",
+  "sourceDigest": "d9585bc16e78d4480764d34e92bbb38ffa0301da1edf120116ce4fd32c2a432b",
+  "pinnedPythonImage": "sha256:141fe9b385f3bb6d618c07ace1836c0b3c72bf525566ac3eb13cd1f405069877",
+  "productTestsPassed": 22,
+  "integrationTestsPassed": 65,
+  "independentReviewOpenMaterialFindings": 0,
+  "browserPassed": true,
+  "syntheticEvaluation": {
+    "documents": 12,
+    "characterErrors": 0,
+    "correctFields": 28,
+    "totalFields": 28
+  },
+  "realProviderCalls": 0,
+  "realSubmissions": 0,
+  "syntheticSubmissionWrites": 1,
+  "productionRestarted": false,
+  "powerEnabled": false,
+  "powerRevision": 101,
+  "liveAuthorized": false,
+  "autonomousGeneralCodeGenerationProven": false,
+  "authoring": "Codex-authored code; Numaron real engine applies full reviewed seven-module implementation and runs independent acceptance in isolated interpreter",
+  "remaining": [
+    "More varied fonts/documents and real permitted samples for broader OCR",
+    "Task-specific training/evaluation for other ML domains",
+    "Verified customer scope, input rights, assignment, funding and acceptance",
+    "Source-specific live submission contracts/current exact capability evidence",
+    "Coordinated stable-source deployment; no production activation performed"
+  ]
+}

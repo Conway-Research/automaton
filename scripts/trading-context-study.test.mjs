@@ -1,0 +1,17 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {openContextStudy} from './trading-context-study.mjs';import {mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';
+const start=Date.UTC(2026,9,14,12),now=start+600000;
+function market(at=now,bid=103.25){const end=Math.floor(at/300000)*300-300;return {account:{identity:'test-account',server:'fixture',observedAt:at},instruments:[{symbol:'EURUSD',bid,ask:bid+.01,quoteAt:at,volumeMin:.01,costTerms:{path:'Forex\\Majors',profitCurrency:'USD',contractSize:100000,swapMode:0,swapLong:0,swapShort:0,observedAt:at},closedBars:Array.from({length:65},(_,i)=>({time:end-(64-i)*300,open:100+i*.05,high:100.2+i*.05,low:99.8+i*.05,close:100+i*.05}))}],watchQuotes:[]};}
+const signal={signalId:'fixture-signal',symbol:'EURUSD',side:'SELL',entry:103.25,stop:104.25,target:101.25};
+test('compares paired fresh signals and keeps filtered no-action separate from unknown outcomes',()=>{
+ const s=openContextStudy(':memory:',{clock:()=>start,lessonReader:()=>[{id:'learned',application:{horizon:'macro',use:'Finanzierung prüfen'}}]});try{s.observe(market(),[signal],now);assert.equal(s.snapshot(now).comparison.enrolled,1);assert.equal(s.snapshot(now).comparison.filtered,1);assert.deepEqual(s.snapshot(now).samples[0].learnedReferences,['learned']);s.observe(market(now+10000,105),[],now+10000,false);const v=s.snapshot(now+10000);assert.equal(v.comparison.pairedKnown,1);assert.equal(v.comparison.contextR,0);assert.ok(v.comparison.baselineR<0);assert.equal(v.profitabilityProven,false);assert.equal(v.netProfit,null);}finally{s.close();}
+});
+test('restart preserves frozen experiment and outcomes, duplicate signals do not grow evidence',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'century-study-')),file=join(dir,'study.db');let s=openContextStudy(file,{clock:()=>start});try{s.observe(market(),[signal],now);s.close();s=openContextStudy(file,{clock:()=>now});s.observe(market(),[signal],now);assert.equal(s.snapshot(now).comparison.enrolled,1);assert.equal(s.snapshot(now).startedAt,start);s.observe(market(now+300000,105),[],now+300000,false);assert.equal(s.snapshot(now+300000).comparison.pairedKnown,0);assert.equal(s.snapshot(now+300000).comparison.unknown,1);assert.equal(s.snapshot(now+300000).comparison.baselineR,null);assert.ok(!JSON.stringify(s.snapshot()).includes('test-account'));}finally{s.close();rmSync(dir,{recursive:true,force:true});}
+});
+test('a changed tariff cannot silently mix observations in the same frozen study',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'century-cost-')),file=join(dir,'study.db');let s=openContextStudy(file,{clock:()=>start,costProfile:{accountType:'Trade.MT5',revision:'fixture-1'}});s.close();try{assert.throws(()=>{const other=openContextStudy(file,{clock:()=>now,costProfile:{accountType:'Trade.MT5',revision:'fixture-2'}});other.close();},/version|changed/i);}finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('unavailable exit quotes expire unknown on wall clock and free the context reservation',()=>{
+ const s=openContextStudy(':memory:',{clock:()=>start});try{s.observe(market(),[signal],now);const m=market(now+7200001);m.instruments=[];s.observe(m,[],now+7200001,false);assert.deepEqual(s.watch(),[]);const v=s.snapshot(now+7200001).comparison;assert.equal(v.open,0);assert.equal(v.unknown,1);assert.equal(v.baselineR,null);}finally{s.close();}
+});

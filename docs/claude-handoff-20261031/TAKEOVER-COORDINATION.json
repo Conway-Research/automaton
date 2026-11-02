@@ -1,0 +1,220 @@
+{
+  "schema": "numaron-claude-takeover-coordination-v1",
+  "requestedAtUTC": "2026-10-31T13:48:14.204400+00:00",
+  "status": "PREPARED-READONLY-TAKEOVER-NO-BLANKET-WRITE-CLEARANCE",
+  "humanInstruction": "Prepare safe takeover by Claude; coordinate Numaron chats; preserve current state; do not interrupt running calls; offline/OFF",
+  "newCodexWork": "HOLD: no new implementation, model calls, external reads, production maintenance or follow-on work; only natural completion of already dispatched calls and durable checkpoint/ack",
+  "doNotInterrupt": true,
+  "powerMustRemainOff": true,
+  "productionTakeover": false,
+  "claudeWriterAuthorizedByThisFile": false,
+  "ownerTransferComplete": false,
+  "coordinationDocumentNotOSLock": true,
+  "claudeEntry": "Read-only inventory and compare checkpoint first; do not replay pending Stock request; write takeover only after outstanding owners/calls resolved",
+  "acks": [
+    {
+      "id": "01a16c55-49c6-7770-85bb-77ae0b971af4",
+      "title": "Numaron-Aufgabentraining finden",
+      "status": "FAILED-INACTIVE-NO-FINAL-ACK",
+      "turnStatus": "failed",
+      "threadStatus": {
+        "type": "systemError"
+      },
+      "messageId": "msg_0dd05f25eed32417016ae5f15993008191a20a9e51f4e7d373",
+      "error": {
+        "message": "You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 4th, 2026 7:35 AM."
+      },
+      "summary": "Der freigegebene Batch ist inzwischen geladen: Dienst und Supervisor laufen, der geladene Fingerabdruck stimmt exakt, und Numaron ist weiterhin OFF. Ich schließe jetzt die Prüfung der Queue-Sperren und der Browseroberfläche ab und schreibe den aktuellen Übergabepunkt für Claude. Währenddessen starte ich keinen Trainingsworker und ändere keinen Anwendungscode."
+    },
+    {
+      "id": "01a0e7d3-ac09-79a2-90ad-a9f04a8d5b82",
+      "title": "Numaron – Fähigkeiten für komplexe IT-Aufträge",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_011a187dd9661471016ae5f1bc2f1c8191a33dae9e3d0e82e2",
+      "error": null,
+      "summary": "QUIESCENT für die Claude-Übergabe: Die bereits laufende CoinPay-Prüfung ist regulär abgeschlossen und in outputs/ugig-coinpay-access-20261019/antwortstatus.json gesichert. Keine neue Antwort oder Zustellstörung. Keine aktiven Aufrufe oder von dieser Prüfung gestarteten Hintergrundprozesse, keine ungeklärten Schreibaufträge. Eigene Schreibbereiche waren ausschließlich die antwortstatus.json-Dateien der CoinPay- und uGig-Korrespondenzprüfung. HOLD gilt ab jetzt auch für weitere externe Prüfungen; keine weiteren Writes oder Folgearbeiten. Nächste sichere Aktion: lesende Übergabeprüfung durch die Koordination. Numaron und Budgets wurden nicht verändert."
+    },
+    {
+      "id": "01a0f9ea-a1c0-72c1-b2e5-d5f08ac30df9",
+      "title": "WSL ohne Distribution installieren",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_0227b7d6263699f8016ae5f1a69e7c8191a02900958c4bcbdb",
+      "error": null,
+      "summary": "QUIESCENT — dieser Chat ist im HOLD. Keine aktiven Tool-Aufrufe oder von diesem Chat gestarteten laufenden Prozesse. Letzter gesicherter Stand: Prüfprotokoll vom 31. Oktober und Kandidatenregister. Die LaborX-Ablehnungen für Produktbilder und Baidu-Audit sind eingetragen. Offen bleiben die unbeantworteten Bounty-Zahlungsanfragen, ungeprüfte Dealwork-Verläufe und die ausstehende LaborX-Automatisierungsfreigabe. Daraus wird hier keine weitere Arbeit gestartet. Eigene letzte Schreibbereiche: ausschließlich artifacts/manual-outreach/. Keine weiteren Writes vorgesehen. Nächste sichere Aktion: Claude kann die gesicherten Belege lesen und mit dem zentralen Übergabestand abgleichen. Keine weiteren externen Abfragen, Tests, Implementierungen, Wartungsaktionen oder Kundenkontakte aus diesem Chat. Numaron, Budgets und Reservierungen wurden nicht verändert. Der HOLD bleibt bis zu einer neuen menschlichen Anweisung bestehen."
+    },
+    {
+      "id": "01a15447-61b0-7990-9c28-8cf7d14c0f1a",
+      "title": "Prüfe Kanäle auf Antworten",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_0fc25653aba384bb016ae5f1b61bb88191951a230afbd2942a",
+      "error": null,
+      "summary": "QUIESCENT — dieser Chat hat keine laufenden Aufrufe oder eigenen Arbeitsprozesse mehr. Letzter gesicherter Korrespondenzstand: Übergabe vom 31. Oktober. Keine offenen Versandversuche, Modellaufrufe oder Kundenlieferungen aus diesem Chat. Neue Implementierung, externe Prüfungen und Wartungsaktionen bleiben angehalten. Künftige Automationstrigger müssen den zentralen HOLD beachten. Numaron ist OFF, Revision 101. Die Übergabebestätigung ist gespeichert. Ich starte keine weitere Arbeit und sende keine Nachricht an andere Chats."
+    },
+    {
+      "id": "01a13580-cced-71e3-81be-546531f35417",
+      "title": "Founder-Dashboard an Numaron anleh",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_016c55cd7ac3ad10016ae5f1a356908191b7273e62dd388948",
+      "error": null,
+      "summary": "QUIESCENT – dieser Chat bleibt im HOLD. Keine aktiven Toolaufrufe oder von diesem Chat gestarteten Worker-/Prüfprozesse. Letzter gesicherter Stand: Claude-Übergabe, einschließlich Zustandsaufnahme, Quellmanifest und abschließender Prüfung. Zuletzt geprüft: Numaron OFF, Revision 101; Power-Datei und logischer Budgetzustand unverändert. Kein Neustart durchgeführt. Keine eigenen offenen Ausführungsrequests. Der übernommene ungeklärte Stock-Modellrequest ist in der Übergabe dokumentiert; er wurde hier weder gestartet noch wiederholt. Eigener letzter Schreibbereich: docs/claude-handoff-20261031/. Keine weiteren Writes vorgesehen. Nächste sichere Aktion: Claude liest die Übergabe und prüft den Stand ausschließlich lesend. Keine neue Implementierung, Modell-/Prüfstarts, externen Reads, Folgeaufträge oder Wartungsaktionen aus diesem Chat. Kein automatisches Fortsetzen alter Aufgaben."
+    },
+    {
+      "id": "01a15588-93e5-7772-9aa8-fcca4e9102f5",
+      "title": "Numaron-Strategie mit EMA 9 und VWAP",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_04896f9063c55b6a016ae5f1b3110c819186f802e91e8cb9af",
+      "error": null,
+      "summary": "QUIESCENT – dieser Chat ist im HOLD. Keine weiteren Schreibzugriffe oder Arbeitsstarts. Aktive Aufrufe: Keine eigenen Tests, Modellläufe, Wartungsaktionen oder Hintergrundprozesse aus diesem Chat ausstehend. Keine aktiven Unteragenten. Letzter gesicherter eigener Stand: Abschlussnachweis vom 24. Oktober: 891 bestandene Testausführungen und bestätigte gemeinsame Übernahme. Dieser historische Nachweis bestätigt nicht den heutigen Quellstand. Aktueller lesender Befund: Persistierter Zustand OFF, Revision 101. Der aktuelle Startdatensatz nennt PID 50328; deren Laufzustand habe ich nicht zusätzlich geprüft. Offene eigene Requests: Keine laufende oder zur Wiederholung vorgemerkte Aktion. Frühere Trading- und Entwicklungsaufträge werden nicht automatisch fortgesetzt. Bisherige Schreibbereiche: Zuletzt outputs/coordinated-uptake-20261024/ und ein ergänzender Eintrag in docs/numaron-continuation-index.json. Bei dieser Übergabeprüfung wurden keine Dateien geändert. Nächste sichere Aktion: Ausschließlich lesende Bestandsaufnahme durch Claude und Abgleich mit dem zentralen Übergabestand. Ungeklärte Requests nicht erneut ausführen. Keine Prozesse unterbrochen, kein Neustart, keine Echtgeldorders und kein Paper-Test gestartet. Der HOLD bleibt bis zu einer neuen menschlichen Anweisung bestehen."
+    },
+    {
+      "id": "01a0ed6b-af6c-7463-925c-ad387734ee56",
+      "title": "Explore OpenAI API app ideas",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_02a135dada875f76016ae5f1a859c88191b08cf5e1a873df3f",
+      "error": null,
+      "summary": "QUIESCENT — dieser Chat ist idle und bleibt im HOLD. Aktive Aufrufe: Keine von diesem Chat laufenden Tool-, Modell-, Test- oder Wartungsaufrufe. Keine neuen Unteragentenaufträge. Letzter gesicherter eigener Stand: Synmerco-Übernahme und Nachweisaufbereitung unter C:/Users/Patrice/automaton/outputs/founder-synmerco-uptake-20261024/, dokumentiert im Prüfbericht. Der später koordinierte Stand wurde hier lediglich bestätigt. Prozessidentitäten: Keine aktuell verifizierte Prozessidentität. Die zuletzt mitgeteilte PID 9300 stammt vom 24. Oktober und ist kein aktueller Laufzeitnachweis. Offene Punkte: Echte Auftrags-, Finanzierungs-, Fach- und Abnahmenachweise waren noch unvollständig. Keine eigene Übernahme oder sonstige Aktion läuft ungewiss weiter. Bisherige Schreibbereiche: Synmerco-Produktionsbindung samt Tests, zugehörige Berichte unter outputs/ und Einträge im Fortsetzungsindex. Ab jetzt keine weiteren Writes. Nächste sichere Aktion: Übergabe durch Claude abwarten. Keine Fortsetzung alter Aufgaben und kein automatischer Rückwechsel; nur eine neue menschliche Anweisung hebt diesen HOLD auf. Keine Power-, Dienst-, Budget- oder Produktionsänderung vorgenommen."
+    },
+    {
+      "id": "01a12cbd-bafa-7482-a51d-0cd2788b8ccf",
+      "title": "numaron – Name und Markenauftritt",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_01bd4df495d0c190016ae5f1ad98a0819193199a0acd2c375d",
+      "error": null,
+      "summary": "QUIESCENT – dieser Chat ist inaktiv und beginnt keine weitere Arbeit. Aktive Aufrufe/Prozesse: Keine von diesem Chat laufenden Tool-Aufrufe, Tests, Modellläufe oder Wartungsprozesse. Keine neuen Unteragenten gestartet. Letzter gesicherter Sachstand: LaborX-Produktbildauftrag #105179, USD 300: Am 24.10.2026 um 07:20 Uhr Schweizer Zeit war keine Kundenantwort sichtbar. Beleg: Antwortprüfung. Das ist ein historischer Stand, keine aktuelle Prüfung. Offen: Spätere Antwort von Daniela ungeprüft. Der Prüfpunkt wurde der bestehenden Automation numaron-antworten-sp-ter-nachpr-fen hinzugefügt. Diese Automation wurde hier jetzt weder ausgeführt noch geändert; ihr aktueller Betriebsstatus ist ungeprüft. Eigene Schreibbereiche: Zuletzt ausschliesslich Prüfnotizen unter outputs/first-three-paid-orders-20261020/ sowie die genannte Automationskonfiguration. Keine ausstehenden Implementierungsänderungen aus diesen letzten Arbeiten. Power/Budgets: Keine Änderung vorgenommen. Letzter hier gelesener Powerstand: OFF, Revision 101; keine neue Statusabfrage gestartet. Nächste sichere Aktion: Die zentrale Übergabekoordination kann den bestehenden Automations-Prüfpunkt berücksichtigen, damit während der Übernahme keine externe Prüfung doppelt läuft. Ab jetzt keine weiteren Reads, Writes oder Folgearbeiten aus diesem Chat bis zu einer neuen menschlichen Anweisung."
+    },
+    {
+      "id": "01a12da4-f3e2-7f40-b09c-235e4b9414b0",
+      "title": "Kostenlose info@numaron.ch erstellen",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_021aeb00a7feb9bc016ae5f1ae8ddc81919f396df7e91a46e9",
+      "error": null,
+      "summary": "QUIESCENT – dieser Chat ist im HOLD. Ich starte keine weitere Numaron-Arbeit und nehme keine weiteren Schreibzugriffe vor. Aktive Aufrufe: In diesem Chat laufen keine Toolaufrufe, Tests, Modelle, Wartungsaktionen oder Schreibvorgänge. Es wurde kein neuer Prozess gestartet. Aktuelle produktive Prozessidentitäten wurden nicht erneut geprüft. Letzter gesicherter Stand: Die drei alten Kommunikationsaufgaben wurden auf cancelled gesetzt, jeweils mit einem Versuch. Belege: Sperrbericht und Ergebnis. Offen: Eine erfolgreiche Fortsetzung der Forschung über SearXNG wurde in diesem Chat zuletzt nicht nachgewiesen. Frühere externe Versandzustände bleiben ungeklärt. Keine Abrufe oder Wiederholungen sind hier noch ausstehend. Bisherige Schreibbereiche: outputs/stall-repair-20261023/, outputs/three-task-hold-20261024/, die dokumentierte Transportkorrektur und die dokumentierte Sperrtransaktion für drei Aufgaben in controller.db. Keine weiteren Writes geplant. Unteragenten: Von diesem aktuellen Arbeitsabschnitt sind keine Unteragentenaufträge in Arbeit; es werden keine neuen erteilt. Nächste sichere Aktion: Claude kann die vorhandenen Belege lesend übernehmen und den aktuellen Betriebszustand prüfen. Dieser Chat bleibt bis zu einer neuen ausdrücklichen menschlichen Anweisung stillgelegt. Numaron wurde von mir nicht eingeschaltet. Der letzte hier geprüfte Zustand war OFF; für den 31. Oktober liegt aus diesem Chat keine neue Statusprüfung vor."
+    },
+    {
+      "id": "01a14ac7-ac59-7a73-b9bc-0521d0fcf0c5",
+      "title": "numaron – Aufträge und Bewerbungen ·…",
+      "status": "FAILED-INACTIVE-NO-FINAL-ACK",
+      "turnStatus": "failed",
+      "threadStatus": {
+        "type": "systemError"
+      },
+      "messageId": "msg_093ef2d0fdd69ba5016ae5f1b0c3848191b56119f3dbeab91e",
+      "error": {
+        "message": "You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 4th, 2026 7:35 AM."
+      },
+      "summary": "Ich halte die Arbeit in diesem Chat an. Ich starte keine Implementierung, Prüfung, externen Abruf oder Wartung und unterbreche keine laufenden Prozesse. Für die Übergabe prüfe ich nur den vorhandenen Koordinationsstand und die Prozessidentitäten."
+    },
+    {
+      "id": "01a14acc-4a4c-7d93-a08b-afd5a3b7a090",
+      "title": "numaron – Weiterentwicklung und Betrieb…",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_0c25fe8b31f8e2c5016ae5f28372788191844ff15f9387869b",
+      "error": null,
+      "summary": "QUIESCENT — dieser Chat bleibt für die Claude-Übergabe im HOLD. Keine laufenden eigenen Aufrufe, keine Unteragenten und keine weiteren Schreibzugriffe vorgesehen. Neue Auftragssuchen, Bewerbungen und Antwortprüfungen wurden nicht gestartet. Numaron ist OFF, Revision 101. Der bestehende Monitor ist weiterhin als Prozess vorhanden: Host 8960, Daemon 48600; der gespeicherte Laufstatus lautet interrupted. Diese Prozesse wurden nicht angehalten oder neu gestartet. Ihre weitere Zuständigkeit muss die zentrale Übergabekoordination klären. Letzter gesicherter Suchstand: artifacts/order-monitor-20261024-0712/review.json. Offen bleiben aktuelle Antwortprüfungen einschließlich Chain-Love und die GitHub-Abdeckungslücken. Guru bleibt beim abgestimmten Chat. Die Bestätigung mit Prozessidentitäten, offenen Punkten und bisherigen Schreibbereichen liegt in ORDER-SEARCH-CHAT-ACK.json. Nächste sichere Aktion ist die lesende Prüfung durch die Übergabekoordination. Kein automatisches Fortsetzen alter Aufgaben."
+    },
+    {
+      "id": "01a14ac6-a9c8-7a41-b326-59142dae424c",
+      "title": "Kontextfehler im Numaron-Chat klären",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_019eaaf04f12573a016ae5f1aede8881918bdde76ce6102fd6",
+      "error": null,
+      "summary": "QUIESCENT — dieser Chat ist idle und bleibt im HOLD. Ich starte keine weitere Sacharbeit, Prüfungen, externen Abrufe oder Wartungsaktionen. Aktive Aufrufe: In diesem Chat laufen keine Toolaufrufe oder von mir gestarteten Prüfprozesse. Aktuelle Numaron-Prozessidentitäten wurden nicht neu erhoben. Letzter gesicherter Stand: Protokollexport vom 24. Oktober. Damals war Numaron OFF; dies ist kein aktueller Zustandsnachweis. Offene Requests: Keine laufende Umsetzung in diesem Chat. Vollständige Website-Zugriffsprotokolle waren zuletzt weiterhin offen. Bisherige Schreibbereiche: Dashboard-Audit und Export in scripts/founder-security-audit*, scripts/founder-dashboard-audit.test.mjs, scripts/numaron-audit-capture*; Audit-Einbindung in scripts/founder-dashboard.mjs und scripts/founder-mt5.mjs; zugehörige Dokumentation und Nachweise unter docs/numaron-security-logging-20261023.md und outputs/numaron-audit-*. Diese Bereiche können inzwischen Änderungen anderer Chats enthalten. Unteragent: audit_review hatte seine lesende Prüfung abgeschlossen. Ich erteile ihm keine weiteren Aufgaben. Nächste sichere Aktion: Übergabe durch Claude anhand der gesicherten Nachweise. Dieser Chat bleibt ohne weitere Writes und ohne automatisches Fortsetzen bis zu einer neuen menschlichen Anweisung. Für diese Bestätigung wurden keine Dateien geändert, Prozesse geschaltet oder Nachrichten an andere Chats gesendet."
+    },
+    {
+      "id": "01a10a17-6bc3-7273-a718-97a5ff460a90",
+      "title": "numaron Erfolgsaussichten einschätzen",
+      "status": "QUIESCENT",
+      "turnStatus": "completed",
+      "threadStatus": {
+        "type": "idle"
+      },
+      "messageId": "msg_01270a5fade7ad52016ae5f1b3e8f887d2bc21df5f3ffa1d34",
+      "error": null,
+      "summary": "QUIESCENT — HOLD übernommen. Dieser Chat war bereits idle. Ich starte keine neue Numaron-Arbeit und führe keine weiteren Schreibvorgänge aus. Aktive Aufrufe: Keine Tool-, Modell-, Test- oder Wartungsaufrufe dieses Chats laufen. Aktuelle Numaron-Prozessidentitäten wurden nicht neu erhoben. Letzter hier gesicherter Stand: Indexkorrektur am 23. Oktober installiert und nach Wartungsneustart geprüft; 29 Tests bestanden. Nachweis: activation.json. Damals OFF, Revision 101; dies ist keine Aussage zum heutigen Betriebszustand. Offen: Dauerhafte Behebung der Verzögerung nach der Indexübernahme nicht im laufenden Betrieb nachgewiesen. Der zuletzt untersuchte Tagesabgleich hatte einen fehlenden Eröffnungsnachweis; spätere Entwicklungen wurden hier nicht geprüft. Bisherige Schreibbereiche: Trading-/Forschungs- und Dashboarddateien unter scripts/ und web/founder/ sowie die zugehörigen Nachweise unter outputs/ und artifacts/. Es bestehen keine exklusiven Schreibansprüche. Unteragenten: Von diesem Chat werden keine neuen Aufträge oder Edits veranlasst. Historisch aufgeführte Reviewer wurden nicht erneut gestartet; ihr aktueller Zustand wurde nicht abgefragt. Nächste sichere Aktion: Claude kann die vorhandenen Nachweise und den zentralen Koordinationsstand lesend übernehmen. Keine weiteren Writes, keine externe Abfrage, kein Apply und kein automatischer Rückwechsel. Der HOLD bleibt bis zu einer neuen menschlichen Anweisung bestehen."
+    },
+    {
+      "id": "01a0dade-e259-7ad0-a347-875f70131307",
+      "title": "numaron – Weiterentwicklung und Betrieb",
+      "status": "FAILED-INACTIVE-NO-FINAL-ACK",
+      "turnStatus": "failed",
+      "threadStatus": {
+        "type": "systemError"
+      },
+      "messageId": null,
+      "error": {
+        "message": "Error running remote compact task: {\"type\":\"error\",\"error\":{\"message\":\"Your input exceeds the context window of this model. Please adjust your input and try again.\",\"type\":\"invalid_request_error\",\"param\":\"input\",\"code\":\"context_length_exceeded\"},\"status\":400,\"sequence_number\":3}"
+      },
+      "summary": ""
+    }
+  ],
+  "updatedAtUTC": "2026-10-31T13:53:15.682492+00:00",
+  "explicitQuiescent": 11,
+  "unconfirmed": [
+    "01a16c55-49c6-7770-85bb-77ae0b971af4",
+    "01a14ac7-ac59-7a73-b9bc-0521d0fcf0c5",
+    "01a0dade-e259-7ad0-a347-875f70131307"
+  ],
+  "allNumaronAutomationsPaused": true,
+  "sourceManifest": "C:\\Users\\Patrice\\numaron-claude-handoff-20261031\\TAKEOVER-SOURCE-MANIFEST.json",
+  "sourceDelta": "C:\\Users\\Patrice\\numaron-claude-handoff-20261031\\TAKEOVER-SOURCE-DELTA.json",
+  "sourceDeltaCount": 10,
+  "powerEnabled": false,
+  "powerRevision": 101,
+  "powerSHA256": "3453767fed23dca6a7cb5744285a4a792b6cbea52617f616829ccc8c8e476db0",
+  "podmanObservation": "ps empty during takeover audit; no container killed",
+  "sidechatWriter": "handoff documents only until final report, then no work",
+  "allOtherTurnsInactive": true,
+  "sourceStableSecondRead": true,
+  "sourceDriftSinceCapture": [],
+  "stockSnapshotProof": "C:\\Users\\Patrice\\automaton\\outputs\\claude-takeover-checkpoint-20261031\\CHECKPOINT-PROOF.json",
+  "residentMonitor": {
+    "pid": 48600,
+    "parentPid": 8960,
+    "at": "2026-10-31T13:53:04.900Z",
+    "status": "waiting-power",
+    "externalReads": false,
+    "ownership": "Existing local monitor retains exclusive role; do not duplicate or stop/restart; keep OFF",
+    "healthCanContinueWriting": true
+  },
+  "nextSafeAction": "Claude read-only delta review; honor Stock unresolved-call recovery gate and resident monitor ownership. Codex implementation and automations remain on HOLD. No automatic resume."
+}

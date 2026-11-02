@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readUSDCQuote} from './founder-order-income-fx.mjs';
+import {combinedIncomeCHF} from '../web/founder/finance-refresh.mjs';
+const now=Date.parse('2026-10-16T21:00:00Z');
+const quote={rateCHF:'0.79',quotedAt:'2026-10-16T20:59:00Z',fetchedAt:'2026-10-16T21:00:00Z',sourceURL:'https://www.coingecko.com/en/coins/usdc/chf'};
+test('one CHF total uses exact micro-USDC and rounds only aggregate',()=>{const r=combinedIncomeCHF(1000,'36765000',quote,now);assert.equal(r.totalMinor,3904);assert.equal(r.usdcMinor,2904);assert.equal(r.status,'current');});
+test('missing rate never treats confirmed USDC as zero',()=>{assert.equal(combinedIncomeCHF(1000,'36765000',null,now).totalMinor,null);});
+test('old rate retains last valuation but is explicitly stale',()=>{assert.equal(combinedIncomeCHF(0,'36765000',quote,now+31*60000).status,'stale');});
+test('invalid/future quotes and missing CHF evidence cannot become complete total',()=>{for(const q of [{...quote,rateCHF:'NaN'},{...quote,rateCHF:'0'},{...quote,quotedAt:'2030-01-01'}])assert.equal(combinedIncomeCHF(0,'1',q,now).totalMinor,null);assert.equal(combinedIncomeCHF(null,'1',quote,now).totalMinor,null);});
+test('zero USDC needs no exchange rate',()=>assert.equal(combinedIncomeCHF(123,'0',null,now).totalMinor,123));
+test('OFF never fetches; switched OFF response is discarded',async()=>{let count=0;assert.equal((await readUSDCQuote({isOn:()=>false,fetchFn:()=>{count++}})).status,'powered-off');assert.equal(count,0);let on=true;const r=await readUSDCQuote({isOn:()=>on,now:()=>now,fetchFn:async()=>{on=false;return {ok:true,json:async()=>({'usd-coin':{chf:0.79,last_updated_at:now/1000-60}})}}});assert.equal(r.status,'powered-off');});
+test('direct USDC/CHF price and provider timestamp parsed without assuming USD peg',async()=>{const r=await readUSDCQuote({isOn:()=>true,now:()=>now,fetchFn:async url=>{assert.match(url,/ids=usd-coin&vs_currencies=chf/);return {ok:true,json:async()=>({'usd-coin':{chf:0.789123,last_updated_at:now/1000-60}})}}});assert.equal(r.rateCHF,'0.789123');assert.equal(r.quotedAt,'2026-10-16T20:59:00.000Z');});
+test('failed provider or old source timestamp is rejected',async()=>{for(const fetchFn of [async()=>({ok:false}),async()=>({ok:true,json:async()=>({'usd-coin':{chf:0.79,last_updated_at:now/1000-4000}})})])await assert.rejects(readUSDCQuote({isOn:()=>true,now:()=>now,fetchFn}));});

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tick Context
  *
  * Builds a shared context for each heartbeat tick.
@@ -48,11 +48,14 @@ export async function buildTickContext(
   const startedAt = new Date();
 
   // Fetch balances ONCE
-  let creditBalance = 0;
-  try {
-    creditBalance = await conway.getCreditsBalance();
-  } catch (err: any) {
-    logger.error("Failed to fetch credit balance", err instanceof Error ? err : undefined);
+  let creditBalance = -1;
+  if (!conway.isLocal && process.env.CONWAY_API_KEY) {
+    try {
+      creditBalance = await conway.getCreditsBalance();
+    } catch (err: any) {
+      logger.error("Failed to fetch credit balance", err instanceof Error ? err : undefined);
+      creditBalance = -1;
+    }
   }
 
   let usdcBalance = 0;
@@ -65,7 +68,7 @@ export async function buildTickContext(
     }
   }
 
-  const survivalTier = getSurvivalTier(creditBalance);
+  const survivalTier = creditBalance === -1 ? "low_compute" : getSurvivalTier(creditBalance);
   const lowComputeMultiplier = config.lowComputeMultiplier ?? 4;
 
   return {

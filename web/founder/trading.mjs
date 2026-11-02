@@ -1,6 +1,53 @@
+export const initialTradingHistory=null;
+export function formatTradePrice(value){
+ if(!Number.isFinite(value))return 'Unbekannt';
+ if(value!==0&&Math.abs(value)<1e-8)return value.toExponential(4);
+ return value.toLocaleString('en-CH',{minimumFractionDigits:2,maximumFractionDigits:8,useGrouping:false});
+}
+export function renderTradingHistory(host,data,synchronized=false,doc=globalThis.document){
+ if(!host)return;const el=(tag,text)=>{const x=doc.createElement(tag);if(text!=null)x.textContent=String(text);return x;};
+ host.replaceChildren(el('h2','Tradinghistorie & Lernen'));
+ host.append(el('p',synchronized?'Lokaler Journalstand · nur lesend':data?'Datierte Momentaufnahme · laufende Synchronisierung nach dem nächsten freigegebenen Dienstneustart verfügbar.':'Historien-Anbindung vorbereitet · verfügbar nach dem nächsten freigegebenen Dienstneustart.'));
+ if(data?.checkedAt)host.append(el('small','Stand: '+new Date(data.checkedAt).toLocaleString('de-CH')));
+ for(const [key,title] of [['demo','Demo-Trades · virtuelles Geld'],['live','Live-Trades · Echtgeld']]){
+  const area=el('section');area.append(el('h3',title));const group=data?.[key];
+  if(group?.status!=='available'||!Array.isArray(group.trades)){area.append(el('p',key==='live'?'Nicht angebunden · Live-Historie unbekannt. Demoergebnisse werden nicht als Echtgeldgewinne gezählt.':'Demohistorie derzeit nicht verfügbar.'));host.append(area);continue;}
+  if(!group.trades.length)area.append(el('p','Keine Trades im angebundenen Journal.'));
+  else{const wrap=el('div');wrap.style&&(wrap.style.overflowX='auto');const table=el('table'),head=el('tr');for(const label of ['Signalzeit','Produkt','Richtung','Status','Lots','Einstieg','Stop','Ziel','Ergebnis'])head.append(el('th',label));table.append(head);
+   const statuses={closed:'Abgeschlossen',submitted:'Übermittelt',open:'Offen',rejected:'Abgelehnt',unknown:'Ungeklärt',prepared:'Vorbereitet'};
+   for(const t of group.trades){const row=el('tr');for(const value of [Number.isFinite(t.observedAt)?new Date(t.observedAt).toLocaleString('de-CH'):'Unbekannt',t.symbol,t.side==='BUY'?'Kauf':t.side==='SELL'?'Verkauf':'Unbekannt',statuses[t.status]??t.status,t.lots,formatTradePrice(t.entry),formatTradePrice(t.stop),formatTradePrice(t.target),Number.isFinite(t.profit)?t.profit.toFixed(2)+' '+(t.currency??'Währung unbekannt'):'Noch nicht bestätigt'])row.append(el('td',value??'Unbekannt'));table.append(row);}wrap.append(table);area.append(wrap);}
+  host.append(area);
+ }
+ const learning=el('section');learning.append(el('h3','Was Numaron daraus lernt'));
+ learning.append(el('p','Die Tradeanalyse erkennt Muster und Gegenbeispiele. Sie verbessert zunächst die Forschungsgrundlage; eine messbar bessere Handelsstrategie ist damit noch nicht nachgewiesen.'));
+ if(data?.researchObservedAt)learning.append(el('small','Analyse: '+new Date(data.researchObservedAt).toLocaleString('de-CH')));
+ const trades=data?.learning?.trades??[];
+ if(trades.length){const rejected=trades.filter(t=>t.fixedSpread10WouldAccept===false);learning.append(el('p',`${trades.length} abgeschlossene BCHUSD-Demotrades untersucht. Der feste 10-%-Spreadfilter hätte ${rejected.length} dieser Einstiege ausgeschlossen, darunter ${rejected.filter(t=>t.realizedDemoProfit>0).length} Gewinner.`));}
+ else learning.append(el('p','Noch keine verknüpfte BCHUSD-Analyse vorhanden.'));
+ learning.append(el('p','Nächste Forschung: M5-Spread- und Trendregeln an neuen Fällen vergleichen; Kosten und Stress berücksichtigen. Ausstieg und Haltedauer sind offene Hypothesen.'));
+ learning.append(el('strong','Keine automatische Strategieübernahme · Risikolimits unverändert'));host.append(learning);
+}
+export function demoExecutionReadiness(demo,now=Date.now()){
+ const c=demo?.checks;
+ if(demo?.status==='off')return {ready:false,text:'Demo-Ausführung: ausgeschaltet'};
+ if(!c||!Number.isFinite(c.observedAt)||now-c.observedAt>15000||c.observedAt>now+1000)return {ready:false,text:'Demo-Bereitschaft nicht bestätigt: aktuelle Terminal- und Marktprüfung fehlt.'};
+ if(c.terminalTradeAllowed!==true)return {ready:false,text:'Demo-Ausführung gesperrt: Algo-Handel im gebundenen Terminal nicht freigegeben.'};
+ if(c.externalTradeApiAllowed!==true||c.accountTradeAllowed!==true||c.accountExpertAllowed!==true)return {ready:false,text:'Demo-Ausführung gesperrt: API- oder Kontofreigabe fehlt.'};
+ if(!Number.isInteger(c.capableProducts)||c.capableProducts<1)return {ready:false,text:'Algo-Handel freigegeben · wartet auf aktuelle geeignete Marktdaten.'};
+ if(c.dayVerified!==true)return {ready:false,text:'Demo-Ausführung wartet auf bestätigten Tagesabgleich.'};
+ if(demo.executionEnabled!==true)return {ready:false,text:'Demo-Ausführung nicht bereit: Orderabgleich oder laufende Prüfung offen.'};
+ return {ready:true,text:'Demo-Prüfungen bestanden · wartet auf ein gültiges Strategie-Signal.'};
+}
+
 export function renderTradingEngine(box,data,onStop){
  if(!box)return;box.replaceChildren();if(!data)return;
  const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
+ const demo=data.demoExecution;
+ if(demo){
+  box.append(el('h3','MT5-Demotrading · ausschließlich virtuelles Geld'),el('p',demoExecutionReadiness(demo).text),el('p','Experimentelle Ausbruchsstrategie; keine nachgewiesene Profitabilität und keine Echtgeldfreigabe. Höchstens eine Position, geplantes Stoprisiko einschließlich Demo-Reserve höchstens 0,5 %.'),el('small','Demo-Kostenreserve: zweimal der berechnete Stopverlust. Tatsächliche Kosten und Ausführungen sind erst durch Brokerdaten belegt.'));
+  if(demo.reason)box.append(el('p',demo.reason));
+  for(const e of demo.events??[])box.append(el('p','Demo-Order '+e.id.slice(0,10)+' · '+e.status+(Number.isFinite(e.result?.realizedDemoProfit)?' · '+e.result.realizedDemoProfit.toFixed(2)+' '+e.result.currency+' realisiertes Demoergebnis':'')));
+ }
  box.append(el('h3','numaron Forschungslabor · automatische Marktbeobachtung'),el('p','Risikorahmen: 5 % je Trade · 15 % gesamt · 30 % Tagesverlustschwelle'),el('p','numaron beobachtet Setups automatisch. Reale Trades entscheidest und führst du selbst aus.'),el('small',data.totalProducts==null?'Brokerbestand wird geprüft.':data.totalProducts+' Brokerprodukte verfügbar · '+data.checkedProducts+' zuletzt untersucht · '+data.capableProducts+' mit aktuellen Grunddaten.'));
  if(data.marketContext)renderMarketContext(box,data.marketContext,el);
  const price=x=>Number.isFinite(x)?new Intl.NumberFormat('de-CH',{maximumFractionDigits:8}).format(x):'unbekannt';const f=data.forward;

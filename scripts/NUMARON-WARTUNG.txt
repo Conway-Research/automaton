@@ -1,0 +1,13 @@
+Numaron-Wartung
+
+Nur nach ausdruecklicher Freigabe eine laufende Sitzung ausschalten.
+Vor Wartung den bestaetigten OFF-Zustand pruefen.
+Im normalen lokalen PowerShell-Fenster direkt ausfuehren:
+
+Set-Location C:\Users\Patrice\automaton
+.\scripts\start-numaron-founder.ps1 -Restart
+
+Kein zusaetzliches powershell.exe aus der eingeschraenkten Codex-Umgebung starten: Windows PowerShell 5.1 kann dort den Registryzugriff zur Richtlinienpruefung verweigern (UnauthorizedAccess).
+Keine ExecutionPolicy-Bypass-Option, keine globale Lockerung und keine Aenderung der Startsicherung.
+Falls auch der direkte lokale Aufruf scheitert, Fehler untersuchen statt die Richtlinie zu umgehen.
+Nach Neustart muss Numaron OFF bleiben. Persoenlich im Dashboard einschalten.

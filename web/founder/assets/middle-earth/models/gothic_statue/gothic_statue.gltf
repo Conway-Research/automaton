@@ -1,0 +1,165 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v5.1.20",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "gothic_statue",
+      "translation": [
+        -0.028923194855451584,
+        1.1918599605560303,
+        0.2721009850502014
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "gothic_statue",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "gothic_statue_nor_gl",
+      "uri": "textures/gothic_statue_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "gothic_statue_diff",
+      "uri": "textures/gothic_statue_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "gothic_statue_rough",
+      "uri": "textures/gothic_statue_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 23314,
+      "max": [
+        0.7231897115707397,
+        0.5321175456047058,
+        0.1022685244679451
+      ],
+      "min": [
+        -0.754274308681488,
+        -1.2077802419662476,
+        -1.4614895582199097
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 23314,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 23314,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 83217,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 279768,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 279768,
+      "byteOffset": 279768,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 186512,
+      "byteOffset": 559536,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 166434,
+      "byteOffset": 746048,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 912484,
+      "uri": "gothic_statue.bin"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import {isSensitiveReadPath} from "../read-path.js";
 /**
  * File Path Protection Policy Rules
  *
@@ -37,6 +38,7 @@ function deny(rule: string, reasonCode: string, humanMessage: string): PolicyRul
  * Check if a file path matches a sensitive read pattern.
  */
 export function isSensitiveFile(filePath: string): boolean {
+  if (isSensitiveReadPath(filePath)) return true;
   const resolved = path.resolve(filePath);
   const basename = path.basename(resolved);
 

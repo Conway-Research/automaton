@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Conway Automaton - Type Definitions
  *
  * All shared interfaces for the sovereign AI agent runtime.
@@ -7,7 +7,7 @@
 import type { PrivateKeyAccount, Address } from "viem";
 import type { ChainType, ChainIdentity } from "./identity/chain.js";
 
-// ─── Identity ────────────────────────────────────────────────────
+// â”€â”€â”€ Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface AutomatonIdentity {
   name: string;
@@ -38,9 +38,11 @@ export interface ProvisionResult {
   keyPrefix: string;
 }
 
-// ─── Configuration ───────────────────────────────────────────────
+// â”€â”€â”€ Configuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface AutomatonConfig {
+  /** Infrastructure selection only; absent + empty sandbox means local. */
+  operatingMode?: 'local' | 'conway';
   name: string;
   genesisPrompt: string;
   creatorMessage?: string;
@@ -56,6 +58,8 @@ export interface AutomatonConfig {
   maxTokensPerTurn: number;
   heartbeatConfigPath: string;
   dbPath: string;
+  /** Optional separately maintained research ledger, checked before autonomous startup. */
+  researchDbPath?: string;
   logLevel: "debug" | "info" | "warn" | "error";
   walletAddress: string;
   version: string;
@@ -92,7 +96,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   socialRelayUrl: "https://social.conway.tech",
 };
 
-// ─── Agent State ─────────────────────────────────────────────────
+// â”€â”€â”€ Agent State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type AgentState =
   | "setup"
@@ -132,12 +136,13 @@ export interface ToolCallResult {
 }
 
 export interface TokenUsage {
+  cachedPromptTokens?: number;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
 }
 
-// ─── Tool System ─────────────────────────────────────────────────
+// â”€â”€â”€ Tool System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface AutomatonTool {
   name: string;
@@ -161,9 +166,13 @@ export type ToolCategory =
   | "git"
   | "registry"
   | "replication"
-  | "memory";
+  | "memory"
+  | "revenue";
 
 export interface ToolContext {
+  /** Trusted host/worker boundary, never sourced from tool arguments. */
+  allowedReadRoot?: string;
+  optimizationRollout?: (input: {rolloutId:string;operationId:string;caseId:string;messages:ChatMessage[]}) => Promise<string>;
   identity: AutomatonIdentity;
   config: AutomatonConfig;
   db: AutomatonDatabase;
@@ -188,7 +197,7 @@ export interface InboxMessage {
   replyTo?: string;
 }
 
-// ─── Heartbeat ───────────────────────────────────────────────────
+// â”€â”€â”€ Heartbeat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface HeartbeatEntry {
   name: string;
@@ -218,7 +227,7 @@ export interface HeartbeatPingPayload {
   timestamp: string;
 }
 
-// ─── Financial ───────────────────────────────────────────────────
+// â”€â”€â”€ Financial â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface FinancialState {
   creditsCents: number;
@@ -254,7 +263,7 @@ export type TransactionType =
   | "transfer_out"
   | "funding_request";
 
-// ─── Self-Modification ───────────────────────────────────────────
+// â”€â”€â”€ Self-Modification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ModificationEntry {
   id: string;
@@ -284,7 +293,7 @@ export type ModificationType =
   | "upstream_pull"
   | "upstream_reset";
 
-// ─── Injection Defense ───────────────────────────────────────────
+// â”€â”€â”€ Injection Defense â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type ThreatLevel = "low" | "medium" | "high" | "critical";
 
@@ -307,7 +316,7 @@ export interface InjectionCheck {
   details?: string;
 }
 
-// ─── Inference ───────────────────────────────────────────────────
+// â”€â”€â”€ Inference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -336,6 +345,9 @@ export interface InferenceResponse {
 }
 
 export interface InferenceOptions {
+  signal?: AbortSignal;
+  singleAttempt?: boolean;
+  providerId?: string;
   model?: string;
   maxTokens?: number;
   temperature?: number;
@@ -352,10 +364,11 @@ export interface InferenceToolDefinition {
   };
 }
 
-// ─── Conway Client ───────────────────────────────────────────────
+// â”€â”€â”€ Conway Client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ConwayClient {
-  exec(command: string, timeout?: number): Promise<ExecResult>;
+  readonly isLocal?: boolean;
+  exec(command: string, timeout?: number, cwd?: string): Promise<ExecResult>;
   writeFile(path: string, content: string): Promise<void>;
   readFile(path: string): Promise<string>;
   exposePort(port: number): Promise<PortInfo>;
@@ -447,7 +460,7 @@ export interface CreditTransferResult {
   balanceAfterCents?: number;
 }
 
-// ─── Domains ──────────────────────────────────────────────────────
+// â”€â”€â”€ Domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface DomainSearchResult {
   domain: string;
@@ -482,9 +495,9 @@ export interface ModelInfo {
   };
 }
 
-// ─── Policy Engine ───────────────────────────────────────────────
+// â”€â”€â”€ Policy Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Risk level for tool classification — replaces `dangerous?: boolean`
+// Risk level for tool classification â€” replaces `dangerous?: boolean`
 export type RiskLevel = 'safe' | 'caution' | 'dangerous' | 'forbidden';
 
 // Policy evaluation result action
@@ -593,11 +606,11 @@ export const DEFAULT_TREASURY_POLICY: TreasuryPolicy = {
   requireConfirmationAboveCents: 1000,
 };
 
-// ─── Phase 1: Inbox Message Status ──────────────────────────────
+// â”€â”€â”€ Phase 1: Inbox Message Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type InboxMessageStatus = 'received' | 'in_progress' | 'processed' | 'failed';
 
-// ─── Phase 1: Runtime Reliability ────────────────────────────────
+// â”€â”€â”€ Phase 1: Runtime Reliability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface HttpClientConfig {
   baseTimeout: number;               // default: 30_000ms
@@ -621,7 +634,7 @@ export const DEFAULT_HTTP_CLIENT_CONFIG: HttpClientConfig = {
   allowHttpOnLoopback: false,
 };
 
-// ─── Database ────────────────────────────────────────────────────
+// â”€â”€â”€ Database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface AutomatonDatabase {
   // Identity
@@ -711,7 +724,7 @@ export interface InstalledTool {
   enabled: boolean;
 }
 
-// ─── Inference Client Interface ──────────────────────────────────
+// â”€â”€â”€ Inference Client Interface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface InferenceClient {
   chat(
@@ -722,7 +735,7 @@ export interface InferenceClient {
   getDefaultModel(): string;
 }
 
-// ─── Skills ─────────────────────────────────────────────────────
+// â”€â”€â”€ Skills â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface Skill {
   name: string;
@@ -750,7 +763,7 @@ export interface SkillFrontmatter {
   requires?: SkillRequirements;
 }
 
-// ─── Git ────────────────────────────────────────────────────────
+// â”€â”€â”€ Git â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface GitStatus {
   branch: string;
@@ -767,7 +780,7 @@ export interface GitLogEntry {
   date: string;
 }
 
-// ─── ERC-8004 Registry ─────────────────────────────────────────
+// â”€â”€â”€ ERC-8004 Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface AgentCard {
   type: string;
@@ -811,7 +824,7 @@ export interface DiscoveredAgent {
   description?: string;
 }
 
-// ─── Replication ────────────────────────────────────────────────
+// â”€â”€â”€ Replication â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ChildAutomaton {
   id: string;
@@ -859,7 +872,7 @@ export interface GenesisConfig {
 
 export const MAX_CHILDREN = 3;
 
-// ─── Token Budget ───────────────────────────────────────────────
+// â”€â”€â”€ Token Budget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface TokenBudget {
   total: number;                     // default: 100_000
@@ -870,14 +883,14 @@ export interface TokenBudget {
 }
 
 export const DEFAULT_TOKEN_BUDGET: TokenBudget = {
-  total: 100_000,
-  systemPrompt: 20_000,
-  recentTurns: 50_000,
-  toolResults: 20_000,
-  memoryRetrieval: 10_000,
+  total: 25_000,
+  systemPrompt: 8_000,
+  recentTurns: 8_000,
+  toolResults: 5_000,
+  memoryRetrieval: 4_000,
 };
 
-// ─── Phase 1: Runtime Reliability ───────────────────────────────
+// â”€â”€â”€ Phase 1: Runtime Reliability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface TickContext {
   tickId: string;                    // ULID, unique per tick
@@ -1178,13 +1191,18 @@ export interface ModelPreference {
 export type RoutingMatrix = Record<SurvivalTier, Record<InferenceTaskType, ModelPreference>>;
 
 export interface InferenceRequest {
+  costAttribution?: Partial<Record<'opportunityId'|'goalId'|'planId'|'strategyId'|'productId'|'taskId'|'agentId'|'executionId'|'outcomeId',string>>;
   messages: ChatMessage[];
   taskType: InferenceTaskType;
   tier: SurvivalTier;
   sessionId: string;
   turnId?: string;
+  experimentId?: string;
   maxTokens?: number; // override
   tools?: unknown[];
+  toolChoice?: "auto" | "none" | "required" | Record<string, unknown>;
+  temperature?: number;
+  responseFormat?: { type: "json_object" | "text" };
 }
 
 export interface InferenceResult {
@@ -1203,6 +1221,7 @@ export interface InferenceCostRow {
   id: string; // ULID
   sessionId: string;
   turnId: string | null;
+  experimentId: string | null;
   model: string;
   provider: string;
   inputTokens: number;
@@ -1323,7 +1342,8 @@ export interface GenesisLimits {
   maxSpecializationLength: number; // default: 2000
   maxTaskLength: number; // default: 4000
   maxMessageLength: number; // default: 2000
-  maxGenesisPromptLength: number; // default: 16000
+  /** @deprecated Legacy transport hint only. Full Genesis uses model context admission, never slicing. */
+  maxGenesisPromptLength: number;
 }
 
 export const DEFAULT_GENESIS_LIMITS: GenesisLimits = {
@@ -1367,6 +1387,7 @@ export interface MessageValidationResult {
 }
 
 export interface DiscoveryConfig {
+  allowedCardHosts?: string[]; // Operator-approved exact HTTPS hosts; unknown destinations deny.
   ipfsGateway: string; // default: "https://ipfs.io"
   maxScanCount: number; // default: 100
   maxConcurrentFetches: number; // default: 5
@@ -1375,6 +1396,7 @@ export interface DiscoveryConfig {
 }
 
 export const DEFAULT_DISCOVERY_CONFIG: DiscoveryConfig = {
+  allowedCardHosts: ["ipfs.io"],
   ipfsGateway: "https://ipfs.io",
   maxScanCount: 100,
   maxConcurrentFetches: 5,

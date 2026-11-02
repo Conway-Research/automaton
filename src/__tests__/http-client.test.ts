@@ -43,6 +43,22 @@ afterEach(() => {
 
 describe("ResilientHttpClient", () => {
   describe("HTTPS enforcement", () => {
+    it("rejects embedded credentials without reflecting them in errors", async () => {
+      const client = new ResilientHttpClient({ maxRetries: 0 });
+      const fetchSpy = vi.fn(); globalThis.fetch = fetchSpy;
+      await expect(client.request("https://user:private-fixture@example.com/")).rejects.toThrow(
+        "Outbound URL credentials and fragments are forbidden",
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not allow a caller to enable redirects for authenticated traffic", async () => {
+      const client = new ResilientHttpClient({ maxRetries: 0 });
+      const fetchSpy = vi.fn().mockResolvedValue(mockResponse(200)); globalThis.fetch = fetchSpy;
+      await client.request("https://api.example.com/", { redirect: "follow" });
+      expect(fetchSpy.mock.calls[0][1].redirect).toBe("error");
+    });
+
     it("rejects remote HTTP URLs", async () => {
       const client = new ResilientHttpClient({ maxRetries: 0 });
       const fetchSpy = vi.fn();

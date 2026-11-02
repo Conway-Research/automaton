@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {nextMonitorDue} from './numaron-monitor-cadence.mjs';
+test('next tick uses actual source deadlines instead of adding another round delay',()=>{const values={ugig:{nextAt:700000},slow:{nextAt:1000000}};assert.equal(nextMonitorDue([{id:'ugig'},{id:'slow'}],{get:id=>values[id]},400000),700000);});
+test('provider pause stays binding and overdue sources wait one non-overlapping tick',()=>{const values={a:{nextAt:100},'__provider-github':{nextAt:500000}};assert.equal(nextMonitorDue([{id:'a',provider:'github'}],{get:id=>values[id]},200000),500000);assert.equal(nextMonitorDue([{id:'a'}],{get:id=>values[id]},200000),215000);});

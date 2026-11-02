@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import { unverifiedWorkQuality } from '../agent/work-quality.js';
 import { ulid } from "ulid";
 import {
   getGoalById,
@@ -24,6 +25,7 @@ export type TaskStatus =
 export type GoalStatus = "active" | "completed" | "failed" | "paused";
 
 export interface TaskResult {
+  quality?: ReturnType<typeof unverifiedWorkQuality>;
   success: boolean;
   output: string;
   artifacts: string[];
@@ -513,6 +515,11 @@ export function normalizeTaskResult(value: unknown): TaskResult | null {
     return null;
   }
 
+  // Missing legacy metrics remain compatible; malformed supplied metrics must not
+  // become zero-cost successes or poison learning with NaN/negative observations.
+  if ([candidate.costCents, candidate.duration].some(v => v !== undefined &&
+    (typeof v !== 'number' || !Number.isFinite(v) || v < 0))) return null;
+
   return {
     success: candidate.success,
     output: candidate.output,
@@ -521,6 +528,7 @@ export function normalizeTaskResult(value: unknown): TaskResult | null {
       : [],
     costCents: typeof candidate.costCents === "number" ? candidate.costCents : 0,
     duration: typeof candidate.duration === "number" ? candidate.duration : 0,
+    quality: unverifiedWorkQuality(),
   };
 }
 

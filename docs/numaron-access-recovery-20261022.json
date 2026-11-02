@@ -1,0 +1,26 @@
+{
+  "schema":"numaron-access-recovery-v1",
+  "date":"2026-10-22",
+  "change":"Ephemeral local credential workers explicitly resolve existing DPAPI files in the Codex package location, with native-only fallback. No plaintext copy, new credential, registration, scope expansion or main-process restart.",
+  "files":["scripts/founder-local-credential-path.mjs","scripts/founder-local-credential-path.test.mjs","scripts/founder-local-access-worker.mjs"],
+  "tests":{"passed":9,"failed":0,"suites":["founder-local-access.test.mjs","founder-google-access.test.mjs","founder-local-credential-path.test.mjs"]},
+  "authenticationDiagnostics":{"dealworkAgentsMeHttp":200,"gmailProfileHttp":200,"gmailAccountMatch":true,"scope":"Two targeted identity checks, not an additional monitor round"},
+  "regularMonitorVerification":{
+    "runId":"2026-10-22T19-19-16-361Z-1f7c1be9",
+    "status":"completed",
+    "dealworkBids":{"status":"succeeded","checkedAt":"2026-10-22T19:19:38.412Z"},
+    "dealworkContracts":{"status":"succeeded","checkedAt":"2026-10-22T19:19:40.722Z","contracts":0},
+    "gmailOrders":{"status":"succeeded","checkedAt":"2026-10-22T19:19:42.961Z","resultSizeEstimate":0},
+    "recoveryScheduling":"Only the three access-required source next_at fields were made eligible at the existing next scheduled round after successful identity verification. Global schedule, rate-limit rows, checked_at and evidence retained.",
+    "beforeEvidence":"artifacts/access-recovery-20261022/schedule-before.json"
+  },
+  "followupSearch":{
+    "dealwork":"Public AI job list pages 1 and 2 plus targeted need search inspected; dominated by seller service advertisements or closed bidding, no suitable new verified buyer task selected",
+    "existingDealworkBids":8,
+    "existingDealworkBidsStatus":"expired",
+    "ugig":"14 saved applications; four watched proposals pending, no incoming latest messages in available regular evidence",
+    "otherSources":"Available regular evidence: only unpaid ugig listing; no Synmerco intents, ArcBounty tasks or BidPostLoop tasks",
+    "newApplications":0
+  },
+  "operation":{"powerRevision":98,"servicePid":51580,"monitorPid":48600,"restarts":0,"powerChanges":0,"newMonitorRoundsStarted":0,"budgetOrProtectionChanges":0}
+}

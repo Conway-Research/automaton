@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {readFounderReports} from './founder-operations.mjs';
+test('saved monitor interruption is readable partial evidence with original observation time',()=>{
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'monitor-report-recovery-')),dir=path.join(base,'artifacts/order-monitor-20261019-0150');fs.mkdirSync(dir,{recursive:true});
+ try{fs.writeFileSync(path.join(dir,'completion.json'),JSON.stringify({at:'2026-10-19T00:00:00Z',status:'blocked-power-off-before-scheduled-round',lastCompletedAt:'2026-10-18T23:40:17Z',lastCompletedRun:'existing-run',newScheduledRoundOccurred:false,answersFreshSincePreviousReview:false}));const r=readFounderReports(base,Date.parse('2026-10-19T00:01:00Z')).orders;assert.equal(r.status,'partial');assert.equal(r.at,'2026-10-18T23:40:17Z');assert.equal(r.answersFreshSincePreviousReview,false);assert.deepEqual(r.prs,[]);}finally{fs.rmSync(base,{recursive:true,force:true});}
+});

@@ -1,0 +1,2 @@
+import {validateStrategy} from './trading-validation.mjs';
+export function promoteCandidate(current,report){const checked=validateStrategy(report?.input);if(!checked.approved||checked.digest!==report?.digest||report?.approved!==true)throw Error('Fresh valid strategy evidence required');if(current?.forward?.lowerNet>=checked.forward.lowerNet)throw Error('No independently demonstrated improvement');return {...checked.version,validationDigest:checked.digest,previousVersion:current?.id??null,liveAuthorized:false};}

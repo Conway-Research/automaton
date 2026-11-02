@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {parseOrderIncomeProjection,orderIncomeForPeriod,formatUSDC} from '../web/founder/finance-refresh.mjs';
+test('projection parses data without executing source',()=>{assert.throws(()=>parseOrderIncomeProjection('throw Error("no")'));const p={schema:'numaron-order-income-v1',receipts:[],issues:[]};assert.deepEqual(parseOrderIncomeProjection('/* ORDER_INCOME_JSON\n'+JSON.stringify(p)+'\nEND_ORDER_INCOME_JSON */'),p);});
+test('Zurich date and micro-USDC precision remain separate from CHF',()=>{const p={receipts:[{receivedAt:'2026-10-15T22:30:00Z',amountAtomic:'9675000'},{receivedAt:'2026-10-14T22:30:00Z',amountAtomic:'19350000'}]};const s=orderIncomeForPeriod(p,'2026-10-16','2026-10-16');assert.equal(s.totalAtomic,'9675000');assert.equal(s.receipts.length,1);assert.equal(formatUSDC('36765000'),'36.765 USDC');assert.equal(formatUSDC('1'),'0.000001 USDC');});

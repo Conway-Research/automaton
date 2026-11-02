@@ -1,0 +1,46 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "date": "2026-10-19",
+  "regularRun": {
+    "id": "2026-10-19T13-19-11-176Z-1da0bda8",
+    "completedAt": "2026-10-19T13:19:54.323Z",
+    "executedSources": 13,
+    "succeeded": 13,
+    "extraMonitorRunsStartedByThisReview": 0
+  },
+  "responses": {
+    "ugigCheckedAt": "2026-10-19T13:19:51.856Z",
+    "application450USD": "pending",
+    "application100USD": "pending",
+    "incomingLatestMessages": 0,
+    "unreadCounts": [0, 0, 0, 0],
+    "gmailOrderSearchResultSizeEstimate": 0,
+    "dealworkContracts": 0,
+    "synmercoInboxAndIntentsUnchanged": true,
+    "guru": "access-required; no fresh successful check"
+  },
+  "application": {
+    "platform": "ugig",
+    "account": "Obolus",
+    "gigId": "5616dbbb-b147-4bbc-adb9-68bff5d49f89",
+    "url": "https://ugig.net/gigs/5616dbbb-b147-4bbc-adb9-68bff5d49f89",
+    "title": "Repurpose Long-Form Content into Multiple Formats and Social Posts",
+    "grossUSD": 90,
+    "scope": "One client-owned English source text/transcript up to 3000 words; five social posts for up to two channels, one email up to 400 words, three summaries, source checklist and one correction round",
+    "conditions": "Confirm older listing availability, client rights, disclosed AI assistance, scope, acceptance, client-funded escrow and SOL/USD conversion/fees before work. No publishing, new research, transcription, paid assets, account access or upfront payment from us.",
+    "duplicateCheck": "Absent from complete twelve-application monitor result at 2026-10-19T13:19:51.856Z; native application form available",
+    "submissionAttempts": 1,
+    "verification": "After transient browser timeout, native gig page visibly displayed disabled Already Applied button; no second submission attempted",
+    "screenshot": "outputs/monitor-followup-20261019-1540/repurpose-application.png",
+    "assignmentConfirmed": false,
+    "paymentConfirmed": false,
+    "doNotResubmit": true
+  },
+  "operation": {
+    "powerRevisionObserved": 74,
+    "servicePidAtInitialCheck": 57740,
+    "productionPowerActionsByThisReview": 0,
+    "restartsByThisReview": 0,
+    "budgetOrProtectionChanges": 0
+  }
+}

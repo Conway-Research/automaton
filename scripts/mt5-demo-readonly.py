@@ -54,11 +54,29 @@ def main():
     if args.reader=='account':result=module.snapshot(broker,args.terminal,args.login)
     elif args.reader=='market':result=module.read_market(broker,args.terminal,args.login,args.server,args.start)
     elif args.reader=='history':result=module.read(broker,args.terminal,args.login,args.server,args.symbols.split(','))
-    else:result=module.collect_market(broker,args.terminal,args.login,args.server,args.start,args.watch,{'startsAt':args.day_start,'endsAt':args.day_end} if args.day_start is not None and args.day_end is not None else None)
+    else:
+        research_plan=None
+        try:
+            spec=importlib.util.spec_from_file_location('numaron_research_watch',Path(__file__).with_name('mt5-paired-research-hook.py'))
+            planner=importlib.util.module_from_spec(spec);spec.loader.exec_module(planner)
+            research_plan=planner.plan_watch(Path(__file__).resolve().parents[1],args.watch,args.login,args.server)
+        except Exception:research_plan={'symbols':args.watch,'added':[],'dropped':[],'readErrors':['research_watch_unavailable']}
+        timing_spec=importlib.util.spec_from_file_location('numaron_capture_timing',Path(__file__).with_name('mt5-capture-timing.py'))
+        timing=importlib.util.module_from_spec(timing_spec);timing_spec.loader.exec_module(timing)
+        result=timing.measure(module,lambda:module.collect_market(broker,args.terminal,args.login,args.server,args.start,research_plan['symbols'],{'startsAt':args.day_start,'endsAt':args.day_end} if args.day_start is not None and args.day_end is not None else None),Path(__file__).resolve().parents[1]/'artifacts/capture-delay-repair-20261016/capture-timing.jsonl')
+        result['researchWatch']={**research_plan,'receivedSymbols':[q['symbol'] for q in result.get('watchQuotes',[])]}
     result['accountBinding']={'demo':True,'tradeMode':0,'portable':True,'executionEnabled':False}
-    encoded=json.dumps(result,allow_nan=False)
-    if args.output:
-        output=Path(args.output);temporary=output.with_suffix('.tmp');temporary.write_text(encoded,encoding='utf-8');temporary.replace(output)
-        print(json.dumps({'readOnly':True,'demo':True,'executionEnabled':False}))
-    else:print(encoded)
+    phase_spec=importlib.util.spec_from_file_location('numaron_postprocess_timing',Path(__file__).with_name('mt5-postprocess-timing.py'))
+    phase_module=importlib.util.module_from_spec(phase_spec);phase_spec.loader.exec_module(phase_module)
+    meter=phase_module.PhaseTiming(Path(__file__).resolve().parents[1]/'artifacts/capture-delay-repair-20261016/postprocess-timing.jsonl')
+    if args.reader=='trading':
+        def observe_research():
+            spec=importlib.util.spec_from_file_location('numaron_paired_research_hook',Path(__file__).with_name('mt5-paired-research-hook.py'))
+            hook=importlib.util.module_from_spec(spec);spec.loader.exec_module(hook)
+            return hook.observe(result,Path(__file__).resolve().parents[1])
+        try:
+            result['pairedResearch']=meter.measure('research_hook',observe_research)
+        except Exception:result['pairedResearch']={'status':'observer_failed','executionEnabled':False}
+    encoded=meter.measure('serialization',lambda:json.dumps(result,allow_nan=False))
+    meter.measure('output',lambda:phase_module.write_output(encoded,Path(args.output) if args.output else None))
 if __name__=='__main__':main()

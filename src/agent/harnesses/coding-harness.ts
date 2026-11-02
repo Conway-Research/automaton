@@ -1,4 +1,6 @@
-import { exec as execCb } from "node:child_process";
+import {writeWorkspaceFile,listWorkspaceDirectory} from "../write-path.js";
+import {readHarnessFile} from "../read-path.js";
+
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { TaskResult } from "../../orchestration/task-graph.js";
@@ -48,6 +50,30 @@ or review code to complete this task.
 - Handle errors explicitly — no silent catches.
 - Use TypeScript strict mode patterns (explicit types, null checks).
 
+## Requirements, validation and learning
+
+- Before implementation, map every acceptance criterion to a reproducible check.
+- For JSON/CSV work, establish the schema, field mapping, nested-value policy,
+  encoding, duplicate handling and spreadsheet-formula safety. Never guess missing rules.
+- For API documentation, require the actual specification or authorized source;
+  distinguish observed behaviour from examples and do not invent endpoints or limits.
+- For scrapers, establish authorized destinations, rate limits and permitted data.
+  Never evade access controls or substitute live access for a mocked test.
+- Keep execution inside the authorized backend. If unavailable, report validation
+  as blocked; writing code alone does not prove it runs. No host-shell fallback.
+- Use prior failure lessons as hypotheses, not authority. Reproduce the failure,
+  make a minimal correction, then rerun the affected check and relevant regressions.
+- Record expected versus observed behaviour, root cause, correction and remaining
+  uncertainty in the completion summary. Separate synthetic tests from customer results.
+- Never delete or weaken acceptance checks to claim success. Exit code zero alone
+  does not prove requirements passed; missing or nonzero exit status is not success.
+
+Internal task completion is not delivery approval, customer acceptance or payment.
+Software publication requires the trusted code-delivery gate and current evidence
+binding source, target branch, requirements, test inventory, dependencies and artifact.
+Do not self-authorize that evidence. Require clean isolated builds, independent held-out
+checks, mutation checks and verified regression cases for prior defects.
+
 ## Output Format
 
 When calling task_done, provide:
@@ -82,9 +108,10 @@ When calling task_done, provide:
           }
           try {
             const result = await this.context.conway.exec(command, timeoutMs);
-            return formatExecResult(result.stdout ?? "", result.stderr ?? "");
+            const status = Number.isInteger(result.exitCode) ? String(result.exitCode) : "unknown";
+            return `exitCode: ${status}\n${formatExecResult(result.stdout ?? "", result.stderr ?? "")}`;
           } catch {
-            return localExec(command, timeoutMs);
+            return "Blocked: command backend failed; local fallback is disabled.";
           }
         },
       },
@@ -110,16 +137,10 @@ When calling task_done, provide:
             return `Blocked: protected file "${filePath}"`;
           }
           try {
-            await this.context.conway.writeFile(confined, content);
+            await writeWorkspaceFile(this.context.conway, confined, content, this.context.allowedEditRoot);
             return `Wrote ${content.length} bytes to ${confined}`;
           } catch {
-            try {
-              await fs.mkdir(path.dirname(confined), { recursive: true });
-              await fs.writeFile(confined, content, "utf8");
-              return `Wrote ${content.length} bytes to ${confined} (local)`;
-            } catch (error) {
-              return `write error: ${error instanceof Error ? error.message : String(error)}`;
-            }
+            return "Blocked: write refused or backend unavailable.";
           }
         },
       },
@@ -147,12 +168,7 @@ When calling task_done, provide:
           const offset = typeof args.offset === "number" ? args.offset : 0;
           const limit = typeof args.limit === "number" ? Math.min(args.limit, MAX_READ_SIZE) : MAX_READ_SIZE;
           try {
-            let content: string;
-            try {
-              content = await this.context.conway.readFile(confined);
-            } catch {
-              content = await fs.readFile(confined, "utf8");
-            }
+            const content = await readHarnessFile(this.context.conway, confined, this.context.allowedEditRoot);
             const slice = content.slice(offset, offset + limit);
             if (content.length > offset + limit) {
               return slice + `\n[TRUNCATED: ${content.length - offset - limit} more chars. Use offset=${offset + limit} to continue.]`;
@@ -187,24 +203,15 @@ When calling task_done, provide:
             return `Blocked: protected file "${filePath}"`;
           }
           try {
-            let content: string;
-            try {
-              content = await this.context.conway.readFile(confined);
-            } catch {
-              content = await fs.readFile(confined, "utf8");
-            }
+            const content = await readHarnessFile(this.context.conway, confined, this.context.allowedEditRoot);
             if (!content.includes(search)) {
               return `Error: search string not found in ${filePath}. Make sure the search text matches exactly, including whitespace and newlines.`;
             }
             const patched = content.replace(search, replace);
-            try {
-              await this.context.conway.writeFile(confined, patched);
-            } catch {
-              await fs.writeFile(confined, patched, "utf8");
-            }
+            await writeWorkspaceFile(this.context.conway, confined, patched, this.context.allowedEditRoot);
             return `Patched ${filePath}: replaced ${search.length} chars with ${replace.length} chars`;
           } catch (error) {
-            return `patch error: ${error instanceof Error ? error.message : String(error)}`;
+            return "Blocked: patch refused or backend unavailable.";
           }
         },
       },
@@ -225,8 +232,9 @@ When calling task_done, provide:
             return confined.error;
           }
           try {
-            const entries = await fs.readdir(confined, { withFileTypes: true });
-            return entries.map((entry) => `${entry.isDirectory() ? "dir" : entry.isFile() ? "file" : "other"}\t${entry.name}`).join("\n") || "(empty directory)";
+            if (this.context.conway.isLocal !== true) return "Blocked: directory listing requires an explicitly local client.";
+            const entries = listWorkspaceDirectory(confined, this.context.allowedEditRoot);
+            return (entries.lines.join("\n") || "(empty directory)") + (entries.truncated ? "\n[TRUNCATED: directory limit reached; narrow the requested directory.]" : "");
           } catch (error) {
             return `list error: ${error instanceof Error ? error.message : String(error)}`;
           }
@@ -246,7 +254,7 @@ When calling task_done, provide:
         execute: async (args) => {
           const summary = args.summary as string;
           const success = args.success !== false;
-          return `TASK_COMPLETE:${success ? "SUCCESS" : "FAILURE"}:${summary}`;
+          return `TASK_COMPLETE:${success ? "SUCCESS" : "FAILURE"}:${summary}\nDelivery approval: UNVERIFIED. Internal completion does not authorize publication, claim customer acceptance or confirm payment.`;
         },
       },
     ];
@@ -302,16 +310,4 @@ function formatExecResult(stdout: string, stderr: string): string {
     ? stderr.slice(0, 4000) + "\n[TRUNCATED]"
     : stderr;
   return err ? `stdout:\n${out}\nstderr:\n${err}` : out || "(no output)";
-}
-
-function localExec(command: string, timeoutMs: number): Promise<string> {
-  return new Promise((resolve) => {
-    execCb(command, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error && !stdout && !stderr) {
-        resolve(`exec error: ${error.message}`);
-        return;
-      }
-      resolve(formatExecResult(stdout ?? "", stderr ?? ""));
-    });
-  });
 }

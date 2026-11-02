@@ -61,6 +61,11 @@ export function createHeartbeatDaemon(
   const { identity, config, heartbeatConfig, db, rawDb, conway, social, onWakeRequest } = options;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let running = false;
+  let generation = 0;
+  const tickMs = heartbeatConfig.defaultIntervalMs ?? 60_000;
+  if (!Number.isSafeInteger(tickMs) || tickMs < 1 || tickMs > 2_147_483_647) {
+    throw new Error("Invalid heartbeat interval");
+  }
 
   const legacyContext: HeartbeatLegacyContext = {
     identity,
@@ -106,22 +111,21 @@ export function createHeartbeatDaemon(
     onWakeRequest,
   );
 
-  // Tick interval from config (not log level)
-  const tickMs = heartbeatConfig.defaultIntervalMs ?? 60_000;
+  // Each start owns its timer chain; a stopped tick cannot revive it.
 
   /**
    * Recursive setTimeout loop for overlap protection.
    * Each tick must complete before the next is scheduled.
    */
-  function scheduleTick(): void {
-    if (!running) return;
+  function scheduleTick(epoch: number): void {
+    if (!running || epoch !== generation) return;
     timeoutId = setTimeout(async () => {
       try {
         await scheduler.tick();
       } catch (err: any) {
         logger.error("Tick failed", err instanceof Error ? err : undefined);
       }
-      scheduleTick();
+      scheduleTick(epoch);
     }, tickMs);
   }
 
@@ -130,6 +134,7 @@ export function createHeartbeatDaemon(
   const start = (): void => {
     if (running) return;
     running = true;
+    const epoch = ++generation;
 
     // Run first tick immediately
     scheduler.tick().catch((err) => {
@@ -137,7 +142,7 @@ export function createHeartbeatDaemon(
     });
 
     // Schedule subsequent ticks
-    scheduleTick();
+    scheduleTick(epoch);
 
     logger.info(`Daemon started. Tick interval: ${tickMs / 1000}s (from config)`);
   };
@@ -145,6 +150,7 @@ export function createHeartbeatDaemon(
   const stop = (): void => {
     if (!running) return;
     running = false;
+    generation++;
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;

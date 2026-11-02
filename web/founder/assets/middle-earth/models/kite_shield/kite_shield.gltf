@@ -1,0 +1,365 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v3.3.32",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "kite_shield_body"
+    },
+    {
+      "mesh": 1,
+      "name": "kite_shield_metal_trim",
+      "translation": [
+        -0.6790218949317932,
+        -0.8346058130264282,
+        -0.13259607553482056
+      ]
+    },
+    {
+      "mesh": 2,
+      "name": "kite_shield_clamps_and_bolts",
+      "translation": [
+        -0.6790218949317932,
+        -0.8346058130264282,
+        -0.13259607553482056
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "kite_shield_body",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "kite_shield_clamps_and_trim",
+      "normalTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Plane.016",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "Plane.020",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 1
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "kite_shield_body_nor_gl",
+      "uri": "textures/kite_shield_body_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "kite_shield_body_diff",
+      "uri": "textures/kite_shield_body_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "kite_shield_body_metal-kite_shield_body_rough",
+      "uri": "textures/kite_shield_body_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "kite_shield_clamps_trim_nor_gl",
+      "uri": "textures/kite_shield_clamps_trim_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "kite_shield_clamps_trim_diff",
+      "uri": "textures/kite_shield_clamps_trim_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "kite_shield_clamps_trim_metal-kite_shield_clamps_trim_rough",
+      "uri": "textures/kite_shield_clamps_trim_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 2145,
+      "max": [
+        0.2661374807357788,
+        0.6414821147918701,
+        0.07665978372097015
+      ],
+      "min": [
+        -0.2661374807357788,
+        -0.723582923412323,
+        -0.052249226719141006
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 2145,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 2145,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 9432,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 1490,
+      "max": [
+        0.9506468772888184,
+        1.4821611642837524,
+        0.21508345007896423
+      ],
+      "min": [
+        0.4073968827724457,
+        0.08802759647369385,
+        0.08615632355213165
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 1490,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 1490,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 6324,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 3489,
+      "max": [
+        0.9396935105323792,
+        1.3329598903656006,
+        0.1524500697851181
+      ],
+      "min": [
+        0.4183502793312073,
+        0.11214746534824371,
+        0.08464447408914566
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 3489,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 3489,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 15162,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 25740,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 25740,
+      "byteOffset": 25740,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17160,
+      "byteOffset": 51480,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18864,
+      "byteOffset": 68640,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17880,
+      "byteOffset": 87504,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17880,
+      "byteOffset": 105384,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 11920,
+      "byteOffset": 123264,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12648,
+      "byteOffset": 135184,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 41868,
+      "byteOffset": 147832,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 41868,
+      "byteOffset": 189700,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27912,
+      "byteOffset": 231568,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 30324,
+      "byteOffset": 259480,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 289804,
+      "uri": "kite_shield.bin"
+    }
+  ]
+}

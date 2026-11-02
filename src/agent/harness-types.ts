@@ -1,5 +1,7 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import path from "node:path";
+import { deliveryReviewLessons } from "../security/action-gate.js";
+import { codingBenchmarkLessons } from "./coding-benchmark.js";
 import type { TaskNode, TaskResult } from "../orchestration/task-graph.js";
 import { normalizeTaskResult } from "../orchestration/task-graph.js";
 import type {
@@ -16,6 +18,19 @@ import type {
 import type { AgentWorkspace } from "../orchestration/workspace.js";
 import { getTasksByGoal } from "../state/database.js";
 import type { PolicyEngine } from "./policy-engine.js";
+
+/** Admission was denied before provider execution; retry requires an external state change. */
+export class InferenceAdmissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InferenceAdmissionError";
+  }
+}
+
+/** A provider was invoked but completion/accounting is uncertain; reconcile before retry. */
+export class InferenceExecutionUncertainError extends Error {
+  constructor(message:string){super(message);this.name='InferenceExecutionUncertainError';}
+}
 
 export interface AgentHarness {
   readonly id: string;
@@ -46,6 +61,8 @@ export interface HarnessContext {
   budget: IterationBudget;
   wisdom: AccumulatedWisdom;
   abortSignal: AbortSignal;
+  /** Recheck shared execution controls at tool boundaries; never grants tool permission. */
+  assertExecutionAllowed?: () => void;
   goalId: string;
   toolCatalog?: AutomatonTool[];
   toolContext?: ToolContext;
@@ -56,7 +73,10 @@ export interface HarnessContext {
 
 export interface WorkerInferenceClient {
   chat(params: {
+    costAttribution?: import('../types.js').InferenceRequest['costAttribution'];
     tier?: string;
+    survivalTier?: import("../types.js").SurvivalTier;
+    experimentId?: string;
     messages: ChatMessage[];
     tools?: Array<{
       type: "function";
@@ -109,6 +129,7 @@ export function buildWisdomFromGoal(
   workspace: AgentWorkspace,
 ): AccumulatedWisdom {
   const wisdom = emptyWisdom();
+  wisdom.gotchas.push(...codingBenchmarkLessons(db), ...deliveryReviewLessons(db));
   const tasks = getTasksByGoal(db, goalId);
 
   for (const task of tasks) {
@@ -119,7 +140,7 @@ export function buildWisdomFromGoal(
 
     const summary = result.output.slice(0, 200);
     if (task.status === "completed") {
-      wisdom.successes.push(summary);
+      wisdom.successes.push(`Unverified internal completion; not independent quality or economic evidence: ${summary}`);
     } else if (task.status === "failed") {
       wisdom.failures.push(summary);
     }

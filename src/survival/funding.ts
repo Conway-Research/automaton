@@ -13,6 +13,7 @@ import type {
   SurvivalTier,
 } from "../types.js";
 import { formatCredits } from "../conway/credits.js";
+import {localOperation} from '../conway/operating-mode.js';
 
 export interface FundingAttempt {
   strategy: string;
@@ -33,6 +34,9 @@ export async function executeFundingStrategies(
   conway: ConwayClient,
 ): Promise<FundingAttempt[]> {
   const attempts: FundingAttempt[] = [];
+  // Conway funding is not a prerequisite for direct-provider operation.
+  // Preserve historical notices; do not create requests or claim funding.
+  if (localOperation(config, conway)) return attempts;
   const creditsCents = await conway.getCreditsBalance().catch(() => 0);
 
   // Check how recently we last begged for this specific tier (don't spam).

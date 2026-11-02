@@ -88,3 +88,4 @@ if __name__=='__main__':
     args=p.parse_args();import MetaTrader5 as mt5
 
     print(json.dumps(read(mt5,args.terminal,args.login,args.server,args.symbols.split(',')),allow_nan=False))
+

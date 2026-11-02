@@ -20,9 +20,12 @@ function assertSecureUrl(
   try {
     parsed = new URL(url);
   } catch {
-    throw new Error(`Invalid URL: ${url}`);
+    throw new Error("Invalid URL for outbound request");
   }
 
+  if (parsed.username || parsed.password || parsed.hash) {
+    throw new Error("Outbound URL credentials and fragments are forbidden");
+  }
   const protocol = parsed.protocol.toLowerCase();
   if (protocol === "https:") {
     return;
@@ -34,7 +37,7 @@ function assertSecureUrl(
   }
 
   throw new Error(
-    `HTTPS required: refusing insecure URL ${url}. ` +
+    "HTTPS required: refusing insecure outbound URL. " +
       "For local development, only loopback HTTP (localhost/127.0.0.1/::1) can be explicitly enabled.",
   );
 }
@@ -76,13 +79,17 @@ export class ResilientHttpClient {
     const maxRetries = opts.retries ?? this.config.maxRetries;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      opts.signal?.throwIfAborted();
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
 
       try {
         const response = await fetch(url, {
           ...opts,
-          signal: controller.signal,
+          // A trusted endpoint must not redirect authenticated traffic to a
+          // different destination (including a local/metadata service).
+          redirect: "error",
+          signal: opts.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal,
           headers: {
             ...opts.headers,
             ...(opts.idempotencyKey
@@ -112,6 +119,7 @@ export class ResilientHttpClient {
         return response;
       } catch (error) {
         clearTimeout(timer);
+        if (opts.signal?.aborted) throw error;
         this.consecutiveFailures++;
         if (
           this.consecutiveFailures >= this.config.circuitBreakerThreshold

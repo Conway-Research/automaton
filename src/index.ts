@@ -7,13 +7,13 @@
  * the heartbeat daemon + agent loop.
  */
 
-import fs from "fs";
-import path from "path";
+import {assertActionGate} from './security/action-gate.js';
 import { getWallet, getAutomatonDir } from "./identity/wallet.js";
 import { provision, loadApiKeyFromConfig } from "./identity/provision.js";
 import { loadConfig, resolvePath } from "./config.js";
 import { createDatabase } from "./state/database.js";
 import { createConwayClient } from "./conway/client.js";
+import {operatingMode,conwayStartupStep} from './conway/operating-mode.js';
 import { createInferenceClient } from "./conway/inference.js";
 import { createHeartbeatDaemon } from "./heartbeat/daemon.js";
 import {
@@ -22,6 +22,7 @@ import {
 } from "./heartbeat/config.js";
 import { consumeNextWakeEvent, insertWakeEvent } from "./state/database.js";
 import { runAgentLoop } from "./agent/loop.js";
+import {assertPersonalStartup} from './v1/startup-admission.js';
 import { ModelRegistry } from "./inference/registry.js";
 import { loadSkills } from "./skills/loader.js";
 import { initStateRepo } from "./git/state-versioning.js";
@@ -75,16 +76,10 @@ Environment:
   }
 
   if (args.includes("--init")) {
-    // Read chain type from genesis.json if written by parent during spawn
-    let initChainType: import("./identity/chain.js").ChainType | undefined;
-    try {
-      const genesisPath = path.join(getAutomatonDir(), "genesis.json");
-      if (fs.existsSync(genesisPath)) {
-        const genesis = JSON.parse(fs.readFileSync(genesisPath, "utf-8"));
-        initChainType = genesis.chainType;
-      }
-    } catch {}
-    const { chainIdentity, isNew } = await getWallet(initChainType);
+    const { readChildGenesis, initializeChildConfiguration } = await import("./replication/bootstrap.js");
+    const genesis = readChildGenesis(getAutomatonDir());
+    const { chainIdentity, isNew } = await getWallet(genesis?.chainType);
+    initializeChildConfiguration(getAutomatonDir(), chainIdentity.address);
     logger.info(
       JSON.stringify({
         address: chainIdentity.address,
@@ -193,14 +188,30 @@ async function run(): Promise<void> {
     config = await runSetupWizard();
   }
 
-  // Load wallet (chain-aware)
-  const { account, chainIdentity, chainType: walletChainType } = await getWallet();
-  const resolvedChainType = config.chainType || walletChainType || "evm";
-  const apiKey = config.conwayApiKey || loadApiKeyFromConfig();
-  if (!apiKey) {
-    logger.error("No API key found. Run: automaton --provision");
-    process.exit(1);
-  }
+  assertPersonalStartup(resolvePath(config.dbPath),config.researchDbPath);
+  const mode=operatingMode(config);
+
+// Load wallet (chain-aware)
+const { account, chainIdentity, chainType: walletChainType } = await getWallet();
+const resolvedChainType = config.chainType || walletChainType || "evm";
+
+const conwayApiKey = mode==='conway'?(config.conwayApiKey || loadApiKeyFromConfig()):null;
+const hasDirectInference =
+  !!config.openaiApiKey ||
+  !!config.anthropicApiKey ||
+  !!config.ollamaBaseUrl ||
+  !!process.env.OLLAMA_BASE_URL;
+
+if (!conwayApiKey && !hasDirectInference) {
+  logger.error(
+    "No inference provider configured. Configure OpenAI, Anthropic, Ollama, or Conway.",
+  );
+  process.exit(1);
+}
+
+// Conway-dependent features may fail gracefully when Conway authentication
+// is unavailable. Direct inference providers can still run the agent.
+const apiKey: string = conwayApiKey || "";
 
   // Initialize database
   const dbPath = resolvePath(config.dbPath);
@@ -240,14 +251,16 @@ async function run(): Promise<void> {
 
   // Create Conway client
   const conway = createConwayClient({
+    operatingMode:mode,
     apiUrl: config.conwayApiUrl,
     apiKey,
     sandboxId: config.sandboxId,
+    authorizeMutation:scope=>assertActionGate(db.raw,scope),
   });
 
   // Register automaton identity (one-time, immutable)
   const registrationState = db.getIdentity("conwayRegistrationStatus");
-  if (registrationState !== "registered") {
+  if (mode==='conway' && registrationState !== "registered") {
     try {
       const genesisPromptHash = config.genesisPrompt
         ? keccak256(toHex(config.genesisPrompt))
@@ -285,6 +298,7 @@ async function run(): Promise<void> {
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
   const inference = createInferenceClient({
+    allowConway:mode==='conway',
     apiUrl: config.conwayApiUrl,
     apiKey,
     defaultModel: config.inferenceModel,
@@ -302,8 +316,8 @@ async function run(): Promise<void> {
 
   // Create social client (chain-aware: pass ChainIdentity for Solana signing)
   let social: SocialClientInterface | undefined;
-  if (config.socialRelayUrl) {
-    social = createSocialClient(config.socialRelayUrl, resolvedChainType === "solana" ? chainIdentity : account);
+  if (mode==='conway' && config.socialRelayUrl) {
+    social = createSocialClient(config.socialRelayUrl, resolvedChainType === "solana" ? chainIdentity : account, db.raw);
     logger.info(`[${new Date().toISOString()}] Social relay: ${config.socialRelayUrl}`);
   }
 
@@ -330,13 +344,14 @@ async function run(): Promise<void> {
 
   // Initialize state repo (git)
   try {
-    await initStateRepo(conway);
-    logger.info(`[${new Date().toISOString()}] State repo initialized.`);
+    await conwayStartupStep(mode,()=>initStateRepo(conway));
+    if(mode==='conway')logger.info(`[${new Date().toISOString()}] State repo initialized.`);
   } catch (err: any) {
     logger.warn(`[${new Date().toISOString()}] State repo init failed: ${err.message}`);
   }
 
   // Bootstrap topup: buy minimum credits ($5) from USDC so the agent can start.
+  await conwayStartupStep(mode,async()=>{
   // The agent decides larger topups itself via the topup_credits tool.
   try {
     let bootstrapTimer: ReturnType<typeof setTimeout>;
@@ -368,6 +383,7 @@ async function run(): Promise<void> {
     logger.warn(`[${new Date().toISOString()}] Bootstrap topup skipped: ${err.message}`);
   }
 
+  });
   // Start heartbeat daemon (Phase 1.1: DurableScheduler)
   const heartbeat = createHeartbeatDaemon({
     identity,

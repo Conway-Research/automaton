@@ -1,0 +1,43 @@
+{
+  "schema": "numaron-isolated-image-runtime-v1",
+  "image": "sha256:649843697cab0e7735ef31bf71ec28c377a81b47873ecea79a1763b6855dbc99",
+  "sourceHashes": {
+    "outputs/product-image-capability-20261023/capability_entry.py": "f81bed320f6efbf9127768c529a95d7e71691550e9d7efd98bc3b94aa7b1e205",
+    "outputs/product-image-capability-20261023/dual_original_job.py": "0fada609f598ffd4c0ce4385790091251e3a961daac4573331b83f025247e642",
+    "outputs/product-image-capability-20261023/dual_original_reference.py": "1e5a9e05b2114bb5db1e052f81e4ef6219e37a782eaf342be2d4c2a86c762fcc",
+    "outputs/product-image-capability-20261023/automatic_reflection.py": "f4e05bc81e3cab42d4c45bcca387b01ea53ab1d9b01278a8a1ebe03bfe51c56f",
+    "outputs/product-image-capability-20261023/original_reference.py": "966ab208b0de2c14d5429677274d77c1bb3935502db6befaaa2f0b379e2cfe86",
+    "outputs/product-image-capability-20261023/product_images.py": "5a4c0c7fbfcd2c63dd469115f5f92e666b3fdfe6ad25cc300768a088d81a736e",
+    "outputs/product-image-capability-20261023/reviewed_guidance.py": "1d39b11feba5b022c5cfb00239fa7feec43e26708fae9717de81850afddb6d67",
+    "outputs/product-image-capability-20261023/scribble_guidance.py": "ddef344250810d6645232036320d1217e3fda060579f586213e00733fc80b791",
+    "outputs/product-image-capability-20261023/anchored_components.py": "eb8830c78ce4d124d4a94d8716cc883de35ea329a1dfcf857baee778493e218c",
+    "outputs/product-image-capability-20261023/adaptive_curve.py": "105ddb171c683fcd71f44e4f3903720a52bf44c1980a83b98b96df5a3317e96a",
+    "outputs/product-image-capability-20261023/auto_curve.py": "21878eb112b2c180856832aad5f350600b2c37e4e201839c0b786e5924a1ffd4",
+    "outputs/product-image-capability-20261023/automatic_cutout.py": "e7d9c2b62d5161e6e5dfb2fc69a7b71a4f2ee9ecf5b6075539f4c57bbc138df2",
+    "outputs/product-image-capability-20261023/linear_colour.py": "0a9fd9399f7fd57659a215418b2fa9dc8ac918c4cb4b71adda5eb93467b06dfb",
+    "outputs/product-image-capability-20261023/edge_models.py": "46029a0e59213586a2359d2dafbea16b1f2182642efbe12395c57b1b05932baa",
+    "scripts/image-sandbox-entry.py": "1a9a0eb030cd54135a0e9f538aacc427a74721f69e3ae2e8bcd098990c2fc28b"
+  },
+  "probe": {
+    "passed": true,
+    "protection": {
+      "uid": 65534,
+      "capabilitiesZero": true,
+      "network": "none",
+      "hostMounts": false,
+      "readOnlyRoot": true,
+      "memoryMax": 536870912,
+      "swapMax": 0,
+      "pidsMax": 64,
+      "cpuMax": [
+        "100000",
+        "100000"
+      ],
+      "packages": {
+        "Pillow": "11.3.0",
+        "numpy": "2.2.6",
+        "opencv": "4.10.0"
+      }
+    }
+  }
+}

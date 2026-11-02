@@ -7,8 +7,8 @@ import path from 'node:path';
 import {openFounderBudget} from './founder-budget.mjs';
 function fixture(fn){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'founder-budget-'));try{return fn(path.join(dir,'budget.db'));}finally{fs.rmSync(dir,{recursive:true,force:true});}}
 const start=Date.parse('2026-10-13T10:00:00Z');
-test('authorized limits are CHF20 per day and CHF2.50 per root while the period and workers stay fixed',()=>fixture(file=>{
- const b=openFounderBudget(file);try{b.activate({startAt:start,authorizationRef:'patrice-20261015-limits'});const s=b.snapshot(start);assert.equal(s.dailyRappen,2000);assert.equal(s.taskRappen,250);assert.equal(s.periodRappen,15000);assert.equal(s.periodDays,30);assert.equal(s.maxWorkers,4);
+test('authorized limits are CHF20 per day and CHF2.50 per root with ten workers and the unchanged period ceiling',()=>fixture(file=>{
+ const b=openFounderBudget(file);try{b.activate({startAt:start,authorizationRef:'patrice-20261015-limits'});const s=b.snapshot(start);assert.equal(s.dailyRappen,2000);assert.equal(s.taskRappen,250);assert.equal(s.periodRappen,15000);assert.equal(s.periodDays,30);assert.equal(s.maxWorkers,10);
   for(let i=0;i<8;i++)b.reserve({id:'new-'+i,rootTaskId:'root-'+i,maxCostRappen:250,now:start});assert.equal(b.snapshot(start).dayRemainingRappen,0);assert.throws(()=>b.reserve({id:'over',rootTaskId:'extra',maxCostRappen:1,now:start}),/daily/);
  }finally{b.close();}
 }));

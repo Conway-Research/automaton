@@ -8,6 +8,7 @@
 
 import type BetterSqlite3 from "better-sqlite3";
 import { ulid } from "ulid";
+import { assertNoKnownSecrets } from "../observability/redaction.js";
 import type { RelationshipMemoryEntry } from "../types.js";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("memory.relationship");
@@ -28,9 +29,10 @@ export class RelationshipMemoryManager {
     trustScore?: number;
     notes?: string | null;
   }): string {
+    assertNoKnownSecrets(entry);
     const id = ulid();
     try {
-      this.db.prepare(
+      const stored = this.db.prepare(
         `INSERT INTO relationship_memory (id, entity_address, entity_name, relationship_type, trust_score, notes)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(entity_address) DO UPDATE SET
@@ -38,8 +40,8 @@ export class RelationshipMemoryManager {
            relationship_type = excluded.relationship_type,
            trust_score = excluded.trust_score,
            notes = COALESCE(excluded.notes, relationship_memory.notes),
-           updated_at = datetime('now')`,
-      ).run(
+           updated_at = datetime('now') RETURNING id`,
+      ).get(
         id,
         entry.entityAddress,
         entry.entityName ?? null,
@@ -47,10 +49,11 @@ export class RelationshipMemoryManager {
         entry.trustScore ?? 0.5,
         entry.notes ?? null,
       );
+      return (stored as {id:string}).id;
     } catch (error) {
       logger.error("Failed to record", error instanceof Error ? error : undefined);
     }
-    return id;
+    throw new Error("Memory persistence failed");
   }
 
   /**

@@ -1,0 +1,11 @@
+{
+  "schema": "numaron-static-browser-config-v1",
+  "image": "sha256:77495e4919b14f8166272244c97d6f373e14491d85a9e2c784890954ab5c7944",
+  "seccompProfile": "/home/user/.cache/numaron-browser/seccomp-f2c7c161fa0f16629ab680b638eb664efbbdd3eaff795a531514efaf786b3f01.json",
+  "seccompSha256": "f2c7c161fa0f16629ab680b638eb664efbbdd3eaff795a531514efaf786b3f01",
+  "moduleDigest": "690cf310c78a1128c22c2c380f2f91f2a9ad3b74bbb08d09401c9ce47f11c0e2",
+  "probePassed": true,
+  "probeEvidence": "outputs/sahil-browser-access-20261026/real-browser-probe.json",
+  "provenance": "outputs/sahil-browser-access-20261026/image-provenance.json",
+  "customerAcceptanceGranted": false
+}

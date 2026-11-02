@@ -7,6 +7,7 @@
 
 import type BetterSqlite3 from "better-sqlite3";
 import { ulid } from "ulid";
+import { assertNoKnownSecrets } from "../observability/redaction.js";
 import type { WorkingMemoryEntry, WorkingMemoryType } from "../types.js";
 import { estimateTokens } from "../agent/context.js";
 import { createLogger } from "../observability/logger.js";
@@ -28,6 +29,7 @@ export class WorkingMemoryManager {
     expiresAt?: string | null;
     sourceTurn?: string | null;
   }): string {
+    assertNoKnownSecrets(entry);
     const id = ulid();
     const tokenCount = estimateTokens(entry.content);
     try {
@@ -46,6 +48,7 @@ export class WorkingMemoryManager {
       );
     } catch (error) {
       logger.error("Failed to add entry", error instanceof Error ? error : undefined);
+      throw new Error("Memory persistence failed");
     }
     return id;
   }
@@ -69,6 +72,7 @@ export class WorkingMemoryManager {
    * Update an existing working memory entry.
    */
   update(id: string, updates: Partial<Pick<WorkingMemoryEntry, "content" | "priority" | "expiresAt" | "contentType">>): void {
+    assertNoKnownSecrets(updates);
     const setClauses: string[] = [];
     const params: unknown[] = [];
 

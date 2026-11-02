@@ -1,0 +1,15 @@
+{
+  "schema": "numaron-cross-task-self-optimization-v1",
+  "status": "specified-transmitted-pending-owner-acknowledgment",
+  "spec": "docs/numaron-cross-task-self-optimization-20261026.md",
+  "specSha256": "99910222d957debd04b66f1e01be4f2136a70150903ccb9b90ce3ed9dae7b338",
+  "ownerThread": "01a16c55-49c6-7770-85bb-77ae0b971af4",
+  "appliesTo": "all-existing-and-future-authorized-task-families",
+  "implemented": false,
+  "newTestsPassed": 0,
+  "offlineCasesSpecified": 8,
+  "personnelCostsIncluded": false,
+  "humanTimeUnit": "minutes-only",
+  "productionTakeover": false,
+  "duplicateWorkerStarted": false
+}

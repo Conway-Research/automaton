@@ -7,6 +7,7 @@
  */
 
 import fs from "fs";
+import {readProtectedJson,writeProtectedJson} from "../security/protected-json.js";
 import path from "path";
 import { SiweMessage } from "siwe";
 import { getWallet, getAutomatonDir } from "./wallet.js";
@@ -26,7 +27,7 @@ export function loadApiKeyFromConfig(): string | null {
   const configPath = path.join(getAutomatonDir(), "config.json");
   if (!fs.existsSync(configPath)) return null;
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    const config = readProtectedJson(configPath);
     return config.apiKey || null;
   } catch {
     return null;
@@ -47,9 +48,7 @@ function saveConfig(apiKey: string, walletAddress: string): void {
     walletAddress,
     provisionedAt: new Date().toISOString(),
   };
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), {
-    mode: 0o600,
-  });
+  writeProtectedJson(configPath,config);
 }
 
 /**

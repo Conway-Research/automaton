@@ -1,0 +1,15 @@
+{
+  "schema": "numaron-confirmed-funded-orders-v1",
+  "status": "specified-transmitted-pending-owner-acknowledgment",
+  "spec": "docs/numaron-confirmed-funded-orders-20261028.md",
+  "specSha256": "0988f9d90fc945483b815e99c123f02736b2a0045294c27df1bd288dd104eb74",
+  "audit": "outputs/order-payment-audit-20261028/REPORT.md",
+  "ownerThread": "01a16c55-49c6-7770-85bb-77ae0b971af4",
+  "implemented": false,
+  "testsPassed": 0,
+  "offlineCases": 12,
+  "customersContacted": 0,
+  "productionTakeover": false,
+  "personnelCostsIncluded": false,
+  "humanTimeUnit": "minutes-only"
+}

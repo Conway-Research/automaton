@@ -1,0 +1,17 @@
+import {it,expect,vi,beforeEach,afterEach} from 'vitest';
+const m=vi.hoisted(()=>({write:vi.fn(),protectedWrite:vi.fn(),save:vi.fn(),options:['','synthetic-manual-key','','',''] as string[],genesis:'start\n'+'directive '.repeat(4500)+'\nsection 57 end'}));
+vi.mock('fs',()=>({default:{existsSync:()=>true,readFileSync:()=>m.genesis,writeFileSync:m.write,copyFileSync:vi.fn(),chmodSync:vi.fn(),mkdirSync:vi.fn()}}));
+vi.mock('../security/protected-json.js',()=>({writeProtectedJson:m.protectedWrite}));
+vi.mock('../identity/wallet.js',()=>({getWallet:async()=>({account:{},chainIdentity:{address:'synthetic-wallet'},chainType:'evm',isNew:false}),getAutomatonDir:()=>'/synthetic-only'}));
+vi.mock('../identity/provision.js',()=>({provision:async()=>{throw Error('synthetic-provider-secret');}}));
+vi.mock('../config.js',()=>({createConfig:(c:object)=>c,saveConfig:m.save}));
+vi.mock('../heartbeat/config.js',()=>({writeDefaultHeartbeatConfig:vi.fn()}));
+vi.mock('../setup/banner.js',()=>({showBanner:vi.fn()}));
+vi.mock('../setup/environment.js',()=>({detectEnvironment:()=>({type:'local',sandboxId:''})}));
+vi.mock('../setup/defaults.js',()=>({generateSoulMd:()=> 'synthetic soul',installDefaultSkills:vi.fn()}));
+vi.mock('../setup/prompts.js',()=>({promptRequired:async()=> 'fixture',promptMultiline:async()=>m.genesis,promptAddress:async()=> 'synthetic-creator',promptOptional:async()=>m.options.shift()??'',promptWithDefault:async(_s:string,n:number)=>n,closePrompts:vi.fn()}));
+import {runSetupWizard} from '../setup/wizard.js';
+beforeEach(()=>{vi.clearAllMocks();m.options=['','synthetic-manual-key','','',''];vi.spyOn(console,'log').mockImplementation(()=>{});});
+afterEach(()=>vi.restoreAllMocks());
+it('routes manual credentials through protected storage and preserves full Genesis',async()=>{const cfg=await runSetupWizard();expect(cfg.genesisPrompt).toBe(m.genesis);expect(m.protectedWrite).toHaveBeenCalledWith(expect.stringContaining('config.json'),expect.objectContaining({apiKey:'synthetic-manual-key'}));expect(JSON.stringify(m.write.mock.calls)).not.toContain('synthetic-manual-key');expect(JSON.stringify(vi.mocked(console.log).mock.calls)).not.toContain('synthetic-provider-secret');});
+it('does not continue configuration when protected storage fails',async()=>{m.protectedWrite.mockImplementationOnce(()=>{throw Error('protection failed');});await expect(runSetupWizard()).rejects.toThrow('protection failed');expect(m.save).not.toHaveBeenCalled();});

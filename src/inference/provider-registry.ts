@@ -1,5 +1,8 @@
 import fs from "node:fs";
 import OpenAI from "openai";
+import {providerEgress} from '../security/provider-egress.js';
+import {registerLogSecrets} from '../observability/redaction.js';
+import { STATIC_MODEL_BASELINE } from "./types.js";
 
 export type ModelTier = "reasoning" | "fast" | "cheap";
 
@@ -59,8 +62,8 @@ const DEFAULT_TIER_DEFAULTS: Record<ModelTier, TierDefault> = {
     fallbackOrder: ["groq", "together"],
   },
   fast: {
-    preferredProvider: "groq",
-    fallbackOrder: ["openai", "together", "local"],
+    preferredProvider: "openai",
+    fallbackOrder: ["groq", "together", "local"],
   },
   cheap: {
     preferredProvider: "groq",
@@ -239,6 +242,24 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
     enabled: false,
   },
 ];
+
+// Seed both runtime paths from the router catalog. Preserve tier preference
+// order, while an explicit user provider/model allowlist remains authoritative.
+for (const provider of DEFAULT_PROVIDERS) {
+  for (const baseline of STATIC_MODEL_BASELINE.filter(model => model.provider === provider.id)) {
+    const index = provider.models.findIndex(model => model.id === baseline.modelId);
+    const existing = provider.models[index];
+    const shared: ModelConfig = {
+      id: baseline.modelId,
+      tier: existing?.tier ?? (baseline.tierMinimum === "normal" ? "reasoning" : "fast"),
+      contextWindow: baseline.contextWindow, maxOutputTokens: baseline.maxTokens,
+      costPerInputToken: baseline.costPer1kInput / 10,
+      costPerOutputToken: baseline.costPer1kOutput / 10,
+      supportsTools: baseline.supportsTools, supportsVision: baseline.supportsVision, supportsStreaming: true,
+    };
+    if (index < 0) provider.models.push(shared); else provider.models[index] = shared;
+  }
+}
 
 export class ProviderRegistry {
   private readonly providers: ProviderConfig[];
@@ -431,9 +452,12 @@ export class ProviderRegistry {
 
   private buildResolvedModel(provider: ProviderConfig, model: ModelConfig): ResolvedModel {
     const apiKey = this.resolveApiKey(provider);
+    registerLogSecrets([apiKey]);
     const client = new OpenAI({
       apiKey,
       baseURL: provider.baseUrl,
+      maxRetries: 0,
+      fetch:providerEgress(provider.baseUrl,provider.id==='local'),
     });
 
     return {

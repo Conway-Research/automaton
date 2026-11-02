@@ -7,6 +7,7 @@
  */
 
 import chalk from "chalk";
+import { redactLogText } from "./redaction.js";
 import type { LogEntry } from "../types.js";
 
 const accent = chalk.rgb(131, 127, 255);
@@ -71,17 +72,17 @@ export function prettySink(entry: LogEntry): void {
     const time = formatTime(entry.timestamp);
     const levelFn = LEVEL_STYLES[entry.level] ?? chalk.white;
     const level = levelFn(entry.level.toUpperCase().padEnd(5));
-    const mod = chalk.dim(entry.module.padEnd(12));
-    const msg = formatMessage(entry.message);
+    const mod = chalk.dim(redactLogText(entry.module).padEnd(12));
+    const msg = formatMessage(redactLogText(entry.message));
 
     let line = `${time} ${level} ${mod} ${msg}`;
 
     if (entry.error) {
-      line += "\n" + chalk.red("  " + entry.error.message);
+      line += "\n" + chalk.red("  " + redactLogText(entry.error.message));
     }
 
     process.stdout.write(line + "\n");
   } catch {
-    process.stdout.write(entry.message + "\n");
+    process.stdout.write(redactLogText(String(entry.message)) + "\n");
   }
 }

@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "GothicBed_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "GothicBed_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.004",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "GothicBed_01_nor_gl",
+      "uri": "textures/GothicBed_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "GothicBed_01_diff",
+      "uri": "textures/GothicBed_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "GothicBed_01_metallic-GothicBed_01_roughness",
+      "uri": "textures/GothicBed_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 17068,
+      "max": [
+        0.782444417476654,
+        1.5338401794433594,
+        0.9868945479393005
+      ],
+      "min": [
+        -0.7113074660301208,
+        -1.181181374931839e-7,
+        -1.053105354309082
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 17068,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 17068,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 56235,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 204816,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 204816,
+      "byteOffset": 204816
+    },
+    {
+      "buffer": 0,
+      "byteLength": 136544,
+      "byteOffset": 409632
+    },
+    {
+      "buffer": 0,
+      "byteLength": 112470,
+      "byteOffset": 546176
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 658648,
+      "uri": "GothicBed_01.bin"
+    }
+  ]
+}

@@ -29,6 +29,7 @@ export function assessQuality(series:Series):QualityReport{
   if(series.kind==='macro'){const d=new Date(at),month=d.getUTCFullYear()*12+d.getUTCMonth();if(lastMonth!==null&&month!==lastMonth+1)warnings.push('Monatslücke in der Zinsreihe.');lastMonth=month;if(d.getUTCDate()!==new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate())warnings.push('Monatsquotierung nicht am erwarteten Monatsende.');}
   if('open' in row){if(![row.open,row.high,row.low,row.close].every(x=>Number.isSafeInteger(x)&&x>0)||row.high<Math.max(row.open,row.close)||row.low>Math.min(row.open,row.close)||row.low>row.high)issues.push('Ungültige OHLC-Centwerte');}
   else if('returnDecimals' in row){if(!Number.isFinite(row.returnDecimals)||row.returnDecimals<=-1)issues.push('Ungültige Rendite');}
+  else if('rate' in row){if(!Number.isFinite(row.rate)||row.rate<=0)issues.push('Ungültiger Referenzkurs');}
   else if(!Number.isFinite(row.annualRatePercent))issues.push('Ungültiger Zinssatz');
  }
  return {valid:issues.length===0,issues:[...new Set(issues)],warnings:[...new Set(warnings)],complete:issues.length===0&&warnings.length===0};

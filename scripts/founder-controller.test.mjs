@@ -1,6 +1,18 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {openFounderController} from './founder-controller.mjs';import {openFounderBudget} from './founder-budget.mjs';
 import Database from 'better-sqlite3';
+
+test('an aged free history task gets a worker slot ahead of a communication backlog',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'history-fairness-')),file=path.join(dir,'controller.db');
+ const budget=openFounderBudget(path.join(dir,'budget.db'));budget.activate({startAt:Date.now()-100,authorizationRef:'isolated-history-fairness'});const calls=[];
+ const adapter=kind=>({maxCostRappen:0,execute:async()=>{calls.push(kind);return {costReceipt:{actualCostRappen:0,evidenceRef:'fixture'}};},verify:()=>true});
+ const c=openFounderController({file,budget,maxWorkers:4,adapters:{'external-communication':adapter('message'),'adaptive-history':adapter('history')}});
+ try{for(let i=0;i<8;i++)c.enqueue({id:'message-'+i,rootTaskId:'message-'+i,kind:'external-communication',input:{},dependencies:[],resources:[]});
+ c.enqueue({id:'history',rootTaskId:'history',kind:'adaptive-history',input:{},dependencies:[],resources:['research-cpu']});
+ const db=new Database(file);db.prepare('UPDATE founder_jobs SET created_ms=? WHERE id=?').run(Date.now()-120000,'history');db.prepare("UPDATE founder_jobs SET created_ms=? WHERE id LIKE 'message-%'").run(Date.now()-180000);db.close();
+ c.control('start');await c.tick();assert.ok(calls.includes('history'));assert.equal(calls.length,4);assert.equal(budget.snapshot().heldRappen,0);assert.equal(budget.snapshot().spentRappen,0);
+ }finally{await c.close();budget.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
 test('task-budget deferral resumes after the authorized root ceiling increases without resetting costs',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task-budget-change-'));let raised=false,calls=0;
  const budget={snapshot:()=>({active:true,remainingRappen:1000,dayRemainingRappen:1000,taskRappen:raised?250:200,entriesComplete:true,entries:[{taskId:'root-limit',actualCostRappen:200,maxCostRappen:200}]}),reserve(){if(!raised)throw Error('Budget task limit');return {};},settle(){}};
@@ -28,6 +40,11 @@ test('a repaired request retries only a settled rejection and preserves attempt 
  const c=make({read:adapter});c.enqueue(task('repaired'));c.control('start');await c.tick();await c.tick();assert.equal(calls,1);assert.equal(budget.snapshot().heldRappen,0);adapter.requestRevision='fixed';await c.tick();assert.equal(calls,2);assert.equal(c.snapshot().tasks[0].status,'done');assert.equal(budget.snapshot().spentRappen,5);
 }));
 const task=(id,resources=[])=>({id,rootTaskId:id,kind:'read',input:{title:id},dependencies:[],resources});
+test('free retry policy schedules only transient errors and honors connector backoff',()=>fixture(async(make,budget)=>{
+ let due=0;const c=make({read:{maxCostRappen:0,retrySafe:true,autoRetrySafe:true,get nextReadyAt(){return due;},shouldAutoRetry:e=>e.diagnostic?.code==='service_dns_failed',execute:async ctx=>{const e=Error('offline');if(ctx.task.id==='transient'){due=Date.now()+300000;e.diagnostic={code:'service_dns_failed'};}else e.diagnostic={code:'service_no_results'};throw e;},verify:()=>false}});
+ c.enqueue(task('permanent'));c.control('start');await c.tick();assert.equal(c.snapshot().tasks.find(t=>t.id==='permanent').nextRetryAt,null);
+ c.enqueue(task('transient'));await c.tick();const t=c.snapshot().tasks.find(t=>t.id==='transient');assert.equal(t.attempts,1);assert.ok(t.nextRetryAt>=due);await c.tick();assert.equal(c.snapshot().tasks.find(t=>t.id==='transient').attempts,1);assert.equal(budget.snapshot().spentRappen,0);
+}));
 test('automatic private retries stop at three attempts and charge every response',()=>fixture(async(make,budget)=>{
  let calls=0;const c=make({read:{providerTracked:true,autoRetrySafe:true,manualRetrySafe:true,maxCostRappen:50,execute:async()=>({costReceipt:{actualCostRappen:5,evidenceRef:'receipt-'+(++calls)}}),verify:()=>false}});
  c.enqueue(task('bounded'));c.control('start');const db=new Database(c.databaseFile);
@@ -101,3 +118,18 @@ test('truncated paid responses keep settled costs and do not repeat an unchanged
  let calls=0;const c=make({read:{providerTracked:true,autoRetrySafe:true,manualRetrySafe:true,maxCostRappen:50,execute:async()=>{calls++;return {status:'incomplete',incompleteReason:'max_output_tokens',costReceipt:{actualCostRappen:12,evidenceRef:'partial'}};},verify:()=>false}});
  c.enqueue(task('partial'));c.control('start');await c.tick();const row=c.snapshot().tasks[0];assert.equal(row.status,'failed');assert.equal(row.nextRetryAt,null);assert.equal(row.diagnostic.code,'response_incomplete');assert.match(row.reason,/Ausgabegrenze/);await c.tick();assert.equal(calls,1);assert.equal(budget.snapshot().spentRappen,12);assert.equal(budget.snapshot().heldRappen,0);
 }));
+
+
+test('snapshot exposes a retry plan only for eligible automatic adapters',()=>fixture(async make=>{
+ const c=make({read:{maxCostRappen:0,retrySafe:true,autoRetrySafe:false,execute:async()=>{throw Error('read');},verify:()=>false}});c.enqueue(task('stale-plan'));c.control('start');await c.tick();const db=new Database(c.databaseFile);db.prepare("UPDATE founder_jobs SET next_retry_ms=123 WHERE id='stale-plan'").run();db.close();assert.equal(c.snapshot().tasks[0].automaticRetryScheduled,false);
+}));
+test('startup snapshot reads the budget only once for a failed-job backlog',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'startup-budget-'));let reads=0;
+ const budget={snapshot(){reads++;return {active:true,entries:[],entriesComplete:true,remainingRappen:1000,dayRemainingRappen:1000,taskRappen:250};}};
+ const file=path.join(dir,'controller.db'),c=openFounderController({file,budget,adapters:{read:{maxCostRappen:0,manualRetrySafe:true,execute:async()=>({}),verify:()=>true}}});
+ try{for(let i=0;i<250;i++)c.enqueue({id:'job-'+i,rootTaskId:'root-'+i,kind:'read',input:{},dependencies:[],resources:[]});
+  const db=new Database(file);db.prepare("UPDATE founder_jobs SET status='failed',run_id=id,attempts=1").run();db.close();reads=0;
+  const s=c.snapshot();assert.equal(s.tasks.length,250);assert.equal(reads,1);
+ }finally{await c.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+

@@ -1,0 +1,47 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "date": "2026-10-19",
+  "regularRun": {
+    "id": "2026-10-19T11-39-18-344Z-7baba55b",
+    "completedAt": "2026-10-19T11:41:58.528Z",
+    "executedSources": 39,
+    "succeeded": 39,
+    "evidence": "artifacts/numaron-local-monitor/runs/2026-10-19T11-39-18-344Z-7baba55b/completion.json"
+  },
+  "responses": {
+    "ugigLatestMessagesAllOwn": true,
+    "ugigUnreadCounts": [0, 0, 0, 0],
+    "gmailOrderSearchResultSizeEstimate": 0,
+    "synmercoInboxBidsIntentsEscrowsUnchangedFromPreviousRun": true,
+    "dealworkContracts": 0,
+    "scope": "Existing regular monitor sources; not an exhaustive search of every mailbox or website"
+  },
+  "application": {
+    "platform": "ugig",
+    "account": "Obolus",
+    "gigId": "8f8af700-7c02-4453-a5c5-64808a8a32b0",
+    "url": "https://ugig.net/gigs/8f8af700-7c02-4453-a5c5-64808a8a32b0",
+    "title": "AI Research Notes to Executive Brief Converter",
+    "proposedGrossUSD": 450,
+    "scope": "Conditional bounded Markdown workflow and local Python CLI, up to 20000 words of sanitized client notes, one-page brief, source traceability, fixtures, offline tests, README and one correction round",
+    "conditions": "Confirm older listing remains available; agree scope and acceptance; fully client-funded escrow before work; agree SOL/USD conversion and fees; any live model usage needs separate client-authorized and client-funded access",
+    "upfrontPaymentByUs": 0,
+    "aiAssistanceDisclosed": true,
+    "duplicateCheck": "10 existing applications in latest regular monitor evidence at 2026-10-19T11:52:02.728Z; target absent; native form available",
+    "submissionAttempts": 1,
+    "verification": "Native gig page displayed disabled Already Applied button after submission and again after page reload",
+    "assignmentConfirmed": false,
+    "paymentConfirmed": false,
+    "doNotResubmit": true
+  },
+  "operation": {
+    "extraMonitorRunsStarted": 0,
+    "productionPowerActionsByThisReview": 0,
+    "restartsByThisReview": 0,
+    "budgetOrProtectionChanges": 0,
+    "confirmedOnAt": "2026-10-19T11:52:52.062Z",
+    "powerRevisionAtVerification": 70,
+    "runtimePidAtVerification": 54556,
+    "browserLimitation": "Dedicated Playwright profile already in use; no kill or restart attempted; existing normal Brave session used for the application"
+  }
+}

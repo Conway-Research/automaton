@@ -1,0 +1,3 @@
+import fs from 'node:fs';
+/** Startup-only opt-in. No watch, state mutation or power action. Invalid/missing config remains disabled. */
+export function readLearningConfiguration(file){try{const c=JSON.parse(fs.readFileSync(file,'utf8'));if(c.schemaVersion!==1||typeof c.enabled!=='boolean'||typeof c.activationApproved!=='boolean'||Object.keys(c).some(k=>!['schemaVersion','enabled','activationApproved'].includes(k)))return {enabled:false,activationApproved:false};return {enabled:c.enabled&&c.activationApproved,activationApproved:c.activationApproved};}catch{return {enabled:false,activationApproved:false};}}

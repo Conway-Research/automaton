@@ -1,0 +1,317 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v3.2.43",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "dry_branches_medium_01_c",
+      "translation": [
+        0.45012858510017395,
+        0.04933696985244751,
+        -0.05088076367974281
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "dry_branches_medium_01_b",
+      "translation": [
+        0.017346084117889404,
+        0.06085515022277832,
+        -0.06261161714792252
+      ]
+    },
+    {
+      "mesh": 2,
+      "name": "dry_branches_medium_01_a",
+      "translation": [
+        -0.410437673330307,
+        0.1236923336982727,
+        -0.05545513331890106
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "dry_branches_medium_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "branches_b_dynamesh.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "branches_b_dynamesh.002",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "branches_b_dynamesh.003",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "dry_branches_medium_01_nor_gl",
+      "uri": "textures/dry_branches_medium_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "dry_branches_medium_01_diff",
+      "uri": "textures/dry_branches_medium_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "dry_branches_medium_01_rough",
+      "uri": "textures/dry_branches_medium_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3641,
+      "max": [
+        0.06191990152001381,
+        0.08930298686027527,
+        0.37239524722099304
+      ],
+      "min": [
+        -0.06864907592535019,
+        -0.053956836462020874,
+        -0.4047306180000305
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3641,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3641,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 16848,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 3493,
+      "max": [
+        0.09121467918157578,
+        0.07924063503742218,
+        0.5840448141098022
+      ],
+      "min": [
+        -0.0599491149187088,
+        -0.0626467615365982,
+        -0.45445898175239563
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 3493,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 3493,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 15762,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 4252,
+      "max": [
+        0.18606369197368622,
+        0.20076525211334229,
+        0.664777398109436
+      ],
+      "min": [
+        -0.13700003921985626,
+        -0.1402200609445572,
+        -0.6343755125999451
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 4252,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 4252,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 17799,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 43692,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 43692,
+      "byteOffset": 43692
+    },
+    {
+      "buffer": 0,
+      "byteLength": 29128,
+      "byteOffset": 87384
+    },
+    {
+      "buffer": 0,
+      "byteLength": 33696,
+      "byteOffset": 116512
+    },
+    {
+      "buffer": 0,
+      "byteLength": 41916,
+      "byteOffset": 150208
+    },
+    {
+      "buffer": 0,
+      "byteLength": 41916,
+      "byteOffset": 192124
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27944,
+      "byteOffset": 234040
+    },
+    {
+      "buffer": 0,
+      "byteLength": 31524,
+      "byteOffset": 261984
+    },
+    {
+      "buffer": 0,
+      "byteLength": 51024,
+      "byteOffset": 293508
+    },
+    {
+      "buffer": 0,
+      "byteLength": 51024,
+      "byteOffset": 344532
+    },
+    {
+      "buffer": 0,
+      "byteLength": 34016,
+      "byteOffset": 395556
+    },
+    {
+      "buffer": 0,
+      "byteLength": 35598,
+      "byteOffset": 429572
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 465172,
+      "uri": "dry_branches_medium_01.bin"
+    }
+  ]
+}

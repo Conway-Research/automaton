@@ -1,0 +1,40 @@
+{
+  "schema": "numaron-long-term-adaptation-work-package-v1",
+  "createdAt": "2026-10-26T03:19:40.771Z",
+  "status": "transmitted-to-existing-workflow-owner",
+  "spec": "docs/numaron-long-term-adaptation-20261026.md",
+  "ownerThread": "01a16c55-49c6-7770-85bb-77ae0b971af4",
+  "requesterThread": "01a1709d-8e59-7122-95e3-8694f65dadeb",
+  "humanAuthorization": {
+    "source": "Direct human clarification in numaron - sidechat on 2026-10-26",
+    "quote": "numaron soll die berechtigung nicht einfordern oder einhollen müsse. numaron hat von mir alle berechtigungen die dafür notwendig sind",
+    "scope": "necessary autonomous technical and economic adaptation work requested in this session",
+    "repeatRoutinePermissionRequests": false,
+    "currentConstraints": {
+      "offlineOnly": true,
+      "powerMustRemainOff": true,
+      "productionTakeover": false
+    },
+    "actualAccountAccessOrCustomerRightsNotInferred": true
+  },
+  "dependsOn": [
+    "current-genuine-technical-project-full-acceptance-and-delivery",
+    "existing-paid-order-pilot",
+    "queued-profit-growth-work-package"
+  ],
+  "existingSystems": [
+    "founder-learning",
+    "src/research",
+    "order-adapter-learning",
+    "evidence-certification-revocation",
+    "paid-order-pilot-and-cost-journal"
+  ],
+  "implementationStatus": "queued-not-implemented",
+  "newImplementationTestsPassed": 0,
+  "offlineAcceptanceCasesSpecified": 12,
+  "duplicateWorkerStarted": false,
+  "productionTakeover": false,
+  "externalCalls": 0,
+  "personnelCostsIncluded": false,
+  "humanTimeUnit": "minutes-only"
+}

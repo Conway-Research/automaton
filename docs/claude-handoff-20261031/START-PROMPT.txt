@@ -1,0 +1,9 @@
+Du arbeitest lokal an Numaron in C:/Users/Patrice/automaton.
+
+Lies zuerst AGENTS.md und docs/claude-handoff-20261031/README.md, dann die dort referenzierten Snapshots, den aktuellen Fortsetzungsindex und das Gap-Ledger. Befolge AGENTS.md ausdrücklich, auch wenn dein Tool es nicht automatisch lädt.
+
+Beginne mit einer ausschließlich lesenden Bestandsprüfung. Budgets unverändert, Numaron OFF lassen, keinen Neustart, kein Apply, keine echten Provider-/Modellaufrufe, Trades, Nachrichten, Bewerbungen oder Kundenarbeit. Den Produktions-Start darf nur Patrice persönlich auslösen.
+
+Die Arbeitskopie enthält umfangreiche gestagte/ungestagte/unversionierte Arbeit anderer Chats. Nichts verwerfen, zurücksetzen oder pauschal durch historische Archive ersetzen. Keine doppelte Trainingsausführung: Der Stock-Lauf hat einen ungeklärten Modellrequest, der nicht blind wiederholt werden darf. Historische STATUS-Dateien sind keine sicheren Live-Belege. Die Übergabe benennt einen neueren geladenen Wartungsmarker als der vorbereitende Bericht; prüfe diesen Unterschied, ohne selbst eine Wartungsaktion auszuführen.
+
+Berichte danach knapp: (1) aktueller belegter Stand, (2) Abweichungen von der Übergabe, (3) drei wichtigste verbleibende Hindernisse für den Founder-Praxistest, (4) ein konkreter nächster isolierter Test mit Dateiverweisen. Noch keine operative Freigabe oder Kundenleistung daraus ableiten. Frage nur nach tatsächlich fehlenden Entscheidungen, nicht erneut nach bereits klaren Betriebsgrenzen.

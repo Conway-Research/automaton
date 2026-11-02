@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-19",
+  "purpose": "Additional licensed historical reference-rate simulations without restarting the running service",
+  "activation": "Loaded by explicitly authorized maintenance restart on 2026-10-19T10:33:19.627Z; left OFF for Patrice to start personally.",
+  "source": {
+    "id": "ecb-eurusd-reference",
+    "url": "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml",
+    "licenseEvidence": "https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html",
+    "methodEvidence": "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+    "reviewed": "2026-10-19",
+    "conditions": [
+      "Credit ECB",
+      "Identify modifications",
+      "Keep information accurate",
+      "Tell purchasers that ECB information is available free when included in sold documents"
+    ],
+    "rawSha256": "3cb610894f5098c82e39c476e1593033565565eb66570051c9304fbf708978e9",
+    "rawBytes": 8202267,
+    "observations": 7116,
+    "start": "1999-01-04",
+    "end": "2026-10-16",
+    "classification": "USD-per-EUR reference observations, not OHLC or executable fills"
+  },
+  "implementation": {
+    "variants": [
+      "reference-trend-10",
+      "reference-trend-20",
+      "reference-reversion-10",
+      "reference-reversion-20"
+    ],
+    "phases": [
+      "development",
+      "validation",
+      "final"
+    ],
+    "signalLagObservations": 2,
+    "oneWayModelCostBps": 20,
+    "stressOneWayModelCostBps": 40,
+    "limits": "Existing worker, memory, timeout, archive, trial and dataset limits retained",
+    "liveAuthorized": false,
+    "limitations": [
+      "Hypothetical long/cash reference index",
+      "No bid/ask, intraday stops or targets",
+      "No actual broker execution, financing or cash interest",
+      "Current historical vintage; point-in-time revisions unknown",
+      "No automatic strategy promotion"
+    ]
+  },
+  "verification": {
+    "vitest": "40 passed across 8 history suites",
+    "typecheck": "tsc --noEmit",
+    "actualDataIsolatedRun": {
+      "temporaryDatabase": true,
+      "reports": 12,
+      "trials": 4,
+      "phaseOutcomes": 12,
+      "failedJobs": 0,
+      "readyForTrading": 0,
+      "lessons": 12,
+      "phaseObservations": {
+        "development": 4270,
+        "validation": 1421,
+        "final": 1423
+      }
+    },
+    "fixedExistingResearchCutoff": "2026-10-14 inclusive; unchanged",
+    "cleanup": "Temporary databases and raw test archives removed after isolated tests"
+  },
+  "remaining": [
+    "OHLC strategy simulations still require separately permitted, suitable OHLC data",
+    "Kenneth French remains pending and JST remains restricted",
+    "Binance public-data terms explicitly exclude commercial use; rejected rather than treating the code license as a data license"
+  ],
+  "rejectedSourceEvidence": [
+    "https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md",
+    "https://www.cryptodatadownload.com/terms-of-use/"
+  ],
+  "maintenanceBaseline": {
+    "powerEnabled": true,
+    "powerRevision": 65,
+    "budgetDigest": "020c516794236ff7bb5389fe3b46d2fb542c7c86a80fc89231872789f6eb1352",
+    "reservedRappen": 550
+  },
+  "maintenanceReadback": {
+    "powerEnabled": true,
+    "powerRevision": 65,
+    "dashboardPid": 46032,
+    "supervisorPid": 51876,
+    "reservedRappen": 550,
+    "budgetEntriesBefore": 698,
+    "budgetEntriesAfter": 708,
+    "budgetDigestAfter": "ce2babd20e3fbedda8f1dd79c51e4af1b1951811e87eaff871d0edd8bd02868b",
+    "interpretation": "Running service continues ledger activity. Ledger byte identity is not claimed; maintenance did not open production state for writing."
+  },
+  "restartVerification": {
+    "readback": "artifacts/runtime-blocker-repair-20261019/ecb-restart-readback.json",
+    "budgetUnchanged": true,
+    "budgetDigest": "0606588d99c7e9ef07be8888eaf0e3a90a0c4f141e373506b730acfa02e38660",
+    "reservedRappen": 550,
+    "powerEnabled": false,
+    "activeJobs": 0,
+    "ecbSourceLoaded": true,
+    "providerProbes": 0,
+    "guardTestsPassed": 5
+  }
+}

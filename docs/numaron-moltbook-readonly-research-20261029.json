@@ -1,0 +1,17 @@
+{
+  "schema": "numaron-moltbook-readonly-research-v1",
+  "status": "specified-transmitted-pending-owner-acknowledgment",
+  "spec": "docs/numaron-moltbook-readonly-research-20261029.md",
+  "specSha256": "751e1777936a6faae76fa3bf11a4218d90faa7981c3445d482a6c45a9be9ceda",
+  "ownerThread": "01a16c55-49c6-7770-85bb-77ae0b971af4",
+  "implemented": false,
+  "registered": false,
+  "liveConnected": false,
+  "testsPassed": 0,
+  "offlineCases": 8,
+  "readOnly": true,
+  "customerContacts": 0,
+  "productionTakeover": false,
+  "personnelCostsIncluded": false,
+  "humanTimeUnit": "minutes-only"
+}

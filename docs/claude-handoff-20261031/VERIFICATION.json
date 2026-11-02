@@ -1,0 +1,44 @@
+{
+  "at": "2026-10-31T13:07:32.167Z",
+  "files": [
+    {
+      "path": "README.md",
+      "exists": true,
+      "sha256": "be55f79e3bdfdfb176b0d76a429f8acac898bf621d4372f8edbd1aaf2c3d0ac3"
+    },
+    {
+      "path": "START-PROMPT.txt",
+      "exists": true,
+      "sha256": "813c1735dcde17f95df4a07dba79982dd2e0ce6be4088efd29adde5165e2bb19"
+    },
+    {
+      "path": "CONTINUATION-EXTRACT.json",
+      "exists": true,
+      "sha256": "78bae431a143ad21e424cac68ae995d7fd691af8fdce71ca8e3d1fe18a1a6e76"
+    },
+    {
+      "path": "STATE-SNAPSHOT.json",
+      "exists": true,
+      "sha256": "7675c021852a16cba4697ccbd7b712c302ebff919bfc4a0fac56571f305f6e63"
+    },
+    {
+      "path": "PRESERVATION.json",
+      "exists": true,
+      "sha256": "1e9a913ab412227beee02ef76751f23a7f6cc190dd14ca2802097379c51222fc"
+    },
+    {
+      "path": "GIT-STATUS.txt",
+      "exists": true,
+      "sha256": "ae3ccd90a61dcdc2c9bc3c9e7388ca485c3f53805913042fe00cd8540d85d02e"
+    },
+    {
+      "path": "SOURCE-MANIFEST.json",
+      "exists": true,
+      "sha256": "7ca882d901a0de21a72c2c40fab068f5313e38f64e53d1c92a39059f0169135a"
+    }
+  ],
+  "powerOff": true,
+  "powerUnchanged": true,
+  "budgetUnchanged": true,
+  "scope": "handoff files and state preservation only; no product tests rerun"
+}

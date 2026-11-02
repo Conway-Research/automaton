@@ -67,6 +67,15 @@ describe("estimateTokens", () => {
   it("handles empty string as zero tokens", () => {
     expect(estimateTokens("")).toBe(0);
   });
+  it("bounds tokenization work for huge untrusted text without underestimating bytes", () => {
+    const text = "界".repeat(100_000);
+    expect(estimateTokens(text)).toBe(Buffer.byteLength(text, "utf8"));
+  });
+  it("bounds medium repetitive tool output and counts Unicode bytes conservatively", () => {
+    for (const text of ["x".repeat(4_097), "ab".repeat(5_500), "界".repeat(5_000)]) {
+      expect(estimateTokens(text)).toBe(Buffer.byteLength(text, "utf8"));
+    }
+  });
 });
 
 // ─── truncateToolResult ────────────────────────────────────────
@@ -270,9 +279,11 @@ describe("buildSystemPrompt SOUL.md sanitization", () => {
 
     // SOUL.md won't load unless the file exists, so check genesis prompt markers instead
     // Genesis prompt should have trust boundary markers
-    expect(prompt).toContain("[AGENT-EVOLVED CONTENT]");
-    expect(prompt).toContain("## Genesis Purpose [AGENT-EVOLVED CONTENT]");
+    expect(prompt).toContain("[FOUNDER DIRECTIVE]");
+    expect(prompt).toContain("## Genesis Purpose [FOUNDER DIRECTIVE]");
     expect(prompt).toContain("## End Genesis");
+    expect(prompt).toContain('Continuing education for every activity');
+    expect(prompt).toContain('every assigned activity and future domain');
   });
 });
 
@@ -304,13 +315,13 @@ describe("buildSystemPrompt genesis prompt sanitization", () => {
     // ChatML markers should be stripped
     expect(prompt).not.toContain("<|im_start|>");
     // Trust boundary markers should be present
-    expect(prompt).toContain("## Genesis Purpose [AGENT-EVOLVED CONTENT]");
+    expect(prompt).toContain("## Genesis Purpose [FOUNDER DIRECTIVE]");
     expect(prompt).toContain("## End Genesis");
   });
 
-  it("truncates genesis prompt to 2000 chars in system prompt", () => {
+  it("preserves the complete Genesis including late sections in model context", () => {
     const identity = createTestIdentity();
-    const longGenesis = "x".repeat(5000);
+    const longGenesis = "Founding principles.\n".repeat(2200) + "55. CORE ECONOMIC PRINCIPLES\n56. ULTIMATE ECONOMIC DIRECTIVE\n57. FINAL DIRECTIVE\nCOMPOUND.\nREPEAT.";
     const config = createTestConfig({ genesisPrompt: longGenesis });
 
     const prompt = buildSystemPrompt({
@@ -324,15 +335,16 @@ describe("buildSystemPrompt genesis prompt sanitization", () => {
     });
 
     // Extract genesis section
-    const genesisStart = prompt.indexOf("## Genesis Purpose [AGENT-EVOLVED CONTENT]");
+    const genesisStart = prompt.indexOf("## Genesis Purpose [FOUNDER DIRECTIVE]");
     const genesisEnd = prompt.indexOf("## End Genesis");
     expect(genesisStart).toBeGreaterThan(-1);
     expect(genesisEnd).toBeGreaterThan(genesisStart);
 
     const genesisSection = prompt.slice(genesisStart, genesisEnd);
-    // The content between markers should be <= 2000 chars + marker text
-    const contentOnly = genesisSection.replace("## Genesis Purpose [AGENT-EVOLVED CONTENT]\n", "");
-    expect(contentOnly.length).toBeLessThanOrEqual(2000 + 10); // small margin for whitespace
+    expect(genesisSection).toContain(longGenesis);
+    const messages = buildContextMessages(prompt, []);
+    expect(messages[0].content).toContain(longGenesis);
+    expect(messages[0].content).toContain("57. FINAL DIRECTIVE");
   });
 });
 
@@ -523,12 +535,11 @@ describe("update_genesis_prompt tool hardening", () => {
 // ─── TokenBudget defaults ──────────────────────────────────────
 
 describe("DEFAULT_TOKEN_BUDGET", () => {
-  it("has expected values from spec", () => {
-    expect(DEFAULT_TOKEN_BUDGET.total).toBe(100_000);
-    expect(DEFAULT_TOKEN_BUDGET.systemPrompt).toBe(20_000);
-    expect(DEFAULT_TOKEN_BUDGET.recentTurns).toBe(50_000);
-    expect(DEFAULT_TOKEN_BUDGET.toolResults).toBe(20_000);
-    expect(DEFAULT_TOKEN_BUDGET.memoryRetrieval).toBe(10_000);
+  it("keeps context bounded to the economical 25k budget", () => {
+    expect(DEFAULT_TOKEN_BUDGET.total).toBeLessThanOrEqual(25_000);
+    for (const value of Object.values(DEFAULT_TOKEN_BUDGET)) {
+      expect(value).toBeGreaterThan(0);
+    }
   });
 
   it("components sum to total", () => {

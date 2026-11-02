@@ -1,0 +1,2 @@
+import {test,expect} from 'vitest';import {prepareBenchmark} from '../research/benchmarks.js';import {ctx,spec,results} from './adaptive-research-fixtures.js';
+test('unregistered benchmarks or missing source proofs cannot manufacture learning success',()=>{const gap={id:'gap',rootTaskId:'root',goalId:'goal',goalVersion:1,capability:'research',kind:'quality',evidenceIds:['evidence']};expect(prepareBenchmark(gap as never,[],ctx,[])).toBeNull();expect(prepareBenchmark(gap as never,[{status:'usable'}] as never,ctx,[])).toBeNull();});

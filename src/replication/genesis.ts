@@ -12,7 +12,25 @@ import type {
   AutomatonIdentity,
   AutomatonDatabase,
 } from "../types.js";
-import { DEFAULT_GENESIS_LIMITS } from "../types.js";
+import { DEFAULT_GENESIS_LIMITS, DEFAULT_CONFIG } from "../types.js";
+import { STATIC_MODEL_BASELINE } from "../inference/types.js";
+import { effectiveContextWindow, fitsModelContext } from "../inference/context-admission.js";
+import { buildGenesisSection } from "../agent/genesis.js";
+
+/** Minimum admission for the child bootstrap model. Full task/tools/system
+ * admission still occurs in the child's router before any provider request.
+ * Unknown capacity fails closed; never truncate inherited policy to make it fit. */
+export function assertChildGenesisFits(directive: string,
+  modelId = DEFAULT_CONFIG.inferenceModel!,
+  outputTokens = DEFAULT_CONFIG.maxTokensPerTurn!): void {
+  const model = STATIC_MODEL_BASELINE.find(entry => entry.modelId === modelId);
+  if (!model || !Number.isSafeInteger(outputTokens) || outputTokens <= 0 ||
+      outputTokens > model.maxTokens) throw new Error("Child Genesis context capacity is unavailable or invalid");
+  if (!fitsModelContext([{ role: "system", content: buildGenesisSection(directive) }], [],
+    effectiveContextWindow(modelId, model.contextWindow), outputTokens)) {
+    throw new Error("Complete Child Genesis and output reserve exceed model context capacity; no truncation permitted");
+  }
+}
 
 /**
  * Injection patterns to detect and block in genesis params.
@@ -105,10 +123,7 @@ export function generateGenesisConfig(
   // Add parent context using XML tags
   genesisPrompt += `\n\n<lineage>\nYou were spawned by ${config.name} (${identity.address}).\nYou inherit their mission but have your own identity and wallet.\n</lineage>`;
 
-  // Enforce genesis prompt length limit
-  if (genesisPrompt.length > DEFAULT_GENESIS_LIMITS.maxGenesisPromptLength) {
-    genesisPrompt = genesisPrompt.slice(0, DEFAULT_GENESIS_LIMITS.maxGenesisPromptLength);
-  }
+  assertChildGenesisFits(genesisPrompt);
 
   const result: GenesisConfig = {
     name: params.name,
@@ -141,6 +156,8 @@ If your parent dies, you carry on their mission.
 Your parent's creator: ${config.creatorAddress}.
 </backup-directive>`;
 
+  assertChildGenesisFits(genesisPrompt);
+
   const result: GenesisConfig = {
     name: `${config.name}-backup`,
     genesisPrompt,
@@ -166,7 +183,9 @@ export function generateWorkerGenesis(
   // Validate
   validateGenesisParams({ name: workerName, task });
 
-  const genesisPrompt = `You are a specialized worker agent created by ${config.name}.
+  const genesisPrompt = `${config.genesisPrompt}
+
+You are a specialized worker agent created by ${config.name}.
 
 <task>
 ${task}
@@ -175,6 +194,8 @@ ${task}
 When your task is complete, report back to your parent (${identity.address}).
 If you run out of compute, ask your parent for funding.
 Be efficient -- complete the task and go to sleep.`;
+
+  assertChildGenesisFits(genesisPrompt);
 
   const result: GenesisConfig = {
     name: workerName,

@@ -77,7 +77,8 @@ export async function reflectOnSoul(
     if (autoUpdated.length > 0) {
       autoUpdates.genesisAlignment = alignment;
       autoUpdates.lastReflected = new Date().toISOString();
-      await updateSoul(db, autoUpdates, "reflection", "Auto-reflection update", soulPath);
+      const result = await updateSoul(db, autoUpdates, "reflection", "Auto-reflection update", soulPath);
+      if (!result.success) autoUpdated.length = 0;
     }
 
     // Build suggestions for mutable sections (NOT auto-applied)

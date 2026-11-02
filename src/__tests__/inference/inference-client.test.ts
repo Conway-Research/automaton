@@ -98,6 +98,42 @@ function queueUnknownError(message = "boom"): void {
   });
 }
 
+describe("reserved provider attempts", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-only";
+    mockState.queue.length = 0;
+    mockState.calls.length = 0;
+    mockState.create.mockClear();
+  });
+  it("resolves the router catalog and sends token limits, cancellation and no SDK retries", async () => {
+    queueCompletion();
+    const signal = new AbortController().signal;
+    await createClient().chatDirect({ providerId: "openai", modelId: "gpt-5-mini",
+      messages: BASE_MESSAGES, maxTokens: 321, signal, singleAttempt: true });
+    expect(mockState.calls[0]).toMatchObject({ model: "gpt-5-mini", max_completion_tokens: 321 });
+    expect(mockState.calls[0]).not.toHaveProperty("max_tokens");
+    expect(mockState.create).toHaveBeenCalledWith(expect.anything(), { signal, maxRetries: 0 });
+  });
+  it("does not retry a reserved request even on a retryable HTTP error", async () => {
+    queueError(503);
+    await expect(createClient().chatDirect({ providerId: "openai", modelId: "gpt-5-mini",
+      messages: BASE_MESSAGES, singleAttempt: true })).rejects.toThrow("503");
+    expect(mockState.create).toHaveBeenCalledTimes(1);
+  });
+  it("does not turn absent usage into a zero-cost settlement", async () => {
+    mockState.queue.push(async () => ({ choices: [{ message: { content: "ok" } }] }));
+    await expect(createClient().chatDirect({ providerId: "openai", modelId: "gpt-5-mini",
+      messages: BASE_MESSAGES, singleAttempt: true })).rejects.toThrow("billable usage");
+  });
+  it.each([0,50,101,-1,0.5,undefined])('keeps valid cached token detail without inventing a discount (%s)',async cached=>{
+    mockState.queue.push(async()=>({choices:[{message:{content:'ok'}}],usage:{prompt_tokens:100,completion_tokens:20,total_tokens:120,
+      prompt_tokens_details:{cached_tokens:cached}}}));
+    const result=await createClient().chatDirect({providerId:'openai',modelId:'gpt-5-mini',messages:BASE_MESSAGES,singleAttempt:true});
+    expect(result.usage.cachedInputTokens).toBe(cached===0||cached===50?cached:undefined);
+    expect(result.usage.inputTokens).toBe(100);
+  });
+});
+
 describe("UnifiedInferenceClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -137,8 +173,8 @@ describe("UnifiedInferenceClient", () => {
       messages: BASE_MESSAGES,
     });
 
-    expect(result.metadata.providerId).toBe("groq");
-    expect(result.metadata.modelId).toBe("llama-3.3-70b-versatile");
+    expect(result.metadata.providerId).toBe("openai");
+    expect(result.metadata.modelId).toBe("gpt-4.1-mini");
     expect(result.metadata.tier).toBe("reasoning");
   });
 
@@ -547,7 +583,7 @@ describe("UnifiedInferenceClient", () => {
     const payload = mockState.calls.at(-1);
     expect(payload).toMatchObject({
       temperature: 0.2,
-      max_tokens: 321,
+      max_completion_tokens: 321,
       tool_choice: "auto",
       response_format: { type: "json_object" },
     });

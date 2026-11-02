@@ -1,0 +1,13 @@
+# Real offline model authoring
+
+Explicit user authorization: install a suitable local model/runtime, necessary downloads allowed; then run actual autonomous design/code/test/package offline and isolated. Production remains OFF, no productive takeover.
+
+Hardware: Windows host ~64 GB RAM, i7-8700, GTX1070Ti 8 GB; existing WSL isolation has ~4 GB RAM/2 CPUs. Do not restart/reconfigure shared WSL or production. Use CPU inference in a separate immutable image, Qwen3-4B-Instruct-2507 Q4_K_M (~2.50 GB), upstream Apache-2.0, public Unsloth GGUF quantization pinned to revision and SHA256. llama.cpp upstream b11852 CPU release pinned by release asset SHA256. Necessary Ubuntu/Python dependency downloads are setup-only.
+
+After setup, all inference runs inside network-none, unprivileged, read-only, no-host-mount containers with bounded CPU/memory/time. A trusted Python wrapper launches llama-server on loopback inside that same network namespace, performs one schema-constrained generation request, persists and returns raw model output plus exact request/output/model/runtime receipts. No exposed host port, cloud fallback, production keys or downloaded execution during inference. Candidate code runs in separate existing Python test containers.
+
+Implement a real local model adapter for the previously implemented project author. Bind immutable runtime image, model SHA, prompt/template and actual execution receipts; independently read/reconcile a completed request from trusted host journal. Save raw generated text and design/code/repair requests. Give the model only requirements, current generated files and actual test feedback; no solution implementation, no editable acceptance, no hidden oracle outputs before tests.
+
+Use a new realistic multi-module project: deterministic inventory/order reservation engine with validation, transactional all-or-nothing batches, idempotent commands, optimistic versions, cancellations/restocking, reproducible JSON CLI, own tests and README. Independent acceptance and host JSON cases must be fixed before first model inference. They are separate from the earlier fixtures and contain no prepared implementation. Freeze requirements for the actual measured run. Any scope/prompt repair or restart must remain explicit in evidence; never hand-edit candidate code to make it pass.
+
+Finish with actual model-authored source package, fresh isolated re-execution, independent review, model/runtime/license/download hashes, generation/token/runtime logs, actual failed/passed checks and remaining limitations. A failed model run stays failed; no hidden fallback to scripted generation. Existing production/batch evidence is preserved and not applied.

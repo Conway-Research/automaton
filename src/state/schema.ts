@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Automaton SQLite Schema
  *
  * All tables for the automaton's persistent state.

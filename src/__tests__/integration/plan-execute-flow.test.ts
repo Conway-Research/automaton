@@ -239,15 +239,10 @@ describe("integration/plan-execute-flow", () => {
 
     it("tick 4: plan_review auto-approves and transitions to executing", async () => {
       const goalId = insertGoal(db, { status: "active" });
-      // Insert a task so executing phase has work to pick up
-      db.prepare(
-        `INSERT INTO task_graph (id, goal_id, title, description, status, agent_role, priority, dependencies, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(ulid(), goalId, "Task 1", "Do the thing", "pending", "generalist", 1, "[]", new Date().toISOString());
-
-      setState(db, { phase: "plan_review", goalId, replanCount: 0, failedTaskId: null, failedError: null });
-
+      setState(db, { phase: "planning", goalId, replanCount: 0, failedTaskId: null, failedError: null });
+      mocks.inference.chat.mockResolvedValue({content:JSON.stringify(plannerOutput),usage:{}});
       const orc = makeOrchestrator(db, mocks);
+      expect((await orc.tick()).phase).toBe('plan_review');
       const result = await orc.tick();
 
       expect(result.phase).toBe("executing");
@@ -424,7 +419,7 @@ describe("integration/plan-execute-flow", () => {
   // ─── Plan review scenarios ───────────────────────────────────────────────
 
   describe("plan review", () => {
-    it("plan_review with no plan in KV advances directly to executing", async () => {
+    it("plan_review with no plan in KV blocks execution and funding", async () => {
       const goalId = insertGoal(db, { status: "active" });
       db.prepare(
         `INSERT INTO task_graph (id, goal_id, title, description, status, agent_role, priority, dependencies, created_at)
@@ -437,7 +432,8 @@ describe("integration/plan-execute-flow", () => {
       const orc = makeOrchestrator(db, mocks);
       const result = await orc.tick();
 
-      expect(result.phase).toBe("executing");
+      expect(result.phase).toBe("failed");
+      expect(mocks.funding.fundChild).not.toHaveBeenCalled();
     });
 
     it("plan_review with valid plan in KV auto-approves and transitions to executing", async () => {

@@ -4,13 +4,18 @@ export function parseSourceOverview(text){
 }
 export function sourceOverviewCards(p){
  const date=source=>new Date(source.checkedAt??p.checkedAt).toLocaleString('de-CH',{timeZone:'Europe/Zurich'});
- return [{name:'ugig',status:p.ugig.storage==='independently_confirmed'?'Bewerbung bestätigt gespeichert · '+(p.ugig.status==='pending'?'Antwort ausstehend':'Status erneut prüfen'):'Speicherung ungeklärt',detail:'Python-GUI-Auftrag · Angebot USD '+(p.ugig.proposedUSD??'nicht belegt')+'. Noch keine Auftragszusage oder Zahlung. Bestehende Bewerbung beobachten; nicht erneut absenden.',url:'https://ugig.net/dashboard/applications',checkedAt:date(p.ugig)},
+ const cards=[{name:'ugig',status:p.ugig.storage==='independently_confirmed'?'Bewerbung bestätigt gespeichert · '+(p.ugig.status==='pending'?'Antwort ausstehend':'Status erneut prüfen'):'Speicherung ungeklärt',detail:'Python-GUI-Auftrag · Angebot USD '+(p.ugig.proposedUSD??'nicht belegt')+'. Noch keine Auftragszusage oder Zahlung. Bestehende Bewerbung beobachten; nicht erneut absenden.',url:'https://ugig.net/dashboard/applications',checkedAt:date(p.ugig)},
  {name:'Guru',status:p.guru.reachable===true?'Erreichbar · in der Quellenrotation':'Zugriff nicht bestätigt',detail:p.guru.reachable===true?'Zuletzt Seite '+p.guru.page+' mit '+p.guru.rows+' Einträgen geprüft. '+p.guru.total+' ausgeschriebene Aufträge laut Plattform; keine vollständige Prüfung aller Einträge. Nächster Schritt: Recherche fortsetzen. Kein eigener Auftrag oder Zahlungsschutz bestätigt.':'Zugriff muss erneut lesend geprüft werden.',url:'https://www.guru.com/d/jobs/',checkedAt:date(p.guru)}];
+ if(p.localMonitor){const m=p.localMonitor,stale=Date.now()-Date.parse(m.checkedAt)>900000;cards.push({name:'Lokaler Auftragsmonitor',status:stale?'Aktueller Monitorstatus fehlt':m.status==='waiting-power'?'Wartet auf persönliches Einschalten':m.status==='running'?'Prüfung läuft unabhängig von Codex':m.status==='waiting'?'Unabhängig von Codex · nächste Prüfung geplant':'Lokaler Monitor · Status prüfen',detail:'Lesende Auftragsprüfung alle zehn Minuten. '+(m.gaps?.length?'Eigener Dienstzugang erforderlich: '+m.gaps.join(', ')+'. Letzte belegte Quellenzeiten bleiben erhalten.':'Bestehende Zahlungs- und Auftragsgrenzen gelten unverändert.'),url:'http://127.0.0.1:51439/#overview',checkedAt:date(m)});}
+ return cards;
 }
 export function renderSourceOverview(box,p,doc=document){
  if(!box)return;const el=(tag,text)=>{const n=doc.createElement(tag);n.textContent=text;return n;};box.replaceChildren(el('h2','Auftragsquellen & Bewerbungen'),el('p','Zuletzt belegter Stand aus dem Heartbeat · keine Live-Zusage.'));
  for(const c of sourceOverviewCards(p)){const card=el('article','');card.className='notice';const link=el('a','Plattform öffnen ↗');link.href=c.url;link.target='_blank';link.rel='noopener noreferrer';card.append(el('h3',c.name),el('strong',c.status),el('p',c.detail),el('small','Geprüft: '+c.checkedAt+' · Schweizer Zeit'),el('p',''),link);box.append(card);}
 }
+/* SOURCE_OVERVIEW_JSON
+{"schema":"numaron-source-overview-v1","checkedAt":"2026-10-17T17:16:33.377Z","ugig":{"storage":"independently_confirmed","status":"pending","proposedUSD":300,"checkedAt":"2026-10-20T22:37:59.251Z","total":14,"pending":14,"conversations":4,"method":"local-api-get-only"},"guru":{"reachable":true,"page":9,"rows":19,"total":179,"checkedAt":"2026-10-17T01:53:44.737Z"},"localMonitor":{"checkedAt":"2026-10-21T11:18:42.777Z","status":"waiting-power","gaps":["guru"],"nextAt":null}}
+END_SOURCE_OVERVIEW_JSON */
 export function outsideDialog(x,y,rect){return x<rect.left||x>rect.right||y<rect.top||y>rect.bottom;}
 const explanations=[
  [/mission fortschritt/i,'Anteil der abgeschlossenen Missionen an den aktuell erfassten Missionen. Wartende, fehlgeschlagene und noch geprüfte Aufgaben zählen nicht als abgeschlossen.'],

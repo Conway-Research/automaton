@@ -355,6 +355,8 @@ describe("DurableScheduler", () => {
   });
 
   describe("TickContext building", () => {
+    beforeEach(() => { vi.stubEnv("CONWAY_API_KEY", "test-only"); });
+    afterEach(() => { vi.unstubAllEnvs(); });
     it("fetches balance once and builds context", async () => {
       conway.creditsCents = 5_000;
 
@@ -385,9 +387,9 @@ describe("DurableScheduler", () => {
         DEFAULT_HB_CONFIG,
       );
 
-      // Should default to 0 credits (critical tier — zero is broke, not dead)
-      expect(ctx.creditBalance).toBe(0);
-      expect(ctx.survivalTier).toBe("critical");
+      // Unknown balance must not be presented as a confirmed zero balance.
+      expect(ctx.creditBalance).toBe(-1);
+      expect(ctx.survivalTier).toBe("low_compute");
     });
   });
 

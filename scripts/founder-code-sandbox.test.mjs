@@ -25,6 +25,16 @@ test('WSL virtualization failures remain closed with a safe actionable diagnosis
 
 test('Podman bare digest is normalized to a pinned sha256 identity before isolation runs',async()=>{
  const digest='a'.repeat(64),calls=[];
- const s=createCodeSandbox({process:async args=>{calls.push(args);if(args[0]==='image')return {code:0,stdout:digest+'\n',stderr:''};return {code:0,stdout:args.some(x=>x.endsWith('-test'))?'# tests 1\n':'',stderr:''};}});
+ const s=createCodeSandbox({process:async args=>{calls.push(args);if(args[0]==='image')return {code:0,stdout:digest+'\n',stderr:''};return {code:0,stdout:args.some(x=>x.endsWith('-test'))?'# tests 1\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n':'',stderr:''};}});
  assert.equal(await s.probe(),true);assert.equal(s.image,'sha256:'+digest);assert.ok(calls.filter(a=>a[0]==='run').every(a=>a.includes('sha256:'+digest)));assert.equal(s.diagnostic.code,'verified');
+ assert.equal(calls[0][2],'localhost/numaron-offline-code:20261018');
 });
+
+test('incomplete, skipped and duplicate test summaries never certify isolation',async()=>{
+ const good='# tests 1\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n';
+ for(const output of ['# tests 1\n',good.replace('# pass 1','# pass 0').replace('# skipped 0','# skipped 1'),good+'# tests 1\n',good.replace('# todo 0','# todo 1')]){
+  const s=createCodeSandbox({image:'sha256:'+'a'.repeat(64),process:async args=>({code:0,stdout:args.some(x=>x.endsWith('-test'))?output:'',stderr:''})});
+  assert.equal(await s.probe(),false);
+ }
+});
+

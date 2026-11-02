@@ -61,8 +61,8 @@ async function askNumber(label: string, current: number): Promise<number> {
     `  ${chalk.white("→")} ${label} ${chalk.dim("[" + current + "]")}${chalk.dim(" (Enter to keep)")}: `,
   );
   if (raw === "") return current;
-  const n = parseInt(raw, 10);
-  if (isNaN(n) || n < 0) {
+  const n = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(n) || n < 0) {
     console.log(chalk.yellow(`  Invalid number, keeping ${current}`));
     return current;
   }
@@ -139,8 +139,8 @@ async function pickFromList(
     `  ${chalk.white("→")} Enter number ${chalk.dim("(Enter to keep " + current + ")")}: `,
   );
   if (raw === "") return current;
-  const idx = parseInt(raw, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= models.length) {
+  const idx = /^\d+$/.test(raw) ? Number(raw) - 1 : NaN;
+  if (!Number.isSafeInteger(idx) || idx < 0 || idx >= models.length) {
     console.log(chalk.yellow(`  Invalid, keeping "${current}"`));
     return current;
   }
@@ -149,11 +149,10 @@ async function pickFromList(
 
 // ─── Display helpers ──────────────────────────────────────────────
 
-/** Mask secrets: show first 8 chars + "***" + last 4 chars. */
+/** Show presence only; short credentials must not be revealed. */
 function maskSecret(s: string | undefined): string {
   if (!s) return chalk.dim("(not set)");
-  if (s.length <= 12) return s.slice(0, 4) + "***";
-  return s.slice(0, 8) + "***" + s.slice(-4);
+  return "[set]";
 }
 
 function dim(v: string | number | boolean | undefined): string {

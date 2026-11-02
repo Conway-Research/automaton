@@ -1,0 +1,108 @@
+{
+  "name": "@conway/automaton",
+  "version": "0.2.1",
+  "description": "Conway Automaton - Sovereign AI Agent Runtime",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./config.js": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    },
+    "./state/database.js": {
+      "types": "./dist/state/database.d.ts",
+      "default": "./dist/state/database.js"
+    }
+  },
+  "bin": {
+    "automaton": "dist/index.js",
+    "conway-automaton": "dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Conway-Research/automaton.git"
+  },
+  "homepage": "https://conway.tech",
+  "keywords": [
+    "autonomous-agent",
+    "sovereign-ai",
+    "web4",
+    "conway",
+    "self-replicating"
+  ],
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "security:scan": "node scripts/security-scan.mjs",
+    "obolus:verify": "node scripts/verify-obolus.mjs",
+    "obolus:online": "node dist/v1/cli.js online",
+    "obolus:dashboard": "node dist/v1/cli.js dashboard",
+    "obolus:demo": "node dist/v1/cli.js demo",
+    "obolus:soak": "node dist/v1/cli.js soak",
+    "obolus:benchmark": "node dist/v1/cli.js benchmark",
+    "aureus:online": "node dist/v1/cli.js online",
+    "aureus:dashboard": "node dist/v1/cli.js dashboard",
+    "aureus:demo": "node dist/v1/cli.js demo",
+    "aureus:soak": "node dist/v1/cli.js soak",
+    "aureus:benchmark": "node dist/v1/cli.js benchmark",
+    "build": "tsc && pnpm -r build",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.tests.json",
+    "test:coverage": "vitest run --coverage",
+    "test:security": "vitest run --testNamePattern \"security|injection|policy\"",
+    "test:financial": "vitest run --testNamePattern \"financial|spend|treasury\"",
+    "test:ci": "vitest run --reporter=verbose",
+    "clean": "rm -rf dist && pnpm -r clean",
+    "lint": "oxlint -c .oxlintrc.json --disable-nested-config --max-warnings 102 src packages/cli/src scripts vitest.config.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "better-sqlite3": "^11.0.0",
+    "bs58": "^6.0.0",
+    "chalk": "^5.3.0",
+    "cron-parser": "^4.9.0",
+    "js-tiktoken": "^1.0.21",
+    "openai": "^6.24.0",
+    "ora": "^8.0.0",
+    "siwe": "^2.3.0",
+    "tweetnacl": "^1.0.3",
+    "typescript": "^5.9.3",
+    "ulid": "^2.3.0",
+    "viem": "^2.44.2",
+    "ws": "8.21.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "oxlint": "1.86.0",
+    "tsx": "^4.23.15",
+    "vite": "6.4.3",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@solana/web3.js>jayson": "5.0.0",
+      "rpc-websockets>ws": "8.21.0",
+      "ethers>ws": "8.21.0",
+      "viem>ws": "8.21.0",
+      "jayson>ws": "7.5.11",
+      "js-yaml@>=3 <3.15.2": "3.15.2",
+      "uuid@>=11 <11.1.1": "11.1.1"
+    },
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}

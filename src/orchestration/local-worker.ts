@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Local Agent Worker
  *
  * Runs inference-driven task execution in-process as an async background task.
@@ -11,6 +11,9 @@ import { createLogger } from "../observability/logger.js";
 import type { HarnessContext, WorkerInferenceClient } from "../agent/harness-types.js";
 import { buildWisdomFromGoal, createBudgetFromTask } from "../agent/harness-types.js";
 import { HarnessRegistry } from "../agent/harness-registry.js";
+import { RevenueStore } from "../revenue/store.js";
+import {researchDispatchAllowsInference} from './research-dispatch.js';
+import {InferenceAdmissionError} from '../agent/harness-types.js';
 import { completeTask, failTask } from "./task-graph.js";
 import type { TaskNode } from "./task-graph.js";
 import { AgentWorkspace } from "./workspace.js";
@@ -43,14 +46,21 @@ interface LocalWorkerConfig {
   policyEngine?: PolicyEngine;
   spendTracker?: SpendTrackerInterface;
   inputSource?: InputSource;
+  getSurvivalTier?: () => import("../types.js").SurvivalTier;
 }
 
 export class LocalWorkerPool {
   private activeWorkers = new Map<string, { promise: Promise<void>; abortController: AbortController }>();
+  private activeTasks = new Set<string>();
 
   constructor(private readonly config: LocalWorkerConfig) {}
 
   spawn(task: TaskNode): { address: string; name: string; sandboxId: string } {
+    const limit=this.config.config.maxChildren??3;
+    if(!Number.isSafeInteger(limit)||limit<0||this.activeWorkers.size>=limit)
+      throw new InferenceAdmissionError('Local worker concurrency limit reached or invalid');
+    if(this.activeTasks.has(task.id))throw new InferenceAdmissionError('Task already has an active local worker');
+    this.activeTasks.add(task.id);
     const workerId = `local-worker-${ulid()}`;
     const workerName = `worker-${task.agentRole ?? "generalist"}-${workerId.slice(-6)}`;
     const address = `local://${workerId}`;
@@ -75,6 +85,7 @@ export class LocalWorkerPool {
       })
       .finally(() => {
         this.activeWorkers.delete(workerId);
+        this.activeTasks.delete(task.id);
       });
 
     this.activeWorkers.set(workerId, { promise: workerPromise, abortController });
@@ -112,17 +123,34 @@ export class LocalWorkerPool {
       db: this.config.db,
       conway: this.config.conway,
       inference: {
-        chat: async (params) => this.config.inference.chat(params),
+        chat: async (params) => {
+          if(!researchDispatchAllowsInference(this.config.db,task.id))throw new InferenceAdmissionError('Research dispatch paused or stopped');
+          const revenueStore = new RevenueStore(this.config.db);
+          const activeRevenueExperiment = revenueStore.getActiveExperimentForTask(task.id, true);
+          const response = await this.config.inference.chat({
+            ...params,
+            survivalTier: this.config.getSurvivalTier?.(),
+            experimentId: activeRevenueExperiment?.id,
+            costAttribution:{taskId:task.id,goalId:task.goalId,agentId:workerId,...(activeRevenueExperiment?.opportunityId?{opportunityId:activeRevenueExperiment.opportunityId}:{})},
+          });
+          // Accounting has settled, but late output must not initiate tools after a stop.
+          if(signal.aborted||!researchDispatchAllowsInference(this.config.db,task.id))throw new InferenceAdmissionError('Research dispatch interrupted; late output discarded');
+          return response;
+        },
       },
       budget: createBudgetFromTask(task),
       wisdom: buildWisdomFromGoal(this.config.db, task.goalId, workspace),
       abortSignal: signal,
+      assertExecutionAllowed: () => {
+        if(signal.aborted||!researchDispatchAllowsInference(this.config.db,task.id))throw new InferenceAdmissionError('Research dispatch interrupted at tool boundary');
+      },
       goalId: task.goalId,
       toolCatalog: this.config.tools,
       toolContext: this.config.toolContext
         ? {
             ...this.config.toolContext,
             identity: workerIdentity,
+            allowedReadRoot: allowedEditRoot,
           }
         : undefined,
       policyEngine: this.config.policyEngine,
@@ -147,6 +175,7 @@ export class LocalWorkerPool {
 
       if (result.success) {
         completeTask(this.config.db, task.id, result);
+        this.config.db.prepare("UPDATE children SET status = ?, last_checked = datetime('now') WHERE sandbox_id = ?").run("stopped", workerId);
         logger.info("Local worker completed task", {
           workerId,
           taskId: task.id,
@@ -156,6 +185,7 @@ export class LocalWorkerPool {
         });
       } else {
         failTask(this.config.db, task.id, result.output || "Task reported failure", true);
+        this.config.db.prepare("UPDATE children SET status = ?, last_checked = datetime('now') WHERE sandbox_id = ?").run("failed", workerId);
         logger.warn("Local worker reported task failure", {
           workerId,
           taskId: task.id,
@@ -168,6 +198,7 @@ export class LocalWorkerPool {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`[WORKER ${workerId}] Harness execution failed: ${message}`);
       failTask(this.config.db, task.id, message, true);
+      this.config.db.prepare("UPDATE children SET status = ?, last_checked = datetime('now') WHERE sandbox_id = ?").run("failed", workerId);
     }
   }
 }

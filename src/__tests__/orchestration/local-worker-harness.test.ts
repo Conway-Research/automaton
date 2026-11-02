@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -138,9 +138,11 @@ describe("orchestration/LocalWorkerPool harness integration", () => {
     SlowHarness.release = null;
     OrchestratorBudgetHarness.capturedBudget = null;
     tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "local-worker-harness-home-"));
+    vi.spyOn(os, "homedir").mockReturnValue(tempHome);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     db.close();
     fs.rmSync(tempHome, { recursive: true, force: true });
   });
@@ -238,7 +240,7 @@ describe("orchestration/LocalWorkerPool harness integration", () => {
     expect(OrchestratorBudgetHarness.capturedBudget).toBe(50);
   });
 
-  it("runs the real orchestrator harness through planner-backed delegation and persists plan artifacts", async () => {
+  it("persists planner-backed delegation but rejects premature orchestration success", async () => {
     const plannerOutput: PlannerOutput = {
       analysis: "Plan delegated work",
       strategy: "Create an implementation task and exit cleanly",
@@ -299,6 +301,7 @@ describe("orchestration/LocalWorkerPool harness integration", () => {
         db,
         conway: new MockConwayClient(),
         inference: workerInference as any,
+        maxTurns: 2,
         harnessRegistry: registry,
         identity: createTestIdentity(),
         config: createTestConfig(),
@@ -311,8 +314,7 @@ describe("orchestration/LocalWorkerPool harness integration", () => {
     }
 
     const row = getTaskById(db, task.id);
-    expect(row?.status).toBe("completed");
-    expect(row?.result).toMatchObject({ success: true, output: "Delegated the planner-backed work." });
+    expect(row?.status).toBe("failed");
 
     const delegated = db.prepare(
       "SELECT parent_id AS parentId, title, agent_role AS agentRole FROM task_graph WHERE goal_id = ? AND parent_id = ?",

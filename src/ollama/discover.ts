@@ -54,7 +54,7 @@ export async function discoverOllamaModels(
     return [];
   }
 
-  if (!Array.isArray(data.models)) {
+  if (!data || !Array.isArray(data.models) || data.models.length > 1000) {
     logger.warn("Ollama /api/tags response has no models array");
     return [];
   }
@@ -63,10 +63,15 @@ export async function discoverOllamaModels(
   const registered: string[] = [];
 
   for (const m of data.models) {
+    if (!m || typeof m !== 'object') continue;
     const modelId = m.name || m.model;
-    if (!modelId) continue;
+    if (typeof modelId!=='string'||modelId.length>256||
+      !/^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/)*[A-Za-z0-9][A-Za-z0-9._-]*(?::[A-Za-z0-9][A-Za-z0-9._-]*)?$/.test(modelId)||registered.includes(modelId)) continue;
 
     const existing = modelRegistryGet(db, modelId);
+    // Model IDs are shared across providers. Local discovery must not replace
+    // a paid provider's routing, prices or policy with an alleged free model.
+    if(existing&&existing.provider!=='ollama')continue;
     const row: ModelRegistryRow = {
       modelId,
       provider: "ollama",

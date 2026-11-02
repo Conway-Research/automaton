@@ -1,3 +1,4 @@
+import os from "node:os";
 /**
  * Agent Card
  *
@@ -146,6 +147,6 @@ export async function saveAgentCard(
   conway: ConwayClient,
 ): Promise<void> {
   const cardJson = serializeAgentCard(card);
-  const home = process.env.HOME || "/root";
+  const home = process.env.HOME || os.homedir();
   await conway.writeFile(`${home}/.automaton/agent-card.json`, cardJson);
 }

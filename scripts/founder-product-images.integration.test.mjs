@@ -1,0 +1,13 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {openOrderExecution} from './founder-order-execution.mjs';
+import {createProductImageCapability} from './founder-product-images.mjs';import {digest} from './founder-restoration-integrity.mjs';
+test('production execution routes image work and refuses verification without exact review, temporary state only',async()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'numaron-image-integration-'));let calls=0,on=true,review;
+ const order={sourceId:'synthetic-source',externalId:'job',ownerId:'owner',rootTaskId:'root',sourceRevision:'r1'};
+ const binding={...order,assignmentConfirmed:true,termsVerified:true,aiAllowed:true,buyerId:'buyer',scopeDigest:'scope',profileId:'product-images',funding:{verified:true,amountMinor:30000,netAmountMinor:29000,currency:'USD',recipient:'synthetic'},inputs:[{privacy:'public'}],acceptanceCriteria:['exact reviewed export'],imageRequest:{operation:'render',job:{schema:'product-images-v1'}},imageAssets:[{name:'source.png',sha256:'a'.repeat(64)}]};
+ const runtime={certification:{verified:true,isolated:true,network:'none',hostMounts:false,image:'sha256:'+'c'.repeat(64),evidenceRef:'synthetic'},async run(r){calls++;return {requestDigest:r.requestDigest,structuralPassed:true,binaryArtifacts:[{name:'export.png',sha256:'b'.repeat(64),size:200,type:'image/png'}]};},verify:async()=>true};
+ const productImages=createProductImageCapability({isEnabled:()=>on,runtime,readReview:async p=>review?{verdict:'pass',productDigest:digest({files:p.files}),bindingDigest:digest(p.binding),expiresAt:Date.now()+60000,evidenceRef:'synthetic',reviewer:'operator'}:null});
+ const source={sourceId:order.sourceId,profiles:['product-images'],evidenceRef:'synthetic',methods:{prepare:async()=>({confirmed:true,binding})},verify:()=>true,verifyProduct:async()=>true};
+ const engine=openOrderExecution({directory,isEnabled:()=>on,options:{sources:[source],productImages}}),ctx={order,grant:{reservationId:'fake',maxCostRappen:0},assertActive(){}};
+ try{on=false;await assert.rejects(engine.adapters.prepare.execute(ctx));assert.equal(calls,0);on=true;await engine.adapters.prepare.execute(ctx);await engine.adapters.work.execute(ctx);assert.equal(calls,1);await assert.rejects(engine.adapters.verify.execute(ctx));review=true;assert.equal((await engine.adapters.verify.execute(ctx)).confirmed,true);await engine.adapters.work.execute(ctx);assert.equal(calls,1);}finally{engine.close();fs.rmSync(directory,{recursive:true,force:true});}
+});

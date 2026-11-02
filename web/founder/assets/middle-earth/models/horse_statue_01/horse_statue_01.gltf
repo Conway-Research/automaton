@@ -1,0 +1,331 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "horse_statue_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "horse_statue_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "horse_statue_01_base",
+      "normalTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicFactor": 0,
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "extras": {
+        "targetNames": [
+          "hooves"
+        ]
+      },
+      "name": "Plane",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "targets": [
+            {
+              "POSITION": 4,
+              "NORMAL": 5
+            }
+          ]
+        },
+        {
+          "attributes": {
+            "POSITION": 6,
+            "NORMAL": 7,
+            "TEXCOORD_0": 8
+          },
+          "indices": 9,
+          "material": 1,
+          "targets": [
+            {
+              "POSITION": 10,
+              "NORMAL": 11
+            }
+          ]
+        }
+      ],
+      "weights": [
+        1
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "horse_statue_01_nor_gl",
+      "uri": "textures/horse_statue_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "horse_statue_01_diff",
+      "uri": "textures/horse_statue_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "horse_statue_01_arm",
+      "uri": "textures/horse_statue_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 12255,
+      "max": [
+        0.07783335447311401,
+        0.21999721229076385,
+        0.053308602422475815
+      ],
+      "min": [
+        -0.08515907824039459,
+        0.011014513671398163,
+        -0.05248892307281494
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 12255,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 12255,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 65724,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 12255,
+      "max": [
+        0.0008086264133453369,
+        0.001424551010131836,
+        0.0007443949580192566
+      ],
+      "min": [
+        -0.0009574741125106812,
+        -0.001507088541984558,
+        -0.0008131870999932289
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 12255,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 337,
+      "max": [
+        0.05958269536495209,
+        0.011499738320708275,
+        0.053880687803030014
+      ],
+      "min": [
+        -0.059524279087781906,
+        0.00001830275505199097,
+        -0.05391017720103264
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 337,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 337,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5123,
+      "count": 1440,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 337,
+      "max": [
+        0,
+        0,
+        0
+      ],
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 337,
+      "type": "VEC3"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 147060,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 147060,
+      "byteOffset": 147060
+    },
+    {
+      "buffer": 0,
+      "byteLength": 98040,
+      "byteOffset": 294120
+    },
+    {
+      "buffer": 0,
+      "byteLength": 131448,
+      "byteOffset": 392160
+    },
+    {
+      "buffer": 0,
+      "byteLength": 147060,
+      "byteOffset": 523608
+    },
+    {
+      "buffer": 0,
+      "byteLength": 147060,
+      "byteOffset": 670668
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4044,
+      "byteOffset": 817728
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4044,
+      "byteOffset": 821772
+    },
+    {
+      "buffer": 0,
+      "byteLength": 2696,
+      "byteOffset": 825816
+    },
+    {
+      "buffer": 0,
+      "byteLength": 2880,
+      "byteOffset": 828512
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4044,
+      "byteOffset": 831392
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4044,
+      "byteOffset": 835436
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 839480,
+      "uri": "horse_statue_01.bin"
+    }
+  ]
+}

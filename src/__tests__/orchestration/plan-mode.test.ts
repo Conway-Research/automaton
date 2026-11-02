@@ -368,10 +368,10 @@ describe("orchestration/plan-mode", () => {
       expect(result).toEqual({ approved: true });
     });
 
-    it("auto mode approves above threshold with feedback", async () => {
+    it("auto mode rejects above threshold with feedback", async () => {
       const result = await reviewPlan(makePlan({ estimatedTotalCostCents: 9000 }), autoConfig);
-      expect(result.approved).toBe(true);
-      expect(result.feedback).toContain("Auto-approved above threshold");
+      expect(result.approved).toBe(false);
+      expect(result.feedback).toContain("exceeds automatic review threshold");
     });
 
     it("supervised mode throws awaiting approval", async () => {
@@ -379,7 +379,7 @@ describe("orchestration/plan-mode", () => {
       await expect(reviewPlan(makePlan(), supervised)).rejects.toThrow("awaiting human approval");
     });
 
-    it("consensus mode returns approval feedback", async () => {
+    it("consensus mode cannot approve without an independent reviewer", async () => {
       const consensus: PlanApprovalConfig = {
         ...autoConfig,
         mode: "consensus",
@@ -387,11 +387,11 @@ describe("orchestration/plan-mode", () => {
         reviewTimeoutMs: 9000,
       };
       const result = await reviewPlan(makePlan(), consensus);
-      expect(result.approved).toBe(true);
-      expect(result.feedback).toContain("critic role 'critic'");
+      expect(result.approved).toBe(false);
+      expect(result.feedback).toContain("reviewer unavailable");
     });
 
-    it("normalizes invalid config values", async () => {
+    it("rejects invalid configuration instead of silently selecting auto approval", async () => {
       const result = await reviewPlan(makePlan({ estimatedTotalCostCents: 99999 }), {
         mode: "unknown" as unknown as "auto",
         autoBudgetThreshold: Number.NaN,
@@ -399,8 +399,26 @@ describe("orchestration/plan-mode", () => {
         reviewTimeoutMs: Number.NaN,
       });
 
-      expect(result.approved).toBe(true);
-      expect(result.feedback).toContain("5000");
+      expect(result.approved).toBe(false);
+      expect(result.feedback).toContain("Invalid review configuration");
+    });
+    it('rejects understated task totals and malformed plans',async()=>{
+      expect(await reviewPlan(makePlan({estimatedTotalCostCents:1}),autoConfig)).toMatchObject({approved:false});
+      expect(await reviewPlan({} as PlannerOutput,autoConfig)).toMatchObject({approved:false});
+      expect(await reviewPlan(makePlan({tasks:[]}),autoConfig)).toMatchObject({approved:false});
+    });
+    it('binds consensus to the exact plan and rejects blocked, mutated or failed reviews',async()=>{
+      const config={...autoConfig,mode:'consensus' as const,reviewTimeoutMs:5};
+      expect(await reviewPlan(makePlan(),config,{review:async({planDigest})=>({planDigest,approved:true,blockers:[]})})).toMatchObject({approved:true});
+      expect(await reviewPlan(makePlan(),config,{review:async({planDigest})=>({planDigest,approved:true,blockers:['missing_costs']})})).toMatchObject({approved:false});
+      expect(await reviewPlan(makePlan(),config,{review:async()=>({planDigest:'wrong',approved:true,blockers:[]})})).toMatchObject({approved:false});
+      const plan=makePlan();
+      expect(await reviewPlan(plan,config,{review:async({plan:copy,planDigest})=>{copy.estimatedTotalCostCents=0;return {planDigest,approved:true,blockers:[]};}})).toMatchObject({approved:false});
+      expect(plan.estimatedTotalCostCents).toBe(1200);
+      expect(await reviewPlan(plan,config,{review:async()=>{throw new Error('sensitive provider detail');}})).toEqual({approved:false,feedback:'Consensus review unavailable or timed out; no approval inferred'});
+      let signal:AbortSignal|undefined;
+      expect(await reviewPlan(plan,config,{review:input=>{signal=input.signal;return new Promise(()=>{});}})).toMatchObject({approved:false});
+      expect(signal?.aborted).toBe(true);
     });
   });
 

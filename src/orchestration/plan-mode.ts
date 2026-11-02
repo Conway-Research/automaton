@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {createHash} from 'node:crypto';
 import { UnifiedInferenceClient } from "../inference/inference-client.js";
 import type { PlannerOutput } from "./planner.js";
 import { validatePlannerOutput } from "./planner.js";
@@ -39,6 +40,13 @@ export interface PlanApprovalConfig {
   autoBudgetThreshold: number;
   consensusCriticRole: string;
   reviewTimeoutMs: number;
+}
+export interface PlanReviewer {
+  /** Installed independent review boundary. Must use existing resource gates;
+   * this callback does not grant permission for a paid model/tool invocation. */
+  review(input:{plan:PlannerOutput;planDigest:string;role:string;signal:AbortSignal}):Promise<{
+    planDigest:string;approved:boolean;blockers:('missing_costs'|'demand_unverified'|'execution_risk'|'data_quality'|'selection_bias'|'security_risk')[];
+  }>;
 }
 
 export type ReplanTrigger =
@@ -241,15 +249,25 @@ export async function loadPlan(planFilePath: string): Promise<PlannerOutput> {
 export async function reviewPlan(
   plan: PlannerOutput,
   config: PlanApprovalConfig,
+  reviewer?:PlanReviewer,
 ): Promise<{ approved: boolean; feedback?: string }> {
+  if(!config||!['auto','supervised','consensus'].includes(config.mode)||!Number.isSafeInteger(config.autoBudgetThreshold)||config.autoBudgetThreshold<0||
+    !Number.isSafeInteger(config.reviewTimeoutMs)||config.reviewTimeoutMs<1||config.reviewTimeoutMs>1800000)
+    return {approved:false,feedback:'Invalid review configuration; no approval inferred'};
+  let checked:PlannerOutput;
+  try{checked=validatePlannerOutput(plan);}catch{return {approved:false,feedback:'Invalid plan; reconcile its structure before execution'};}
+  const cost=checked.tasks.reduce((sum,task)=>sum+task.estimatedCostCents,0);
+  if(!checked.tasks.length||!Number.isSafeInteger(cost)||!Number.isSafeInteger(checked.estimatedTotalCostCents)||
+    checked.tasks.some(t=>!Number.isSafeInteger(t.estimatedCostCents))||cost>checked.estimatedTotalCostCents)
+    return {approved:false,feedback:'Plan cost must cover every task with nonnegative integer cents'};
   const normalized = normalizeApprovalConfig(config);
 
   switch (normalized.mode) {
     case "auto": {
-      if (plan.estimatedTotalCostCents > normalized.autoBudgetThreshold) {
+      if (checked.estimatedTotalCostCents > normalized.autoBudgetThreshold) {
         return {
-          approved: true,
-          feedback: `Auto-approved above threshold (${plan.estimatedTotalCostCents} > ${normalized.autoBudgetThreshold}).`,
+          approved: false,
+          feedback: `Plan exceeds automatic review threshold (${checked.estimatedTotalCostCents} > ${normalized.autoBudgetThreshold}); reduce scope or obtain an explicit policy decision.`,
         };
       }
       return { approved: true };
@@ -260,10 +278,19 @@ export async function reviewPlan(
     }
 
     case "consensus": {
-      return {
-        approved: true,
-        feedback: `Consensus review stub (critic role '${normalized.consensusCriticRole}', timeout ${normalized.reviewTimeoutMs}ms).`,
-      };
+      if(!reviewer)return {approved:false,feedback:'Independent consensus reviewer unavailable; no approval inferred'};
+      const digest=(p:PlannerOutput)=>createHash('sha256').update(JSON.stringify(p)).digest('hex');
+      const copy=structuredClone(checked),planDigest=digest(copy),controller=new AbortController();
+      let timer:ReturnType<typeof setTimeout>|undefined;
+      try{
+        const result=await Promise.race([reviewer.review({plan:copy,planDigest,role:normalized.consensusCriticRole,signal:controller.signal}),
+          new Promise<never>((_resolve,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('Review timeout'));},normalized.reviewTimeoutMs);})]);
+        const allowed=['missing_costs','demand_unverified','execution_risk','data_quality','selection_bias','security_risk'];
+        if(!result||result.planDigest!==planDigest||digest(copy)!==planDigest||typeof result.approved!=='boolean'||!Array.isArray(result.blockers)||result.blockers.length>20||
+          result.blockers.some(b=>!allowed.includes(b)))return {approved:false,feedback:'Invalid or mismatched consensus review'};
+        return {approved:result.approved&&result.blockers.length===0,feedback:result.blockers.length?`Consensus blockers: ${[...new Set(result.blockers)].join(', ')}`:'Independent plan review completed; economic evidence and execution gates remain mandatory'};
+      }catch{return {approved:false,feedback:'Consensus review unavailable or timed out; no approval inferred'};}
+      finally{if(timer)clearTimeout(timer);}
     }
 
     default: {

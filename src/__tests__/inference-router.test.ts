@@ -10,6 +10,7 @@ import Database from "better-sqlite3";
 import type BetterSqlite3 from "better-sqlite3";
 import { MIGRATION_V6 } from "../state/schema.js";
 import {
+  createDatabase,
   inferenceInsertCost,
   inferenceGetSessionCosts,
   inferenceGetDailyCost,
@@ -36,11 +37,7 @@ import type { ModelRegistryRow, InferenceCostRow, ModelStrategyConfig } from "..
 let db: BetterSqlite3.Database;
 
 function createTestDb(): BetterSqlite3.Database {
-  const testDb = new Database(":memory:");
-  testDb.pragma("journal_mode = WAL");
-  testDb.pragma("foreign_keys = ON");
-  testDb.exec(MIGRATION_V6);
-  return testDb;
+  return createDatabase(":memory:").raw;
 }
 
 beforeEach(() => {
@@ -352,7 +349,7 @@ describe("InferenceRouter", () => {
       const sessionRouter = new InferenceRouter(db, registry, sessionBudget);
 
       // Record enough cost to nearly exhaust the session budget
-      sessionBudget.recordCost({
+      sessionBudget.recordCost({ experimentId: null,
         sessionId: "budget-session",
         turnId: null,
         model: "gpt-4.1",
@@ -547,7 +544,7 @@ describe("InferenceBudgetTracker", () => {
 
     // Record some existing costs to push over the limit
     for (let i = 0; i < 10; i++) {
-      tracker.recordCost({
+      tracker.recordCost({ experimentId: null,
         sessionId: "test",
         turnId: null,
         model: "gpt-4.1",
@@ -578,7 +575,7 @@ describe("InferenceBudgetTracker", () => {
   it("recordCost stores to inference_costs table", () => {
     const tracker = new InferenceBudgetTracker(db, DEFAULT_MODEL_STRATEGY_CONFIG);
 
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "session-1",
       turnId: "turn-1",
       model: "gpt-4.1",
@@ -601,12 +598,12 @@ describe("InferenceBudgetTracker", () => {
   it("getDailyCost sums correctly", () => {
     const tracker = new InferenceBudgetTracker(db, DEFAULT_MODEL_STRATEGY_CONFIG);
 
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "s1", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 10,
       latencyMs: 100, tier: "normal", taskType: "agent_turn", cacheHit: false,
     });
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "s2", turnId: null, model: "gpt-4.1-mini", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 5,
       latencyMs: 100, tier: "low_compute", taskType: "heartbeat_triage", cacheHit: false,
@@ -619,7 +616,7 @@ describe("InferenceBudgetTracker", () => {
   it("getHourlyCost sums current hour only", () => {
     const tracker = new InferenceBudgetTracker(db, DEFAULT_MODEL_STRATEGY_CONFIG);
 
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "s1", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 7,
       latencyMs: 100, tier: "normal", taskType: "agent_turn", cacheHit: false,
@@ -632,12 +629,12 @@ describe("InferenceBudgetTracker", () => {
   it("getSessionCost returns correct total", () => {
     const tracker = new InferenceBudgetTracker(db, DEFAULT_MODEL_STRATEGY_CONFIG);
 
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "my-session", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 3,
       latencyMs: 100, tier: "normal", taskType: "agent_turn", cacheHit: false,
     });
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "my-session", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 200, outputTokens: 100, costCents: 6,
       latencyMs: 200, tier: "normal", taskType: "planning", cacheHit: false,
@@ -650,12 +647,12 @@ describe("InferenceBudgetTracker", () => {
   it("getModelCosts returns correct breakdown", () => {
     const tracker = new InferenceBudgetTracker(db, DEFAULT_MODEL_STRATEGY_CONFIG);
 
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "s1", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 5,
       latencyMs: 100, tier: "normal", taskType: "agent_turn", cacheHit: false,
     });
-    tracker.recordCost({
+    tracker.recordCost({ experimentId: null,
       sessionId: "s1", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 200, outputTokens: 100, costCents: 10,
       latencyMs: 200, tier: "normal", taskType: "agent_turn", cacheHit: false,
@@ -799,7 +796,7 @@ describe("Schema MIGRATION_V6", () => {
 
 describe("Inference DB Helpers", () => {
   it("inferenceInsertCost returns a valid id", () => {
-    const id = inferenceInsertCost(db, {
+    const id = inferenceInsertCost(db, { experimentId: null,
       sessionId: "s1",
       turnId: null,
       model: "gpt-4.1",
@@ -817,12 +814,12 @@ describe("Inference DB Helpers", () => {
   });
 
   it("inferenceGetSessionCosts returns costs for session", () => {
-    inferenceInsertCost(db, {
+    inferenceInsertCost(db, { experimentId: null,
       sessionId: "s1", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 5,
       latencyMs: 200, tier: "normal", taskType: "agent_turn", cacheHit: false,
     });
-    inferenceInsertCost(db, {
+    inferenceInsertCost(db, { experimentId: null,
       sessionId: "s2", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 3,
       latencyMs: 200, tier: "normal", taskType: "agent_turn", cacheHit: false,
@@ -833,7 +830,7 @@ describe("Inference DB Helpers", () => {
     expect(s1Costs[0].costCents).toBe(5);
   });
 
-  it("inferencePruneCosts removes old records", () => {
+  it("inferencePruneCosts preserves historical financial records", () => {
     // Insert a cost record with an old timestamp by directly inserting
     db.prepare(
       `INSERT INTO inference_costs (id, session_id, turn_id, model, provider, input_tokens, output_tokens, cost_cents, latency_ms, tier, task_type, cache_hit, created_at)
@@ -841,19 +838,19 @@ describe("Inference DB Helpers", () => {
     ).run("old-record", "s1", null, "gpt-4.1", "openai", 100, 50, 5, 200, "normal", "agent_turn", 0, "2020-01-01 00:00:00");
 
     // Insert a fresh record (uses datetime('now') default)
-    inferenceInsertCost(db, {
+    inferenceInsertCost(db, { experimentId: null,
       sessionId: "s2", turnId: null, model: "gpt-4.1", provider: "openai",
       inputTokens: 100, outputTokens: 50, costCents: 5,
       latencyMs: 200, tier: "normal", taskType: "agent_turn", cacheHit: false,
     });
 
-    // Prune with 30-day retention - should remove the old record but not the fresh one
+    // Age cannot remove liabilities from lifetime capital/session/experiment totals.
     const pruned = inferencePruneCosts(db, 30);
-    expect(pruned).toBe(1);
+    expect(pruned).toBe(0);
 
     // Verify the fresh record is still there
     const remaining = db.prepare("SELECT COUNT(*) as cnt FROM inference_costs").get() as { cnt: number };
-    expect(remaining.cnt).toBe(1);
+    expect(remaining.cnt).toBe(2);
   });
 
   it("inferenceGetModelCosts cutoff matches datetime('now') format", () => {

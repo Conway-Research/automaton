@@ -1,0 +1,60 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "date": "2026-10-22",
+  "regularRun": {
+    "id": "2026-10-22T20-18-59-813Z-2517b9e4",
+    "status": "completed",
+    "completedAt": "2026-10-22T20:20:42.280Z",
+    "rows": 35,
+    "succeeded": 33,
+    "http404": 2
+  },
+  "verifiedAnswerEvidence": {
+    "ugigCheckedAt": "2026-10-22T20:20:33.125Z",
+    "applications": 14,
+    "watched": {
+      "450USD": "pending",
+      "100USD": "pending",
+      "90USD": "pending",
+      "50USD": "pending"
+    },
+    "incomingLatestMessages": 0,
+    "unreadCounts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "gmail": {
+      "checkedAt": "2026-10-22T20:20:28.148Z",
+      "status": "succeeded",
+      "resultSizeEstimate": 0
+    },
+    "dealwork": {
+      "checkedAt": "2026-10-22T20:20:12.395Z",
+      "status": "succeeded",
+      "contracts": 0
+    }
+  },
+  "search": {
+    "opentaskVisibleTasksScreened": 20,
+    "detail": "https://opentask.ai/tasks/cmpupoqmm0027kw04351wcfhz",
+    "detailDecision": "No application: old June listing, 564 active offers on list, many existing ready solutions, current award and payment protection unverified",
+    "excludedOtherTypes": [
+      "worker-funded campaign",
+      "unpaid projects",
+      "physical/video data work",
+      "new-registration probes",
+      "expired deadline",
+      "new live-security probing scope"
+    ],
+    "newApplications": 0,
+    "newAccounts": 0
+  },
+  "operation": {
+    "extraMonitorRunsStarted": 0,
+    "productionPowerActions": 0,
+    "restarts": 0,
+    "budgetOrProtectionChanges": 0
+  }
+}

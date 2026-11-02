@@ -4,7 +4,23 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import {createFounderStore,startFounderDashboard} from './founder-dashboard.mjs';
+import {createFounderStore,startFounderDashboard as startDashboard} from './founder-dashboard.mjs';
+const startFounderDashboard=(options={})=>startDashboard({readUsage:async()=>({status:'fake-disabled'}),...options});
+test('finance polling uses fresh budget-only projection without full runtime traversal or providers while OFF',async()=>{
+ let calls=0,reads=0;const budget={periodRappen:15000,spentRappen:1};
+ const ui=await startFounderDashboard({power:{isOn:()=>false},autonomy:{budgetSnapshot:()=>{reads++;return {...budget};},snapshot:()=>{calls++;throw Error('Expensive full snapshot must not run');}},readFinance:async()=>{throw Error('No provider while OFF');}});
+ try{
+  assert.equal((await fetch(ui.url+'/api/finance/snapshot')).status,401);assert.equal(reads,0);
+  const login=await fetch(ui.url+'/api/session',{method:'POST',headers:{Origin:ui.url,'Content-Type':'application/json'},body:JSON.stringify({token:new URL(ui.loginUrl).hash.slice(1)})});const Cookie=login.headers.get('set-cookie').split(';')[0];
+  for(const spent of [1,2]){budget.spentRappen=spent;const response=await fetch(ui.url+'/api/finance/snapshot',{headers:{Cookie}});assert.equal(response.status,200);const data=await response.json();assert.equal(data.financeBudget.spentRappen,spent);assert.equal(data.financeStatus.reportAvailable,false);}
+  assert.equal(reads,2);assert.equal(calls,0);
+ }finally{await ui.close();}
+});
+test('communication status is authenticated and purely local; it never invokes provider snapshots',async()=>{
+ let calls=0;const status={enabled:false,supported:['github','ugig','dealwork'],externalWriteVerification:'not-checked-offline'};
+ const ui=await startFounderDashboard({autonomy:{communicationStatus:()=>status,snapshot:()=>{throw Error('Full runtime snapshot not needed');}},readTrading:async()=>{calls++;throw Error('No provider calls');},readStripe:async()=>{calls++;throw Error('No provider calls');}});
+ try{assert.equal((await fetch(ui.url+'/api/communication/status')).status,401);const login=await fetch(ui.url+'/api/session',{method:'POST',headers:{Origin:ui.url,'Content-Type':'application/json'},body:JSON.stringify({token:new URL(ui.loginUrl).hash.slice(1)})});const Cookie=login.headers.get('set-cookie').split(';')[0];const r=await fetch(ui.url+'/api/communication/status',{headers:{Cookie}});assert.equal(r.status,200);assert.deepEqual((await r.json()).communication,status);assert.equal(calls,0);}finally{await ui.close();}
+});
 test('usage aggregates require founder authentication and preserve the data timestamp',async()=>{
  const usage={status:'connected',projectId:878459,observedAt:'2026-10-13T14:00:00.000Z',pageViews:2,dashboardViews:1};
  const ui=await startFounderDashboard({readUsage:async()=>usage});

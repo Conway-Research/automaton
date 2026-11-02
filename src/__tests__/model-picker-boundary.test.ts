@@ -1,0 +1,14 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+const m=vi.hoisted(()=>({load:vi.fn(),save:vi.fn(),close:vi.fn(),prompt:vi.fn(),end:vi.fn(),discover:vi.fn(),models:[{enabled:true,provider:'openai',modelId:'fixture',displayName:'Fixture',costPer1kInput:1,supportsTools:true}]}));
+vi.mock('../config.js',()=>({loadConfig:m.load,saveConfig:m.save,resolvePath:(s:string)=>s}));
+vi.mock('../state/database.js',()=>({createDatabase:()=>({raw:{},close:m.close})}));
+vi.mock('../inference/registry.js',()=>({ModelRegistry:class {initialize(){}getAll(){return m.models;}}}));
+vi.mock('../ollama/discover.js',()=>({discoverOllamaModels:m.discover}));
+vi.mock('../setup/prompts.js',()=>({promptOptional:m.prompt,closePrompts:m.end}));
+import {runModelPicker} from '../setup/model-picker.js';
+beforeEach(()=>{vi.clearAllMocks();m.load.mockReturnValue({dbPath:'synthetic',inferenceModel:'old',modelStrategy:{}});vi.spyOn(console,'log').mockImplementation(()=>{});vi.stubEnv('OLLAMA_BASE_URL','');});
+afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
+it.each(['1junk','1.5','-1','0','9007199254740993','2'])('does not save malformed selection %s',async v=>{m.prompt.mockResolvedValue(v);await runModelPicker();expect(m.save).not.toHaveBeenCalled();expect(m.close).toHaveBeenCalledTimes(1);});
+it('saves a valid explicit choice',async()=>{m.prompt.mockResolvedValue('1');await runModelPicker();expect(m.save).toHaveBeenCalledWith(expect.objectContaining({inferenceModel:'fixture'}));});
+it('closes database and prompt on failed save',async()=>{m.prompt.mockResolvedValue('1');m.save.mockImplementationOnce(()=>{throw Error('synthetic');});await expect(runModelPicker()).rejects.toThrow();expect(m.close).toHaveBeenCalledTimes(1);expect(m.end).toHaveBeenCalledTimes(1);});
+it('closes database on failed discovery',async()=>{m.load.mockReturnValue({dbPath:'synthetic',ollamaBaseUrl:'http://invalid.test'});m.discover.mockRejectedValueOnce(Error('offline'));await expect(runModelPicker()).rejects.toThrow();expect(m.close).toHaveBeenCalledTimes(1);});

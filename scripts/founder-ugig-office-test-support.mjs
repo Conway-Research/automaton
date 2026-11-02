@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {createOfficePipeline,officeRuntimeVersion} from './founder-ugig-office-pipeline.mjs';
+import {officeFixture} from './founder-ugig-office-fixture.mjs';import {officeScopeDigest} from './founder-ugig-office-contract.mjs';
+import {digest,orderKey} from './founder-restoration-integrity.mjs';import {binaryManifestFiles} from './founder-binary-artifacts.mjs';
+export async function setupOfficePipeline(input,options={}){const f=officeFixture(input?.spec?.workKind??'document-cleanup',input),base=fs.mkdtempSync(path.join(os.tmpdir(),'office-pipeline-')),root=path.join(base,'artifacts/founder-autonomy-20261013'),python=process.env.NUMARON_OFFICE_TEST_PYTHON;
+ f.a.generatorVersion=await officeRuntimeVersion(python);f.a.scopeDigest=officeScopeDigest(f.a);f.pack.workGrant.agreementDigest=digest(f.a);Object.assign(f.pack.fundingEvidence.funding,f.order());
+ const invoice={id:'77777777-7777-4777-8777-777777777777',gig_id:f.a.gigId,application_id:f.a.applicationId,worker_id:f.a.ownerId,poster_id:f.a.buyerId,status:'paid',amount_usd:10,currency:'USD'};
+ f.pack.fundingEvidence.netReceipt={reviewed:true,independentlyVerified:true,kind:'provider-settlement',receiptId:'synthetic:1',evidenceRef:'synthetic',evidenceDigest:digest('synthetic'),scopeDigest:f.a.scopeDigest,recipient:f.a.paymentTerms.recipient,netAmountMinor:900,currency:'USD',receivedAt:new Date(f.now-1).toISOString(),invoiceId:invoice.id,invoiceDigest:digest(invoice)};
+ for(const d of ['ugig-office-contracts','ugig-office-inputs','ugig-office-releases'])fs.mkdirSync(path.join(root,d),{recursive:true});const save=()=>fs.writeFileSync(path.join(root,'ugig-office-contracts',digest(orderKey(f.a))+'.json'),JSON.stringify(f.pack));save();for(const [h,b] of f.blobs)fs.writeFileSync(path.join(root,'ugig-office-inputs',h),b);
+ let on=true,requests=0,requestHook;const request=async(u,o)=>{requests++;await requestHook?.(u,o);assert.equal(o.method,'GET','no sends allowed');if(u.endsWith('/invoice'))return Response.json({data:[invoice]});return f.request(u,o);};
+ const p=createOfficePipeline({base,isEnabled:()=>on,now:()=>f.now,request,credential:()=>'synthetic',binaryStorageOrigin:options.binaryStorageOrigin,officeVisualRuntime:options.officeVisualRuntime,officeRuntime:{python,generatorVersion:f.a.generatorVersion}});
+ const ctx={order:f.order(),grant:{reservationId:'synthetic'},assertActive(){}};
+ const release=r=>{const pack=f.releaseFor(r);fs.writeFileSync(path.join(root,'ugig-office-releases',r.generationKey+'.json'),JSON.stringify(pack));f.messages.push({id:pack.release.customer.messageId,sender_id:f.a.buyerId,conversation_id:f.a.conversationId,content:'Public package '+r.packageDigest,created_at:new Date(f.now+1).toISOString()});return pack;};
+ return {f,base,root,invoice,p,ctx,save,release,request,requests:()=>requests,setRequestHook:fn=>requestHook=fn,off:()=>on=false,close(){p.close();fs.rmSync(base,{recursive:true,force:true});}};
+}

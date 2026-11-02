@@ -1,0 +1,20 @@
+{
+  "schema": "numaron-expert-training-priorities-v1",
+  "status": "transmitted-to-existing-workflow-owner",
+  "spec": "docs/numaron-expert-training-priorities-20261026.md",
+  "specSha256": "73dbd350be2263ad064f7851022e57fb7e23ad9340fcf6edb9f64cf8fb00c7bf",
+  "ownerThread": "01a16c55-49c6-7770-85bb-77ae0b971af4",
+  "implemented": false,
+  "testsPassed": 0,
+  "offlineAcceptanceCasesSpecified": 12,
+  "priorities": [
+    "data-workflows",
+    "interfaces",
+    "repairs"
+  ],
+  "personnelCostsIncluded": false,
+  "humanTimeUnit": "minutes-only",
+  "powerChanged": false,
+  "productionTakeover": false,
+  "duplicateWorkerStarted": false
+}

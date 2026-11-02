@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-19",
+  "scope": "One zero-authentication public spot OHLC source for internal historical strategy simulations only",
+  "sourceId": "bitfinex-ethusd-daily",
+  "activation": "Loaded by explicitly authorized maintenance restart at 2026-10-19T12:39:39.390Z. Numaron left OFF for Patrice to start personally.",
+  "rightsReview": {
+    "reviewedAt": "2026-10-19",
+    "marketDataTerms": "https://www.bitfinex.com/legal/general/market-data/",
+    "marketDataTermsDate": "2022-07-06",
+    "apiTerms": "https://www.bitfinex.com/legal/general/api-terms/",
+    "apiTermsDate": "2025-01-07",
+    "publicAccessEvidence": "https://docs.bitfinex.com/docs/requirements-and-limitations",
+    "formatEvidence": "https://docs.bitfinex.com/reference/rest-public-candles",
+    "permittedScope": "Market Data Terms sections 2-3 permit download, storage, copying and internal analysis of prices and markets. Public API documentation explicitly states that a Bitfinex account is not required for public access.",
+    "restrictions": [
+      "Internal research only; not an open-data or redistribution licence",
+      "No disclosure, distribution, resale or sublicensing of source data",
+      "No financial products, financial benchmarks, reference rates or indices",
+      "No falsification or modification of source observations; exact unit conversion only, raw bytes unchanged",
+      "Source deletion obligations apply on revocation, disconnection or end of reasonable research need",
+      "No authenticated endpoints, orders, wallet, deposits, subscription or paid fallback"
+    ],
+    "accountWording": "General API Terms mention account signup; the specific Public API documentation explicitly permits access without an account. Adapter uses only the documented public endpoint, with no credentials or account creation.",
+    "technicalEnforcement": [
+      "Fixed public HTTPS host and endpoint",
+      "Existing pinned DNS and SSRF protections",
+      "Source-specific parser",
+      "Financial benchmark comparator disabled",
+      "liveAuthorized remains false"
+    ]
+  },
+  "data": {
+    "endpoint": "https://api-pub.bitfinex.com/v2/candles/trade:1D:tETHUSD/hist?start=1672531200000&end=1792022399999&sort=1&limit=10000",
+    "symbol": "ETHUSD",
+    "product": "Spot execution prices for one whole ETH in USD",
+    "start": "2023-01-01",
+    "end": "2026-10-14",
+    "observations": 1383,
+    "rawSha256": "3ea9ca654f4a72df0901d2539d2d97a2c44af505bf5ef0655d3c3711ad4e3a70",
+    "normalizationVersion": "bitfinex-ethusd-daily-v1",
+    "mapping": "MTS,OPEN,CLOSE,HIGH,LOW,VOLUME -> time,open,close,high,low; exact USD cents",
+    "rejects": [
+      "API errors",
+      "Truncated or oversized history",
+      "Missing or duplicated dates",
+      "Non-midnight daily timestamps",
+      "Invalid OHLC relationships",
+      "Subcent prices",
+      "Zero or invalid volume"
+    ],
+    "limitations": [
+      "Single venue and asset",
+      "Historical revisions and outages not independently verified",
+      "No tick path, verified bid/ask or historical broker costs",
+      "Whole-unit position sizing can reject unaffordable positions",
+      "Generic history quality warning about unverified calendar retained"
+    ]
+  },
+  "verification": {
+    "historyVitest": {
+      "passed": 57,
+      "files": 15,
+      "failed": 0
+    },
+    "dashboardReadOnlyTests": {
+      "passed": 2,
+      "failed": 0,
+      "externalNetworkBlocked": true
+    },
+    "typecheck": "tsc --noEmit",
+    "actualDataIsolatedRun": "artifacts/runtime-blocker-repair-20261019/bitfinex-ohlc-isolated-readback.json",
+    "reports": 36,
+    "registeredVariants": 12,
+    "phases": [
+      "development",
+      "validation",
+      "final"
+    ],
+    "simulatedTradesAcrossAllVariantsAndPhases": 1183,
+    "failedResearchJobs": 0,
+    "finalVariantsRejected": 12,
+    "readyForTrading": 0,
+    "cleanup": "Temporary databases and raw test archives removed",
+    "productionLimitsChanged": false
+  },
+  "otherSources": [
+    {
+      "source": "Kraken",
+      "decision": "not admitted",
+      "reason": "Prior permission required for non-personal commercial market-data use",
+      "evidence": "https://docs-legacy.kraken.com/api/docs/guides/global-intro/"
+    },
+    {
+      "source": "Coinbase",
+      "decision": "not admitted",
+      "reason": "Market Data Terms section 3.5 prohibit improving agents or automated systems without prior written consent",
+      "evidence": "https://www.coinbase.com/legal/market_data"
+    },
+    {
+      "source": "Coin Metrics community",
+      "decision": "not admitted",
+      "reason": "Community data restricted to non-commercial use",
+      "evidence": "https://github.com/coinmetrics/product-docs/blob/master/docs/access-our-data/api/README.md"
+    },
+    {
+      "source": "Bitfinex LTC/USD and pre-2023 BTC/USD precision",
+      "decision": "not admitted",
+      "reason": "Current integer-cent engine cannot represent observed subcent prices exactly; no rounding workaround"
+    }
+  ],
+  "remaining": [
+    "No strategy approved for real trading or promoted from these simulations",
+    "Provider terms must be rechecked if access, purpose or terms change",
+    "Kenneth French and JST rights restrictions unchanged"
+  ],
+  "restartVerification": {
+    "readback": "artifacts/runtime-blocker-repair-20261019/bitfinex-restart-readback.json",
+    "powerEnabled": false,
+    "activeJobs": 0,
+    "sourceLoaded": true,
+    "budgetUnchangedFromConfirmedOff": true,
+    "budgetDigest": "a54fa49dab6787ad79ad7f1ae9b5c03cf6873a209fb32adbe4abca0d95abf756",
+    "reservedRappen": 550,
+    "providerProbes": 0
+  }
+}

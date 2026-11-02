@@ -1,7 +1,11 @@
+import {fixtureGrantAdapterPermission as grantAdapterPermission} from '../fixtures/security-review.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SimpleAgentTracker, SimpleFundingProtocol } from "../../orchestration/simple-tracker.js";
 import { createInMemoryDb } from "./test-db.js";
 import type BetterSqlite3 from "better-sqlite3";
+import {createDatabase} from '../../state/database.js';
+import {initializeCapitalBudget} from '../../revenue/capital-budget.js';
+import {registerBudgetPolicy} from '../../inference/budget-policy.js';
 
 function createMockAutomatonDb(db: BetterSqlite3.Database) {
   return {
@@ -196,13 +200,18 @@ describe("orchestration/simple-tracker", () => {
 
 describe("orchestration/SimpleFundingProtocol", () => {
   let fundingDb: BetterSqlite3.Database;
+  const attribution={operationId:'op_fixture',experimentId:'experiment'};
 
   beforeEach(() => {
-    fundingDb = createInMemoryDb();
+    fundingDb = createDatabase(':memory:').raw;
+    initializeCapitalBudget(fundingDb,{capitalChfCents:1000,reserveChfCents:0,chfPerUsdNumerator:1,chfPerUsdDenominator:1,quoteExpiresAt:Date.now()+60000});
+    registerBudgetPolicy(fundingDb,{daily_cents:1000,hourly_cents:1000,session_cents:1000,call_cents:1000,halted:0,revision:1});
+    fundingDb.exec("INSERT INTO revenue_opportunities(id,name,status) VALUES('opportunity','fixture','active'); INSERT INTO revenue_experiments(id,opportunity_id,status,hypothesis,max_budget_cents,max_duration_hours,success_criteria,failure_criteria,stop_condition,started_at) VALUES('experiment','opportunity','running','fixture',1000,1,'success','failure','stop',datetime('now'))");
+    grantAdapterPermission(fundingDb,{adapter:'child-funding',experimentId:'experiment',maxCostUsdCents:1000,expiresAt:Date.now()+60000,reviewedBy:'fixture'});
     // Insert a child for funding tests
     fundingDb.prepare(
       "INSERT INTO children (id, name, address, sandbox_id, genesis_prompt, funded_amount_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run("c1", "child-1", "0xchild", "sb-1", "test", 0, "running", new Date().toISOString());
+    ).run("c1", "child-1", "0x1111111111111111111111111111111111111111", "sb-1", "test", 0, "running", new Date().toISOString());
   });
 
   afterEach(() => {
@@ -215,18 +224,18 @@ describe("orchestration/SimpleFundingProtocol", () => {
 
   it("fundChild calls transferCredits with the correct amount", async () => {
     const mockConway = {
-      transferCredits: vi.fn().mockResolvedValue({ status: "ok", amountCents: 100 }),
+      transferCredits: vi.fn().mockResolvedValue({ status: "ok", transferId:"fixture-transfer", amountCents: 100, toAddress:'0x1111111111111111111111111111111111111111' }),
       getCreditsBalance: vi.fn().mockResolvedValue(500),
     } as any;
 
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.fundChild("0xchild", 100);
+    const result = await funding.fundChild("0x1111111111111111111111111111111111111111", 100,attribution);
 
     expect(result.success).toBe(true);
     expect(mockConway.transferCredits).toHaveBeenCalledWith(
-      "0xchild",
+      "0x1111111111111111111111111111111111111111",
       100,
       "Task funding from orchestrator",
     );
@@ -234,15 +243,15 @@ describe("orchestration/SimpleFundingProtocol", () => {
 
   it("fundChild updates funded_amount_cents in the children table on success", async () => {
     const mockConway = {
-      transferCredits: vi.fn().mockResolvedValue({ status: "ok" }),
+      transferCredits: vi.fn().mockResolvedValue({ status: "ok",transferId:"fixture-transfer",amountCents:200,toAddress:'0x1111111111111111111111111111111111111111' }),
     } as any;
 
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    await funding.fundChild("0xchild", 200);
+    await funding.fundChild("0x1111111111111111111111111111111111111111", 200,attribution);
 
-    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("0xchild") as any;
+    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("0x1111111111111111111111111111111111111111") as any;
     expect(row.funded_amount_cents).toBe(200);
   });
 
@@ -255,7 +264,7 @@ describe("orchestration/SimpleFundingProtocol", () => {
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.fundChild("0xchild", 0);
+    const result = await funding.fundChild("0x1111111111111111111111111111111111111111", 0);
 
     expect(result.success).toBe(true);
     expect(mockConway.transferCredits).not.toHaveBeenCalled();
@@ -270,19 +279,19 @@ describe("orchestration/SimpleFundingProtocol", () => {
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.fundChild("0xchild", 50);
+    const result = await funding.fundChild("0x1111111111111111111111111111111111111111", 50,attribution);
 
     expect(result.success).toBe(false);
   });
 
   it("getBalance returns funded_amount_cents from the children table", async () => {
-    fundingDb.prepare("UPDATE children SET funded_amount_cents = 350 WHERE address = ?").run("0xchild");
+    fundingDb.prepare("UPDATE children SET funded_amount_cents = 350 WHERE address = ?").run("0x1111111111111111111111111111111111111111");
 
     const mockConway = {} as any;
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const balance = await funding.getBalance("0xchild");
+    const balance = await funding.getBalance("0x1111111111111111111111111111111111111111");
     expect(balance).toBe(350);
   });
 
@@ -295,9 +304,9 @@ describe("orchestration/SimpleFundingProtocol", () => {
     expect(balance).toBe(0);
   });
 
-  it("recallCredits calls transferCredits back to the parent address", async () => {
+  it("never substitutes a parent self-transfer for a child-authorized recall", async () => {
     // Fund the child first so there's a balance to recall
-    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("0xchild");
+    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("0x1111111111111111111111111111111111111111");
 
     const mockConway = {
       transferCredits: vi.fn().mockResolvedValue({ status: "ok", amountCents: 500 }),
@@ -307,19 +316,14 @@ describe("orchestration/SimpleFundingProtocol", () => {
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    const result = await funding.recallCredits("0xchild");
+    const result = await funding.recallCredits("0x1111111111111111111111111111111111111111");
 
-    expect(result.success).toBe(true);
-    expect(result.amountCents).toBe(500);
-    expect(mockConway.transferCredits).toHaveBeenCalledWith(
-      "0xparent",
-      500,
-      "Recall credits from 0xchild",
-    );
+    expect(result).toEqual({success:false,amountCents:0});
+    expect(mockConway.transferCredits).not.toHaveBeenCalled();
   });
 
-  it("recallCredits decrements funded_amount_cents after successful recall", async () => {
-    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("0xchild");
+  it("preserves tracked funding without an authenticated child-side recall", async () => {
+    fundingDb.prepare("UPDATE children SET funded_amount_cents = 500 WHERE address = ?").run("0x1111111111111111111111111111111111111111");
 
     const mockConway = {
       transferCredits: vi.fn().mockResolvedValue({ status: "ok", amountCents: 500 }),
@@ -328,9 +332,26 @@ describe("orchestration/SimpleFundingProtocol", () => {
     const identity = { address: "0xparent" } as any;
     const funding = new SimpleFundingProtocol(mockConway, identity, makeMockDb(fundingDb));
 
-    await funding.recallCredits("0xchild");
+    await funding.recallCredits("0x1111111111111111111111111111111111111111");
 
-    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("0xchild") as any;
-    expect(row.funded_amount_cents).toBe(0);
+    const row = fundingDb.prepare("SELECT funded_amount_cents FROM children WHERE address = ?").get("0x1111111111111111111111111111111111111111") as any;
+    expect(row.funded_amount_cents).toBe(500);
+  });
+  it.each(['submitted','pending','unknown','accepted','cancelled','',null])('does not classify an unconfirmed transfer status %s as settled funding',async status=>{
+    const mockConway={transferCredits:vi.fn().mockResolvedValue({status,amountCents:100,toAddress:'0x1111111111111111111111111111111111111111'})};
+    const funding=new SimpleFundingProtocol(mockConway as any,{address:'0xparent'} as any,makeMockDb(fundingDb));
+    expect(await funding.fundChild('0x1111111111111111111111111111111111111111',100,attribution)).toEqual({success:false});
+    expect(await funding.getBalance('0x1111111111111111111111111111111111111111')).toBe(0);
+  });
+  it.each([NaN,Infinity,-1,1.5,100000001])('rejects invalid funding %s before any provider call',async amount=>{
+    const mockConway={transferCredits:vi.fn()};
+    const funding=new SimpleFundingProtocol(mockConway as any,{address:'0xparent'} as any,makeMockDb(fundingDb));
+    expect(await funding.fundChild('0x1111111111111111111111111111111111111111',amount,attribution)).toEqual({success:false});
+    expect(mockConway.transferCredits).not.toHaveBeenCalled();
+  });
+  it.each([{amountCents:99,toAddress:'0x1111111111111111111111111111111111111111'},{amountCents:100,toAddress:'different'},{}])('rejects a receipt inconsistent with the funding intent',async receipt=>{
+    const mockConway={transferCredits:vi.fn().mockResolvedValue({status:'completed',...receipt})};
+    const funding=new SimpleFundingProtocol(mockConway as any,{address:'0xparent'} as any,makeMockDb(fundingDb));
+    expect(await funding.fundChild('0x1111111111111111111111111111111111111111',100,attribution)).toEqual({success:false});expect(await funding.getBalance('0x1111111111111111111111111111111111111111')).toBe(0);
   });
 });

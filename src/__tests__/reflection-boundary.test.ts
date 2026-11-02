@@ -1,0 +1,11 @@
+import {it,expect,vi,beforeEach} from 'vitest';
+import type BetterSqlite3 from 'better-sqlite3';
+const m=vi.hoisted(()=>({load:vi.fn(),update:vi.fn()}));
+vi.mock('../soul/model.js',()=>({loadCurrentSoul:m.load,computeGenesisAlignment:()=>0.2}));
+vi.mock('../soul/tools.js',()=>({updateSoul:m.update}));
+import {reflectOnSoul} from '../soul/reflection.js';
+const db={prepare:(sql:string)=>({all:()=>sql.includes('tool_calls')?[{name:'read_fixture'}]:[]})} as unknown as BetterSqlite3.Database;
+beforeEach(()=>{m.load.mockReturnValue({corePurpose:'original',genesisPromptOriginal:'original',capabilities:''});m.update.mockResolvedValue({success:true});});
+it('does not claim failed updates and never auto-applies core purpose',async()=>{m.update.mockResolvedValue({success:false});const r=await reflectOnSoul(db);expect(r.autoUpdated).toEqual([]);expect(r.suggestedUpdates[0].section).toBe('corePurpose');expect(m.update.mock.lastCall?.[1]).not.toHaveProperty('corePurpose');});
+it('reports successful persisted capability update',async()=>{expect((await reflectOnSoul(db)).autoUpdated).toEqual(['capabilities']);});
+it('missing soul does not cause writes',async()=>{m.update.mockClear();m.load.mockReturnValue(null);expect((await reflectOnSoul(db)).autoUpdated).toEqual([]);expect(m.update).not.toHaveBeenCalled();});

@@ -1,3 +1,4 @@
+import os from "node:os";
 /**
  * State Versioning
  *
@@ -11,8 +12,20 @@ import { gitInit, gitCommit, gitStatus, gitLog } from "./tools.js";
 
 const AUTOMATON_DIR = "~/.automaton";
 
+// An ignore file cannot protect secrets that were already tracked. Check both
+// the index and unignored working files before any state commit, including old repos.
+async function assertStateFilesSafe(conway: ConwayClient, dir: string): Promise<void> {
+  const result = await conway.exec("git ls-files --cached --others --exclude-standard -z", 10000, dir);
+  if (result.exitCode !== 0) throw new Error("State file inventory unavailable");
+  for (const file of result.stdout.split("\0").filter(Boolean)) {
+    if (/(^|\/)(automaton\.json|wallet\.json|config\.json|state\.db(?:-wal|-shm)?|\.env(?:\..*)?)$/i.test(file)) {
+      throw new Error("Sensitive state files cannot be versioned");
+    }
+  }
+}
+
 function resolveHome(p: string): string {
-  const home = process.env.HOME || "/root";
+  const home = process.env.HOME || os.homedir();
   if (p.startsWith("~")) {
     return `${home}${p.slice(1)}`;
   }
@@ -30,11 +43,13 @@ export async function initStateRepo(
 
   // Check if already initialized
   const checkResult = await conway.exec(
-    `test -d ${dir}/.git && echo "exists" || echo "nope"`,
+    "git rev-parse --is-inside-work-tree",
     5000,
+    dir,
   );
 
-  if (checkResult.stdout.trim() === "exists") {
+  if (checkResult.exitCode === 0 && checkResult.stdout.trim() === "true") {
+    await assertStateFilesSafe(conway, dir);
     return;
   }
 
@@ -45,6 +60,9 @@ export async function initStateRepo(
   const gitignore = `# Sensitive files - never commit
 wallet.json
 config.json
+automaton.json
+.env
+.env.*
 state.db
 state.db-wal
 state.db-shm
@@ -56,12 +74,11 @@ logs/
   await conway.writeFile(`${dir}/.gitignore`, gitignore);
 
   // Configure git user
-  await conway.exec(
-    `cd ${dir} && git config user.name "Automaton" && git config user.email "automaton@conway.tech"`,
-    5000,
-  );
+  await conway.exec(`git config user.name "Automaton"`, 5000, dir);
+  await conway.exec(`git config user.email "automaton@conway.tech"`, 5000, dir);
 
   // Initial commit
+  await assertStateFilesSafe(conway, dir);
   await gitCommit(conway, dir, "genesis: automaton state repository initialized");
 }
 
@@ -77,6 +94,7 @@ export async function commitStateChange(
   const dir = resolveHome(AUTOMATON_DIR);
 
   // Check if there are changes
+  await assertStateFilesSafe(conway, dir);
   const status = await gitStatus(conway, dir);
   if (status.clean) {
     return "No changes to commit";

@@ -110,10 +110,12 @@ export class PolicyEngine {
       latencyMs: 0,
     };
 
+    // Authorization without a durable audit record is incomplete. Never expose
+    // driver errors here: they can contain SQL parameters or sensitive paths.
     try {
       insertPolicyDecision(this.db, row);
     } catch {
-      // Don't let logging failures block tool execution
+      throw new Error("Policy audit unavailable; execution blocked");
     }
   }
 

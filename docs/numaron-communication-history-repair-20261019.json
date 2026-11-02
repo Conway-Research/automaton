@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-10-19T01:24:20.695Z",
+  "scope": "Communication retry classification and history queue admission",
+  "changes": [
+    {
+      "file": "scripts/founder-failure-classification.mjs",
+      "description": "Exact local permanent/access versus transient HTTP, timeout and network classification; no private error text published"
+    },
+    {
+      "file": "scripts/founder-communication.mjs",
+      "description": "Transient-only automatic retries; disable unconditional reconcileSafe requeue, retain explicit settled manual reconciliation; missing/gone targets return blocked without sending"
+    },
+    {
+      "file": "scripts/founder-controller.mjs",
+      "description": "One free adaptive-history task waiting at least 60 seconds can precede communication backlog; existing worker, dependency, resource, cooldown and budget gates unchanged"
+    }
+  ],
+  "tests": {
+    "node": 53,
+    "history": 15,
+    "total": 68,
+    "failed": 0,
+    "externalNetworkBlocked": true,
+    "state": "temporary fakes only"
+  },
+  "activation": {
+    "performed": true,
+    "restarted": true,
+    "productionJobsRetried": false,
+    "messagesSent": 0,
+    "pendingNodeReload": false,
+    "loadedAt": "2026-10-19T10:01:14.313Z",
+    "readback": "artifacts/runtime-blocker-repair-20261019/communication-restart-readback.json",
+    "leftOff": true
+  },
+  "powerAtLastRead": {
+    "enabled": false,
+    "revision": 62,
+    "changedAt": "2026-10-19T01:02:21.528Z",
+    "cause": "startup-off"
+  },
+  "budget": {
+    "digest": "be7bed21543dab908dd38f6fff976d8f223572919decd60a489f7bf208f2ace8",
+    "reservedRappen": 500,
+    "entries": 672,
+    "productionLimitsModified": false
+  },
+  "remaining": [
+    "Only Patrice may personally activate; no production work was executed as a maintenance test.",
+    "Historical-data permissions remain separate; no licences or trading gates bypassed.",
+    "Additional CHF0.50 reservation from the preceding ON session remains unsettled; no inferred release."
+  ],
+  "restartBudget": {
+    "unchangedAfterConfirmedOff": true,
+    "digest": "ad912d9ddf465407f01ea57c848d639a1b09cdd9b022c2d3c11ab6a4478fca51",
+    "entries": 682,
+    "reservedRappen": 550,
+    "originalReservedRappen": 500,
+    "additionalPreStopAutonomousReservationRappen": 50
+  }
+}

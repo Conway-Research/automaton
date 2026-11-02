@@ -8,6 +8,7 @@
 
 import type BetterSqlite3 from "better-sqlite3";
 import { ulid } from "ulid";
+import { assertNoKnownSecrets } from "../observability/redaction.js";
 import type { SemanticMemoryEntry, SemanticCategory } from "../types.js";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("memory.semantic");
@@ -29,6 +30,7 @@ export class SemanticMemoryManager {
     source: string;
     embeddingKey?: string | null;
   }): string {
+    assertNoKnownSecrets(entry);
     const id = ulid();
     try {
       this.db.prepare(
@@ -58,6 +60,7 @@ export class SemanticMemoryManager {
       if (row) return row.id;
     } catch (error) {
       logger.error("Failed to store entry", error instanceof Error ? error : undefined);
+      throw new Error("Memory persistence failed");
     }
     return id;
   }

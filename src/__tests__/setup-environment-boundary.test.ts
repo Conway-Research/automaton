@@ -1,0 +1,11 @@
+import {it,expect,vi,beforeEach,afterEach} from 'vitest';
+const m=vi.hoisted(()=>({exists:vi.fn(),read:vi.fn()}));
+vi.mock('fs',()=>({default:{existsSync:m.exists,readFileSync:m.read}}));
+import {detectEnvironment} from '../setup/environment.js';
+import {showBanner} from '../setup/banner.js';
+beforeEach(()=>{vi.stubEnv('CONWAY_SANDBOX_ID','');m.exists.mockImplementation((p:string)=>p==='/etc/conway/sandbox.json');});
+afterEach(()=>{vi.unstubAllEnvs();vi.restoreAllMocks();});
+it.each(['null','{}','{"id":true}','{"id":{}}','{"id":123}','broken'])('does not infer sandbox identity from %s',s=>{m.read.mockReturnValue(s);expect(detectEnvironment()).toEqual({type:process.platform,sandboxId:''});});
+it('recognizes explicit string identity without claiming isolation',()=>{m.read.mockReturnValue('{"id":" test "}');expect(detectEnvironment()).toEqual({type:'conway-sandbox',sandboxId:'test'});});
+it('honors explicit environment before reading files',()=>{vi.stubEnv('CONWAY_SANDBOX_ID',' fixture ');m.read.mockClear();expect(detectEnvironment().sandboxId).toBe('fixture');expect(m.read).not.toHaveBeenCalled();});
+it('banner is printable without filesystem/provider access',()=>{const log=vi.spyOn(console,'log').mockImplementation(()=>{});m.read.mockClear();showBanner();expect(log).toHaveBeenCalled();expect(m.read).not.toHaveBeenCalled();});

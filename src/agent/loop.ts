@@ -1,3 +1,4 @@
+import os from "node:os";
 /**
  * The Agent Loop
  *
@@ -6,6 +7,7 @@
  */
 
 import path from "node:path";
+import {executeCoordinatorRollout} from '../revenue/optimization-rollout.js';
 import type {
   AutomatonIdentity,
   AutomatonConfig,
@@ -24,7 +26,7 @@ import type {
   InputSource,
   ModelStrategyConfig,
 } from "../types.js";
-import { DEFAULT_MODEL_STRATEGY_CONFIG } from "../types.js";
+import { DEFAULT_MODEL_STRATEGY_CONFIG, DEFAULT_TREASURY_POLICY } from "../types.js";
 import type { PolicyEngine } from "./policy-engine.js";
 import { buildSystemPrompt, buildWakeupPrompt } from "./system-prompt.js";
 import { buildContextMessages, trimContext } from "./context.js";
@@ -36,6 +38,7 @@ import {
 } from "./tools.js";
 import { sanitizeInput } from "./injection-defense.js";
 import { getSurvivalTier } from "../conway/credits.js";
+import {localOperation,CONWAY_ONLY_TOOLS,isConwayEndpoint} from '../conway/operating-mode.js';
 import { getUsdcBalance } from "../conway/x402.js";
 import {
   claimInboxMessages,
@@ -49,6 +52,8 @@ import { ulid } from "ulid";
 import { ModelRegistry } from "../inference/registry.js";
 import { InferenceBudgetTracker } from "../inference/budget.js";
 import { InferenceRouter } from "../inference/router.js";
+import { RevenueStore } from "../revenue/store.js";
+import { economicMissionAgenda, economicAgendaContext } from "../revenue/mission.js";
 import { MemoryRetriever } from "../memory/retrieval.js";
 import { MemoryIngestionPipeline } from "../memory/ingestion.js";
 import { DEFAULT_MEMORY_BUDGET } from "../types.js";
@@ -59,9 +64,11 @@ import { PlanModeController } from "../orchestration/plan-mode.js";
 import { generateTodoMd, injectTodoContext } from "../orchestration/attention.js";
 import { ColonyMessaging, LocalDBTransport } from "../orchestration/messaging.js";
 import { LocalWorkerPool } from "../orchestration/local-worker.js";
+import {ResearchDispatcher} from '../orchestration/research-dispatch.js';
 import { SimpleAgentTracker, SimpleFundingProtocol } from "../orchestration/simple-tracker.js";
 import { HarnessRegistry } from "./harness-registry.js";
 import { createWorkerInferenceBridge } from "./worker-inference-bridge.js";
+import {InferenceExecutionUncertainError} from './harness-types.js';
 import { ProviderRegistry } from "../inference/provider-registry.js";
 import { UnifiedInferenceClient } from "../inference/inference-client.js";
 import { isIdleOnlyTool } from "./idle-only-tools.js";
@@ -121,13 +128,17 @@ export async function runAgentLoop(
     const { discoverOllamaModels } = await import("../ollama/discover.js");
     await discoverOllamaModels(ollamaBaseUrl, db.raw);
   }
-  const budgetTracker = new InferenceBudgetTracker(db.raw, modelStrategyConfig);
-  const inferenceRouter = new InferenceRouter(db.raw, modelRegistry, budgetTracker);
+  const budgetTracker = new InferenceBudgetTracker(
+    db.raw, modelStrategyConfig,
+    config.treasuryPolicy?.maxInferenceDailyCents ?? DEFAULT_TREASURY_POLICY.maxInferenceDailyCents,
+  );
+  const inferenceRouter = new InferenceRouter(db.raw, modelRegistry, budgetTracker, config.genesisPrompt);
 
   // Optional orchestration bootstrap (requires V9 goals/task tables)
   let planModeController: PlanModeController | undefined;
   let orchestrator: Orchestrator | undefined;
   let workerPool: LocalWorkerPool | undefined;
+  let researchDispatcher: ResearchDispatcher | undefined;
 
   if (hasTable(db.raw, "goals")) {
     try {
@@ -146,18 +157,18 @@ export async function runAgentLoop(
       // direct OpenAI key is available. The conwayApiKey is always present
       // (required for sandbox operations), so this ensures the orchestrator
       // can always make inference calls.
-      if (config.conwayApiKey && !process.env.CONWAY_API_KEY) {
+      if (!localOperation(config,conway) && config.conwayApiKey && !process.env.CONWAY_API_KEY) {
         process.env.CONWAY_API_KEY = config.conwayApiKey;
       }
       // If no OpenAI key is set but Conway key is available, use Conway as
       // the OpenAI provider (Conway Compute is OpenAI API-compatible).
-      if (!process.env.OPENAI_API_KEY && config.conwayApiKey) {
+      if (!localOperation(config,conway) && !process.env.OPENAI_API_KEY && config.conwayApiKey) {
         process.env.OPENAI_API_KEY = config.conwayApiKey;
         process.env.OPENAI_BASE_URL = `${config.conwayApiUrl}/v1`;
       }
 
       const providersPath = path.join(
-        process.env.HOME || process.cwd(),
+        process.env.HOME || os.homedir(),
         ".automaton",
         "inference-providers.json",
       );
@@ -165,8 +176,15 @@ export async function runAgentLoop(
 
       // If OPENAI_BASE_URL was set (Conway fallback), update the default
       // provider's baseUrl so the OpenAI client points to Conway Compute.
-      if (process.env.OPENAI_BASE_URL) {
+      if (process.env.OPENAI_BASE_URL && !(localOperation(config,conway)&&isConwayEndpoint(process.env.OPENAI_BASE_URL))) {
         registry.overrideBaseUrl("openai", process.env.OPENAI_BASE_URL);
+      }
+      if(localOperation(config,conway)){
+        for(const provider of registry.getProviders()){
+          if(provider.id==='conway'||isConwayEndpoint(provider.baseUrl)||provider.apiKeyEnvVar==='CONWAY_API_KEY'){
+            registry.disableProvider(provider.id,'Conway unavailable in local mode',Infinity);
+          }
+        }
       }
 
       const unifiedInference = new UnifiedInferenceClient(registry);
@@ -181,7 +199,7 @@ export async function runAgentLoop(
 
       // Adapter: local workers use the unified inference path so planner-backed
       // harnesses can preserve tier + responseFormat contracts.
-      const workerInference = createWorkerInferenceBridge(unifiedInference);
+      const workerInference = createWorkerInferenceBridge(inferenceRouter, unifiedInference, db.getKV("session_id") || "default");
 
       // Local worker pool: runs inference-driven agents in-process
       // as async tasks. Falls back from Conway sandbox spawning.
@@ -197,15 +215,20 @@ export async function runAgentLoop(
         toolContext,
         policyEngine,
         spendTracker,
+        getSurvivalTier: () => financial.creditsCents === -1 && (config.openaiApiKey || config.anthropicApiKey || config.ollamaBaseUrl) ? "low_compute" : getSurvivalTier(financial.creditsCents),
       });
       workerPool = initializedWorkerPool;
+      if(db.raw.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='obolus_research_dispatch_policy'").get()){
+        // Opt-in policy only. Constructor conservatively pauses a prior running state.
+        researchDispatcher=new ResearchDispatcher(db.raw,initializedWorkerPool);
+      }
 
       orchestrator = new Orchestrator({
         db: db.raw,
         agentTracker,
         funding,
         messaging,
-        inference: unifiedInference,
+        inference: workerInference,
         identity,
         isWorkerAlive: (address: string) => {
           if (address.startsWith("local://")) {
@@ -218,9 +241,11 @@ export async function runAgentLoop(
           if (!child) return false;
           return !["failed", "dead", "cleaned_up"].includes(child.status);
         },
+        isAgentEligible: (address: string) => !localOperation(config,conway)||address.startsWith('local://'),
         config: {
           ...config,
           spawnAgent: async (task: any) => {
+            if(localOperation(config,conway))return initializedWorkerPool.spawn(task);
             // Try Conway sandbox spawn first (production)
             try {
               const { generateGenesisConfig } = await import("../replication/genesis.js");
@@ -301,7 +326,7 @@ export async function runAgentLoop(
                 }
               }
 
-              // Conway sandbox unavailable — fall back to local worker
+              // Conway sandbox unavailable â€” fall back to local worker
               logger.info("Conway sandbox unavailable, spawning local worker", {
                 taskId: task.id,
                 error: sandboxError instanceof Error ? sandboxError.message : String(sandboxError),
@@ -342,7 +367,7 @@ export async function runAgentLoop(
   let lastToolPatterns: string[] = [];
   let loopWarningPattern: string | null = null;
   let idleToolTurns = 0;
-  // blockedGoalTurns removed — replaced by immediate sleep + exponential backoff
+  // blockedGoalTurns removed â€” replaced by immediate sleep + exponential backoff
 
   // Drain any stale wake events from before this loop started,
   // so they don't re-wake the agent after its first sleep.
@@ -358,7 +383,7 @@ export async function runAgentLoop(
   onStateChange?.("waking");
 
   // Get financial state
-  let financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm");
+  let financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm", !localOperation(config,conway) && !!config.conwayApiKey);
 
   // Check if this is the first run
   const isFirstRun = db.getTurnCount() === 0;
@@ -375,9 +400,9 @@ export async function runAgentLoop(
   db.setAgentState("running");
   onStateChange?.("running");
 
-  log(config, `[WAKE UP] ${config.name} is alive. Credits: $${(financial.creditsCents / 100).toFixed(2)}`);
+  log(config, `[WAKE UP] ${config.name} is alive. Compute: ${financial.creditsCents === -1 && (config.openaiApiKey || config.anthropicApiKey || config.ollamaBaseUrl) ? "Conway credits unavailable; direct inference configured (reachability unverified)" : "$" + (financial.creditsCents / 100).toFixed(2)}`);
 
-  // ─── The Loop ──────────────────────────────────────────────
+  // â”€â”€â”€ The Loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const MAX_IDLE_TURNS = 10; // Force sleep after N turns with no real work
   let idleTurnCount = 0;
@@ -396,6 +421,12 @@ export async function runAgentLoop(
 
     try {
       // Check if we should be sleeping
+      if(db.getKV('inference.requires_reconciliation')==='true'){
+        if(db.raw.prepare("SELECT 1 FROM inference_reservations WHERE status='pending' LIMIT 1").get()){
+          db.setAgentState('sleeping');onStateChange?.('sleeping');running=false;break;
+        }
+        db.setKV('inference.requires_reconciliation','false');
+      }
       const sleepUntil = db.getKV("sleep_until");
       if (sleepUntil && new Date(sleepUntil) > new Date()) {
         log(config, `[SLEEP] Sleeping until ${sleepUntil}`);
@@ -407,7 +438,7 @@ export async function runAgentLoop(
       }
 
       // Check for unprocessed inbox messages using the state machine:
-      // received → in_progress (claim) → processed (on success) or received/failed (on failure)
+      // received â†’ in_progress (claim) â†’ processed (on success) or received/failed (on failure)
       if (!pendingInput) {
         claimedMessages = claimInboxMessages(db.raw, 10);
         if (claimedMessages.length > 0) {
@@ -426,22 +457,26 @@ export async function runAgentLoop(
       }
 
       // Refresh financial state periodically
-      financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm");
+      financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm", !localOperation(config,conway) && !!config.conwayApiKey);
 
       // Check survival tier
       // api_unreachable: creditsCents === -1 means API failed with no cache.
       // Do NOT kill the agent; continue in low-compute mode and retry next tick.
-      if (financial.creditsCents === -1) {
-        log(config, "[API_UNREACHABLE] Balance API unreachable, continuing in low-compute mode.");
+      if (financial.creditsCents === -1 && (config.openaiApiKey || config.anthropicApiKey || config.ollamaBaseUrl)) {
+        inference.setLowComputeMode(false);
+      } else if (financial.creditsCents === -1) {
+        if (!localOperation(config,conway) && config.conwayApiKey) {
+          log(config, "[API_UNREACHABLE] Conway balance API unreachable, continuing in low-compute mode.");
+        }
         inference.setLowComputeMode(true);
       } else {
         const tier = getSurvivalTier(financial.creditsCents);
 
         // Inline auto-topup: if credits are critically low and USDC is
-        // available, buy credits NOW — before attempting inference.
+        // available, buy credits NOW â€” before attempting inference.
         // This prevents the agent from dying mid-loop while waiting for
         // the heartbeat to fire. Uses a 60s cooldown to avoid hammering.
-        if ((tier === "critical" || tier === "low_compute") && financial.usdcBalance >= 5) {
+        if (!localOperation(config,conway) && (tier === "critical" || tier === "low_compute") && financial.usdcBalance >= 5) {
           const INLINE_TOPUP_COOLDOWN_MS = 60_000;
           const lastInlineTopup = db.getKV("last_inline_topup_attempt");
           const cooldownExpired = !lastInlineTopup ||
@@ -461,7 +496,7 @@ export async function runAgentLoop(
                 log(config, `[AUTO-TOPUP] Bought $${topupResult.amountUsd} credits from USDC mid-loop`);
                 // Re-fetch financial state after topup so the rest of
                 // the turn sees the updated balance.
-                financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm");
+                financial = await getFinancialState(conway, identity.address, db, config.chainType || identity.chainType || "evm", !localOperation(config,conway) && !!config.conwayApiKey);
               }
             } catch (err: any) {
               logger.warn(`Inline auto-topup failed: ${err.message}`);
@@ -490,7 +525,7 @@ export async function runAgentLoop(
         }
       }
 
-      // Build context — filter out purely idle turns (only status checks)
+      // Build context â€” filter out purely idle turns (only status checks)
       // to prevent the model from continuing a status-check pattern
       const allTurns = db.getRecentTurns(20);
       const meaningfulTurns = allTurns.filter((t) => {
@@ -538,6 +573,11 @@ export async function runAgentLoop(
       }
 
       if (orchestrator) {
+        if(researchDispatcher){
+          try { const selection=researchDispatcher.tick();
+            db.setKV('research_dispatch.last_tick',JSON.stringify(selection?{reason:selection.reason,taskId:selection.task?.id??null,blocked:selection.blocked}: {reason:'not_running'}));
+          }catch{await researchDispatcher.control('emergency');}
+        }
         const orchestratorTick = await orchestrator.tick();
         db.setKV("orchestrator.last_tick", JSON.stringify(orchestratorTick));
         const localWorkersActive = workerPool?.getActiveCount() ?? 0;
@@ -547,7 +587,6 @@ export async function runAgentLoop(
 
         if (
           orchestratorTick.phase === "executing" &&
-          orchestratorTick.tasksAssigned === 0 &&
           orchestratorTick.tasksCompleted === 0 &&
           orchestratorTick.tasksFailed === 0 &&
           !hasSelfAssignedParentTask &&
@@ -590,16 +629,29 @@ export async function runAgentLoop(
       }
 
       // Capture input before clearing
+      // Compact current economic state makes mission continuity available without
+      // another snapshot-only inference turn. It grants no execution permission.
+      if (!pendingInput && hasTable(db.raw, "revenue_opportunities")) {
+        const agenda = economicMissionAgenda(db.raw);
+        messages.splice(1, 0, { role: "system", content:
+          "Economic agenda (decision support; forecasts are assumptions; existing permissions and budgets remain binding):\n" +
+          JSON.stringify(economicAgendaContext(agenda)) });
+      }
       const currentInput = pendingInput;
 
       // Clear pending input after use
       pendingInput = undefined;
 
-      // ── Inference Call (via router when available) ──
-      const survivalTier = getSurvivalTier(financial.creditsCents);
+      // â”€â”€ Inference Call (via router when available) â”€â”€
+      const survivalTier = financial.creditsCents === -1 && (config.openaiApiKey || config.anthropicApiKey || config.ollamaBaseUrl) ? "low_compute" : getSurvivalTier(financial.creditsCents);
       log(config, `[THINK] Routing inference (tier: ${survivalTier}, model: ${inference.getDefaultModel()})...`);
 
-      const inferenceTools = toolsToInferenceFormat(tools);
+      const inferenceTools = toolsToInferenceFormat(localOperation(config,conway)?tools.filter(tool=>!CONWAY_ONLY_TOOLS.has(tool.name)):
+        financial.creditsCents === -1 && (config.openaiApiKey || config.anthropicApiKey || config.ollamaBaseUrl) ? tools.filter((tool) => tool.name !== "check_credits") : tools);
+      const revenueStore = new RevenueStore(db.raw);
+      const activeRevenueExperiment =
+        revenueStore.getActiveExperimentForAssignee(identity.address, true);
+      let providerAttempted=false;
       const routerResult = await inferenceRouter.route(
         {
           messages: messages,
@@ -607,10 +659,15 @@ export async function runAgentLoop(
           tier: survivalTier,
           sessionId: db.getKV("session_id") || "default",
           turnId: ulid(),
+          experimentId: activeRevenueExperiment?.id,
           tools: inferenceTools,
         },
-        (msgs, opts) => inference.chat(msgs, { ...opts, tools: inferenceTools }),
-      );
+        (msgs, opts) => {providerAttempted=true;return inference.chat(msgs, { ...opts, tools: inferenceTools });},
+      ).catch(error=>{
+        if(providerAttempted)throw new InferenceExecutionUncertainError(error instanceof Error?error.message:'Provider execution uncertain');
+        throw error;
+      });
+      if(providerAttempted&&['timeout','error'].includes(routerResult.finishReason))throw new InferenceExecutionUncertainError(routerResult.content);
 
       // Build a compatible response for the rest of the loop
       const response = {
@@ -636,7 +693,7 @@ export async function runAgentLoop(
         costCents: routerResult.costCents,
       };
 
-      // ── Execute Tool Calls ──
+      // â”€â”€ Execute Tool Calls â”€â”€
       if (response.toolCalls && response.toolCalls.length > 0) {
         const toolCallMessages: any[] = [];
         let callCount = 0;
@@ -662,7 +719,10 @@ export async function runAgentLoop(
             tc.function.name,
             args,
             tools,
-            toolContext,
+            {...toolContext,optimizationRollout:async input=>{
+              return JSON.stringify(await executeCoordinatorRollout(db.raw,inferenceRouter,identity.address,survivalTier,input,
+                (msgs,opts)=>inference.chat(msgs,opts)));
+            }},
             policyEngine,
             spendTracker ? {
               inputSource: currentInputSource,
@@ -684,7 +744,7 @@ export async function runAgentLoop(
         }
       }
 
-      // ── Persist Turn (atomic: turn + tool calls + inbox ack) ──
+      // â”€â”€ Persist Turn (atomic: turn + tool calls + inbox ack) â”€â”€
       const claimedIds = claimedMessages.map((m) => m.id);
       db.runTransaction(() => {
         db.insertTurn(turn);
@@ -708,7 +768,7 @@ export async function runAgentLoop(
         // Memory failure must not block the agent loop
       }
 
-      // ── create_goal BLOCKED fast-break ──
+      // â”€â”€ create_goal BLOCKED fast-break â”€â”€
       // When a goal is already active, the parent loop has nothing useful to do.
       // Force sleep immediately on first BLOCKED (not second) with exponential
       // backoff so the agent doesn't wake every 2 minutes just to get BLOCKED again.
@@ -716,25 +776,25 @@ export async function runAgentLoop(
         (tc) => tc.name === "create_goal" && tc.result?.includes("BLOCKED"),
       );
       if (blockedGoalCall) {
-        // Exponential backoff: 2min → 4min → 8min → cap at 10min
+        // Exponential backoff: 2min â†’ 4min â†’ 8min â†’ cap at 10min
         const prevBackoff = parseInt(db.getKV("blocked_goal_backoff") || "0", 10);
         const backoffMs = Math.min(
           prevBackoff > 0 ? prevBackoff * 2 : 120_000,
           600_000,
         );
         db.setKV("blocked_goal_backoff", String(backoffMs));
-        log(config, `[LOOP] create_goal BLOCKED — sleeping ${Math.round(backoffMs / 1000)}s (backoff).`);
+        log(config, `[LOOP] create_goal BLOCKED â€” sleeping ${Math.round(backoffMs / 1000)}s (backoff).`);
         db.setKV("sleep_until", new Date(Date.now() + backoffMs).toISOString());
         db.setAgentState("sleeping");
         onStateChange?.("sleeping");
         running = false;
         break;
       } else if (turn.toolCalls.some((tc) => tc.name === "create_goal" && !tc.error)) {
-        // Goal was successfully created — reset backoff
+        // Goal was successfully created â€” reset backoff
         db.deleteKV("blocked_goal_backoff");
       }
 
-      // ── Loop Detection ──
+      // â”€â”€ Loop Detection â”€â”€
       if (turn.toolCalls.length > 0) {
         const currentPattern = turn.toolCalls
           .map((tc) => tc.name)
@@ -752,7 +812,7 @@ export async function runAgentLoop(
           loopWarningPattern = null;
         }
 
-        // ── Loop Enforcement Escalation ──
+        // â”€â”€ Loop Enforcement Escalation â”€â”€
         // If we already warned about this pattern and the agent STILL repeats, force sleep.
         if (
           loopWarningPattern &&
@@ -819,7 +879,7 @@ export async function runAgentLoop(
         log(config, `[THOUGHT] ${turn.thinking.slice(0, 300)}`);
       }
 
-      // ── Check for sleep command ──
+      // â”€â”€ Check for sleep command â”€â”€
       const sleepTool = turn.toolCalls.find((tc) => tc.name === "sleep");
       if (sleepTool && !sleepTool.error) {
         log(config, "[SLEEP] Agent chose to sleep.");
@@ -829,9 +889,9 @@ export async function runAgentLoop(
         break;
       }
 
-      // ── Idle turn detection ──
+      // â”€â”€ Idle turn detection â”€â”€
       // If this turn had no pending input and didn't do any real work
-      // (no mutations — only read/check/list/info tools), count as idle.
+      // (no mutations â€” only read/check/list/info tools), count as idle.
       // Use a blocklist of mutating tools rather than an allowlist of safe ones.
       const MUTATING_TOOLS = new Set([
         "exec", "write_file", "edit_own_file", "transfer_credits", "topup_credits", "fund_child",
@@ -846,6 +906,10 @@ export async function runAgentLoop(
         "distress_signal", "prune_dead_children", "sleep",
         "update_soul", "remember_fact", "set_goal", "complete_goal",
         "save_procedure", "note_about_agent", "forget",
+        "create_goal", "cancel_goal", "complete_task",
+        "revenue_create_opportunity", "revenue_update_opportunity",
+        "revenue_create_experiment", "revenue_update_experiment", "revenue_record_event",
+        "revenue_register_local_product",
         "enter_low_compute", "switch_model", "review_upstream_changes",
       ]);
       const didMutate = turn.toolCalls.some((tc) => MUTATING_TOOLS.has(tc.name));
@@ -863,7 +927,7 @@ export async function runAgentLoop(
         idleTurnCount = 0;
       }
 
-      // ── Cycle turn limit ──
+      // â”€â”€ Cycle turn limit â”€â”€
       // Hard ceiling on turns per wake cycle, regardless of tool type.
       // Prevents runaway loops where mutating tools (exec, write_file)
       // defeat idle detection indefinitely.
@@ -877,7 +941,7 @@ export async function runAgentLoop(
         break;
       }
 
-      // ── If no tool calls and just text, the agent might be done thinking ──
+      // â”€â”€ If no tool calls and just text, the agent might be done thinking â”€â”€
       if (
         running &&
         (!response.toolCalls || response.toolCalls.length === 0) &&
@@ -898,6 +962,10 @@ export async function runAgentLoop(
       consecutiveErrors = 0;
     } catch (err: any) {
       consecutiveErrors++;
+      if(err instanceof InferenceExecutionUncertainError){
+        db.setKV('inference.requires_reconciliation','true');
+        consecutiveErrors=MAX_CONSECUTIVE_ERRORS;
+      }
       log(config, `[ERROR] Turn failed: ${err.message}`);
 
       // Handle inbox message state on turn failure:
@@ -936,7 +1004,7 @@ export async function runAgentLoop(
   log(config, `[LOOP END] Agent loop finished. State: ${db.getAgentState()}`);
 }
 
-// ─── Helpers ───────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Cache last known good balances so transient API failures don't
 // cause the automaton to believe it has $0 and kill itself.
@@ -948,39 +1016,35 @@ async function getFinancialState(
   address: string,
   db?: AutomatonDatabase,
   chainType?: string,
+  checkConwayCredits: boolean = true,
 ): Promise<FinancialState> {
   let creditsCents = _lastKnownCredits;
   let usdcBalance = _lastKnownUsdc;
 
-  try {
-    creditsCents = await conway.getCreditsBalance();
-    if (creditsCents > 0) _lastKnownCredits = creditsCents;
-  } catch (error) {
-    logger.error("Credits balance fetch failed", error instanceof Error ? error : undefined);
-    // Use last known balance from KV, not zero
-    if (db) {
-      const cached = db.getKV("last_known_balance");
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          logger.warn("Balance API failed, using cached balance");
-          return {
-            creditsCents: parsed.creditsCents ?? 0,
-            usdcBalance: parsed.usdcBalance ?? 0,
-            lastChecked: new Date().toISOString(),
-          };
-        } catch (parseError) {
-          logger.error("Failed to parse cached balance", parseError instanceof Error ? parseError : undefined);
+  if (conway.isLocal || !checkConwayCredits) {
+    creditsCents = -1;
+  } else {
+    try {
+      creditsCents = await conway.getCreditsBalance();
+      if (creditsCents > 0) _lastKnownCredits = creditsCents;
+    } catch (error) {
+      logger.error("Credits balance fetch failed", error instanceof Error ? error : undefined);
+      creditsCents = -1;
+      if (db) {
+        const cached = db.getKV("last_known_balance");
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (typeof parsed.creditsCents === "number" && parsed.creditsCents >= 0) {
+              creditsCents = parsed.creditsCents;
+              logger.warn("Credit API failed, using cached credits");
+            }
+          } catch (parseError) {
+            logger.error("Failed to parse cached balance", parseError instanceof Error ? parseError : undefined);
+          }
         }
       }
     }
-    // No cache available -- return conservative non-zero sentinel
-    logger.error("Balance API failed, no cache available");
-    return {
-      creditsCents: -1,
-      usdcBalance: -1,
-      lastChecked: new Date().toISOString(),
-    };
   }
 
   try {

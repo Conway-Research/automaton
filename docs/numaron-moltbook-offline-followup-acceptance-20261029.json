@@ -1,0 +1,43 @@
+{
+  "schema": "numaron-offline-followup-human-acceptance-v1",
+  "at": "2026-10-29T13:55:12.646029+00:00",
+  "sourceThreadId": "01a1709d-8e59-7122-95e3-8694f65dadeb",
+  "verifiedHumanUserMessageId": "01a187ed-a10b-7c73-ae8e-b48db072b3e0",
+  "verifiedHumanTurnId": "01a187ed-9de3-7a80-ba0c-b60d5b1567c1",
+  "humanReply": "dann machen wir das",
+  "authorizationVerifiedBy": "read_thread direct userMessage and preceding proposed technical safeguards",
+  "status": "accepted-deferred-until-after-tested-technical-delivery",
+  "sourceArtifacts": [
+    {
+      "file": "C:\\Users\\Patrice\\automaton\\docs\\numaron-moltbook-readonly-research-20261029.md",
+      "sha256": "751e1777936a6faae76fa3bf11a4218d90faa7981c3445d482a6c45a9be9ceda"
+    },
+    {
+      "file": "C:\\Users\\Patrice\\automaton\\docs\\numaron-moltbook-readonly-research-20261029.json",
+      "sha256": "351bd6a3ec877782aed96c8a23fede192bc0508c3ebf7b8f8afab8e4f5d2eda4"
+    }
+  ],
+  "implementationComplete": false,
+  "implementationTests": 0,
+  "registration": false,
+  "activeConnection": false,
+  "fetches": 0,
+  "posts": 0,
+  "downloads": 0,
+  "newScheduler": false,
+  "newHeartbeat": false,
+  "productionTakeover": false,
+  "powerEnabled": false,
+  "scope": [
+    "separately authorized read-only reader without filesystem-write shell customer or wallet tools",
+    "no secrets or private customer data",
+    "fixed validated origins and redirect boundaries",
+    "untrusted posts only hypotheses; separate claimed confirmed self-tested knowledge and invalidation",
+    "bounded deduplicated research with provenance and action evidence",
+    "offline adversarial fixtures with actual denied tool-call evidence",
+    "separate disabled write channel; read permission grants no writing",
+    "isolated circuit breaker and key revocation plan without production restart or power changes",
+    "existing confirmed award remuneration funding gates remain; no employee costs; record Patrice minutes"
+  ],
+  "priority": "Do not delay current tested IT delivery; implementation strictly after that delivery"
+}

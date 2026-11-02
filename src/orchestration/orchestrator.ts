@@ -1,5 +1,8 @@
 import type { Database } from "better-sqlite3";
 import { ulid } from "ulid";
+import {createHash} from 'node:crypto';
+import {RevenueStore} from '../revenue/store.js';
+import {isResearchManagedTask} from './research-dispatch.js';
 import type { AutomatonIdentity } from "../types.js";
 import { createLogger } from "../observability/logger.js";
 import {
@@ -20,12 +23,13 @@ import {
   replanAfterFailure,
   type PlannerOutput,
   type PlannedTask,
+  type PlannerInferenceClient,
   taskToPlannerFailureInput,
 } from "./planner.js";
 import { ColonyMessaging, type AgentMessage } from "./messaging.js";
 import { generateTodoMd } from "./attention.js";
-import { UnifiedInferenceClient } from "../inference/inference-client.js";
-import { reviewPlan } from "./plan-mode.js";
+import {InferenceAdmissionError,InferenceExecutionUncertainError} from '../agent/harness-types.js';
+import { reviewPlan,type PlanReviewer } from "./plan-mode.js";
 import { buildPlannerContext, getNextPlannerVersion, persistPlannerArtifacts } from "./planner-context.js";
 import { AgentWorkspace } from "./workspace.js";
 import {
@@ -34,6 +38,7 @@ import {
   getTaskById,
   getTasksByGoal,
   updateGoalStatus,
+  insertEvent,
   type GoalRow,
   type TaskGraphRow,
 } from "../state/database.js";
@@ -98,11 +103,13 @@ export class Orchestrator {
     agentTracker: AgentTracker;
     funding: FundingProtocol;
     messaging: ColonyMessaging;
-    inference: UnifiedInferenceClient;
+    inference: PlannerInferenceClient;
     identity: AutomatonIdentity;
     config: any;
     /** Check if a worker agent is still alive. Used to recover stale tasks. */
     isWorkerAlive?: (address: string) => boolean;
+    isAgentEligible?: (address: string) => boolean;
+    planReviewer?:PlanReviewer;
   }) {}
 
   async tick(): Promise<OrchestratorTickResult> {
@@ -195,7 +202,7 @@ export class Orchestrator {
   async matchTaskToAgent(task: TaskNode): Promise<AgentAssignment> {
     const requestedRole = task.agentRole?.trim() || "generalist";
 
-    const idleAgents = this.params.agentTracker.getIdle();
+    const idleAgents = this.params.agentTracker.getIdle().filter(agent=>this.params.isAgentEligible?.(agent.address)!==false);
     const directRoleMatch = idleAgents.find((agent) => agent.role === requestedRole);
     if (directRoleMatch) {
       return {
@@ -206,7 +213,7 @@ export class Orchestrator {
     }
 
     const bestIdle = this.params.agentTracker.getBestForTask(requestedRole);
-    if (bestIdle) {
+    if (bestIdle && this.params.isAgentEligible?.(bestIdle.address)!==false) {
       return {
         agentAddress: bestIdle.address,
         agentName: bestIdle.name,
@@ -255,7 +262,8 @@ export class Orchestrator {
       return;
     }
 
-    const result = await this.params.funding.fundChild(addr, amountCents);
+    const experiment=new RevenueStore(this.params.db).getActiveExperimentForTask(task.id);
+    const result = await this.params.funding.fundChild(addr, amountCents,experiment?{operationId:`op_child_${task.id}`,experimentId:experiment.id}:undefined);
     if (!result.success) {
       throw new Error(`Funding transfer failed for ${addr}`);
     }
@@ -282,6 +290,13 @@ export class Orchestrator {
   }
 
   async handleFailure(task: TaskNode, error: string): Promise<void> {
+    if (isResearchManagedTask(this.params.db, task.id)) {
+      const current = getTaskById(this.params.db, task.id);
+      if (current && !["completed", "failed", "cancelled"].includes(current.status)) {
+        failTask(this.params.db, task.id, error, false);
+      }
+      return;
+    }
     failTask(this.params.db, task.id, error, true);
 
     const latest = getTaskById(this.params.db, task.id);
@@ -413,6 +428,7 @@ export class Orchestrator {
         this.params.inference,
       );
     } catch (error) {
+      if(error instanceof InferenceAdmissionError||error instanceof InferenceExecutionUncertainError)throw error;
       const err = normalizeError(error);
       logger.warn("Planner inference failed, falling back to single-task plan", {
         goalId: goal.id,
@@ -474,21 +490,25 @@ export class Orchestrator {
       .get(planKey) as { value: string } | undefined;
 
     if (!planRow?.value) {
-      return { ...state, phase: "executing" };
+      throw new Error('Plan review requires a persisted plan; execution blocked');
     }
 
     const planData = safeJsonParse(planRow.value);
     if (!planData) {
-      return { ...state, phase: "executing" };
+      throw new Error('Plan review requires valid persisted JSON; execution blocked');
     }
 
     try {
-      const result = await reviewPlan(planData as any, {
+      const result = await reviewPlan(planData as any, this.params.config?.planApproval ?? {
         mode: "auto",
         autoBudgetThreshold: 5000,
         consensusCriticRole: "reviewer",
         reviewTimeoutMs: 1800000,
-      });
+      },this.params.planReviewer);
+
+      insertEvent(this.params.db,{type:'plan_reviewed',agentAddress:this.params.identity.address,goalId:state.goalId,tokenCount:0,
+        content:JSON.stringify({planDigest:createHash('sha256').update(JSON.stringify(planData)).digest('hex'),approved:result.approved,
+          feedback:result.feedback??null,replanCount:state.replanCount,executionPermissionGranted:false})});
 
       if (result.approved) {
         return { ...state, phase: "executing" };
@@ -498,7 +518,8 @@ export class Orchestrator {
         "INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime('now'))",
       ).run(`orchestrator.review_feedback.${state.goalId}`, result.feedback ?? "Plan rejected");
 
-      return { ...state, phase: "planning" };
+      if(state.replanCount>=this.getMaxReplans())throw new Error('Plan review revision budget exhausted; execution blocked');
+      return { ...state, phase: "planning",replanCount:state.replanCount+1 };
     } catch (error) {
       const err = normalizeError(error);
       if (err.message === "awaiting human approval") {
@@ -534,6 +555,7 @@ export class Orchestrator {
       const assignedTasks = getTasksByGoal(this.params.db, goal.id)
         .filter((t) => t.status === "assigned" && t.assignedTo);
       for (const task of assignedTasks) {
+        if(isResearchManagedTask(this.params.db,task.id))continue;
         const alive = this.params.isWorkerAlive(task.assignedTo!);
         if (!alive) {
           logger.warn("Recovering stale task from dead worker", {
@@ -548,7 +570,7 @@ export class Orchestrator {
     }
 
     const ready = getReadyTasks(this.params.db)
-      .filter((task) => task.goalId === goal.id);
+      .filter((task) => task.goalId === goal.id && !isResearchManagedTask(this.params.db,task.id));
 
     for (const task of ready) {
       try {
@@ -612,7 +634,7 @@ export class Orchestrator {
 
     for (const event of this.pendingTaskResults) {
       const taskRow = getTaskById(this.params.db, event.taskId);
-      if (!taskRow) {
+      if (!taskRow || isResearchManagedTask(this.params.db, taskRow.id)) {
         continue;
       }
 
@@ -655,12 +677,14 @@ export class Orchestrator {
       };
     }
 
-    if (progress.failed > 0) {
+    const legacyFailure = getTasksByGoal(this.params.db, goal.id)
+      .find(task => task.status === "failed" && !isResearchManagedTask(this.params.db, task.id));
+    if (legacyFailure) {
       const maxReplans = this.getMaxReplans();
       return {
         ...state,
         phase: state.replanCount < maxReplans ? "replanning" : "failed",
-        failedTaskId: state.failedTaskId ?? this.findFirstFailedTaskId(goal.id),
+        failedTaskId: legacyFailure.id,
         failedError: state.failedError ?? "Task execution failed",
       };
     }
@@ -696,6 +720,12 @@ export class Orchestrator {
       };
     }
 
+    // Old persisted replanning states must not turn a reviewed research failure
+    // into unrelated replacement tasks or another paid planning request.
+    if (isResearchManagedTask(this.params.db, failedTaskRow.id)) {
+      return { ...state, phase: "executing", failedTaskId: null, failedError: null };
+    }
+
     let output: PlannerOutput;
     try {
       output = await replanAfterFailure(
@@ -714,6 +744,7 @@ export class Orchestrator {
         this.params.inference,
       );
     } catch (error) {
+      if(error instanceof InferenceAdmissionError||error instanceof InferenceExecutionUncertainError)throw error;
       const err = normalizeError(error);
       logger.warn("Replanner inference failed, falling back to single-task plan", {
         goalId: goal.id,
@@ -836,7 +867,8 @@ export class Orchestrator {
         estimatedSteps,
         requiresPlanMode: estimatedSteps > 3,
       };
-    } catch {
+    } catch (error) {
+      if(error instanceof InferenceAdmissionError||error instanceof InferenceExecutionUncertainError)throw error;
       const estimatedSteps = heuristicStepEstimate(goal);
       return {
         estimatedSteps,
@@ -855,7 +887,7 @@ export class Orchestrator {
        ORDER BY created_at ASC`,
     ).all() as { name: string; address: string; status: string }[];
 
-    const candidate = rows.find((row) => !idleAddresses.has(row.address));
+    const candidate = rows.find((row) => !idleAddresses.has(row.address)&&this.params.isAgentEligible?.(row.address)!==false);
     if (!candidate) {
       return null;
     }
@@ -880,6 +912,7 @@ export class Orchestrator {
     if (!spawned || typeof spawned.address !== "string" || typeof spawned.name !== "string") {
       return null;
     }
+    if(this.params.isAgentEligible?.(spawned.address)===false)return null;
 
     this.params.agentTracker.register({
       address: spawned.address,
@@ -985,14 +1018,6 @@ export class Orchestrator {
     this.params.db.prepare(
       "INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime('now'))",
     ).run(ORCHESTRATOR_STATE_KEY, JSON.stringify(state));
-  }
-
-  private findFirstFailedTaskId(goalId: string): string | null {
-    const row = this.params.db.prepare(
-      `SELECT id FROM task_graph WHERE goal_id = ? AND status = 'failed' ORDER BY created_at ASC LIMIT 1`,
-    ).get(goalId) as { id: string } | undefined;
-
-    return row?.id ?? null;
   }
 
   private getActiveAgentCount(): number {

@@ -9,6 +9,7 @@
  * This eliminates 4x redundant getCreditsBalance() calls per tick.
  */
 
+import {localOperation} from '../conway/operating-mode.js';
 import type {
   TickContext,
   HeartbeatLegacyContext,
@@ -58,7 +59,8 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       name: taskCtx.config.name,
       address: taskCtx.identity.address,
       state,
-      creditsCents: credits,
+      creditsCents: localOperation(taskCtx.config,taskCtx.conway) ? null : credits,
+      creditStatus: localOperation(taskCtx.config,taskCtx.conway) ? 'unavailable_local' : 'available',
       uptimeSeconds: Math.floor(uptimeMs / 1000),
       version: taskCtx.config.version,
       sandboxId: taskCtx.identity.sandboxId,
@@ -69,7 +71,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     taskCtx.db.setKV("last_heartbeat_ping", JSON.stringify(payload));
 
     // If critical or dead, record a distress signal
-    if (tier === "critical" || tier === "dead") {
+    if (!localOperation(taskCtx.config,taskCtx.conway) && (tier === "critical" || tier === "dead")) {
       const distressPayload = {
         level: tier,
         name: taskCtx.config.name,
@@ -157,7 +159,7 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     }));
 
     const MIN_TOPUP_USD = 5;
-    if (balance >= MIN_TOPUP_USD && (ctx.survivalTier === "critical" || ctx.survivalTier === "dead")) {
+    if (!localOperation(taskCtx.config,taskCtx.conway) && balance >= MIN_TOPUP_USD && (ctx.survivalTier === "critical" || ctx.survivalTier === "dead")) {
       // Cooldown: don't attempt more than once every 5 minutes to avoid
       // hammering the payment endpoint on repeated ticks.
       const AUTO_TOPUP_COOLDOWN_MS = 5 * 60 * 1000;
@@ -441,17 +443,20 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
       const alerts = getAlertEngine();
 
       // Update gauges from tick context
-      metrics.gauge("balance_cents", ctx.creditBalance);
+      const local=localOperation(taskCtx.config,taskCtx.conway);
+      if(!local)metrics.gauge("balance_cents", ctx.creditBalance);
       metrics.gauge("survival_tier", tierToInt(ctx.survivalTier));
 
       // Evaluate alerts
-      const firedAlerts = alerts.evaluate(metrics);
+      const snapshot=metrics.getSnapshot();
+      if(local)snapshot.gauges.delete('balance_cents');
+      const firedAlerts = alerts.evaluate(snapshot);
 
       // Save snapshot to DB
       metricsInsertSnapshot(taskCtx.db.raw, {
         id: ulid(),
         snapshotAt: new Date().toISOString(),
-        metricsJson: JSON.stringify(metrics.getAll()),
+        metricsJson: JSON.stringify(metrics.getAll().filter(metric=>!local||metric.name!=='balance_cents')),
         alertsJson: JSON.stringify(firedAlerts),
         createdAt: new Date().toISOString(),
       });
@@ -705,6 +710,21 @@ export const BUILTIN_TASKS: Record<string, HeartbeatTaskFn> = {
     }
   },
 };
+
+// These tasks require remote Conway infrastructure, not merely a local clock.
+// Keep local maintenance and worker scheduling active without remote retry noise.
+for (const name of ['check_credits','check_social_inbox','refresh_models','check_child_health',
+  'prune_dead_children','health_check','colony_health_check','colony_financial_report','dead_agent_cleanup']) {
+  const remoteTask=BUILTIN_TASKS[name];
+  if (!remoteTask) throw new Error(`Unknown Conway heartbeat task: ${name}`);
+  BUILTIN_TASKS[name]=async (ctx,taskCtx)=>{
+    if(localOperation(taskCtx.config,taskCtx.conway)){
+      if(name==='check_credits')taskCtx.db.setKV('last_credit_check',JSON.stringify({credits:null,status:'unavailable_local',timestamp:new Date().toISOString()}));
+      return {shouldWake:false,message:'Conway capability unavailable in local mode'};
+    }
+    return remoteTask(ctx,taskCtx);
+  };
+}
 
 function tierToInt(tier: SurvivalTier): number {
   const map: Record<SurvivalTier, number> = {

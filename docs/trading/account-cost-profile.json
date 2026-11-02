@@ -1,0 +1,125 @@
+{
+  "accountType": "Trade.MT5",
+  "accountTypeSource": "User confirmation, 2026-10-13",
+  "terminalCompany": "Admirals Group AS",
+  "contractEntity": "Admirals Europe Ltd",
+  "contractEntitySource": {
+    "verifiedAt": "2026-10-13",
+    "url": "https://admiralmarkets.com/dashboard/documents/company",
+    "evidence": "Authenticated customer portal: Sehen Sie sich die aktuellen und archivierten Dokumente an, die Sie mit Admirals Europe Ltd unterzeichnet haben",
+    "document": "Allgemeine_Gesch\u00e4ftsbedingungen_(g\u00fcltig_seit_19.12.2025).pdf",
+    "signedAtDisplayed": "2026-03-09 18:03:03"
+  },
+  "costScheduleConfirmed": false,
+  "reviewedAt": "2026-10-14",
+  "publishedSchedule": {
+    "status": "published-standard-tariff-not-product-confirmation",
+    "commissionsPerSide": {
+      "US": {
+        "basis": "units",
+        "rate": 0.02,
+        "minimum": 1,
+        "currency": "USD"
+      },
+      "DE_FR": {
+        "basis": "notional",
+        "rate": 0.001,
+        "minimum": 1,
+        "currency": "EUR"
+      },
+      "OTHER_EU": {
+        "basis": "notional",
+        "rate": 0.0015,
+        "minimum": 1,
+        "currency": "EUR"
+      },
+      "UK": {
+        "basis": "notional",
+        "rate": 0.001,
+        "minimum": 1,
+        "currency": "GBP"
+      }
+    },
+    "otherInstrumentsCommission": "No commission according to Trade.MT5 overview; explicit instrument classification required",
+    "conversion": {
+      "rate": 0.003,
+      "minimumAccountCurrency": 0.01,
+      "scope": "Foreign-currency stock/ETF CFD settlement: P&L, distributions and service charges; not margin or notional"
+    },
+    "spread": "Floating; actual bid/ask required, 0.5 pips is a marketing floor not a cost assumption",
+    "financing": "Dynamic instrument-specific long/short swap, calculation mode and rollover calendar required",
+    "conflicts": [
+      "Asia Pacific overview states AUD 8 minimum; Japanese detailed page states JPY 1250. Australian detailed page charges both sides at opening, whereas overview describes per-transaction charging. Exclude these regions pending instrument-specific verification."
+    ],
+    "accountMaintenance": "Active account and electronic reports free; inactivity fee EUR 10/month after 24 months without trading with positive balance"
+  },
+  "sources": [
+    "https://admiralmarkets.com/products/fees-and-charges",
+    "https://admiralmarkets.com/start-trading/commissions-calculations",
+    "https://admirals.freshdesk.com/en/support/solutions/articles/201000071638-how-the-currency-conversion-fee-is-applying-",
+    "https://admirals.freshdesk.com/en/support/solutions/articles/201000071644-how-to-calculate-swap-"
+  ],
+  "missing": [
+    "Account-applicable commission and minimum fees per product",
+    "Instrument classification, historical tariff applicability and account-specific promotions",
+    "Empirical slippage assumptions",
+    "Holding-period financing in account currency",
+    "Current account standard-swap versus swap-free/admin-fee applicability"
+  ],
+  "financingRegime": {
+    "confirmed": false,
+    "evidence": "Authenticated portal lists signed swap-free-account terms dated2025-06-19; applicability to current connected account not established. Historical USDJPY swap debit supports prior standard financing, not current universal applicability.",
+    "source": "https://admiralmarkets.com/dashboard/documents/company",
+    "standardScenario": "Dynamic terminal long/short rates; modes5/6 annual percent divided by360; no assumed swap credits."
+  },
+  "slippageEvidence": {
+    "measured": false,
+    "reviewedAt": "2026-10-13T23:56:14.832542+00:00",
+    "orders": 3,
+    "deals": 3,
+    "reason": "No authenticated pre-submission quote records; historical order prices alone are insufficient. No test trades sent.",
+    "source": "artifacts/trading-cost-clarification-20261014/broker-audit.json"
+  },
+  "currentSwapEvidence": {
+    "observedAt": "2026-10-13T23:56:14.832542+00:00",
+    "company": "Admirals Group AS",
+    "accountCurrency": "EUR",
+    "terms": [
+      {
+        "symbol": "EURUSD",
+        "path": "Forex\\Majors\\EURUSD",
+        "point": 1e-05,
+        "contractSize": 100000.0,
+        "profitCurrency": "USD",
+        "swapMode": 5,
+        "swapLong": -4.44,
+        "swapShort": -1.62,
+        "tripleWeekday": 3
+      },
+      {
+        "symbol": "GBPUSD",
+        "path": "Forex\\Majors\\GBPUSD",
+        "point": 1e-05,
+        "contractSize": 100000.0,
+        "profitCurrency": "USD",
+        "swapMode": 5,
+        "swapLong": -3.24,
+        "swapShort": -2.79,
+        "tripleWeekday": 3
+      },
+      {
+        "symbol": "USDJPY",
+        "path": "Forex\\Majors\\USDJPY",
+        "point": 0.001,
+        "contractSize": 100000.0,
+        "profitCurrency": "JPY",
+        "swapMode": 5,
+        "swapLong": -0.32,
+        "swapShort": -5.94,
+        "tripleWeekday": 3
+      }
+    ],
+    "historicalApplicabilityConfirmed": false,
+    "source": "MT5 symbol_info; read-only"
+  }
+}

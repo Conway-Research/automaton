@@ -1,0 +1,25 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import Database from 'better-sqlite3';
+import {openOrderPayment} from './founder-order-payment.mjs';
+import {openOrderRestoration} from './founder-order-restoration.mjs';
+import {openFounderRuntime} from './founder-runtime.mjs';
+import {normalizeInventory} from './founder-source-registry.mjs';
+for(const expire of [false,true])test('normal controller completes postpaid work without claiming escrow and only exact payment releases exposure; expire='+expire,async()=>{
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'postpaid-controller-')),directory=path.join(base,'runtime');let runtime,service,on=true,sends=0,reads=0;
+ const packages={rows:[{id:'core',label:'ugig',inventoryKind:'core'}]},sourceId=normalizeInventory({},packages).sources[0].id,key={sourceId,externalId:'job',ownerId:'own'};
+ const terms={...key,orderUrl:'https://contracts.example/orders/job',amountMinor:5000,currency:'USD',recipient:'account:own',scopeDigest:'scope',sourceRevision:'r1'};
+ const record={...key,rootTaskId:'postpaid-root',sourceRevision:'r1',state:'applied',termsVerified:true,paymentTerms:terms,provenance:{type:'reviewed-local-registration',ownerId:'own',evidenceRef:'fake-own-registration'}};
+ try{
+  fs.mkdirSync(path.join(base,'docs/superpowers/plans'),{recursive:true});fs.writeFileSync(path.join(base,'docs/superpowers/plans/2026-10-18-numaron-source-work-packages.json'),JSON.stringify(packages));
+  service=openOrderPayment({file:path.join(base,'payment.db'),isEnabled:()=>on,budgetSnapshot:()=>runtime.snapshot().budget,postpaidSource:{origin:'https://contracts.example',modeFor:()=> 'postpaid-limited',read:async t=>{reads++;return {...t,kind:'postpaid-agreement',status:'accepted',ownAssignmentConfirmed:true,acceptanceCriteria:['CSV lowercase'],feesKnown:true,netAmountMinor:5000,estimatedNetRappen:1000,payoutMethod:'existing-account',paymentWithinDaysAfterAcceptance:14,sourceUrl:terms.orderUrl,evidenceRef:'fake-agreement',observedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()};}}});
+  const bootstrap=openOrderRestoration({base,directory:path.join(directory,'restoration'),isEnabled:()=>false,workPackages:packages});for(const cap of ['read','work','verify','submit','reconcile'])bootstrap.registry.setCapability(sourceId,cap,{state:'live-verified',expiresAt:Date.now()+60000,evidenceRefs:['fake-capability']});bootstrap.close();
+  const binding={...key,assignmentConfirmed:true,buyerId:'buyer',termsVerified:true,aiAllowed:true,profileId:'structured-data',scopeDigest:'scope',sourceRevision:'r1',inputs:[{privacy:'public'}],acceptanceCriteria:['CSV lowercase'],data:{rows:[{name:' ALICE '}],contract:{columns:['name'],required:['name'],deduplicateBy:[],trim:['name'],lowercase:['name']}}};
+  const contract={sourceId,evidenceRef:'fake-contract',profiles:['structured-data'],registrations:async()=>[record],verifyRegistration:()=>true,verify:()=>true,verifyProduct:async()=>true,methods:{
+   'reconcile-application':async ctx=>({confirmed:true,assignment:{...key,verified:true,evidenceRef:'fake-assignment',expiresAt:Date.now()+60000},paymentAuthorization:await service.require(terms,ctx)}),
+   prepare:async()=>({confirmed:true,binding}),submit:async({product})=>{sends++;return {confirmed:true,delivery:{...key,sourceRevision:'r1',verified:true,digest:product.digest,remoteId:'fake-delivery',evidenceRef:'fake-readback'}};},acceptance:async()=>({confirmed:true}),payment:async()=>({confirmed:true,payment:{...key,confirmed:true,amountMinor:5000,currency:'USD',recipient:'account:own',evidenceRef:'fake-payment'}})
+  }};
+  runtime=openFounderRuntime({base,directory,adapters:{},activate:true,isEnabled:()=>on,paymentAuthority:service,restorationOptions:{paymentAuthority:service,sources:[contract]}});
+  on=false;await runtime.cycle();assert.equal(reads,0);on=true;
+  for(let i=0;i<6;i++){await runtime.cycle();if(expire&&i===0){const db=new Database(path.join(directory,'restoration/opportunities.db'));db.prepare("UPDATE restoration_orders SET payload=json_set(payload,'$.paymentAuthorization.expiresAt',0)").run();db.close();}}assert.equal(sends,1,JSON.stringify(runtime.snapshot().tasks));assert.equal(service.snapshot().openOrders,1);
+  await runtime.cycle();const db=new Database(path.join(directory,'restoration/opportunities.db'),{readonly:true});const saved=JSON.parse(db.prepare('select payload from restoration_orders').get().payload);db.close();assert.equal(saved.state,'paid');assert.equal(saved.paymentAuthorization.paymentMode,'postpaid-limited');assert.equal(saved.funding,undefined);assert.equal(service.snapshot().openOrders,0);assert.equal(runtime.snapshot().budget.spentRappen,0);assert.equal(runtime.snapshot().budget.heldRappen,0);on=false;const oldReads=reads;await runtime.cycle();assert.equal(reads,oldReads);
+ }finally{await runtime?.close();service?.close();fs.rmSync(base,{recursive:true,force:true});}
+});

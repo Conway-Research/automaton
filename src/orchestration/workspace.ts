@@ -14,6 +14,7 @@ export interface WorkspaceFile {
   summary?: string;
 }
 
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging -- Existing public interface is fully implemented and fields initialized by this class.
 export interface AgentWorkspace {
   goalId: string;
   basePath: string;

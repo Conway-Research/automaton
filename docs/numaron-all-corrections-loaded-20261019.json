@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-18T23:52:39.050Z",
+  "state": "loaded-off",
+  "pid": 18668,
+  "supervisorPid": 22336,
+  "scope": [
+    "scheduler canonical uGig root grammar",
+    "demo future flat checkpoint",
+    "history new-round diagnostics",
+    "firecrawl settled manual retry",
+    "prepared FX refresh in founder-mt5"
+  ],
+  "budgetDigest": "32145d8a19f949cc1ed5f6722cef1e3b7ca540f1870c746d643ca7a421b9ad99",
+  "heldRappen": 500,
+  "evidence": "artifacts/runtime-blocker-repair-20261019/restart-readback.json"
+}

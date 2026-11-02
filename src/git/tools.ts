@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Git Tools
  *
  * Built-in git operations for the automaton.
@@ -6,6 +6,10 @@
  */
 
 import type { ConwayClient, GitStatus, GitLogEntry } from "../types.js";
+
+function usesWindowsShell(conway: ConwayClient): boolean {
+  return conway.isLocal === true && process.platform === "win32";
+}
 
 /**
  * Get git status for a repository.
@@ -15,10 +19,12 @@ export async function gitStatus(
   repoPath: string,
 ): Promise<GitStatus> {
   const result = await conway.exec(
-    `cd ${escapeShellArg(repoPath)} && git status --porcelain -b 2>/dev/null`,
+    `git status --porcelain -b`,
     10000,
+    repoPath,
   );
 
+  if (result.exitCode !== 0) throw new Error("Git status failed");
   const lines = result.stdout.split("\n").filter(Boolean);
   let branch = "unknown";
   const staged: string[] = [];
@@ -65,8 +71,9 @@ export async function gitDiff(
 ): Promise<string> {
   const flag = staged ? "--cached" : "";
   const result = await conway.exec(
-    `cd ${escapeShellArg(repoPath)} && git diff ${flag} 2>/dev/null`,
+    `git diff ${flag}`,
     10000,
+    repoPath,
   );
   return result.stdout || "(no changes)";
 }
@@ -81,12 +88,14 @@ export async function gitCommit(
   addAll: boolean = true,
 ): Promise<string> {
   if (addAll) {
-    await conway.exec(`cd ${escapeShellArg(repoPath)} && git add -A`, 10000);
+    const staged = await conway.exec(`git add -A`, 10000, repoPath);
+    if (staged.exitCode !== 0) throw new Error("Git staging failed");
   }
 
   const result = await conway.exec(
-    `cd ${escapeShellArg(repoPath)} && git commit -m ${escapeShellArg(message)} --allow-empty 2>&1`,
+    `git commit -m ${escapeShellArg(message, usesWindowsShell(conway))} --allow-empty`,
     10000,
+    repoPath,
   );
 
   if (result.exitCode !== 0) {
@@ -106,8 +115,9 @@ export async function gitLog(
 ): Promise<GitLogEntry[]> {
   const safeLimit = Math.max(1, Math.floor(Number(limit))) || 10;
   const result = await conway.exec(
-    `cd ${escapeShellArg(repoPath)} && git log --format="%H|%s|%an|%ai" -n ${safeLimit} 2>/dev/null`,
+    `git log --format="%H|%s|%an|%ai" -n ${safeLimit}`,
     10000,
+    repoPath,
   );
 
   if (!result.stdout.trim()) return [];
@@ -130,10 +140,11 @@ export async function gitPush(
   remote: string = "origin",
   branch?: string,
 ): Promise<string> {
-  const branchArg = branch ? ` ${escapeShellArg(branch)}` : "";
+  const branchArg = branch ? ` ${escapeShellArg(branch, usesWindowsShell(conway))}` : "";
   const result = await conway.exec(
-    `cd ${escapeShellArg(repoPath)} && git push ${escapeShellArg(remote)}${branchArg} 2>&1`,
+    `git push ${escapeShellArg(remote, usesWindowsShell(conway))}${branchArg}`,
     30000,
+    repoPath,
   );
 
   if (result.exitCode !== 0) {
@@ -156,25 +167,25 @@ export async function gitBranch(
 
   switch (action) {
     case "list":
-      cmd = `cd ${escapeShellArg(repoPath)} && git branch -a 2>/dev/null`;
+      cmd = `git branch -a`;
       break;
     case "create":
       if (!branchName) throw new Error("Branch name required");
-      cmd = `cd ${escapeShellArg(repoPath)} && git checkout -b ${escapeShellArg(branchName)} 2>&1`;
+      cmd = `git checkout -b ${escapeShellArg(branchName, usesWindowsShell(conway))}`;
       break;
     case "checkout":
       if (!branchName) throw new Error("Branch name required");
-      cmd = `cd ${escapeShellArg(repoPath)} && git checkout ${escapeShellArg(branchName)} 2>&1`;
+      cmd = `git checkout ${escapeShellArg(branchName, usesWindowsShell(conway))}`;
       break;
     case "delete":
       if (!branchName) throw new Error("Branch name required");
-      cmd = `cd ${escapeShellArg(repoPath)} && git branch -d ${escapeShellArg(branchName)} 2>&1`;
+      cmd = `git branch -d ${escapeShellArg(branchName, usesWindowsShell(conway))}`;
       break;
     default:
       throw new Error(`Unknown branch action: ${action}`);
   }
 
-  const result = await conway.exec(cmd, 10000);
+  const result = await conway.exec(cmd, 10000, repoPath);
   return result.stdout || result.stderr || "Done";
 }
 
@@ -191,7 +202,7 @@ export async function gitClone(
     ? ` --depth ${Math.max(1, Math.floor(Number(depth)))}`
     : "";
   const result = await conway.exec(
-    `git clone${depthArg} ${escapeShellArg(url)} ${escapeShellArg(targetPath)} 2>&1`,
+    `git clone${depthArg} ${escapeShellArg(url, usesWindowsShell(conway))} ${escapeShellArg(targetPath, usesWindowsShell(conway))}`,
     120000,
   );
 
@@ -210,12 +221,17 @@ export async function gitInit(
   repoPath: string,
 ): Promise<string> {
   const result = await conway.exec(
-    `cd ${escapeShellArg(repoPath)} && git init 2>&1`,
+    `git init`,
     10000,
+    repoPath,
   );
+  if (result.exitCode !== 0) throw new Error("Git initialization failed");
   return result.stdout || "Git initialized";
 }
 
-function escapeShellArg(arg: string): string {
+function escapeShellArg(arg: string, windows: boolean = false): string {
+  if (windows) {
+    return '"' + arg.replace(/"/g, '\\"') + '"';
+  }
   return `'${arg.replace(/'/g, "'\\''")}'`;
 }

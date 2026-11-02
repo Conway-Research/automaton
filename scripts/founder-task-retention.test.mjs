@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import Database from 'better-sqlite3';import {createHash} from 'node:crypto';import {retainTerminalJobs} from './founder-task-retention.mjs';
+test('retention preserves full rows and excludes live, referenced and corrupt results',()=>{
+ const db=new Database(':memory:');db.exec('CREATE TABLE founder_jobs(id TEXT PRIMARY KEY,payload TEXT,status TEXT,updated_ms INTEGER,result TEXT,digest TEXT);CREATE TABLE founder_job_archive AS SELECT * FROM founder_jobs WHERE 0');const result='{"ok":true}',hash=createHash('sha256').update(result).digest('hex');
+ for(const [id,status,deps,digest] of [['old','done',[],hash],['parent','done',[],hash],['child','queued',['parent'],hash],['corrupt','done',[],'bad']])db.prepare('INSERT INTO founder_jobs VALUES(?,?,?,?,?,?)').run(id,JSON.stringify({dependencies:deps}),status,1,result,digest);
+ const before=db.prepare("SELECT * FROM founder_jobs WHERE id='old'").get();assert.equal(db.transaction(()=>retainTerminalJobs(db,{before:100})).immediate(),1);assert.deepEqual(db.prepare('SELECT * FROM founder_job_archive').get(),before);assert.equal(db.prepare('SELECT count(*) n FROM founder_jobs').get().n,3);db.close();
+});

@@ -1,0 +1,1448 @@
+TAP version 13
+# Subtest: missing reader never supplies customer-work authority
+ok 1 - missing reader never supplies customer-work authority
+  ---
+  duration_ms: 2.3535
+  type: 'test'
+  ...
+# Subtest: OFF rejects before any reader invocation
+ok 2 - OFF rejects before any reader invocation
+  ---
+  duration_ms: 1.8647
+  type: 'test'
+  ...
+# Subtest: complete own fresh funded milestone binds the exact reviewed context
+ok 3 - complete own fresh funded milestone binds the exact reviewed context
+  ---
+  duration_ms: 2.5325
+  type: 'test'
+  ...
+# Subtest: cached authority expires at the actual maximum age
+ok 4 - cached authority expires at the actual maximum age
+  ---
+  duration_ms: 1.3449
+  type: 'test'
+  ...
+# Subtest: pending application or merged PR cannot replace a confirmed assignment
+ok 5 - pending application or merged PR cannot replace a confirmed assignment
+  ---
+  duration_ms: 17.0146
+  type: 'test'
+  ...
+# Subtest: foreign recipient/order binding is rejected
+ok 6 - foreign recipient/order binding is rejected
+  ---
+  duration_ms: 0.8222
+  type: 'test'
+  ...
+# Subtest: scope milestone and input changes invalidate a cached proof immediately
+ok 7 - scope milestone and input changes invalidate a cached proof immediately
+  ---
+  duration_ms: 1.306
+  type: 'test'
+  ...
+# Subtest: revocation on fresh read clears any previously successful authority
+ok 8 - revocation on fresh read clears any previously successful authority
+  ---
+  duration_ms: 2.1297
+  type: 'test'
+  ...
+# Subtest: insufficient own held escrow blocks customer work
+ok 9 - insufficient own held escrow blocks customer work
+  ---
+  duration_ms: 1.0798
+  type: 'test'
+  ...
+# Subtest: different compensation beneficiary cannot be substituted
+ok 10 - different compensation beneficiary cannot be substituted
+  ---
+  duration_ms: 2.7389
+  type: 'test'
+  ...
+# Subtest: verified received advance may cover the exact agreed net milestone
+ok 11 - verified received advance may cover the exact agreed net milestone
+  ---
+  duration_ms: 1.1479
+  type: 'test'
+  ...
+# Subtest: historical release and postpaid promise are not funded protection
+ok 12 - historical release and postpaid promise are not funded protection
+  ---
+  duration_ms: 1.4387
+  type: 'test'
+  ...
+# Subtest: gross deductions and net preserve original decimal precision
+ok 13 - gross deductions and net preserve original decimal precision
+  ---
+  duration_ms: 0.845
+  type: 'test'
+  ...
+# Subtest: incomplete reviewed customer inputs fail before invoking a source
+ok 14 - incomplete reviewed customer inputs fail before invoking a source
+  ---
+  duration_ms: 0.444
+  type: 'test'
+  ...
+# Subtest: future and expired evidence snapshots are rejected
+ok 15 - future and expired evidence snapshots are rejected
+  ---
+  duration_ms: 0.9176
+  type: 'test'
+  ...
+# Subtest: source references must belong to configured authenticated origin
+ok 16 - source references must belong to configured authenticated origin
+  ---
+  duration_ms: 0.5818
+  type: 'test'
+  ...
+# Subtest: test evidence is never accepted through production configuration
+ok 17 - test evidence is never accepted through production configuration
+  ---
+  duration_ms: 0.2981
+  type: 'test'
+  ...
+# Subtest: a slower earlier valid read cannot overwrite a newer revocation
+ok 18 - a slower earlier valid read cannot overwrite a newer revocation
+  ---
+  duration_ms: 1.0551
+  type: 'test'
+  ...
+# Subtest: jointly substituted order compensation and funding recipient is not an owned account
+ok 19 - jointly substituted order compensation and funding recipient is not an owned account
+  ---
+  duration_ms: 0.4297
+  type: 'test'
+  ...
+# Subtest: synthetic opt-in must be the explicit Boolean true
+ok 20 - synthetic opt-in must be the explicit Boolean true
+  ---
+  duration_ms: 0.317
+  type: 'test'
+  ...
+# Subtest: strict prepare blocks legacy funding Boolean without confirmed award and terms
+ok 21 - strict prepare blocks legacy funding Boolean without confirmed award and terms
+  ---
+  duration_ms: 3.084
+  type: 'test'
+  ...
+# Subtest: strict work blocks legacy funding Boolean without confirmed award and terms
+ok 22 - strict work blocks legacy funding Boolean without confirmed award and terms
+  ---
+  duration_ms: 0.3979
+  type: 'test'
+  ...
+# Subtest: strict verify blocks legacy funding Boolean without confirmed award and terms
+ok 23 - strict verify blocks legacy funding Boolean without confirmed award and terms
+  ---
+  duration_ms: 0.3738
+  type: 'test'
+  ...
+# Subtest: strict submit blocks legacy funding Boolean without confirmed award and terms
+ok 24 - strict submit blocks legacy funding Boolean without confirmed award and terms
+  ---
+  duration_ms: 0.2824
+  type: 'test'
+  ...
+# Subtest: strict funded policy does not inherit a postpaid allowance
+ok 25 - strict funded policy does not inherit a postpaid allowance
+  ---
+  duration_ms: 0.5671
+  type: 'test'
+  ...
+# Subtest: planner must propagate strict confirmed-funded policy instead of bypassing it
+ok 26 - planner must propagate strict confirmed-funded policy instead of bypassing it
+  ---
+  duration_ms: 1.7384
+  type: 'test'
+  ...
+# Subtest: real authority and real nested prepare adapter refresh without self-rejecting a deliberately invalidated cache
+ok 27 - real authority and real nested prepare adapter refresh without self-rejecting a deliberately invalidated cache
+  ---
+  duration_ms: 342.7939
+  type: 'test'
+  ...
+# Subtest: the production runtime composition offers no postpaid mode
+ok 28 - the production runtime composition offers no postpaid mode
+  ---
+  duration_ms: 635.6002
+  type: 'test'
+  ...
+# Subtest: a declared payment promise goes to the escrow check and without funding gets no authority
+ok 29 - a declared payment promise goes to the escrow check and without funding gets no authority
+  ---
+  duration_ms: 28.7096
+  type: 'test'
+  ...
+# Subtest: an earlier stored postpaid authorization no longer allows work and cannot refresh
+ok 30 - an earlier stored postpaid authorization no longer allows work and cannot refresh
+  ---
+  duration_ms: 63.8827
+  type: 'test'
+  ...
+# Subtest: a real looking receipt still counts where the source policy is decided
+ok 31 - a real looking receipt still counts where the source policy is decided
+  ---
+  duration_ms: 0.633
+  type: 'test'
+  ...
+# Subtest: non-real receipt never counts as income: synthetic
+ok 32 - non-real receipt never counts as income: synthetic
+  ---
+  duration_ms: 0.2831
+  type: 'test'
+  ...
+# Subtest: non-real receipt never counts as income: refunded
+ok 33 - non-real receipt never counts as income: refunded
+  ---
+  duration_ms: 0.1516
+  type: 'test'
+  ...
+# Subtest: non-real receipt never counts as income: chargeback
+ok 34 - non-real receipt never counts as income: chargeback
+  ---
+  duration_ms: 0.2102
+  type: 'test'
+  ...
+# Subtest: non-real receipt never counts as income: environment
+ok 35 - non-real receipt never counts as income: environment
+  ---
+  duration_ms: 0.1932
+  type: 'test'
+  ...
+# Subtest: non-real receipt never counts as income: sandbox
+ok 36 - non-real receipt never counts as income: sandbox
+  ---
+  duration_ms: 0.3632
+  type: 'test'
+  ...
+# Subtest: undecided payment sources report no contribution even for a complete receipt
+ok 37 - undecided payment sources report no contribution even for a complete receipt
+  ---
+  duration_ms: 0.5072
+  type: 'test'
+  ...
+# Subtest: actual strict source action rejects absent award/funding service before execution
+ok 38 - actual strict source action rejects absent award/funding service before execution
+  ---
+  duration_ms: 219.4401
+  type: 'test'
+  ...
+# Subtest: actual strict source action uses fresh evidence before and after work
+ok 39 - actual strict source action uses fresh evidence before and after work
+  ---
+  duration_ms: 258.5731
+  type: 'test'
+  ...
+# Subtest: revocation during work prevents trusted state commit
+ok 40 - revocation during work prevents trusted state commit
+  ---
+  duration_ms: 218.3254
+  type: 'test'
+  ...
+# Subtest: OFF makes no actual source reader or writer invocation
+ok 41 - OFF makes no actual source reader or writer invocation
+  ---
+  duration_ms: 224.8504
+  type: 'test'
+  ...
+# Subtest: funding revoked during specialist review cannot persist a trusted passed review
+ok 42 - funding revoked during specialist review cannot persist a trusted passed review
+  ---
+  duration_ms: 137.1755
+  type: 'test'
+  ...
+# Subtest: A1 production composition enables the gate with no extra option
+ok 43 - A1 production composition enables the gate with no extra option
+  ---
+  duration_ms: 254.7624
+  type: 'test'
+  ...
+# Subtest: A2 without a real reader every customer action stays blocked, zero work
+ok 44 - A2 without a real reader every customer action stays blocked, zero work
+  ---
+  duration_ms: 475.5059
+  type: 'test'
+  ...
+# Subtest: A3 reconciliation persists the reviewed commercial terms on the order
+ok 45 - A3 reconciliation persists the reviewed commercial terms on the order
+  ---
+  duration_ms: 512.258
+  type: 'test'
+  ...
+# Subtest: Z02 merged work without personal award blocks before prepare with zero writes
+ok 46 - Z02 merged work without personal award blocks before prepare with zero writes
+  ---
+  duration_ms: 497.9804
+  type: 'test'
+  ...
+# Subtest: Z04 pending application without contract blocks before prepare with zero writes
+ok 47 - Z04 pending application without contract blocks before prepare with zero writes
+  ---
+  duration_ms: 643.4625
+  type: 'test'
+  ...
+# Subtest: Z06 funding for another recipient blocks before prepare with zero writes
+ok 48 - Z06 funding for another recipient blocks before prepare with zero writes
+  ---
+  duration_ms: 650.752
+  type: 'test'
+  ...
+# Subtest: Z06 insufficient escrow amount blocks before prepare with zero writes
+ok 49 - Z06 insufficient escrow amount blocks before prepare with zero writes
+  ---
+  duration_ms: 603.3215
+  type: 'test'
+  ...
+# Subtest: Z06 escrow bound to another order blocks before prepare with zero writes
+ok 50 - Z06 escrow bound to another order blocks before prepare with zero writes
+  ---
+  duration_ms: 753.0058
+  type: 'test'
+  ...
+# Subtest: Z06 expired evidence snapshot blocks before prepare with zero writes
+ok 51 - Z06 expired evidence snapshot blocks before prepare with zero writes
+  ---
+  duration_ms: 597.2332
+  type: 'test'
+  ...
+# Subtest: Z06 revoked funding blocks before prepare with zero writes
+ok 52 - Z06 revoked funding blocks before prepare with zero writes
+  ---
+  duration_ms: 574.8725
+  type: 'test'
+  ...
+# Subtest: Z06 payment promise is not funding blocks before prepare with zero writes
+ok 53 - Z06 payment promise is not funding blocks before prepare with zero writes
+  ---
+  duration_ms: 595.4522
+  type: 'test'
+  ...
+# Subtest: Z10 changed milestone blocks before prepare with zero writes
+ok 54 - Z10 changed milestone blocks before prepare with zero writes
+  ---
+  duration_ms: 551.1586
+  type: 'test'
+  ...
+# Subtest: Z06 recipient outside the trusted registry blocks without reading evidence
+ok 55 - Z06 recipient outside the trusted registry blocks without reading evidence
+  ---
+  duration_ms: 573.9191
+  type: 'test'
+  ...
+# Subtest: Z10 funding revoked after prepare stops work with zero generation
+ok 56 - Z10 funding revoked after prepare stops work with zero generation
+  ---
+  duration_ms: 765.6638
+  type: 'test'
+  ...
+# Subtest: Z07 confirmed funded order reaches paid; acceptance alone stays accepted; reopen never pays twice
+ok 57 - Z07 confirmed funded order reaches paid; acceptance alone stays accepted; reopen never pays twice
+  ---
+  duration_ms: 4252.8252
+  type: 'test'
+  ...
+# Subtest: OFF makes zero reader and zero platform calls
+ok 58 - OFF makes zero reader and zero platform calls
+  ---
+  duration_ms: 294.1273
+  type: 'test'
+  ...
+# (node:28036) ExperimentalWarning: The MockTimers API is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: complete assigned-order lifecycle crosses real controller and budget; reopen cannot duplicate payment
+ok 59 - complete assigned-order lifecycle crosses real controller and budget; reopen cannot duplicate payment
+  ---
+  duration_ms: 1344.5034
+  type: 'test'
+  ...
+# Subtest: OFF never advances orders or reserves work costs
+ok 60 - OFF never advances orders or reserves work costs
+  ---
+  duration_ms: 1100.8933
+  type: 'test'
+  ...
+# Subtest: expired work authority prevents execution despite assigned funded order
+ok 61 - expired work authority prevents execution despite assigned funded order
+  ---
+  duration_ms: 1231.2401
+  type: 'test'
+  ...
+# Subtest: independent verification failure blocks submit without losing already recorded cost
+ok 62 - independent verification failure blocks submit without losing already recorded cost
+  ---
+  duration_ms: 1254.9235
+  type: 'test'
+  ...
+# Subtest: response lost after submit remains pending across reopen and retains unresolved reservation
+ok 63 - response lost after submit remains pending across reopen and retains unresolved reservation
+  ---
+  duration_ms: 1313.9169
+  type: 'test'
+  ...
+# Subtest: contract-mismatched payment stays accepted: amountMinor
+ok 64 - contract-mismatched payment stays accepted: amountMinor
+  ---
+  duration_ms: 1277.443
+  type: 'test'
+  ...
+# Subtest: contract-mismatched payment stays accepted: currency
+ok 65 - contract-mismatched payment stays accepted: currency
+  ---
+  duration_ms: 1138.4326
+  type: 'test'
+  ...
+# Subtest: contract-mismatched payment stays accepted: recipient
+ok 66 - contract-mismatched payment stays accepted: recipient
+  ---
+  duration_ms: 1113.9305
+  type: 'test'
+  ...
+# Subtest: contract-mismatched payment stays accepted: ownerId
+ok 67 - contract-mismatched payment stays accepted: ownerId
+  ---
+  duration_ms: 763.4162
+  type: 'test'
+  ...
+# Subtest: contract-mismatched payment is checked again only in the next scheduler minute
+ok 68 - contract-mismatched payment is checked again only in the next scheduler minute
+  ---
+  duration_ms: 938.7763
+  type: 'test'
+  ...
+# Subtest: OFF during work prevents state commit and any subsequent submit
+ok 69 - OFF during work prevents state commit and any subsequent submit
+  ---
+  duration_ms: 666.7958
+  type: 'test'
+  ...
+# Subtest: buyer correction retains first delivery and same family costs through revised payment
+ok 70 - buyer correction retains first delivery and same family costs through revised payment
+  ---
+  duration_ms: 1050.7903
+  type: 'test'
+  ...
+# Subtest: persisted unsent intent resumes only with exact prepared journal proof
+ok 71 - persisted unsent intent resumes only with exact prepared journal proof
+  ---
+  duration_ms: 584.9476
+  type: 'test'
+  ...
+# Subtest: missing work authority blocks assigned funded work
+ok 72 - missing work authority blocks assigned funded work
+  ---
+  duration_ms: 620.0908
+  type: 'test'
+  ...
+# Subtest: unproven unsent intent cannot clear pending delivery or resubmit
+ok 73 - unproven unsent intent cannot clear pending delivery or resubmit
+  ---
+  duration_ms: 680.4756
+  type: 'test'
+  ...
+# Subtest: K1 English order runs to synthetic paid, once
+ok 74 - K1 English order runs to synthetic paid, once
+  ---
+  duration_ms: 964.2871
+  type: 'test'
+  ...
+# Subtest: K2 German order survives a restart in the middle with no second generation or delivery
+ok 75 - K2 German order survives a restart in the middle with no second generation or delivery
+  ---
+  duration_ms: 1453.7634
+  type: 'test'
+  ...
+# Subtest: K3 delivered and accepted but the payment fails: stays unpaid, profit unknown
+ok 76 - K3 delivered and accepted but the payment fails: stays unpaid, profit unknown
+  ---
+  duration_ms: 1167.4327
+  type: 'test'
+  ...
+# Subtest: K4 the buyer does not accept: no payment step and no claim of acceptance
+ok 77 - K4 the buyer does not accept: no payment step and no claim of acceptance
+  ---
+  duration_ms: 1282.7835
+  type: 'test'
+  ...
+# Subtest: K5 OFF arriving mid-order stops before delivery, and nothing was sent
+ok 78 - K5 OFF arriving mid-order stops before delivery, and nothing was sent
+  ---
+  duration_ms: 726.6068
+  type: 'test'
+  ...
+# Subtest: K6 duplicate registration and refused listings add no order
+ok 79 - K6 duplicate registration and refused listings add no order
+  ---
+  duration_ms: 606.3459
+  type: 'test'
+  ...
+# Subtest: K7 the funnel over these simulations keeps failures and promises nothing real
+ok 80 - K7 the funnel over these simulations keeps failures and promises nothing real
+  ---
+  duration_ms: 2.6767
+  type: 'test'
+  ...
+# Subtest: K8 a restart after the send, also with its answer lost, causes no second delivery and still ends paid once
+ok 81 - K8 a restart after the send, also with its answer lost, causes no second delivery and still ends paid once
+  ---
+  duration_ms: 2574.7587
+  type: 'test'
+  ...
+# Subtest: K9 a failed review or generation is really reached, delivers nothing and earns nothing
+ok 82 - K9 a failed review or generation is really reached, delivers nothing and earns nothing
+  ---
+  duration_ms: 1242.1787
+  type: 'test'
+  ...
+# Subtest: complete large contracts remain eligible; missing binding fields block preparation
+ok 83 - complete large contracts remain eligible; missing binding fields block preparation
+  ---
+  duration_ms: 20.9907
+  type: 'test'
+  ...
+# Subtest: large scope does not force a small milestone
+ok 84 - large scope does not force a small milestone
+  ---
+  duration_ms: 2.0495
+  type: 'test'
+  ...
+# Subtest: payment must match price, currency, recipient and owner
+ok 85 - payment must match price, currency, recipient and owner
+  ---
+  duration_ms: 1.9638
+  type: 'test'
+  ...
+# Subtest: atomic store settlement rejects reuse across orders and paid-state rollback
+ok 86 - atomic store settlement rejects reuse across orders and paid-state rollback
+  ---
+  duration_ms: 29.662
+  type: 'test'
+  ...
+# Subtest: costs include retries once; reservations are not actual spend; foreign currency has no invented profit
+ok 87 - costs include retries once; reservations are not actual spend; foreign currency has no invented profit
+  ---
+  duration_ms: 1.5396
+  type: 'test'
+  ...
+# Subtest: shared cost roots, conflicting costs and reused receipts cannot produce a profit
+ok 88 - shared cost roots, conflicting costs and reused receipts cannot produce a profit
+  ---
+  duration_ms: 1.08
+  type: 'test'
+  ...
+# Subtest: Z01 three audited patterns map exactly and historical receipts start no new work
+ok 89 - Z01 three audited patterns map exactly and historical receipts start no new work
+  ---
+  duration_ms: 14.048
+  type: 'test'
+  ...
+# Subtest: Z01 a later real receipt supersedes an older completion flag, visibly
+ok 90 - Z01 a later real receipt supersedes an older completion flag, visibly
+  ---
+  duration_ms: 0.648
+  type: 'test'
+  ...
+# Subtest: Z03 one advertisement with two PRs yields a single unconfirmed nominal and no claim
+ok 91 - Z03 one advertisement with two PRs yields a single unconfirmed nominal and no claim
+  ---
+  duration_ms: 0.5693
+  type: 'test'
+  ...
+# Subtest: Z02 merge alone is not acceptance, payment or revenue
+ok 92 - Z02 merge alone is not acceptance, payment or revenue
+  ---
+  duration_ms: 0.3746
+  type: 'test'
+  ...
+# Subtest: Z05 pending ledger and a reward message for someone else invent no amount
+ok 93 - Z05 pending ledger and a reward message for someone else invent no amount
+  ---
+  duration_ms: 0.4483
+  type: 'test'
+  ...
+# Subtest: Z08 release without a transfer stays unpaid with the agreed net open
+ok 94 - Z08 release without a transfer stays unpaid with the agreed net open
+  ---
+  duration_ms: 0.6466
+  type: 'test'
+  ...
+# Subtest: Z08 an unconfirmed transfer never counts as received
+ok 95 - Z08 an unconfirmed transfer never counts as received
+  ---
+  duration_ms: 0.2781
+  type: 'test'
+  ...
+# Subtest: Z09 displayed rounding is documented, keeps original precision and is no shortfall
+ok 96 - Z09 displayed rounding is documented, keeps original precision and is no shortfall
+  ---
+  duration_ms: 0.5103
+  type: 'test'
+  ...
+# Subtest: Z09 real shortfall without the rounding flag is not hidden as rounding
+ok 97 - Z09 real shortfall without the rounding flag is not hidden as rounding
+  ---
+  duration_ms: 9.6902
+  type: 'test'
+  ...
+# Subtest: Z09 flagged display that does not round to the receipt is not hidden as rounding
+ok 98 - Z09 flagged display that does not round to the receipt is not hidden as rounding
+  ---
+  duration_ms: 0.9338
+  type: 'test'
+  ...
+# Subtest: Z09 overpayment is not hidden as rounding
+ok 99 - Z09 overpayment is not hidden as rounding
+  ---
+  duration_ms: 0.9684
+  type: 'test'
+  ...
+# Subtest: Z09 currencies are never summed and no exchange rate is guessed
+ok 100 - Z09 currencies are never summed and no exchange rate is guessed
+  ---
+  duration_ms: 0.7134
+  type: 'test'
+  ...
+# Subtest: invalid amounts and duplicate receipts fail closed
+ok 101 - invalid amounts and duplicate receipts fail closed
+  ---
+  duration_ms: 1.5666
+  type: 'test'
+  ...
+# Subtest: Z11 unknown cost yields no contribution; minutes stay outside money
+ok 102 - Z11 unknown cost yields no contribution; minutes stay outside money
+  ---
+  duration_ms: 2.7493
+  type: 'test'
+  ...
+# Subtest: complete isolated format lifecycle preserves original tests and delivers once: python
+ok 103 - complete isolated format lifecycle preserves original tests and delivers once: python
+  ---
+  duration_ms: 748.7407
+  type: 'test'
+  ...
+# Subtest: complete isolated format lifecycle preserves original tests and delivers once: typescript
+ok 104 - complete isolated format lifecycle preserves original tests and delivers once: typescript
+  ---
+  duration_ms: 735.7496
+  type: 'test'
+  ...
+# Subtest: complete isolated format lifecycle preserves original tests and delivers once: bash
+ok 105 - complete isolated format lifecycle preserves original tests and delivers once: bash
+  ---
+  duration_ms: 833.0922
+  type: 'test'
+  ...
+# Subtest: verified delivery resumed after restart probes its runtime before submission
+ok 106 - verified delivery resumed after restart probes its runtime before submission
+  ---
+  duration_ms: 980.8911
+  type: 'test'
+  ...
+# Subtest: restoration independently rechecks authority after a custom adapter returns
+ok 107 - restoration independently rechecks authority after a custom adapter returns
+  ---
+  duration_ms: 451.5696
+  type: 'test'
+  ...
+# Subtest: source contract, Python preparation, regression verification and journalled delivery are connected
+ok 108 - source contract, Python preparation, regression verification and journalled delivery are connected
+  ---
+  duration_ms: 763.4067
+  type: 'test'
+  ...
+# Subtest: OFF and missing actual runtime certificate block pipeline execution before sending
+ok 109 - OFF and missing actual runtime certificate block pipeline execution before sending
+  ---
+  duration_ms: 528.5415
+  type: 'test'
+  ...
+# Subtest: unknown delivery survives reopen and reconciles without a second mutation
+ok 110 - unknown delivery survives reopen and reconciles without a second mutation
+  ---
+  duration_ms: 755.1937
+  type: 'test'
+  ...
+# Subtest: normal runtime consumes trusted registrations and runs format pipeline through its real controller only while ON in temporary state
+ok 111 - normal runtime consumes trusted registrations and runs format pipeline through its real controller only while ON in temporary state
+  ---
+  duration_ms: 1749.6946
+  type: 'test'
+  ...
+# Subtest: node-js has the same persisted regression-to-delivery pipeline
+ok 112 - node-js has the same persisted regression-to-delivery pipeline
+  ---
+  duration_ms: 627.3957
+  type: 'test'
+  ...
+# Subtest: typescript has the same persisted regression-to-delivery pipeline
+ok 113 - typescript has the same persisted regression-to-delivery pipeline
+  ---
+  duration_ms: 675.2022
+  type: 'test'
+  ...
+# Subtest: CSV cleanup is independently recomputed and verified before the same delivery journal
+ok 114 - CSV cleanup is independently recomputed and verified before the same delivery journal
+  ---
+  duration_ms: 496.4346
+  type: 'test'
+  ...
+# Subtest: source report requires source contract approval beyond matching citations
+ok 115 - source report requires source contract approval beyond matching citations
+  ---
+  duration_ms: 388.7754
+  type: 'test'
+  ...
+# Subtest: workflow delivery explicitly remains metadata-only and requires exact scoped changes
+ok 116 - workflow delivery explicitly remains metadata-only and requires exact scoped changes
+  ---
+  duration_ms: 380.04
+  type: 'test'
+  ...
+# Subtest: private criteria, original tests and independently rejected work never silently disappear
+ok 117 - private criteria, original tests and independently rejected work never silently disappear
+  ---
+  duration_ms: 179.3495
+  type: 'test'
+  ...
+# Subtest: passing code tests do not override independently rejected acceptance criteria
+ok 118 - passing code tests do not override independently rejected acceptance criteria
+  ---
+  duration_ms: 349.271
+  type: 'test'
+  ...
+# Subtest: metadata-only workflow permission cannot introduce an executable CI step
+ok 119 - metadata-only workflow permission cannot introduce an executable CI step
+  ---
+  duration_ms: 283.2903
+  type: 'test'
+  ...
+# Subtest: journal rejects same-byte delivery readback from a different source revision
+ok 120 - journal rejects same-byte delivery readback from a different source revision
+  ---
+  duration_ms: 60.7965
+  type: 'test'
+  ...
+# Subtest: crash after prepared journal and pending-write persistence resumes an unsent delivery once
+ok 121 - crash after prepared journal and pending-write persistence resumes an unsent delivery once
+  ---
+  duration_ms: 403.662
+  type: 'test'
+  ...
+# Subtest: journal preparation precedes pending persistence; failure there sends nothing and safely retries
+ok 122 - journal preparation precedes pending persistence; failure there sends nothing and safely retries
+  ---
+  duration_ms: 537.2342
+  type: 'test'
+  ...
+# Subtest: durable worked product is recovered without repeating candidate generation after state-update failure
+ok 123 - durable worked product is recovered without repeating candidate generation after state-update failure
+  ---
+  duration_ms: 490.7143
+  type: 'test'
+  ...
+# Subtest: GitHub shares the full isolated contract-to-delivery lifecycle
+ok 124 - GitHub shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 285.5345
+  type: 'test'
+  ...
+# Subtest: ugig shares the full isolated contract-to-delivery lifecycle
+ok 125 - ugig shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 341.5705
+  type: 'test'
+  ...
+# Subtest: Dealwork shares the full isolated contract-to-delivery lifecycle
+ok 126 - Dealwork shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 374.2802
+  type: 'test'
+  ...
+# Subtest: Synmerco shares the full isolated contract-to-delivery lifecycle
+ok 127 - Synmerco shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 476.4458
+  type: 'test'
+  ...
+# Subtest: Guru shares the full isolated contract-to-delivery lifecycle
+ok 128 - Guru shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 451.5767
+  type: 'test'
+  ...
+# Subtest: Gmail shares the full isolated contract-to-delivery lifecycle
+ok 129 - Gmail shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 496.9322
+  type: 'test'
+  ...
+# Subtest: ArcBounty shares the full isolated contract-to-delivery lifecycle
+ok 130 - ArcBounty shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 427.6115
+  type: 'test'
+  ...
+# Subtest: BidPostLoop shares the full isolated contract-to-delivery lifecycle
+ok 131 - BidPostLoop shares the full isolated contract-to-delivery lifecycle
+  ---
+  duration_ms: 316.5592
+  type: 'test'
+  ...
+# Subtest: GitHub completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 132 - GitHub completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 832.8633
+  type: 'test'
+  ...
+# Subtest: ugig completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 133 - ugig completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 750.7044
+  type: 'test'
+  ...
+# Subtest: Dealwork completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 134 - Dealwork completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 742.8156
+  type: 'test'
+  ...
+# Subtest: Synmerco completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 135 - Synmerco completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 748.6552
+  type: 'test'
+  ...
+# Subtest: Guru completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 136 - Guru completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 698.5872
+  type: 'test'
+  ...
+# Subtest: Gmail completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 137 - Gmail completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 727.132
+  type: 'test'
+  ...
+# Subtest: ArcBounty completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 138 - ArcBounty completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 833.4375
+  type: 'test'
+  ...
+# Subtest: BidPostLoop completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+ok 139 - BidPostLoop completes discovery-to-confirmed-payment through real controller with temporary state and fake authority
+  ---
+  duration_ms: 742.8069
+  type: 'test'
+  ...
+# Subtest: approved invoice order executes checker, persists evidence and delivers checked artifact
+ok 140 - approved invoice order executes checker, persists evidence and delivers checked artifact
+  ---
+  duration_ms: 259.9062
+  type: 'test'
+  ...
+# Subtest: invoice unapproved cannot reach delivery
+ok 141 - invoice unapproved cannot reach delivery
+  ---
+  duration_ms: 140.8109
+  type: 'test'
+  ...
+# Subtest: invoice changed-reference cannot reach delivery
+ok 142 - invoice changed-reference cannot reach delivery
+  ---
+  duration_ms: 127.3507
+  type: 'test'
+  ...
+# Subtest: invoice wrong-rows cannot reach delivery
+ok 143 - invoice wrong-rows cannot reach delivery
+  ---
+  duration_ms: 139.1893
+  type: 'test'
+  ...
+# Subtest: invoice approval revoked after verification blocks pre-dispatch and sends nothing
+ok 144 - invoice approval revoked after verification blocks pre-dispatch and sends nothing
+  ---
+  duration_ms: 193.8137
+  type: 'test'
+  ...
+# Subtest: OFF blocks invoice workflow before source preparation
+ok 145 - OFF blocks invoice workflow before source preparation
+  ---
+  duration_ms: 115.0398
+  type: 'test'
+  ...
+# Subtest: GitHub source preparation and certified publication supports explicit offline profile typescript
+ok 146 - GitHub source preparation and certified publication supports explicit offline profile typescript
+  ---
+  duration_ms: 186.9707
+  type: 'test'
+  ...
+# Subtest: GitHub source preparation and certified publication supports explicit offline profile python
+ok 147 - GitHub source preparation and certified publication supports explicit offline profile python
+  ---
+  duration_ms: 39.9856
+  type: 'test'
+  ...
+# Subtest: GitHub source preparation and certified publication supports explicit offline profile bash
+ok 148 - GitHub source preparation and certified publication supports explicit offline profile bash
+  ---
+  duration_ms: 43.6247
+  type: 'test'
+  ...
+# Subtest: actual GitHub submitted order settles only its explicit finalized Base/USDC log; ordinary=false
+ok 149 - actual GitHub submitted order settles only its explicit finalized Base/USDC log; ordinary=false
+  ---
+  duration_ms: 140.865
+  type: 'test'
+  ...
+# Subtest: actual GitHub submitted order settles only its explicit finalized Base/USDC log; ordinary=true
+ok 150 - actual GitHub submitted order settles only its explicit finalized Base/USDC log; ordinary=true
+  ---
+  duration_ms: 111.8355
+  type: 'test'
+  ...
+# Subtest: changed current scope blocks work authorization before paid work or publication
+ok 151 - changed current scope blocks work authorization before paid work or publication
+  ---
+  duration_ms: 39.8349
+  type: 'test'
+  ...
+# Subtest: bounty text and task-supplied verified flags cannot start unfunded customer work
+ok 152 - bounty text and task-supplied verified flags cannot start unfunded customer work
+  ---
+  duration_ms: 22.9997
+  type: 'test'
+  ...
+# Subtest: assignment, contribution terms and payment claims are never invented
+ok 153 - assignment, contribution terms and payment claims are never invented
+  ---
+  duration_ms: 0.3712
+  type: 'test'
+  ...
+# Subtest: public API boundary rejects arbitrary hosts and hides provider errors
+ok 154 - public API boundary rejects arbitrary hosts and hides provider errors
+  ---
+  duration_ms: 30.2939
+  type: 'test'
+  ...
+# Subtest: public source preparation preserves immutable identity and rejects competition
+ok 155 - public source preparation preserves immutable identity and rejects competition
+  ---
+  duration_ms: 53.0141
+  type: 'test'
+  ...
+# Subtest: lost PR response is reconciled after restart, never double posted; unpaid remains unpaid
+ok 156 - lost PR response is reconciled after restart, never double posted; unpaid remains unpaid
+  ---
+  duration_ms: 62.4989
+  type: 'test'
+  ...
+# Subtest: publication requires persisted exact-source test certificate
+ok 157 - publication requires persisted exact-source test certificate
+  ---
+  duration_ms: 20.2624
+  type: 'test'
+  ...
+# Subtest: Salt delivered work is excluded until explicit paid remaining-scope proof is supported
+ok 158 - Salt delivered work is excluded until explicit paid remaining-scope proof is supported
+  ---
+  duration_ms: 0.182
+  type: 'test'
+  ...
+# Subtest: timeline-linked competing PR with empty body blocks preparation
+ok 159 - timeline-linked competing PR with empty body blocks preparation
+  ---
+  duration_ms: 18.5211
+  type: 'test'
+  ...
+# Subtest: github contribution policy is inspected and blocks prohibited work
+ok 160 - github contribution policy is inspected and blocks prohibited work
+  ---
+  duration_ms: 22.9876
+  type: 'test'
+  ...
+# Subtest: changed scope invalidates publication and creates a fresh immutable preparation under same order
+ok 161 - changed scope invalidates publication and creates a fresh immutable preparation under same order
+  ---
+  duration_ms: 29.3114
+  type: 'test'
+  ...
+# Subtest: GitHub postpaid preparation and publication persist distinct authority and retain unpaid exposure across restart
+ok 162 - GitHub postpaid preparation and publication persist distinct authority and retain unpaid exposure across restart
+  ---
+  duration_ms: 76.9908
+  type: 'test'
+  ...
+# Subtest: production GitHub declaration selector rereads maintainer terms and reconciles independently validated payment; comment=false
+ok 163 - production GitHub declaration selector rereads maintainer terms and reconciles independently validated payment; comment=false
+  ---
+  duration_ms: 74.5963
+  type: 'test'
+  ...
+# Subtest: production GitHub declaration selector rereads maintainer terms and reconciles independently validated payment; comment=true
+ok 164 - production GitHub declaration selector rereads maintainer terms and reconciles independently validated payment; comment=true
+  ---
+  duration_ms: 59.6202
+  type: 'test'
+  ...
+# Subtest: revoked financing after preparation blocks every external publication write, including after restart
+ok 165 - revoked financing after preparation blocks every external publication write, including after restart
+  ---
+  duration_ms: 47.2488
+  type: 'test'
+  ...
+# Subtest: loss of funding during publication prevents subsequent fork writes and PR creation
+ok 166 - loss of funding during publication prevents subsequent fork writes and PR creation
+  ---
+  duration_ms: 28.6973
+  type: 'test'
+  ...
+# Subtest: lost PR acknowledgement is read-reconciled even if funding is later withdrawn, never resubmitted
+ok 167 - lost PR acknowledgement is read-reconciled even if funding is later withdrawn, never resubmitted
+  ---
+  duration_ms: 49.9508
+  type: 'test'
+  ...
+# Subtest: funded discovery through real code adapter, certificates, submission, receipt and restart is once-only
+ok 168 - funded discovery through real code adapter, certificates, submission, receipt and restart is once-only
+  ---
+  duration_ms: 224.136
+  type: 'test'
+  ...
+# Subtest: revocation before the paid stage dispatches no model call and leaves no budget hold
+ok 169 - revocation before the paid stage dispatches no model call and leaves no budget hold
+  ---
+  duration_ms: 97.5287
+  type: 'test'
+  ...
+# Subtest: verified maintainer payout request adds only the operator Base recipient to the exact submitted PR
+ok 170 - verified maintainer payout request adds only the operator Base recipient to the exact submitted PR
+  ---
+  duration_ms: 49.9815
+  type: 'test'
+  ...
+# Subtest: missing local payout identity blocks before recording an unknown remote PR outcome
+ok 171 - missing local payout identity blocks before recording an unknown remote PR outcome
+  ---
+  duration_ms: 43.4569
+  type: 'test'
+  ...
+# Subtest: CHF1 exposure is separate from the unchanged CHF2.50 root budget and includes pending reservations
+ok 172 - CHF1 exposure is separate from the unchanged CHF2.50 root budget and includes pending reservations
+  ---
+  duration_ms: 55.4922
+  type: 'test'
+  ...
+# Subtest: older CHF2.50 commitments remain fully counted and cannot authorize new CHF1 work
+ok 173 - older CHF2.50 commitments remain fully counted and cannot authorize new CHF1 work
+  ---
+  duration_ms: 47.7577
+  type: 'test'
+  ...
+# Subtest: one incoming receipt cannot settle another order after restart
+ok 174 - one incoming receipt cannot settle another order after restart
+  ---
+  duration_ms: 65.7211
+  type: 'test'
+  ...
+# Subtest: postpaid is distinct from escrow; one family survives restart and zero costs still occupy the slot
+ok 175 - postpaid is distinct from escrow; one family survives restart and zero costs still occupy the slot
+  ---
+  duration_ms: 26.218
+  type: 'test'
+  ...
+# Subtest: parallel services cannot claim a second unpaid root and changing scope or family cannot reset exposure
+ok 176 - parallel services cannot claim a second unpaid root and changing scope or family cannot reset exposure
+  ---
+  duration_ms: 21.793
+  type: 'test'
+  ...
+# Subtest: unknown costs, missing conditions and bad source evidence block before exposure allocation
+ok 177 - unknown costs, missing conditions and bad source evidence block before exposure allocation
+  ---
+  duration_ms: 23.6065
+  type: 'test'
+  ...
+# Subtest: OFF never reads and OFF during read cannot allocate exposure; escrow never falls back
+ok 178 - OFF never reads and OFF during read cannot allocate exposure; escrow never falls back
+  ---
+  duration_ms: 19.1119
+  type: 'test'
+  ...
+# Subtest: only exact independently confirmed payment settles exposure; duplicate settlement is idempotent
+ok 179 - only exact independently confirmed payment settles exposure; duplicate settlement is idempotent
+  ---
+  duration_ms: 54.987
+  type: 'test'
+  ...
+# Subtest: same-root retries cannot replace original acceptance criteria or authorize a changed scope
+ok 180 - same-root retries cannot replace original acceptance criteria or authorize a changed scope
+  ---
+  duration_ms: 40.8222
+  type: 'test'
+  ...
+# Subtest: simultaneous clients leave exactly one unpaid family
+ok 181 - simultaneous clients leave exactly one unpaid family
+  ---
+  duration_ms: 34.1474
+  type: 'test'
+  ...
+# Subtest: OFF during the contract read claims no exposure and read errors are sanitized
+ok 182 - OFF during the contract read claims no exposure and read errors are sanitized
+  ---
+  duration_ms: 17.1558
+  type: 'test'
+  ...
+# Subtest: settlement uses the explicitly agreed net payout and a changed revision cannot reuse the claim
+ok 183 - settlement uses the explicitly agreed net payout and a changed revision cannot reuse the claim
+  ---
+  duration_ms: 56.6441
+  type: 'test'
+  ...
+# Subtest: payment replay after interrupted state persistence tolerates a new observation time, never a different receipt
+ok 184 - payment replay after interrupted state persistence tolerates a new observation time, never a different receipt
+  ---
+  duration_ms: 54.4031
+  type: 'test'
+  ...
+# Subtest: normal controller completes postpaid work without claiming escrow and only exact payment releases exposure; expire=false
+ok 185 - normal controller completes postpaid work without claiming escrow and only exact payment releases exposure; expire=false
+  ---
+  duration_ms: 2189.8994
+  type: 'test'
+  ...
+# Subtest: normal controller completes postpaid work without claiming escrow and only exact payment releases exposure; expire=true
+ok 186 - normal controller completes postpaid work without claiming escrow and only exact payment releases exposure; expire=true
+  ---
+  duration_ms: 2510.5793
+  type: 'test'
+  ...
+# Subtest: all three marketplace local contracts are composed without inventing production access or capabilities
+ok 187 - all three marketplace local contracts are composed without inventing production access or capabilities
+  ---
+  duration_ms: 117.0247
+  type: 'test'
+  ...
+# Subtest: production factory connects a reviewed marketplace worker only when its trusted dependencies are supplied
+ok 188 - production factory connects a reviewed marketplace worker only when its trusted dependencies are supplied
+  ---
+  duration_ms: 86.8762
+  type: 'test'
+  ...
+# Subtest: read reconciliation of an existing application does not grant unverified work
+ok 189 - read reconciliation of an existing application does not grant unverified work
+  ---
+  duration_ms: 0.5626
+  type: 'test'
+  ...
+# Subtest: failed interpreter probes can retry without exposing certification
+ok 190 - failed interpreter probes can retry without exposing certification
+  ---
+  duration_ms: 11.9906
+  type: 'test'
+  ...
+# Subtest: start scopes distinguish free GitHub inquiries from secured work and missing platform offer transports
+ok 191 - start scopes distinguish free GitHub inquiries from secured work and missing platform offer transports
+  ---
+  duration_ms: 5.7292
+  type: 'test'
+  ...
+# Subtest: exact production composition is consumed by normal runtime without provider, secret or sandbox activity while OFF
+ok 192 - exact production composition is consumed by normal runtime without provider, secret or sandbox activity while OFF
+  ---
+  duration_ms: 916.8389
+  type: 'test'
+  ...
+# Subtest: GET-only own application evidence survives normal monitor cadence without granting writes
+ok 193 - GET-only own application evidence survives normal monitor cadence without granting writes
+  ---
+  duration_ms: 196.4522
+  type: 'test'
+  ...
+# Subtest: fresh existing monitor proof binds only own pending applications and read scope; stale proof grants no work
+ok 194 - fresh existing monitor proof binds only own pending applications and read scope; stale proof grants no work
+  ---
+  duration_ms: 167.5799
+  type: 'test'
+  ...
+# Subtest: restored historical records and pending applications cannot launch paid adapter learning
+ok 195 - restored historical records and pending applications cannot launch paid adapter learning
+  ---
+  duration_ms: 458.6229
+  type: 'test'
+  ...
+# Subtest: shared real-runner wrapper checks OFF between probe phases, including startup readiness
+ok 196 - shared real-runner wrapper checks OFF between probe phases, including startup readiness
+  ---
+  duration_ms: 1.1009
+  type: 'test'
+  ...
+# Subtest: production entry passes the same tested factory and cannot unconditionally probe on startup
+ok 197 - production entry passes the same tested factory and cannot unconditionally probe on startup
+  ---
+  duration_ms: 0.67
+  type: 'test'
+  ...
+# Subtest: guarded runtimes reuse an existing Node image candidate and probe each interpreter independently
+ok 198 - guarded runtimes reuse an existing Node image candidate and probe each interpreter independently
+  ---
+  duration_ms: 8.7989
+  type: 'test'
+  ...
+# Subtest: production composition runs bounded adapter learning through normal controller with fresh monitor evidence and fake shared runtime
+ok 199 - production composition runs bounded adapter learning through normal controller with fresh monitor evidence and fake shared runtime
+  ---
+  duration_ms: 11701.3704
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: none
+ok 200 - Synmerco acceptance binds exact unique own proof: none
+  ---
+  duration_ms: 68.2911
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: missing-hash
+ok 201 - Synmerco acceptance binds exact unique own proof: missing-hash
+  ---
+  duration_ms: 76.6464
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: empty-hash
+ok 202 - Synmerco acceptance binds exact unique own proof: empty-hash
+  ---
+  duration_ms: 66.9052
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: foreign-source
+ok 203 - Synmerco acceptance binds exact unique own proof: foreign-source
+  ---
+  duration_ms: 65.2021
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: duplicate-escrow
+ok 204 - Synmerco acceptance binds exact unique own proof: duplicate-escrow
+  ---
+  duration_ms: 89.3071
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: missing-owner
+ok 205 - Synmerco acceptance binds exact unique own proof: missing-owner
+  ---
+  duration_ms: 44.4476
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: duplicate-proof
+ok 206 - Synmerco acceptance binds exact unique own proof: duplicate-proof
+  ---
+  duration_ms: 86.1225
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: conflicting-proof
+ok 207 - Synmerco acceptance binds exact unique own proof: conflicting-proof
+  ---
+  duration_ms: 86.6777
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: false-attestation
+ok 208 - Synmerco acceptance binds exact unique own proof: false-attestation
+  ---
+  duration_ms: 85.6886
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: stale
+ok 209 - Synmerco acceptance binds exact unique own proof: stale
+  ---
+  duration_ms: 42.1773
+  type: 'test'
+  ...
+# Subtest: Synmerco acceptance binds exact unique own proof: off
+ok 210 - Synmerco acceptance binds exact unique own proof: off
+  ---
+  duration_ms: 55.8803
+  type: 'test'
+  ...
+# Subtest: Sahil gate is composed and reported as blocked without fabricating LaborX transport
+ok 211 - Sahil gate is composed and reported as blocked without fabricating LaborX transport
+  ---
+  duration_ms: 4.677
+  type: 'test'
+  ...
+# Subtest: LaborX exact-order adapter enters shared composition without reading or granting capabilities while OFF
+ok 212 - LaborX exact-order adapter enters shared composition without reading or granting capabilities while OFF
+  ---
+  duration_ms: 39.2027
+  type: 'test'
+  ...
+# Subtest: browser runtime and provider proof dependencies compose without launching or inferring permission
+ok 213 - browser runtime and provider proof dependencies compose without launching or inferring permission
+  ---
+  duration_ms: 3.7556
+  type: 'test'
+  ...
+# Subtest: native code flow shares runtime controller and lifecycle, and stays dormant while OFF
+ok 214 - native code flow shares runtime controller and lifecycle, and stays dormant while OFF
+  ---
+  duration_ms: 910.027
+  type: 'test'
+  ...
+# (node:10412) ExperimentalWarning: The MockTimers API is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: independent selected drafts run concurrently within the shared four-worker pool
+ok 215 - independent selected drafts run concurrently within the shared four-worker pool
+  ---
+  duration_ms: 859.2555
+  type: 'test'
+  ...
+# Subtest: model selection creates work without user tasks, stores deliverable and reconsiders after completion
+ok 216 - model selection creates work without user tasks, stores deliverable and reconsiders after completion
+  ---
+  duration_ms: 985.1337
+  type: 'test'
+  ...
+# Subtest: stored SOFA findings supplement analysis as unverified technical evidence
+ok 217 - stored SOFA findings supplement analysis as unverified technical evidence
+  ---
+  duration_ms: 778.6132
+  type: 'test'
+  ...
+# Subtest: direct research is scheduled, deepened and stored behind the shared budget
+ok 218 - direct research is scheduled, deepened and stored behind the shared budget
+  ---
+  duration_ms: 846.0537
+  type: 'test'
+  ...
+# Subtest: runtime autonomously selects work, chains evidence analysis and preserves pause and limits across restart
+ok 219 - runtime autonomously selects work, chains evidence analysis and preserves pause and limits across restart
+  ---
+  duration_ms: 793.7877
+  type: 'test'
+  ...
+# Subtest: a wait decision persists bounded future reconsideration under the same budget family
+ok 220 - a wait decision persists bounded future reconsideration under the same budget family
+  ---
+  duration_ms: 759.1206
+  type: 'test'
+  ...
+# Subtest: native escrow reader is connected privately and cannot read through an OFF runtime
+ok 221 - native escrow reader is connected privately and cannot read through an OFF runtime
+  ---
+  duration_ms: 741.0708
+  type: 'test'
+  ...
+# Subtest: production lifecycle resumes all nine approved content items in explicitly bound generic conversation
+ok 222 - production lifecycle resumes all nine approved content items in explicitly bound generic conversation
+  ---
+  duration_ms: 1940.6151
+  type: 'test'
+  ...
+# Subtest: default production wiring promotes accepted application, prepares prepaid contract and exposes completion readers
+ok 223 - default production wiring promotes accepted application, prepares prepaid contract and exposes completion readers
+  ---
+  duration_ms: 799.9253
+  type: 'test'
+  ...
+# Subtest: default production path refuses wrong invoice and OFF without granting work
+ok 224 - default production path refuses wrong invoice and OFF without granting work
+  ---
+  duration_ms: 496.9451
+  type: 'test'
+  ...
+# Subtest: default wiring completes synthetic work, review, delivery, acceptance and exact net payment
+ok 225 - default wiring completes synthetic work, review, delivery, acceptance and exact net payment
+  ---
+  duration_ms: 1562.5673
+  type: 'test'
+  ...
+# Subtest: default wiring refuses invoice-owner
+ok 226 - default wiring refuses invoice-owner
+  ---
+  duration_ms: 427.9593
+  type: 'test'
+  ...
+# Subtest: default wiring refuses invoice-amount
+ok 227 - default wiring refuses invoice-amount
+  ---
+  duration_ms: 449.3041
+  type: 'test'
+  ...
+# Subtest: default wiring refuses invoice-review
+ok 228 - default wiring refuses invoice-review
+  ---
+  duration_ms: 474.8067
+  type: 'test'
+  ...
+# Subtest: default wiring refuses missing-net-receipt
+ok 229 - default wiring refuses missing-net-receipt
+  ---
+  duration_ms: 471.1247
+  type: 'test'
+  ...
+# Subtest: default wiring refuses net-recipient
+ok 230 - default wiring refuses net-recipient
+  ---
+  duration_ms: 430.2364
+  type: 'test'
+  ...
+# Subtest: default wiring refuses net-amount
+ok 231 - default wiring refuses net-amount
+  ---
+  duration_ms: 324.8455
+  type: 'test'
+  ...
+# Subtest: default wiring refuses revoked-grant
+ok 232 - default wiring refuses revoked-grant
+  ---
+  duration_ms: 328.4234
+  type: 'test'
+  ...
+# Subtest: default wiring keeps escrow separate from final SOL payment through complete lifecycle
+ok 233 - default wiring keeps escrow separate from final SOL payment through complete lifecycle
+  ---
+  duration_ms: 2113.8346
+  type: 'test'
+  ...
+# Subtest: general production wiring requires specialist evidence and completes USD invoice
+ok 234 - general production wiring requires specialist evidence and completes USD invoice
+  ---
+  duration_ms: 1255.4333
+  type: 'test'
+  ...
+# Subtest: general production wiring requires specialist evidence and completes escrow SOL
+ok 235 - general production wiring requires specialist evidence and completes escrow SOL
+  ---
+  duration_ms: 1718.9191
+  type: 'test'
+  ...
+# Subtest: general code profile uses isolated regression and specialist gate through payment
+ok 236 - general code profile uses isolated regression and specialist gate through payment
+  ---
+  duration_ms: 1240.1201
+  type: 'test'
+  ...
+# Subtest: general source report preserves citation checks and specialist gate through payment
+ok 237 - general source report preserves citation checks and specialist gate through payment
+  ---
+  duration_ms: 1100.9433
+  type: 'test'
+  ...
+# Subtest: binary production lifecycle binds real Office/image/model bytes through payment
+ok 238 - binary production lifecycle binds real Office/image/model bytes through payment
+  ---
+  duration_ms: 4273.8789
+  type: 'test'
+  ...
+# Subtest: mixed production lifecycle requires complete package review through payment
+ok 239 - mixed production lifecycle requires complete package review through payment
+  ---
+  duration_ms: 4421.0362
+  type: 'test'
+  ...
+1..239
+# tests 239
+# suites 0
+# pass 239
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 28351.9049

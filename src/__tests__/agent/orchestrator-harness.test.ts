@@ -20,7 +20,7 @@ class PlannerAwareInference implements WorkerInferenceClient {
     private readonly workerResponses: Array<{ content: string; toolCalls?: Array<{ id: string; type?: "function"; function: { name: string; arguments: string } }> }>,
   ) {}
 
-  async chat(params: Parameters<WorkerInferenceClient["chat"]>[0]): Promise<{ content: string; toolCalls?: Array<{ id: string; function: { name: string; arguments: string } }> }> {
+  async chat(params: Parameters<WorkerInferenceClient["chat"]>[0]): ReturnType<WorkerInferenceClient["chat"]> {
     const systemPrompt = params.messages[0]?.content ?? "";
     if (systemPrompt.includes("# Planner Agent") || params.responseFormat?.type === "json_object") {
       const plan = this.plannerOutputs[this.plannerIndex++] ?? this.plannerOutputs[this.plannerOutputs.length - 1];
@@ -32,6 +32,7 @@ class PlannerAwareInference implements WorkerInferenceClient {
       content: response.content,
       toolCalls: response.toolCalls?.map((toolCall) => ({
         id: toolCall.id,
+        type: "function",
         function: toolCall.function,
       })),
     };
@@ -160,10 +161,14 @@ describe("agent/OrchestratorHarness", () => {
       estimatedTimeMinutes: 20,
     };
 
-    const harness = new OrchestratorHarness();
+    class InspectableOrchestrator extends OrchestratorHarness { promptMessages(){return this.messages;} }
+    const harness = new InspectableOrchestrator();
     const task = makeTask();
     persistTask(task);
     await harness.initialize(task, makeContext(new PlannerAwareInference([initialPlan], [])));
+    expect(harness.promptMessages()[0].content).toContain('every assigned activity and future domain');
+    expect(harness.promptMessages()[0].content).toContain('Quality applies to every task');
+    expect(harness.promptMessages()[1].content).toContain('assess_task_specific_gap');
 
     const planDir = path.join(workspaceRoot, "workspace", "subplans", "orchestrator-task-1");
     expect(fs.existsSync(path.join(planDir, "plan.json"))).toBe(true);
@@ -189,6 +194,17 @@ describe("agent/OrchestratorHarness", () => {
     const verifyTask = tasks.find((task) => task.title === "Verify feature");
     expect(implementTask).toBeDefined();
     expect(verifyTask?.dependencies).toEqual([implementTask?.id]);
+    const done = harness.getToolDefs().find(tool => tool.name === "task_done")!;
+    await expect(done.execute({summary:"Finished",success:true})).rejects.toThrow("unfinished or unsuccessful");
+    await expect(done.execute({summary:"Blocked",success:false})).resolves.toContain("TASK_COMPLETE:FAILURE");
+    const result = {success:true,output:"Fixture completed",artifacts:[],costCents:0,duration:1};
+    db.prepare("UPDATE task_graph SET status='completed',result=? WHERE parent_id=?").run(JSON.stringify(result),task.id);
+    await expect(done.execute({summary:"Finished",success:true})).resolves.toContain("TASK_COMPLETE:SUCCESS");
+    const verify = harness.getToolDefs().find(tool => tool.name === "verify_result")!;
+    await expect(verify.execute({task_id:implementTask!.id,criteria:""})).resolves.toContain("Invalid verification criteria");
+    await expect(verify.execute({task_id:implementTask!.id,criteria:"Fixture completed"})).resolves.toContain("HEURISTIC MATCH ONLY");
+    db.prepare("UPDATE task_graph SET result=? WHERE id=?").run(JSON.stringify({...result,success:false}),implementTask!.id);
+    await expect(done.execute({summary:"Finished",success:true})).rejects.toThrow("unfinished or unsuccessful");
   });
 
   it("replans after verification failure and updates persisted planner artifacts", async () => {

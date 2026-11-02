@@ -5,6 +5,9 @@ import Database from 'better-sqlite3';
 import {createHash} from 'node:crypto';
 import {auditFounderTasks} from './founder-task-audit.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
+test('targeted audit never changes a different task',()=>{
+ const f=fixture();try{f.add('old');f.add('other');f.add('new','done');const r=auditFounderTasks({...f,power:{enabled:true},apply:true,taskIds:['old']});assert.equal(r.applied,1);assert.equal(f.controller.prepare("SELECT status FROM founder_jobs WHERE id='other'").get().status,'failed');}finally{f.close();}
+});
 function fixture(){
  const controller=new Database(':memory:'),budget=new Database(':memory:');
  controller.exec("CREATE TABLE founder_control(status TEXT);INSERT INTO founder_control VALUES('running');CREATE TABLE founder_jobs(id TEXT PRIMARY KEY,payload TEXT,status TEXT,reason TEXT,run_id TEXT,result TEXT,digest TEXT,updated_ms INTEGER,attempts INTEGER,next_retry_ms INTEGER);CREATE TABLE founder_events(at TEXT,task_id TEXT,action TEXT);CREATE TABLE founder_reconciliations(task_id TEXT,at TEXT,evidence TEXT);");
@@ -59,4 +62,10 @@ test('recovers an actual local partial order report with provenance, never paid 
  const base=fs.mkdtempSync(path.join(os.tmpdir(),'audit-report-')),dir=path.join(base,'artifacts/order-monitor-20261015-1726');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'completion.json'),JSON.stringify({checkedAt:'2026-10-15T17:33:51Z',github:{tracked:25,newComments:0,stateChanges:0}}));const f=fixture();
  try{f.add('report','failed','order-report');f.add('paid','failed','order-report',50,null);const before=f.budget.serialize();const report=auditFounderTasks({...f,base,power:{enabled:true},apply:true,now:Date.parse('2026-10-15T18:00:00Z')});assert.equal(report.actions.find(a=>a.id==='report').action,'recover-local-order-report');const j=f.controller.prepare("SELECT * FROM founder_jobs WHERE id='report'").get();assert.equal(j.status,'done');assert.equal(hash(j.result),j.digest);const r=JSON.parse(j.result);assert.equal(r.report.status,'partial');assert.deepEqual(r.report.prs,[]);assert.equal(f.controller.prepare("SELECT status FROM founder_jobs WHERE id='paid'").get().status,'failed');assert.deepEqual(f.budget.serialize(),before);assert.equal(auditFounderTasks({...f,base,power:{enabled:true},apply:true}).applied,0);
  }finally{f.close();fs.rmSync(base,{recursive:true,force:true});}
+});
+
+
+test('only settled free research with failed local-read evidence can requeue, without resetting attempts or costs',()=>{
+ for(const mode of ['safe','unknown','paid','exhausted','other-kind','wrong-receipt']){const f=fixture();try{f.controller.exec('CREATE TABLE founder_attempts(run_id TEXT PRIMARY KEY,task_id TEXT,result TEXT,receipt TEXT,diagnostic TEXT,stage TEXT)');f.add('read','failed',mode==='other-kind'?'firecrawl-research':'research',mode==='paid'?50:0,mode==='unknown'?null:0,mode==='exhausted'?3:1);f.budget.prepare('UPDATE founder_reservations SET receipt=? WHERE id=?').run('local:run-read','run-read');f.controller.prepare('INSERT INTO founder_attempts VALUES(?,?,?,?,?,?)').run('run-read','read',null,JSON.stringify({actualCostRappen:0,evidenceRef:mode==='wrong-receipt'?'wrong':'local:run-read'}),JSON.stringify({code:'local_read_failed'}),'failed');const before=f.budget.serialize();const report=auditFounderTasks({...f,power:{enabled:true},resumeFreeResearch:true,apply:true});const action=report.actions.find(a=>a.action==='resume-repaired-free-research');assert.equal(!!action,mode==='safe');assert.equal(f.controller.prepare("SELECT attempts FROM founder_jobs WHERE id='read'").get().attempts,mode==='exhausted'?3:1);assert.deepEqual(f.budget.serialize(),before);if(mode==='safe')assert.equal(f.controller.prepare("SELECT status FROM founder_jobs WHERE id='read'").get().status,'queued');
+ }finally{f.close();}}
 });

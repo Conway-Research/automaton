@@ -1,0 +1,8 @@
+import {createHash} from 'node:crypto';
+export function canonical(value:unknown):string {if(value===null)return 'null';if(typeof value==='number'&&!Number.isFinite(value))throw Error('Nonfinite evidence');if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';if(typeof value==='object'&&value)return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical((value as Record<string,unknown>)[k])).join(',')+'}';const s=JSON.stringify(value);if(s===undefined)throw Error('Undefined evidence');return s;}
+export const digest=(value:unknown)=>createHash('sha256').update(canonical(value)).digest('hex');
+export const bytesDigest=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
+export const validId=(id:unknown):id is string=>typeof id==='string'&&/^[a-zA-Z0-9_:.-]{1,200}$/.test(id);
+export const validDigest=(s:unknown):s is string=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
+export const minor=(n:unknown):n is number=>Number.isSafeInteger(n)&&Number(n)>=0;
+export function assertPublicEvidence(value:unknown):void {if(typeof value==='string'){if(value.length>16000||/sk-(?:proj-)?[a-zA-Z0-9_-]{20,}|Bearer\s+[a-zA-Z0-9_.-]{20,}/.test(value))throw Error('Private evidence rejected');}else if(Array.isArray(value)){if(value.length>1000)throw Error('Evidence size limit');for(const v of value)assertPublicEvidence(v);}else if(value&&typeof value==='object'){for(const [k,v] of Object.entries(value)){if(/^(apiKey|password|secret|credentials|prompt|customerDocument|accessToken)$/i.test(k))throw Error('Private evidence rejected');assertPublicEvidence(v);}}}

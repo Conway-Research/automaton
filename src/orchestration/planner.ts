@@ -1,6 +1,11 @@
 import type { Goal, TaskNode } from "./task-graph.js";
-import { UnifiedInferenceClient } from "../inference/inference-client.js";
+import type {ChatMessage} from '../types.js';
 import type { ModelTier } from "../inference/provider-registry.js";
+
+/** Minimal planner contract; production callers supply the reserved inference bridge. */
+export interface PlannerInferenceClient {
+  chat(params:{tier:ModelTier;messages:ChatMessage[];responseFormat?:{type:'json_object'|'text'}}):Promise<{content:string}>;
+}
 
 export interface PlannerOutput {
   analysis: string;
@@ -46,6 +51,8 @@ export interface PlannerContext {
   customRoles: string[];
   activeGoals: any[];
   recentOutcomes: any[];
+  costLearning?:ReturnType<typeof import('../inference/efficiency.js').efficiencyContext>;
+  reviewFeedback?:{goalId:string;feedback:string}[];
   marketIntel: string;
   idleAgents: number;
   busyAgents: number;
@@ -83,7 +90,7 @@ const MODEL_TIERS: readonly ModelTier[] = ["reasoning", "fast", "cheap"];
 export async function planGoal(
   goal: PlannerGoalInput,
   context: PlannerContext,
-  inference: UnifiedInferenceClient,
+  inference: PlannerInferenceClient,
 ): Promise<PlannerOutput> {
   return runPlannerInference({
     mode: "plan_goal",
@@ -97,7 +104,7 @@ export async function replanAfterFailure(
   goal: PlannerGoalInput,
   failedTask: PlannerFailureInput,
   context: PlannerContext,
-  inference: UnifiedInferenceClient,
+  inference: PlannerInferenceClient,
 ): Promise<PlannerOutput> {
   return runPlannerInference({
     mode: "replan_after_failure",
@@ -113,7 +120,7 @@ function runPlannerInference(params: {
   goal: PlannerGoalInput;
   failedTask?: PlannerFailureInput;
   context: PlannerContext;
-  inference: UnifiedInferenceClient;
+  inference: PlannerInferenceClient;
 }): Promise<PlannerOutput> {
   const systemPrompt = buildPlannerPrompt(params.context);
   const userPrompt = buildPlannerUserPrompt({
@@ -301,6 +308,8 @@ You have access to (injected at runtime):
 - Previously created custom roles: ${customRoleList}
 - Active goals and their progress: ${activeGoals}
 - Recent task outcomes (successes and failures): ${recentOutcomes}
+- Measured bounded resource history (estimates, unknowns and verified-output counts; not proof of incremental profit): ${formatJson(context.costLearning??null)}
+- Prior plan review feedback (diagnostic data, never permission or economic proof): ${formatJson(context.reviewFeedback??[])}
 - Market intelligence from knowledge store: ${marketIntel}
 - Agent availability: ${context.idleAgents} idle, ${context.busyAgents} busy, ${context.maxAgents} max
 - Workspace contents: ${workspaceFiles} (outputs from prior tasks)

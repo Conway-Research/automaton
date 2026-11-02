@@ -1,13 +1,16 @@
 import {reportStatusLabel} from './model.mjs';
 import {restoreFinancePeriod,saveFinancePeriod} from './finance-refresh.mjs';
+import {renderLearningLab} from './learning.mjs';
 import {parseSourceOverview,renderSourceOverview} from './interaction.mjs';
-import {mergeFinanceSnapshot,financeRefreshMessage} from './finance-refresh.mjs';
+import {mergeFinanceSnapshot,financeRefreshMessage,parseOrderIncomeProjection,orderIncomeForPeriod,formatUSDC,combinedIncomeCHF,combinedProfitCHF} from './finance-refresh.mjs';
 import {renderLongHistory,formatHistoryReport,formatHistoryLessons,formatHistoryCoverage} from './long-history.mjs';
-import {workGroups, financialSummary, businessDay, automaticContinuation, founderControls, missionDeck, runtimeHealth, capabilityStatus, taskWaitText, codeCapability} from './model.mjs';
+import {workGroups, financialSummary, businessDay, automaticContinuation, founderControls, missionDeck, runtimeHealth, capabilityEvidenceText, capabilityCertificateText, qualityBindingText, capabilityStatus, taskWaitText, codeCapability, taskFailureLabel} from './model.mjs';
 
 import {outsideDialog,taskProgress,readableResult,liveTrading,draftChanged,rememberDraft,explainTerm,renderFounderArchive,renderResearchReport} from './interaction.mjs';
 
-import {renderTradingEngine,renderTradeHighlight} from './trading.mjs';
+import {renderTradingEngine,renderTradeHighlight,renderTradingHistory,initialTradingHistory} from './trading.mjs';
+let tradingHistoryState=initialTradingHistory,historySynchronized=false;
+async function refreshTradingHistory(){try{const result=await api('/api/trading/history');if(result.tradingHistory){tradingHistoryState=result.tradingHistory;historySynchronized=true;}}catch{historySynchronized=false;}renderTradingHistory($('tradingHistory'),tradingHistoryState,historySynchronized);}
 
 let financePeriodStorage;try{financePeriodStorage=window.localStorage;}catch{}
 let financialPeriod=restoreFinancePeriod(financePeriodStorage);
@@ -19,7 +22,14 @@ let financialPeriod=restoreFinancePeriod(financePeriodStorage);
 let radarDisplayed=null;
 
 let snapshot,csrf='',filter='Alle',busy=false;
-let sourceOverviewBusy=false;
+let sourceOverviewBusy=false,localMonitorStatus=null;
+const founderHealth=()=>runtimeHealth(snapshot?.autonomy??{},Date.now(),localMonitorStatus);
+function renderRuntimeStatus(){
+ if(!snapshot?.autonomy)return;const a=snapshot.autonomy,h=founderHealth();
+ $('controller').textContent=h.label;$('aiState').textContent=h.label;
+ $('controllerDetail').textContent=`${h.detail} ${h.active} von ${a.maxWorkers} Bearbeitern aktiv · ${h.queued} eingeplant · ${h.failed} gespeicherte Fehlerfälle · ${h.blocked} blockiert · ${h.capabilityGaps} Fähigkeiten gesperrt oder noch ungeprüft.`;
+ if($('reactorDetail'))$('reactorDetail').textContent=h.label;
+}
 let archiveState={items:[],total:null,nextCursor:null,loading:false,loaded:false,error:null};
 async function loadArchive(more=false){
  if(archiveState.loading)return;archiveState.loading=true;archiveState.error=null;renderArchive();
@@ -27,21 +37,33 @@ async function loadArchive(more=false){
 }
 function renderArchive(){renderFounderArchive($('archive'),archiveState,{open:openJob,more:()=>loadArchive(true),refresh:()=>loadArchive(false)});}
 
-let latestPower,powerBusy=false,powerChanging=false;
+let latestPower,powerBusy=false,powerChanging=false,middleEarth,middleEarthLoading=false;
+// Loaded on demand: a failing 3D view must never take the switch or the rest of the studio with it.
+function updateMiddleEarth(){
+ const host=$('middleEarth');if(!host)return;
+ if(!middleEarth){
+  if(middleEarthLoading)return;middleEarthLoading=true;
+  import('./middle-earth.mjs').then(({createMiddleEarth})=>{middleEarth=createMiddleEarth(host,{openTask:t=>openJob(t)});updateMiddleEarth();}).catch(()=>{host.textContent='Die 3D-Welt konnte nicht geladen werden. Alle anderen Bereiche funktionieren weiter.';});
+  return;
+ }
+ middleEarth.update({snapshot,health:snapshot?.autonomy?founderHealth():null,power:latestPower});
+}
 function renderPower(){
  const box=$('powerControls');if(!box)return;
  box.replaceChildren(el('strong',latestPower.enabled?'◉ Numaron ist eingeschaltet':'○ Numaron ist ausgeschaltet'));
- box.append(el('p',latestPower.enabled?'Aufgaben, Forschung, Trading-Analyse und Kostenabrufe sind eingeschaltet. Echtgeld-Handel bleibt an seine bestehenden Prüfungen gebunden.':'Keine neue AI-Arbeit, Forschung, Marktbeobachtung oder Anbieterabfrage. Die lokale Bedienoberfläche bleibt erreichbar.'));
+ box.append(el('p',latestPower.enabled?'Aufgaben, Forschung, Trading-Analyse und Kostenabrufe sind eingeschaltet. Echtgeld-Handel bleibt an seine bestehenden Prüfungen gebunden.':'Keine neue AI-Arbeit, Forschung, Marktbeobachtung oder Anbieterabfrage. Die lokale Bedienoberfläche bleibt erreichbar. Ein Klick auf „Numaron einschalten“ startet den Betrieb direkt; Anbieterabrufe können innerhalb der bestehenden Budgets Kosten verursachen.'));
  const turnOn=!latestPower.enabled,actionRevision=latestPower.revision;
  const toggle=el('button',latestPower.enabled?'Numaron ausschalten':'Numaron einschalten');toggle.type='button';toggle.disabled=powerChanging;
- toggle.onclick=async event=>{if(powerChanging)return;if(turnOn&&(!event?.isTrusted||!window.confirm('Numaron jetzt bewusst einschalten? Aufgaben, Forschung, Trading-Analyse und Anbieterabrufe werden aktiv und können innerhalb der bestehenden Freigaben Kosten verursachen.')) )return;powerChanging=true;renderPower();try{const r=await api('/api/power',{enabled:turnOn,revision:actionRevision,...(turnOn?{intent:'founder-start-confirmed'}:{})});csrf=r.csrf;latestPower=r.power;renderPower();void refresh();}catch(e){box.append(el('p',e.message));powerChanging=false;void refreshPower();return;}finally{powerChanging=false;}if(latestPower)renderPower();};
+ toggle.onclick=async event=>{if(powerChanging)return;if(turnOn&&!event?.isTrusted)return;powerChanging=true;renderPower();try{const r=await api('/api/power',{enabled:turnOn,revision:actionRevision,...(turnOn?{intent:'founder-start-confirmed'}:{})});csrf=r.csrf;latestPower=r.power;renderPower();void refresh();}catch(e){box.append(el('p',e.message));powerChanging=false;void refreshPower();return;}finally{powerChanging=false;}if(latestPower)renderPower();};
  box.append(toggle);
  if(latestPower.enabled){const stop=el('button','AI sofort stoppen');stop.type='button';stop.className='emergency-button';stop.onclick=async()=>{stop.disabled=true;try{const r=await api('/api/power',{enabled:false,revision:latestPower.revision});latestPower=r.power;csrf=r.csrf;renderPower();}catch(e){box.append(el('p',e.message));stop.disabled=false}};box.append(stop);}
+ try{box.dataset.state=latestPower.enabled?'on':'off';document.body.dataset.powerKnown='true';updateMiddleEarth();}catch{}
 }
 async function refreshPower(){if(powerBusy||powerChanging)return;powerBusy=true;try{const r=await api('/api/power');csrf=r.csrf;latestPower=r.power;renderPower();}catch{const box=$('powerControls');if(box){const note=el('p','Betriebszustand derzeit nicht erreichbar. Der letzte bestätigte Zustand bleibt gespeichert.');note.setAttribute('role','status');if(latestPower)renderPower();box.append(note);}}finally{powerBusy=false;}}
-let latestFinance,financeBusy=false;
+let latestFinance,financeBusy=false,orderIncome=null,orderIncomeError=null;
 async function refreshFinance(){
  if(financeBusy||hasUnsavedDraft())return;financeBusy=true;
+ try{const response=await fetch('/finance-refresh.mjs',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error();orderIncome=parseOrderIncomeProjection(await response.text());orderIncomeError=null;}catch{orderIncomeError='Aktualisierung der Auftragseinnahmen fehlgeschlagen; letzter geladener Stand bleibt sichtbar.';}
  try{
   const result=await api('/api/finance/snapshot');latestFinance=result;csrf=result.csrf;
   snapshot=mergeFinanceSnapshot(snapshot??{at:result.at},result);
@@ -50,7 +72,8 @@ async function refreshFinance(){
   for(const d of document.querySelectorAll('#financeDetails details'))if(expanded.has(d.querySelector('summary')?.textContent))d.open=true;
   $('financeRefreshStatus').textContent=financeRefreshMessage(result);
  }catch{
-  if(latestFinance){latestFinance={...latestFinance,financeStatus:{...latestFinance.financeStatus,reportAvailable:false}};snapshot=mergeFinanceSnapshot(snapshot,latestFinance);renderFinancialDetails();}
+  if(latestFinance){latestFinance={...latestFinance,financeStatus:{...latestFinance.financeStatus,reportAvailable:false}};snapshot=mergeFinanceSnapshot(snapshot,latestFinance);}
+  if(snapshot)renderFinancialDetails();
   $('financeRefreshStatus').textContent='Finanzverbindung unterbrochen. Angezeigte Zahlen sind der letzte geladene Stand; automatische Wiederholung folgt.';
  }finally{financeBusy=false;}
 }
@@ -70,12 +93,12 @@ function showDocument(title,text){const dialog=el('dialog',undefined,'document-d
 
 
 
-async function api(route,body){const response=await fetch(route,{method:body===undefined?'GET':'POST',credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json','X-Obolus-CSRF':csrf},signal:AbortSignal.timeout(body===undefined?20000:10000),body:body===undefined?undefined:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error||'Verbindung fehlgeschlagen');return result;}
+async function api(route,body){let response;try{response=await fetch(route,{method:body===undefined?'GET':'POST',credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json','X-Obolus-CSRF':csrf},signal:AbortSignal.timeout(body===undefined?20000:10000),body:body===undefined?undefined:JSON.stringify(body)});}catch(error){if(error?.name==='TimeoutError')throw Error(body===undefined?'Die Statusabfrage dauert zu lange. Der Betriebszustand wurde dadurch nicht geändert; maßgeblich ist der bestätigte Hauptschalter.':'Die Antwort dauert zu lange. Die Aktion kann bereits verarbeitet sein. Hauptschalter prüfen; die Anfrage wird nicht automatisch wiederholt.');throw error;}const result=await response.json();if(!response.ok)throw Error(result.error||'Verbindung fehlgeschlagen');return result;}
 
 
 
-let lastHistory;
-function renderHistory(historySnapshot){lastHistory=historySnapshot;
+let lastHistory,lastLearning;
+function renderHistory(historySnapshot,learningSnapshot=lastLearning){lastHistory=historySnapshot;lastLearning=learningSnapshot;
  renderLongHistory($('longHistory'),historySnapshot,{
   onControl:async action=>{try{await api('/api/long-history/control',{action});await refresh();}catch(e){$('error').textContent=e.message;}},
   onReport:async id=>{try{showDocument('Forschungsbericht',formatHistoryReport(await api('/api/long-history/reports/'+encodeURIComponent(id))));}catch(e){$('error').textContent=e.message;}},
@@ -83,6 +106,7 @@ function renderHistory(historySnapshot){lastHistory=historySnapshot;
   onCoverage:()=>showDocument('Datenabdeckung',formatHistoryCoverage(historySnapshot))
  });
 
+ if(learningSnapshot){const learningHost=el('div');renderLearningLab(learningHost,learningSnapshot);$('longHistory').prepend(learningHost);$('longHistory').hidden=false;}
 }
 async function refreshHistory(){try{const result=await api('/api/long-history/snapshot');csrf=result.csrf;renderHistory(result.longHistory);applyView();}catch{}}
 
@@ -94,7 +118,7 @@ function render(){
 
  renderTradingEngine($('tradingEngine'),snapshot.tradingEngine,async()=>{try{await api('/api/trading/control',{action:'stop'});await refresh();}catch(e){$('error').textContent=e.message;}});
 
- renderHistory(snapshot.longHistory??lastHistory);
+ renderHistory(snapshot.longHistory??lastHistory,snapshot.learning);
 
  renderTradeReview(snapshot.tradeReview);
 
@@ -134,7 +158,7 @@ function render(){
 
 
 
- for(const p of snapshot.products.filter(p=>p.available)){
+ for(const p of snapshot.products.filter(p=>p.available).sort((a,b)=>Number(a.reviewed)-Number(b.reviewed))){
 
 
 
@@ -194,6 +218,8 @@ function render(){
 
  renderFounderOverview();
 
+ updateMiddleEarth();
+
  applyView();
 
  $('updated').textContent='Lokaler Stand · '+new Date(snapshot.at).toLocaleString('de-CH');
@@ -207,13 +233,16 @@ function render(){
 function renderAutonomy(){
 
  const a=snapshot.autonomy;if(!a)return;
+ const research=$('research');
+ for(const node of research.querySelectorAll(':scope > [data-task-detail]'))node.remove();
+ const appendDetail=node=>{node.dataset.taskDetail='true';research.append(node);};
 
  const status={running:'Autonomer Founder-Betrieb läuft',paused:'Founder-Betrieb pausiert',stopped:'Founder-Betrieb ausgeschaltet',emergency_stopped:'Not-Aus aktiv'};
 
- const health=runtimeHealth(a);
+ const health=founderHealth();
  $('controller').textContent=health.label;
 
- $('controllerDetail').textContent=`${health.active} von ${a.maxWorkers} Bearbeitern aktiv · ${health.queued} wartend · ${health.failed} fehlgeschlagen · ${health.blocked} blockiert · ${health.capabilityGaps} Fähigkeiten gesperrt oder noch ungeprüft. ${health.nextAt?'Vorgemerkter Start (nur bei eingeschaltetem Betrieb): '+new Date(health.nextAt).toLocaleString('de-CH')+'. ':''}${a.scope}`;
+ renderRuntimeStatus();
 
  let controls=$('autonomyControls');if(!controls){controls=el('div');controls.id='autonomyControls';$('control').append(controls);}controls.replaceChildren();
 
@@ -230,13 +259,13 @@ function renderAutonomy(){
 
  if(a.schedulerError)controls.append(el('p',a.schedulerError));
 
- if(!$('budgetStatus')){const budgetBox=el('div',undefined,'notice');budgetBox.id='budgetStatus';$('finance').prepend(budgetBox);}
+ if(!$('budgetStatus')){const budgetBox=el('div',undefined,'notice');budgetBox.id='budgetStatus';$('financeDetails').after(budgetBox);}
 
  const money=n=>'CHF '+(n/100).toFixed(2),b=a.budget;
 
  $('budgetStatus').replaceChildren(el('h2','Gemeinsame technische Ausgabenlimits'),el('strong',b.active?'Limits aktiv':b.halted?'Budget gestoppt: Kostenabweichung':'Budget nicht aktiv'),el('p',`${money(b.periodRappen)} für 30 Tage · ${money(b.dailyRappen)} pro Zürich-Kalendertag · ${money(b.taskRappen)} je Aufgabenfamilie`),el('p',`Noch verfügbar: ${money(b.remainingRappen)} · heute ${money(b.dayRemainingRappen)} · reserviert ${money(b.heldRappen)}`),el('p',`Konservativ budgetiert: ${money(b.spentRappen)}. Keine tatsächlichen Verbrauchskosten.`),el('p',b.endsAt?'Zeitraum bis '+new Date(b.endsAt).toLocaleString('de-CH')+' · keine automatische Verlängerung':'Noch nicht gestartet'),el('small',b.scope));
 
- let box=$('autonomousWork');if(!box){box=el('section',undefined,'workspace-panel');box.id='autonomousWork';$('operations').before(box);}box.replaceChildren(el('h2','numarons selbst gewählte Arbeit'));
+ let box=$('autonomousWork');if(!box){box=el('section',undefined,'workspace-panel');box.id='autonomousWork';$('operations').after(box);}box.replaceChildren(el('h2','numarons selbst gewählte Arbeit'));
 
  const labels={queued:'Wartet',running:'In Arbeit',verifying:'Ergebnisprüfung',done:'Ergebnis gespeichert',blocked:'Blockiert',failed:'Prüfung fehlgeschlagen',cancelled:'Abgebrochen'};
 
@@ -244,51 +273,56 @@ function renderAutonomy(){
 
  if(!a.tasks.length)box.append(el('p','Die Arbeitsauswahl beginnt bei laufendem Controller und aktivem Budget.'));
 
- const caps=el('details');caps.append(el('summary','Verbindungen und Fähigkeiten'));
-
- const names={'order-discovery':'Code-Aufträge suchen','order-prepare':'Code-Auftrag vorbereiten','order-code':'Code erstellen','order-check':'Code prüfen','order-submit':'Geprüften Code einreichen',research:'Öffentliche Recherche','private-analysis':'Private Modellanalyse','order-report':'Auftragsberichte','finance-report':'Stripe-Transaktionsabgleich','code-execution':'Freie Code-Ausführung','external-communication':'Externe Kommunikation','live-trading':'Echtgeld-Trading'};
-
- for(const c of a.capabilities.map(c=>codeCapability(c,a)))caps.append(el('p',`${names[c.kind]??c.kind}: ${capabilityStatus(c)}${c.status==='blocked'&&c.reason?' · '+c.reason:''}${c.lastSuccessAt?' · letzter Erfolg '+new Date(c.lastSuccessAt).toLocaleString('de-CH'):''}`));box.append(caps);
- if(a.codeOrders){const isolation=el('div',undefined,'notice');isolation.append(el('h3','Code-Isolation'),el('p',a.codeOrders.isolated?'Offline-Schutzprüfung erfolgreich.':(a.codeOrders.isolation?.code==='verified'?'Regelmässige Schutzprüfung läuft. Neue Code-Ausführungen warten auf den Abschluss.':a.codeOrders.isolation?.message??a.codeOrders.reason??'Offline-Schutzprüfung noch offen.')));if(a.codeOrders.isolation?.checkedAt)isolation.append(el('small','Geprüft: '+new Date(a.codeOrders.isolation.checkedAt).toLocaleString('de-CH')));box.append(isolation);}
- const reservations=(b.entries??[]).filter(e=>e.actualCostRappen===null&&e.maxCostRappen>0);if(reservations.length){const holds=el('div',undefined,'notice');holds.append(el('h3','Ungeklärte Kostenreservierungen'),el('p',`${reservations.length} Aufrufe · ${money(reservations.reduce((n,e)=>n+e.maxCostRappen,0))} weiter gebunden. Ohne zuordenbaren Einzelbeleg werden Kosten weder als Null verbucht noch Aufrufe automatisch wiederholt.`));box.append(holds);}
-
- const methods=el('details');methods.id='founderMethods';methods.append(el('summary','Arbeitsmethoden'));
-
- for(const m of a.methods??[])methods.append(el('p',`${m.name} · Version ${m.version} · ${m.provenance}`));
-
- methods.append(el('small','Werden neuen Modellaufträgen mitgegeben. Kein Modelltraining und kein Nachweis höherer Gewinne.'));box.append(methods);
-
- const plugins=el('details');plugins.id='founderPlugins';plugins.append(el('summary','Plugins und Hintergrunddienst'));
-
- for(const p of a.plugins??[])plugins.append(el('p',`${p.name}: ${p.runtimeStatus??p.codexObservation} Hintergrunddienst: ${p.runtimeConnected?'verbunden':'nicht bestätigt'}. ${p.lastCheckedAt?`Letzter Versuch: ${p.lastCheckedAt}. `:''}Nutzen: ${p.use}.`));
-
- plugins.append(el('small','Direkte Recherche höchstens einmal pro Anbieter und sechs Stunden, ohne kostenpflichtigen Ausweichzugang. Status aus gespeicherten Dienstaufrufen; keine Garantie aktueller Verfügbarkeit. Codex-Anmeldungen werden nicht kopiert.'));box.append(plugins);
-
- const services=el('div',undefined,'notice');services.append(el('h3','Verbundene Arbeitsbereiche'));
-
- const serviceNames={'github-orders':'Eigene GitHub-Aufträge','gmail-orders':'numaron-Posteingang','calendar-deadlines':'numaron-Kalender','amplitude-metrics':'Amplitude-Projekt'};
-
- for(const s of a.services??[]){const last=s.last,at=s.lastSuccessfulAt?'Zuletzt erfolgreich: '+new Date(s.lastSuccessfulAt).toLocaleString('de-CH'):'noch kein erfolgreicher Abruf';services.append(el('p',`${serviceNames[s.kind]??s.kind}: ${!s.available?'Zugang oder Arbeitsbereich fehlt':last?.status==='succeeded'?'Letzter Abruf erfolgreich':'Erfolgreicher Abruf noch offen'} · ${at}${last&&last.status!=='succeeded'?' · '+last.status:''}`));}
-
- services.append(el('small','Google-Anbindung ohne Abrechnungskonto. Ein eingerichteter Client allein ist noch kein bestätigter Kontozugriff.'));box.append(services);
-
  const decisions=el('div',undefined,'notice');decisions.append(el('h3','Arbeitsauswahl und nächste Schritte'));
 
  for(const item of (a.decisions??[]).filter(x=>x.decision?.accepted).slice(0,5)){const d=item.decision;decisions.append(el('p',new Date(item.at).toLocaleString('de-CH')+' · '+(d.accepted.length?d.accepted.map(c=>`${c.title}: ${c.expectedBenefit}`).join(' · '):'Keine neue Aufgabe innerhalb der geprüften Voraussetzungen ausgewählt.')));}
 
  box.append(decisions);
 
+ const reservations=(b.entries??[]).filter(e=>e.actualCostRappen===null&&e.maxCostRappen>0);if(reservations.length){const holds=el('div',undefined,'notice');holds.append(el('h3','Ungeklärte Kostenreservierungen'),el('p',`${reservations.length} Aufrufe · ${money(reservations.reduce((n,e)=>n+e.maxCostRappen,0))} weiter gebunden. Ohne zuordenbaren Einzelbeleg werden Kosten weder als Null verbucht noch Aufrufe automatisch wiederholt.`));box.append(holds);}
+
  const versions=el('div',undefined,'notice');versions.append(el('h3','Gesicherte Ergebnisversionen'));
 
  for(const d of (a.deliveries??[]).slice(0,8))versions.append(el('p',`${d.resultId} · ${d.remoteStatus==='verified'?'In privatem Drive-Ablageordner geprüft':d.remoteStatus==='local'?'Lokal gespeichert':'Externe Ablage noch ungeklärt'} · ${d.digest.slice(0,12)} · Fachliche Abnahme nicht bestätigt`));
 
- if(!a.deliveries?.length)versions.append(el('p','Noch keine neue Ergebnisversion aus diesem Arbeitsablauf.'));box.append(versions);
+ if(!a.deliveries?.length)versions.append(el('p','Noch keine neue Ergebnisversion aus diesem Arbeitsablauf.'));appendDetail(versions);
 
  const knowledge=el('details');knowledge.append(el('summary','Gespeichertes Arbeitswissen'));
 
  for(const k of a.knowledge.slice(-8))knowledge.append(el('p',`${k.stale?'Veraltet':k.verification==='checked'?'Geprüft':'Quellenbehauptung'} · ${k.claim}`));
 
- if(!a.knowledge.length)knowledge.append(el('p','Noch keine Quellen aus einem abgeschlossenen Recherchelauf.'));box.append(knowledge);
+ if(!a.knowledge.length)knowledge.append(el('p','Noch keine Quellen aus einem abgeschlossenen Recherchelauf.'));appendDetail(knowledge);
+ const caps=el('details');caps.append(el('summary','Verbindungen und Fähigkeiten'));
+
+ const names={'order-discovery':'Code-Aufträge suchen','order-prepare':'Code-Auftrag vorbereiten','order-code':'Code erstellen','order-check':'Code prüfen','order-submit':'Geprüften Code einreichen',research:'Öffentliche Recherche','private-analysis':'Private Modellanalyse','order-report':'Auftragsberichte','finance-report':'Stripe-Transaktionsabgleich','code-execution':'Freie Code-Ausführung','external-communication':'Externe Kommunikation','live-trading':'Echtgeld-Trading'};
+
+ for(const c of a.capabilities.map(c=>codeCapability(c,a)))caps.append(el('p',`${names[c.kind]??c.kind}: ${capabilityStatus(c)}${c.status==='blocked'&&c.reason?' · '+c.reason:''}${c.lastSuccessAt?' · letzter Erfolg '+new Date(c.lastSuccessAt).toLocaleString('de-CH'):''}`));
+ for(const binding of a.capabilityEvidence?.qualityBindings??[])caps.append(el('p',qualityBindingText(binding)));
+ for(const cert of a.capabilityEvidence?.certificates??[])caps.append(el('p',capabilityCertificateText(cert)));
+ if(a.capabilityEvidence?.diagnostics?.length)caps.append(el('p','Nachweisprüfung nicht verfügbar oder ungültig; keine positiven Aussagen ableiten.'));
+ for(const e of a.capabilityEvidence?.entries??[])caps.append(el('p',`${names[e.capabilityId]??e.capabilityId}${e.sourceId?' ['+e.sourceId+']':''}: ${capabilityEvidenceText(e)}`));
+ appendDetail(caps);
+ const services=el('div',undefined,'notice');services.append(el('h3','Verbundene Arbeitsbereiche'));
+
+ const serviceNames={'github-orders':'Eigene GitHub-Aufträge','gmail-orders':'numaron-Posteingang','calendar-deadlines':'numaron-Kalender','amplitude-metrics':'Amplitude-Projekt'};
+
+ for(const s of a.services??[]){const last=s.last,at=s.lastSuccessfulAt?'Zuletzt erfolgreich: '+new Date(s.lastSuccessfulAt).toLocaleString('de-CH'):'noch kein erfolgreicher Abruf';services.append(el('p',`${serviceNames[s.kind]??s.kind}: ${!s.available?'Zugang oder Arbeitsbereich fehlt':last?.status==='succeeded'?'Letzter Abruf erfolgreich':'Erfolgreicher Abruf noch offen'} · ${at}${last&&last.status!=='succeeded'?' · '+last.status:''}`));}
+
+ services.append(el('small','Google-Anbindung ohne Abrechnungskonto. Ein eingerichteter Client allein ist noch kein bestätigter Kontozugriff.'));appendDetail(services);
+
+ if(a.codeOrders){const isolation=el('div',undefined,'notice');isolation.append(el('h3','Code-Isolation'),el('p',a.codeOrders.isolated?'Offline-Schutzprüfung erfolgreich.':(a.codeOrders.isolation?.code==='verified'?'Regelmässige Schutzprüfung läuft. Neue Code-Ausführungen warten auf den Abschluss.':a.codeOrders.isolation?.message??a.codeOrders.reason??'Offline-Schutzprüfung noch offen.')));if(a.codeOrders.isolation?.checkedAt)isolation.append(el('small','Geprüft: '+new Date(a.codeOrders.isolation.checkedAt).toLocaleString('de-CH')));appendDetail(isolation);}
+ const methods=el('details');methods.id='founderMethods';methods.append(el('summary','Arbeitsmethoden'));
+
+ for(const m of a.methods??[])methods.append(el('p',`${m.name} · Version ${m.version} · ${m.provenance}`));
+
+ methods.append(el('small','Werden neuen Modellaufträgen mitgegeben. Kein Modelltraining und kein Nachweis höherer Gewinne.'));appendDetail(methods);
+
+ const plugins=el('details');plugins.id='founderPlugins';plugins.append(el('summary','Plugins und Hintergrunddienst'));
+
+ for(const p of a.plugins??[])plugins.append(el('p',`${p.name}: ${p.runtimeStatus??p.codexObservation} Hintergrunddienst: ${p.runtimeConnected?'verbunden':'nicht bestätigt'}. ${p.lastCheckedAt?`Letzter Versuch: ${p.lastCheckedAt}. `:''}Nutzen: ${p.use}.`));
+
+ plugins.append(el('small','Direkte Recherche höchstens einmal pro Anbieter und sechs Stunden, ohne kostenpflichtigen Ausweichzugang. Status aus gespeicherten Dienstaufrufen; keine Garantie aktueller Verfügbarkeit. Codex-Anmeldungen werden nicht kopiert.'));appendDetail(plugins);
+
 
 }
 
@@ -296,11 +330,11 @@ function renderAutonomy(){
 
 function renderTradeReview(data){
 
- let box=$('tradeReview');if(!box){box=el('section',undefined,'notice');box.id='tradeReview';$('accountDetails').append(box);}
+ let box=$('tradeReview');if(!box){box=el('details',undefined,'notice');box.id='tradeReview';$('accountDetails').append(box);}
 
  if(data?.persistent){
 
-  box.replaceChildren(el('h2','Trade-Journal'));
+  box.replaceChildren(el('summary','Technisches Beobachtungsjournal · '+(data.history?.length??0)+' Einträge'));
 
   const p=data.proposal,valid=data.gate?.canAcknowledge===true;
 
@@ -320,7 +354,7 @@ function renderTradeReview(data){
 
  }
 
- box.replaceChildren(el('h2','Trade prüfen'),el('strong','KEIN TRADE ZUR BESTÄTIGUNG'));
+ box.replaceChildren(el('summary','Technisches Beobachtungsjournal'),el('strong','KEIN TRADE ZUR BESTÄTIGUNG'));
 
  box.append(el('p','Es fehlt ein belegtes Einstiegssignal mit vollständiger Risiko- und Kostenprüfung. Die folgende Aufnahme ist eine technische Prüfung, keine Handelsempfehlung.'));
 
@@ -530,7 +564,7 @@ setInterval(()=>{if(snapshot?.stripe&&Date.now()-Date.parse(snapshot.stripe.obse
 
 function renderOperations(){
 
- let box=$('operations');if(!box){box=el('section',undefined,'workspace-panel');box.id='operations';$('research').before(box);}
+ let box=$('operations');if(!box){box=el('section',undefined,'workspace-panel');box.id='operations';$('sourceOverview').before(box);}
 
  box.replaceChildren(el('h2','Eigene Aufgaben'));
 
@@ -562,7 +596,7 @@ function renderOperations(){
 
  }
 
- let budget=$('budgetStatus');if(!budget){budget=el('div',undefined,'notice');budget.id='budgetStatus';$('finance').prepend(budget);}
+ let budget=$('budgetStatus');if(!budget){budget=el('div',undefined,'notice');budget.id='budgetStatus';$('financeDetails').after(budget);}
 
  budget.replaceChildren(el('h2','Kostenkontrolle'),el('strong','Kostenpflichtige Ausführung: gesperrt'),el('p','Für manuelle Notizen freigegeben: CHF 0.00. Die aktiven technischen Ausgabenlimits stehen unter Aufgaben.'),el('p',ops.budget.scope));
 
@@ -594,7 +628,7 @@ function renderOperations(){
 
 function renderUsage(report){
 
- let box=$('usage');if(!box){box=el('section',undefined,'workspace-panel');box.id='usage';$('control').after(box);}
+ let box=$('usage');if(!box){box=el('section',undefined,'workspace-panel');box.id='usage';$('longHistory').after(box);}
 
  box.replaceChildren(el('div','NUTZUNG','eyebrow'),el('h2','Website & Dashboard'));
 
@@ -630,23 +664,23 @@ function renderUsage(report){
 
 
 
-const views={trading:['trading'],work:['work'],checks:['checks'],overview:['sourceOverview','aiHud','startTrading','longHistory','overview','nextAction','missionDeck','control','usage'],operations:['sourceOverview','operations','autonomousWork','research'],products:['products'],archive:['archive'],finance:['finance','trading'],approvals:['checks','approvals','activity']};
+const views={trading:['trading'],work:['work'],checks:['checks'],overview:['control','aiHud','overview','nextAction'],chronicle:['missionDeck','sourceOverview','startTrading','longHistory','usage'],operations:['operations','autonomousWork','sourceOverview','research'],products:['products'],archive:['archive'],finance:['finance','trading'],approvals:['checks','approvals','activity']};
 
 function applyView(){
 
  const requested=location.hash.slice(1),view=Object.hasOwn(views,requested)?requested:'overview';
- const rooms={overview:'01 / Brücke',operations:'02 / Missionszentrale',work:'02 / Missionszentrale',products:'03 / Fracht & Ergebnisse',archive:'06 / Missionsarchiv',finance:'04 / Ressourcen',trading:'04 / Markt-Radar',approvals:'05 / Kontrollstation',checks:'05 / Kontrollstation'};if($('deckLocation'))$('deckLocation').textContent=rooms[view]??rooms.overview;document.body.dataset.deck=view;
+ const rooms={overview:'01 / Mittelerde',chronicle:'01 / Chronik',operations:'02 / Aufgaben',work:'02 / Aufgaben',products:'03 / Ergebnisse',archive:'06 / Archiv',finance:'04 / Schatzkammer',trading:'04 / Sternwarte',approvals:'05 / Prüfkammer',checks:'05 / Prüfkammer'};if($('deckLocation'))$('deckLocation').textContent=rooms[view]??rooms.overview;document.body.dataset.deck=view;
 
  if(view==='archive'&&!archiveState.loaded&&!archiveState.loading)void loadArchive();
- if(view==='trading')$('accountDetails').open=true;
+ if(view==='trading'){$('accountDetails').open=true;void refreshTradingHistory();}
 
  const ids=new Set(Object.values(views).flat());
 
  for(const id of ids){const section=$(id);if(section)section.hidden=!views[view].includes(id);}
 
- document.querySelector('.metrics').hidden=view!=='overview';
+ document.querySelector('.metrics').hidden=false;
 
- document.querySelector('.period-bar').hidden=view!=='overview';
+ document.querySelector('.period-bar').hidden=false;
 
  document.querySelectorAll('aside nav a').forEach(a=>{const active=a.hash==='#'+(view==='work'?'operations':view==='checks'?'approvals':view);a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 
@@ -671,7 +705,7 @@ function renderMissionDeck(){
  document.querySelector('.neural-reactor')?.setAttribute('data-state',deck.state);
  const states={running:'SYSTEM ONLINE',paused:'SYSTEM PAUSIERT',stopped:'SYSTEM AUS',emergency_stopped:'NOT-AUS AKTIV',unknown:'STATUS UNBEKANNT'};
  $('reactorStatus').textContent=states[deck.state]??'STATUS UNBEKANNT';
- $('reactorDetail').textContent=deck.state==='running'?runtimeHealth(snapshot.autonomy).label:'Letzter gemeldeter Betriebszustand';
+ $('reactorDetail').textContent=deck.state==='running'?founderHealth().label:'Letzter gemeldeter Betriebszustand';
  host.replaceChildren();
  const top=el('div',undefined,'deck-heading'),intro=el('div');intro.append(el('div','DEIN MISSION CONTROL','eyebrow'),el('h2','Aus Ideen wird Fortschritt.'));
  const badge=el('a',deck.results+' Ergebnisse ↗','deck-counter');badge.href='#products';top.append(intro,badge);host.append(top);
@@ -698,7 +732,7 @@ function renderFounderOverview(){
 
  const g=workGroups(snapshot);
 
- $('aiState').textContent=runtimeHealth(snapshot.autonomy).label;
+ $('aiState').textContent=founderHealth().label;
 
  $('aiMissionCount').textContent=g.active.length+' offene Missionen · '+g.results.length+' Ergebnisse bereit';
 
@@ -739,7 +773,7 @@ function renderFounderOverview(){
 
  $('checkResults').replaceChildren(...g.checks.filter(t=>t.source==='product').map(reviewPanel));if(!g.checks.some(t=>t.source==='product'))$('checkResults').append(el('p',snapshot.autonomy?.autonomyContract?.mode==='self-directed'?'Keine manuelle Produktprüfung zur Fortsetzung angefordert.':'Alle verfügbaren Produktdateien sind geprüft.'));
 
- $('jobResults').replaceChildren(...g.results.filter(t=>t.source==='autonomy').map(resultPanel));if(!g.results.some(t=>t.source==='autonomy'))$('jobResults').append(el('p','Noch kein gespeichertes Ergebnis aus numarons Arbeit.'));
+ $('jobResults').replaceChildren(...g.results.filter(t=>t.source==='autonomy').sort((a,b)=>b.updated_ms-a.updated_ms).map(resultPanel));if(!g.results.some(t=>t.source==='autonomy'))$('jobResults').append(el('p','Noch kein gespeichertes Ergebnis aus numarons Arbeit.'));
 
  renderFinancialDetails();
 
@@ -755,7 +789,7 @@ function taskPanel(t){
 
  const panel=el('article',undefined,'notice task-panel');panel.dataset.taskId=t.id;
 
- panel.append(el('span',taskLabels[t.status]??t.status,'task-status'),el('h3',(t.attentionNumber?'Aufgabe '+t.attentionNumber+' · ':'')+taskTitle(t)));
+ panel.append(el('span',taskFailureLabel(t)??taskLabels[t.status]??t.status,'task-status'),el('h3',(t.attentionNumber?'Aufgabe '+t.attentionNumber+' · ':'')+taskTitle(t)));
 
  const progress=taskProgress(t),steps=el('ol',undefined,'task-journey');steps.setAttribute('aria-label','Fortschritt der Aufgabe');for(const [index,label] of progress.labels.entries()){const step=el('li',(index<progress.current?'✓ ':index+1+' · ')+label);if(index===progress.current)step.setAttribute('aria-current','step');if(index<progress.current)step.className='complete';steps.append(step);}panel.append(steps);
 
@@ -773,7 +807,18 @@ function taskPanel(t){
 
  }else{
 
+  if(t.status==='failed'&&Number.isFinite(t.updated_ms))panel.append(el('p','Letzter fehlgeschlagener Versuch: '+new Date(t.updated_ms).toLocaleString('de-CH',{timeZone:'Europe/Zurich'})+'. Frühere Fehler bleiben nachvollziehbar gespeichert.'));
   if(t.reason)panel.append(el('p','Warum offen: '+(t.retryMaxCostRappen===0&&/Kosten können noch reserviert/.test(t.reason)?'Dienstlauf fehlgeschlagen; für diesen kostenlosen Adapter ist keine Geldreservierung offen.':t.reason)));
+
+  if(t.inspection){
+   const inspection=t.inspection;
+   panel.append(el('p',inspection.status==='completed'?'Sichtprüfung erledigt. Kein zusätzlicher persönlicher Freigabeschritt.':inspection.status==='corrections-needed'?'Korrektur nötig. Das geänderte Ergebnis benötigt eine neue Sichtprüfung.':inspection.status==='awaiting-result'?'Sichtprüfung erst nach fertiger Vorarbeit möglich.':'Sichtprüfung erforderlich. Andere unabhängige Aufgaben laufen weiter.'));
+   panel.append(el('p','Grund: '+(inspection.requirement.reason==='customer-required'?'Ausdrückliche Kundenanforderung':'Verbindliche Qualitätsanforderung')+' · '+inspection.requirement.requirementRef));
+   if(inspection.resultDigest)panel.append(el('small','Ergebnisbindung: '+inspection.resultDigest));
+   if(inspection.status==='pending')for(const [outcome,label] of [['inspected','Sichtprüfung erledigt'],['corrections-needed','Korrektur nötig']]){
+    const button=el('button',label);button.onclick=async()=>{button.disabled=true;try{await api('/api/job/sight-inspection',{id:t.id,token:inspection.token,outcome});await refresh();}catch(e){$('error').textContent=e.message;button.disabled=false;}};panel.append(button);
+   }
+  }
 
   if(t.context){const background=el('details');background.append(el('summary','Worum geht es? Hintergrund ansehen'),el('p',t.context));panel.append(background);}
 
@@ -791,7 +836,7 @@ function taskPanel(t){
 
    
 
-  }else panel.append(el('p',t.status==='queued'?taskWaitText(t):t.status==='verifying'?'numaron prüft das Ergebnis automatisch. Es erscheint danach unter Ergebnisse.':'numaron bearbeitet diese Aufgabe. Das fertige Ergebnis erscheint unter Ergebnisse.'));
+  }else if(!t.inspection||t.inspection.status==='completed')panel.append(el('p',t.status==='queued'?taskWaitText(t):t.status==='verifying'?'numaron prüft das Ergebnis automatisch. Es erscheint danach unter Ergebnisse.':'numaron bearbeitet diese Aufgabe. Das fertige Ergebnis erscheint unter Ergebnisse.'));
 
   if(['queued','blocked','failed'].includes(t.status)&&snapshot.autonomy?.status!=='running'&&snapshot.autonomy?.autonomyContract?.mode!=='self-directed'){panel.append(el('p','Der Betrieb ist pausiert oder gestoppt. Wartende Aufgaben werden erst nach dem Fortsetzen bearbeitet.'));const resume=el('button','Betrieb fortsetzen');resume.onclick=async()=>{resume.disabled=true;try{const a=snapshot.autonomy;await api('/api/control',{action:a.status==='paused'?'resume':'start',revision:a.revision});await refresh();}catch(e){$('error').textContent=e.message;resume.disabled=false;}};panel.append(resume);}
 
@@ -819,36 +864,50 @@ function choosePeriod(key){if(hasUnsavedDraft()){$('error').textContent='Bitte z
 
 function renderFinancialDetails(){
 
- const incomeDays=(typeof orderIncome==='undefined'?[]:orderIncome?.receipts??[]).map(r=>businessDay(Date.parse(r.receivedAt))).sort();
+ const incomeDays=(orderIncome?.receipts??[]).map(r=>businessDay(Date.parse(r.receivedAt))).sort();
  const f=financialSummary({...snapshot,financeBeginningDay:incomeDays[0]},financialPeriod),date=d=>d.split('-').reverse().join('.');
 
  const range=date(f.from)+' – '+date(f.to)+' · Europe/Zurich';$('overviewPeriod').textContent=range;
 
- const displayedProfit=f.reconciled?f.profitMinor:f.calculatedProfitMinor;
+ const income=orderIncomeForPeriod(orderIncome,f.from,f.to);
+ const combined=orderIncome?combinedIncomeCHF(f.covered?f.receiptsMinor:f.knownReceiptsMinor,income.totalAtomic,orderIncome.fx):{totalMinor:null,status:'unavailable'};
+ const profit=combinedProfitCHF(f,combined),displayedProfit=profit.profitMinor;
+ const statusText={reconciled:'Vollständig abgeglichen',provisional:'Berechnet · vorläufig',partial:'Berechnet · unvollständiger Teilbestand',unavailable:'Noch nicht berechenbar'}[profit.status];
+ $('revenueTotal').textContent=money(combined.totalMinor);$('profitTotal').textContent=money(displayedProfit);
 
- const statusText={reconciled:'Vollständig abgeglichen',provisional:'Berechnet · vorläufig',partial:'Berechnet · unvollständiger Teilbestand',unavailable:'Noch nicht berechenbar'}[f.profitStatus];
+ $('revenueNote').textContent=(combined.status==='unavailable'?'CHF-Gesamtsumme noch nicht vollständig bewertbar: USDC/CHF-Kurs oder Einnahmenbelege fehlen.':combined.status==='stale'?'Einnahmen inklusive USDC · letzter gespeicherter Kurs ist veraltet.':'Einnahmen inklusive USDC zum zuletzt abgerufenen CHF-Marktwert · indikativ')+(!f.covered?' · Einnahmenbelege unvollständig':'');
 
- $('revenueTotal').textContent=money(f.receiptsMinor);$('profitTotal').textContent=money(displayedProfit);
-
- $('revenueNote').textContent=f.covered?'Stripe + ergänzte Einnahmen in CHF · bis Datenstand':'Zahlungsdaten für diesen Zeitraum fehlen oder sind unvollständig';
-
- $('profitNote').textContent=statusText+(f.reconciled?'':' · Angaben und Belege noch unvollständig');
+ $('profitNote').textContent=statusText+' · inklusive USDC zum angezeigten CHF-Kurs'+(combined.status==='stale'?' · Kurs veraltet':'')+(f.reconciled?'':' · Angaben und Belege noch unvollständig');
 
  document.querySelectorAll('[data-period]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.period===financialPeriod)));
 
  const box=$('financeDetails');box.replaceChildren(el('div','EINNAHMEN & AUSGABEN','eyebrow'),el('h2','Deine Finanzübersicht'),periodButtons(),el('p',range,'muted'));
+ const usdc=el('details',undefined,'notice');usdc.append(el('summary','Auftragseingänge und USDC/CHF-Bewertung · Details'));
+ if(orderIncome){
+  usdc.append(el('p',formatUSDC(income.totalAtomic)+' bestätigte Auftragseingänge nach Plattformabzug. Zum angezeigten Kurs in der CHF-Einnahmensumme enthalten; kein Verkauf, kein Walletsaldo und keine CHF-Auszahlung.'),el('small','Belegimport: '+new Date(orderIncome.observedAt).toLocaleString('de-CH',{timeZone:'Europe/Zurich'})));
+  const q=orderIncome.fx;
+  if(q){const rate=el('a','Kursquelle: CoinGecko');rate.href='https://www.coingecko.com/en/coins/usdc/chf';rate.target='_blank';rate.rel='noopener noreferrer';usdc.append(el('p','1 USDC = '+q.rateCHF+' CHF · Kurszeit: '+new Date(q.quotedAt).toLocaleString('de-CH',{timeZone:'Europe/Zurich'})+' · '+(combined.status==='stale'?'VERALTET · letzter gespeicherter Gegenwert':'indikativer Marktwert')),rate);}
+  else usdc.append(el('p','Noch kein belegter USDC/CHF-Kurs. Der Abruf erfolgt beim nächsten bestehenden Zehn-Minuten-Prüflauf mit eingeschaltetem Numaron. Fehlender Kurs zählt nicht als null.'));
+  const table=el('table'),head=el('tr');for(const h of ['Eingang','Auftrag','Betrag','Nachweis'])head.append(el('th',h));table.append(head);
+  for(const receipt of income.receipts){const row=el('tr'),when=el('td',new Date(receipt.receivedAt).toLocaleString('de-CH',{timeZone:'Europe/Zurich'})),job=el('td'),amount=el('td',formatUSDC(receipt.amountAtomic)),proof=el('td');const a=el('a',receipt.platform+' #'+receipt.bidId+' · Job '+receipt.jobId);a.href=receipt.orderURL;a.target='_blank';a.rel='noopener noreferrer';job.append(a);const tx=el('a','Transaktion ↗');tx.href=receipt.transactionURL;tx.target='_blank';tx.rel='noopener noreferrer';proof.append(tx,el('small',receipt.finalized?' · finalisiert':' · Eingang bestätigt; Finalität im gespeicherten Beleg noch nicht bestätigt'));row.append(when,job,amount,proof);table.append(row);}
+  const wrap=el('div',undefined,'table-wrap');wrap.append(table);usdc.append(wrap);
+  if(!income.receipts.length)usdc.append(el('p','Keine bestätigten USDC-Eingänge im gewählten Zeitraum.'));
+  if(orderIncome.issues.length)usdc.append(el('p',orderIncome.issues.length+' Belegkonflikt(e) ausgeschlossen; Summe kann unvollständig sein.'));
+ }else usdc.append(el('p','Belegte Auftragseinnahmen werden geladen; fehlende Daten werden nicht als null gezählt.'));
+ if(orderIncomeError)usdc.append(el('p',orderIncomeError));
 
- const totals=el('div',undefined,'finance-grid');for(const [label,value] of [[f.covered?'Einnahmen · CHF':'Bekannte Einnahmen · Teilbestand',money(f.covered?f.receiptsMinor:f.knownReceiptsMinor)],['Erfasste Ausgaben · CHF',money(f.automaticCostMinor===null?null:f.actualExpenses+f.automaticCostMinor)],[f.reconciled?'Gewinn vor Steuern · abgeglichen':'Berechneter Gewinn vor Steuern',money(displayedProfit)]]){const card=el('div');card.append(el('span',label),el('strong',value));totals.append(card);}box.append(totals);
+ const totals=el('div',undefined,'finance-grid');for(const [label,value] of [[f.covered?'Einnahmen gesamt · CHF inkl. USDC':'Bekannte Einnahmen · CHF inkl. USDC · Teilbestand',money(combined.totalMinor)],['Erfasste Ausgaben · CHF',money(f.automaticCostMinor===null?null:f.actualExpenses+f.automaticCostMinor)],[profit.status==='reconciled'?'Gewinn vor Steuern · abgeglichen':'Berechneter Gewinn vor Steuern · inkl. USDC',money(displayedProfit)]]){const card=el('div');card.append(el('span',label),el('strong',value));totals.append(card);}box.append(totals);
 
+ box.append(el('p',combined.status==='unavailable'?'Gesamteinnahmen noch nicht vollständig bewertbar. Es wird kein unvollständiger Betrag als Gesamtsumme angezeigt.':combined.status==='stale'?'Letzte gespeicherte CHF-Bewertung: Kurs veraltet.':'USDC-Anteil zum zuletzt abgerufenen Marktwert; keine tatsächlich erhaltenen CHF. Kursaktualisierung im bestehenden Zehn-Minuten-Prüflauf bei eingeschaltetem Numaron.'));
  const status=el('article',undefined,'notice');status.append(el('strong',statusText));
 
  if(!f.reconciled)status.append(el('p','Automatische CHF-Umrechnungen sind Schätzungen. Trage bezahlte CHF-Beträge selbst ein und bestätige die vollständigen Geschäftsausgaben.'));
 
  if(f.reconciliationIssues.length){const details=el('details');details.append(el('summary','Was noch offen ist · '+f.reconciliationIssues.length));for(const issue of f.reconciliationIssues)details.append(el('p',issue));status.append(details);}box.append(status);
 
- box.append(el('p','Gewinn = Einnahmen − Rückzahlungen − Zahlungsgebühren − belegte Ausgaben − automatisch umgerechnete numaron-Nutzung. Budgetansätze sind ausgeschlossen. Deine bestätigten CHF-Angaben haben Vorrang vor Referenzkursen.'));
+ box.append(el('p','Gewinn = gesamte Einnahmen in CHF inklusive bewerteter USDC-Auftragseingänge − Rückzahlungen − Zahlungsgebühren − erfasste Geschäftsausgaben − automatisch umgerechnete numaron-Nutzung. USDC-Plattformabzüge sind bereits im bestätigten Eingang berücksichtigt und werden nicht nochmals abgezogen. Die USDC-Bewertung ist indikativ; fehlende Kostenbelege bleiben offen. Budgetansätze sind ausgeschlossen. Deine bestätigten CHF-Angaben haben Vorrang vor Referenzkursen.'));
 
- renderReconciliation(box,f,date);
+ const providerCosts=renderReconciliation(box,f,date);
 
  if(!f.covered)box.append(el('p','Die Einzelbuchungen unten sind nur der verfügbare Teilbestand. Ein fehlender Zeitraum wird nicht als CHF 0.00 angezeigt.'));
 
@@ -861,6 +920,9 @@ function renderFinancialDetails(){
  if(!f.transactions.length)box.append(el('p',f.covered?'Keine Stripe-Kontobewegungen im ausgewählten Zeitraum.':'Keine datierten Kontobewegungen für diesen Zeitraum verfügbar.'));
 
  else {const table=el('table'),head=el('tr');for(const h of ['Datum','Buchung','Betrag','Gebühr','Netto'])head.append(el('th',h));table.append(head);const types={charge:'Zahlungseingang',payment:'Zahlungseingang',refund:'Rückzahlung',payment_refund:'Rückzahlung',payout:'Auszahlung',stripe_fee:'Stripe-Gebühr'};for(const t of [...f.transactions].sort((a,b)=>b.created-a.created)){const row=el('tr');for(const v of [new Date(t.created*1000).toLocaleDateString('de-CH',{timeZone:'Europe/Zurich'}),types[t.type]??t.type,money(t.amount,t.currency),money(t.fee,t.currency),money(t.net,t.currency)])row.append(el('td',v));table.append(row);}const wrap=el('div',undefined,'table-wrap');wrap.append(table);box.append(wrap);}
+
+ box.append(usdc);
+ if(providerCosts)box.append(providerCosts);
 
  box.append(el('h3','Budgetansätze nach Aufgabe · keine abgerechneten Ausgaben'),el('p','Reserviert, noch nicht abgerechnet: '+money(f.reservedMinor)+'. Reservierungen sind keine bestätigten Ausgaben.'));
 
@@ -875,6 +937,7 @@ function renderFinancialDetails(){
 function renderReconciliation(box,f,date){
 
  const billing=snapshot.billing;
+ let providerCosts;
 
  if(billing){
 
@@ -906,7 +969,7 @@ function renderReconciliation(box,f,date){
 
   }
 
-  box.append(panel);
+  providerCosts=panel;
 
  }
 
@@ -973,6 +1036,7 @@ function renderReconciliation(box,f,date){
 
  if(f.reconciled)close.append(el('p','Abgeglichen am '+new Date(f.closure.at).toLocaleString('de-CH')+' · '+f.closure.evidence));box.append(close);
 
+ return providerCosts;
 }
 
 function invoicePaymentForm(invoice,date){
@@ -1147,4 +1211,4 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape')hideHelp();}
 window.addEventListener('resize',()=>{if(helpAnchor)placeHelp();});window.addEventListener('scroll',()=>{if(helpAnchor)placeHelp();},true);
 let helpScheduled=false;new MutationObserver(()=>{if(helpScheduled)return;helpScheduled=true;queueMicrotask(()=>{helpScheduled=false;installHelp();});}).observe(document.querySelector('main'),{childList:true,subtree:true});installHelp();
 
-async function refreshSourceOverview(){if(sourceOverviewBusy)return;sourceOverviewBusy=true;try{const r=await fetch('/interaction.mjs',{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error();renderSourceOverview($('sourceOverview'),parseSourceOverview(await r.text()));}catch{const box=$('sourceOverview');if(box)box.textContent='Quellenübersicht derzeit nicht verfügbar. Keine erfolgreiche Prüfung bestätigt.';}finally{sourceOverviewBusy=false;}}
+async function refreshSourceOverview(){if(sourceOverviewBusy)return;sourceOverviewBusy=true;try{const r=await fetch('/api/source-overview',{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error();const overview=await r.json();localMonitorStatus=overview?.localMonitor??null;renderSourceOverview($('sourceOverview'),overview);renderRuntimeStatus();}catch{localMonitorStatus=null;renderRuntimeStatus();const box=$('sourceOverview');if(box)box.textContent='Quellenübersicht derzeit nicht verfügbar. Keine erfolgreiche Prüfung bestätigt.';}finally{sourceOverviewBusy=false;}}

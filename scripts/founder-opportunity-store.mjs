@@ -1,0 +1,50 @@
+import {planOrderFollowup} from './founder-order-followup.mjs';
+import {validateOrderPayment} from './founder-order-accountability.mjs';
+import {selectOrderObservations} from './founder-order-selection.mjs';
+import Database from 'better-sqlite3';
+import {bounded,checkedJSON,digest,orderKey} from './founder-restoration-integrity.mjs';
+export function observationDigest(observation){const {digest:ignored,...value}=observation;return digest(value);}
+export function openOpportunityStore(file,{paymentAuthority}={}){
+ const db=new Database(file);db.pragma('busy_timeout=5000');db.exec('CREATE TABLE IF NOT EXISTS restoration_observations(id TEXT PRIMARY KEY,digest TEXT NOT NULL,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS restoration_orders(id TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS restoration_monitor_rounds(id TEXT PRIMARY KEY,digest TEXT NOT NULL); CREATE TABLE IF NOT EXISTS restoration_historical_tasks(id TEXT PRIMARY KEY,payload TEXT NOT NULL)');
+ const api={
+  ingest(observation){const o=checkedJSON(observation);if(!['sourceId','externalId','revision','evidenceRef'].every(k=>bounded(o[k],2000))||!Number.isFinite(Date.parse(o.observedAt))||!['listing','own-application','assignment','delivery','acceptance','payment'].includes(o.kind)||o.digest!==observationDigest(o))throw Error('Invalid observation digest or identity');if(Date.parse(o.observedAt)>Date.now()+1000)throw Error('Future observation');const id=digest([o.sourceId,o.externalId,o.revision]),old=db.prepare('SELECT digest FROM restoration_observations WHERE id=?').get(id);if(old){if(old.digest!==o.digest)throw Error('Observation revision conflict');return false;}db.prepare('INSERT INTO restoration_observations VALUES(?,?,?)').run(id,o.digest,JSON.stringify(o));return true;},
+  register(record){const key=orderKey(record),p=record.provenance;if(p?.type!=='reviewed-local-registration'||!bounded(p.evidenceRef,2000)||p.ownerId!==key.ownerId)throw Error('Reviewed ownership registration required');const id=digest(key),value=checkedJSON({...record,...key});const old=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);if(old){if(JSON.parse(old.payload).provenance.evidenceRef!==p.evidenceRef)throw Error('Ownership provenance conflict');return false;}db.prepare('INSERT INTO restoration_orders VALUES(?,?)').run(id,JSON.stringify(value));return true;},
+  update(key,revision,changes){const id=digest(orderKey(key)),row=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);if(!row)throw Error('Unknown registered order');const order=JSON.parse(row.payload);if(order.sourceRevision!==revision)throw Error('Order revision changed');if(Object.keys(changes).some(k=>!['state','payment','pendingWrite','pendingActionId','pendingDeliveryJournalId','deliveryAttempt','verification','deliveryDigest','remoteId','actionCostRappen'].includes(k)))throw Error('Immutable order binding');db.prepare('UPDATE restoration_orders SET payload=? WHERE id=?').run(JSON.stringify(checkedJSON({...order,...changes})),id);},
+  applyReview(key,revision,evidence){const id=digest(orderKey(key)),row=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);if(!row)throw Error('Unknown order');const order=JSON.parse(row.payload),plan=planOrderFollowup({order,evidence});if(order.sourceRevision!==revision||order.state!=='submitted'||plan.kind!=='review-correction'||!bounded(evidence.revision)||evidence.revision===revision||evidence.submissionDigest!==(order.deliveryDigest??order.verification?.digest)||!evidence.submissionDigest||(order.reviewHistory??[]).some(h=>h.sourceRevision===evidence.revision||h.evidenceRef===evidence.evidenceRef)||!Number.isFinite(evidence.expiresAt)||evidence.expiresAt<=Date.now())throw Error('Fresh exact correction review required');const reviewHistory=[...(order.reviewHistory??[]),{sourceRevision:revision,deliveryDigest:order.deliveryDigest??order.verification?.digest??null,evidenceRef:evidence.evidenceRef}];db.prepare('UPDATE restoration_orders SET payload=? WHERE id=?').run(JSON.stringify(checkedJSON({...order,sourceRevision:evidence.revision,state:'assigned',verification:null,deliveryDigest:null,reviewHistory,review:evidence})),id);},
+  renewPayment(key,revision,paymentAuthorization){const id=digest(orderKey(key)),row=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);if(!row)throw Error('Unknown order');const order=JSON.parse(row.payload);if(order.sourceRevision!==revision||paymentAuthority?.allows({...order,paymentAuthorization})!==true)throw Error('Current payment authorization required');db.prepare('UPDATE restoration_orders SET payload=? WHERE id=?').run(JSON.stringify(checkedJSON({...order,paymentAuthorization})),id);},
+  confirmAssignment(key,revision,{assignment,funding,paymentAuthorization,workBinding}){
+   const identity=orderKey(key);const proofs=paymentAuthorization?[assignment]:[assignment,funding];for(const proof of proofs)if(proof?.verified!==true||!bounded(proof.evidenceRef,2000)||digest(orderKey(proof))!==digest(identity)||!Number.isFinite(proof.expiresAt)||proof.expiresAt<=Date.now())throw Error('Exact fresh own assignment and funding evidence required');
+   const id=digest(identity),row=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);if(!row)throw Error('Unknown order');const order=JSON.parse(row.payload);if(order.sourceRevision!==revision||!['applied','qualified'].includes(order.state))throw Error('Assignment revision or state changed');
+   if(paymentAuthorization&&paymentAuthority?.allows({...order,paymentAuthorization})!==true)throw Error('Current postpaid authority required');if(workBinding&&(!['content-repurpose','structured-data','source-report','node-js','typescript','python','bash','reviewed-binary','office-generation'].includes(workBinding.profileId)||digest(orderKey(workBinding))!==digest(identity)||workBinding.rootTaskId!==order.rootTaskId||workBinding.sourceRevision!==revision||workBinding.termsVerified!==true||!bounded(workBinding.scopeDigest)||!bounded(workBinding.buyerId)||workBinding.buyerId===order.ownerId||assignment.bindingDigest!==digest(workBinding)))throw Error('Exact reviewed work binding required');const next={...order,...(workBinding?{profileId:workBinding.profileId,scopeDigest:workBinding.scopeDigest,buyerId:workBinding.buyerId,termsVerified:true,...(workBinding.customerWork?{customerWork:workBinding.customerWork}:{})}:{}),state:'assigned',assignment,pendingWrite:false,pendingActionId:null};if(paymentAuthorization){delete next.funding;next.paymentAuthorization=paymentAuthorization;}else next.funding=funding;
+   db.prepare('UPDATE restoration_orders SET payload=? WHERE id=?').run(JSON.stringify(checkedJSON(next)),id);
+  },
+  ingestBatch:db.transaction((observations,assertActive)=>{let inserted=0,duplicates=0;for(const o of observations){assertActive();api.ingest(o)?inserted++:duplicates++;}return {inserted,duplicates,rejected:0};}),
+  hasHandoff(id){return !!db.prepare('SELECT 1 FROM restoration_monitor_rounds WHERE id=?').get(id);},
+  recordHandoff(id,hash){const old=db.prepare('SELECT digest FROM restoration_monitor_rounds WHERE id=?').get(id);if(old&&old.digest!==hash)throw Error('Monitor round changed');db.prepare('INSERT OR IGNORE INTO restoration_monitor_rounds VALUES(?,?)').run(id,hash);},
+  importHistory:db.transaction(tasks=>{if(!Array.isArray(tasks)||tasks.length>2000)throw Error('Bounded historical task register required');for(const task of tasks){if(!bounded(task.id)||!['offen','erledigt','überholt','blockiert'].includes(task.status)||!Array.isArray(task.sources))throw Error('Invalid historical task');const row={id:task.id,status:task.status,evidenceRefs:task.sources.filter(x=>bounded(x,2000)),runnable:false,requiresFreshAssignment:true};db.prepare('INSERT INTO restoration_historical_tasks VALUES(?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload').run(task.id,JSON.stringify(row));}}),
+  snapshot(){return {observations:db.prepare('SELECT payload FROM restoration_observations ORDER BY id').all().map(r=>JSON.parse(r.payload)),orders:db.prepare('SELECT payload FROM restoration_orders ORDER BY id').all().map(r=>JSON.parse(r.payload)),historicalTasks:db.prepare('SELECT payload FROM restoration_historical_tasks ORDER BY id').all().map(r=>JSON.parse(r.payload))};},
+  selection({now=Date.now()}={}){return selectOrderObservations(db.prepare('SELECT payload FROM restoration_observations ORDER BY id').all().map(r=>JSON.parse(r.payload)),{now});},
+  close(){db.close();}
+ };
+ const update=api.update;
+ api.checkPayment=(key,revision,payment)=>{
+  const id=digest(orderKey(key)),row=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);
+  if(!row)throw Error('Unknown registered order');const order=JSON.parse(row.payload);
+  if(order.sourceRevision!==revision||!['accepted','paid'].includes(order.state))throw Error('Accepted current order required for payment');
+  validateOrderPayment(order,payment);
+  if(order.payment&&digest(order.payment)!==digest(payment))throw Error('Payment receipt conflict');
+  if(db.prepare("SELECT id FROM restoration_orders WHERE id<>? AND json_extract(payload,'$.payment.evidenceRef')=?").get(id,payment.evidenceRef))throw Error('Payment receipt already used by another order');
+ };
+ api.update=db.transaction((key,revision,changes)=>{
+  const id=digest(orderKey(key)),row=db.prepare('SELECT payload FROM restoration_orders WHERE id=?').get(id);
+  if(!row)throw Error('Unknown registered order');
+  const order=JSON.parse(row.payload);
+  if(order.state==='paid'&&changes.state&&changes.state!=='paid')throw Error('Paid order cannot be reopened without an explicit refund workflow');
+  if(changes.state==='paid'||Object.hasOwn(changes,'payment')){
+   if(!['accepted','paid'].includes(order.state)||changes.state!=='paid')throw Error('Accepted order required for payment');
+   api.checkPayment(key,revision,changes.payment);
+  }
+  return update(key,revision,changes);
+ }).immediate;
+ return api;
+}

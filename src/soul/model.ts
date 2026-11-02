@@ -1,3 +1,4 @@
+import os from "node:os";
 /**
  * Soul Model — Data model, parser, writer for structured SOUL.md
  *
@@ -337,7 +338,7 @@ export function loadCurrentSoul(
   soulPath?: string,
 ): SoulModel | null {
   try {
-    const home = process.env.HOME || "/root";
+    const home = process.env.HOME || os.homedir();
     const resolvedPath = soulPath || path.join(home, ".automaton", "SOUL.md");
     if (!fs.existsSync(resolvedPath)) return null;
     const content = fs.readFileSync(resolvedPath, "utf-8");

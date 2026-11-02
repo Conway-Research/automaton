@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.7.33",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "blend_export",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "brass_pot_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "brass_pot_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "brass_pot_01",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_pot_01_nor_gl",
+      "uri": "textures/brass_pot_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_pot_01_diff",
+      "uri": "textures/brass_pot_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_pot_01_metal-brass_pot_01_rough",
+      "uri": "textures/brass_pot_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 2250,
+      "max": [
+        0.1509324014186859,
+        0.2900947332382202,
+        0.15080177783966064
+      ],
+      "min": [
+        -0.15101325511932373,
+        -0.0008529216283932328,
+        -0.15089081227779388
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 2250,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 2250,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 11280,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 27000,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27000,
+      "byteOffset": 27000
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18000,
+      "byteOffset": 54000
+    },
+    {
+      "buffer": 0,
+      "byteLength": 22560,
+      "byteOffset": 72000
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 94560,
+      "uri": "brass_pot_01.bin"
+    }
+  ]
+}

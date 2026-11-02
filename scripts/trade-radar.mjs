@@ -55,3 +55,4 @@ export function createTradeRadar({file,read,control,now=Date.now,evidence=()=>nu
 }
 
 export async function readMarket({python,terminal,login,server,script,start=0,watch=[],dayWindow=null}){const {stdout}=await promisify(execFile)(python,[script,'--terminal',terminal,'--login',String(login),'--server',server,'--start',String(start),...watch.slice(0,100).flatMap(symbol=>['--watch',symbol]),...(dayWindow?['--day-start',String(dayWindow.startsAt),'--day-end',String(dayWindow.endsAt)]:[])],{timeout:45000,maxBuffer:1048576,windowsHide:true});return JSON.parse(stdout);}
+

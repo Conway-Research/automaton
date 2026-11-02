@@ -102,6 +102,8 @@ describe("agent/harness-types", () => {
 
     const wisdom = buildWisdomFromGoal(db, "goal-1", workspace);
     expect(wisdom.successes[0]).toContain("Use tabs not spaces");
+    expect(wisdom.successes[0]).toContain('Unverified internal completion');
+    expect(wisdom.successes[0]).toContain('not independent quality or economic evidence');
     expect(wisdom.failures[0]).toContain("Avoid retrying this endpoint");
     expect(wisdom.conventions.some((entry) => entry.includes("Convention"))).toBe(true);
     expect(wisdom.gotchas.some((entry) => entry.includes("Gotcha"))).toBe(true);

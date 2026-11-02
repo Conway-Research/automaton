@@ -15,6 +15,9 @@ import { ResilientHttpClient } from "../conway/http-client.js";
 import { signSendPayload, signPollPayload, MESSAGE_LIMITS } from "./signing.js";
 import { validateRelayUrl, validateMessage } from "./validation.js";
 import { createLogger } from "../observability/logger.js";
+import {assertActionGate,actionContextDigest} from '../security/action-gate.js';
+export const socialPublicationScope=(relay:string,from:string,to:string,content:string,replyTo?:string)=>({activity:'external-publication',component:'social-relay',
+ contextDigest:actionContextDigest({relay,from,to,content,replyTo:replyTo??null}),claimInventory:[actionContextDigest(content)]});
 const logger = createLogger("social");
 
 // Request timeout for all fetch calls (30 seconds)
@@ -95,14 +98,20 @@ export function createSocialClient(
         throw new Error(`Message validation failed: ${validation.errors.join("; ")}`);
       }
 
+      if(!db)throw Error('Social publication requires a trusted scoped content review');
+      const scope=socialPublicationScope(baseUrl,account.address,to,content,replyTo);
+      assertActionGate(db,scope);
+
       // Phase 3.2: Use shared signing module
       const payload = await signSendPayload(account, to, content, replyTo);
+      assertActionGate(db,scope);
 
       const res = await httpClient.request(`${baseUrl}/v1/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
         timeout: REQUEST_TIMEOUT_MS,
+        retries:0,
       });
 
       if (!res.ok) {

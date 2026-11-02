@@ -1,0 +1,90 @@
+{
+  "schema": "numaron-chat-crosscheck-v1",
+  "checkedAt": "2026-10-18T23:51:50.923Z",
+  "sharedStatus": "docs/numaron-current-status-20261019.md",
+  "scope": "Relevant accessible Numaron chat snapshots, not exhaustive lifetime histories",
+  "threads": [
+    {
+      "id": "01a10a17-6bc3-7273-a718-97a5ff460a90",
+      "title": "numaron Erfolgsaussichten einschätzen",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "01a14ac6-a9c8-7a41-b326-59142dae424c",
+      "title": "Kontextfehler im Numaron-Chat klären",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "01a13580-cced-71e3-81be-546531f35417",
+      "title": "Founder-Dashboard an Numaron anleh",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "01a12cbd-bafa-7482-a51d-0cd2788b8ccf",
+      "title": "numaron – Name und Markenauftritt",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "01a14acc-4a4c-7d93-a08b-afd5a3b7a090",
+      "title": "numaron – Weiterentwicklung und Betrieb…",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "6ad03e11-9b74-83ed-bb40-3e2ef19c7c1b",
+      "title": "Numaron bewerten",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "6acfe251-8430-83ed-98e1-b1cfedbd2174",
+      "title": "Antwort formulieren Numaron Website",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "6abebcdb-11e4-83eb-bcd7-aeb2d98eceef",
+      "title": "Informationen zu numaron",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "6acd5dc7-f238-83ed-9e91-650770294142",
+      "title": "Stack Overflow Nutzen f&#252;r Numarus",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "6abf2e18-e7f4-83eb-8802-eb0f25e2c6e9",
+      "title": "Erfolgschance von Obolus",
+      "reviewed": "last one or two turns"
+    },
+    {
+      "id": "01a0f9ea-a1c0-72c1-b2e5-d5f08ac30df9",
+      "title": "WSL ohne Distribution installieren",
+      "reviewed": "last two turns"
+    },
+    {
+      "id": "01a14ac7-ac59-7a73-b9bc-0521d0fcf0c5",
+      "title": "numaron – Aufträge und Bewerbungen ·…",
+      "reviewed": "last two turns"
+    },
+    {
+      "id": "01a0dade-e259-7ad0-a347-875f70131307",
+      "title": "numaron – Weiterentwicklung und Betrieb",
+      "reviewed": "last two failed turns; historical evidence via continuation index"
+    },
+    {
+      "id": "01a12da4-f3e2-7f40-b09c-235e4b9414b0",
+      "title": "Kostenlose info@numaron.ch erstellen",
+      "reviewed": "current conversation"
+    }
+  ],
+  "limitations": [
+    "Durable host unavailable",
+    "Some historical ChatGPT replies returned content references only",
+    "Old context-overflow chat not reopened for execution",
+    "Unrelated chats and The $2 Experiment kept separate"
+  ],
+  "conflictsResolved": [
+    "ON status does not imply working Founder scheduler",
+    "Separate order monitor and H4 research can run while general scheduler fails",
+    "Historical manually imported research is not new autonomous analysis",
+    "Prepared fix is not deployed or active"
+  ]
+}

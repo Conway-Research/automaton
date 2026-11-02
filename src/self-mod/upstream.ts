@@ -7,6 +7,7 @@
  */
 
 import { execFileSync } from "child_process";
+import {gitMaintenanceEnvironment,maintenanceExecutable} from './process-environment.js';
 
 const REPO_ROOT = process.cwd();
 
@@ -14,11 +15,14 @@ const REPO_ROOT = process.cwd();
  * Run a git command using execFileSync with argument array (no shell interpolation).
  */
 function git(args: string[]): string {
-  return execFileSync("git", args, {
+  try {return execFileSync(maintenanceExecutable("git"), args, {
     cwd: REPO_ROOT,
     encoding: "utf-8",
     timeout: 15_000,
-  }).trim();
+    maxBuffer: 1_048_576,
+    windowsHide: true,
+    env: gitMaintenanceEnvironment(),
+  }).trim();} catch {throw new Error('Upstream Git operation failed; process details withheld.');}
 }
 
 /**
@@ -32,7 +36,7 @@ export function getRepoInfo(): {
 } {
   const rawUrl = git(["config", "--get", "remote.origin.url"]);
   // Strip embedded credentials (https://user:token@host/... -> https://host/...)
-  const originUrl = rawUrl.replace(/\/\/[^@]+@/, "//");
+  const originUrl = rawUrl.replace(/\/\/[^@]+@/, "//").split(/[?#]/)[0];
   const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
   const headLine = git(["log", "-1", "--format=%h %s"]);
   const [headHash, ...rest] = headLine.split(" ");
@@ -75,10 +79,10 @@ export function getUpstreamDiffs(): {
     const author = parts.slice(1).join(" ");
     let diff: string;
     try {
-      diff = git(["diff", `${hash}~1..${hash}`]);
+      diff = git(["diff", "--no-ext-diff", "--no-textconv", `${hash}~1..${hash}`]);
     } catch {
       // First commit in the range may not have a parent
-      diff = git(["show", hash, "--format=", "--stat"]);
+      diff = git(["show", "--no-ext-diff", "--no-textconv", hash, "--format=", "--stat"]);
     }
     return { hash: hash.slice(0, 12), message, author, diff };
   });

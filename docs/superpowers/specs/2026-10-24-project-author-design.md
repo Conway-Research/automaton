@@ -1,0 +1,13 @@
+# Autonomous offline project author design
+
+User request: requirements -> autonomous design -> code generation -> isolated tests -> iterative repair -> verified delivery, with production Numaron OFF. No prerecorded implementation can establish autonomous authorship.
+
+Implementer choice: a separate resumable project author using trusted dependency injection for an offline model and the existing real pinned profile sandbox. The initial project has requirements and independent immutable acceptance tests but no implementation. The model proposes a requirement-linked multi-file design, emits files, consumes bounded actual failure feedback and repairs them. Only exact independent passing source can become a ZIP. No source account, production controller or grants are touched.
+
+Model availability is a real prerequisite. Known Ollama/LM Studio/llama CLI/model locations were checked without finding a verified offline inference backend. Do not download anything, call the existing OpenAI worker, use hosted Codex workers as local inference, or relabel scripted test doubles as AI generation. Build and test all independent machinery; record blocked real authorship until an actual local model/runtime can be bound and proved.
+
+New modules: founder-project-author-contract.mjs (requirements/design/file admission); founder-project-author.mjs (durable phases, bounded generation/test/repair and recovery); founder-project-package.mjs (exact-source ZIP and manifest); tests; explicit offline demo with fake model and real Python sandbox. Integration exports an options.generate-compatible worker, but no production composition is changed. Every generated implementation/test file is kept apart from trusted acceptance paths. Changes to accepted scope require a new project identity.
+
+Constraints: Python/node-js author contract, with implemented host JSON oracle currently Python-only; <=32 generation files, <=256000 bytes project; max40 requirement IDs, <=8 inference rounds, bounded 8KB feedback, no model shell/tool permission. Store bound design, source and test digests and model origin. Source text is untrusted. Abort before/after each model/sandbox call. Pending ambiguous inference is reconciled through the trusted adapter, never silently repeated. Package dispatch is local only; no submit side effects.
+
+Success criteria: immutable acceptance retained; test failures drive repair; exact source/image/scope required; deterministic ZIP; restart at checkpoints; unknown model outcome not resent; source tampering detected; max-round termination; no real model => blocked, autonomousGenerationProven=false. Fake-model tests verify controller only.

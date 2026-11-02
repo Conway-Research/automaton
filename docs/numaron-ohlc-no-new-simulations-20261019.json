@@ -1,0 +1,123 @@
+{
+  "checkedAt": "2026-10-19T16:38:38.883Z",
+  "cause": "Fixed Bitfinex 2023-01-01 through 2026-10-14 data window, fixed catalogue of 12 variants; identical completed dataset/code jobs are deliberately deduplicated.",
+  "localDefectsFixed": [
+    "Cached source filter ignored sourceId",
+    "Ineligible sources consumed the eligible source limit",
+    "No-op ticks claimed reports saved"
+  ],
+  "deduplicationPreserved": true,
+  "finalHoldoutProtectionPreserved": true,
+  "dataWindowUnchanged": true,
+  "strategyCatalogueUnchanged": true,
+  "datasets": [
+    {
+      "source_id": "bitfinex-ethusd-daily",
+      "end": 1791936000000
+    },
+    {
+      "source_id": "ecb-eurusd-reference",
+      "end": 1792108800000
+    },
+    {
+      "source_id": "fed-h15",
+      "end": 1790726400000
+    },
+    {
+      "source_id": "fed-h15",
+      "end": 1790726400000
+    },
+    {
+      "source_id": "fed-h15",
+      "end": 1790726400000
+    },
+    {
+      "source_id": "fed-h15",
+      "end": 1790726400000
+    }
+  ],
+  "productionControl": {
+    "activity": "Forschungsberichte gespeichert · neue Datenstände werden geprüft",
+    "blockers": [
+      "Kenneth French: tägliche US-Faktorrenditen: Nutzungsrechte pending",
+      "JST Macrohistory: Nutzungsrechte restricted"
+    ],
+    "datasets": [],
+    "mode": "running",
+    "roundId": "077d6e83-c5a5-48d6-a1c3-11c2ab15c863",
+    "startedAt": 1792427498793,
+    "trials": 0
+  },
+  "activation": "Loaded through an explicitly authorized controlled stop and guarded restart. New PID 44908 started 2026-10-19T16:47:31.836Z. Numaron remains OFF until Patrice personally enables it.",
+  "providerCallsByMaintenance": 0,
+  "financialStateWritten": false,
+  "isolatedVerification": {
+    "vitestPassed": 20,
+    "vitestFailed": 0,
+    "temporaryStoresCleaned": true,
+    "controllerAndHistoryTestsPassed": 11,
+    "totalPassed": 31,
+    "fullOHLC": {
+      "syntheticData": true,
+      "fakeDownload": true,
+      "actualControllerAndWorkers": true,
+      "reports": 36,
+      "variants": 12,
+      "simulatedElapsedMs": 234000
+    }
+  },
+  "restartVerification": {
+    "checkedAt": "2026-10-19T16:54:02.462Z",
+    "previousPid": 36544,
+    "pid": 44908,
+    "runtimeStartedAt": "2026-10-19T16:47:31.836Z",
+    "serviceStatus": "running",
+    "power": {
+      "enabled": false,
+      "status": "off",
+      "revision": 79,
+      "changedAt": "2026-10-19T16:46:37.599Z",
+      "modules": [
+        {
+          "name": "Aufgaben und AI-Fähigkeiten",
+          "enabled": false
+        },
+        {
+          "name": "Langzeit- und Strategieforschung",
+          "enabled": false
+        },
+        {
+          "name": "Trading-Analyse und Marktbeobachtung",
+          "enabled": false
+        },
+        {
+          "name": "Automatischer Kostenabruf",
+          "enabled": false
+        }
+      ],
+      "liveTradingEnabled": false
+    },
+    "controller": {
+      "status": "stopped",
+      "revision": 174,
+      "generation": 102
+    },
+    "activeJobs": 0,
+    "history": {
+      "status": "stopped",
+      "activity": "Forschung gestoppt"
+    },
+    "loadedSource": {
+      "file": "src/revenue/long-history/runner.ts",
+      "modifiedAt": "2026-10-19T16:37:45.232Z",
+      "sha256": "b4b251ca06cb426beb78fcd378d551ab5893fd1fe87acb933fca4b8fd73b6eda"
+    },
+    "budgetsUnchanged": true,
+    "reservationsUnchanged": true,
+    "budgetDigest": "76913be9b61395dfc6e06519492778edeb917f858f207bfb1f9aec4089218ed8",
+    "budgetEntries": 3470,
+    "reservedRappen": 550,
+    "providerProbes": 0,
+    "productionResearchTriggered": false
+  }
+}

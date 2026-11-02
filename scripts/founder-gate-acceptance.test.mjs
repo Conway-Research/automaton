@@ -1,0 +1,71 @@
+// Isolated acceptance test for the confirmed-funded gate. Synthetic data, temporary
+// directories and fake transports only; never opens production state or accounts.
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {pilotFixture} from './founder-ugig-pilot-fixture.mjs';
+import {pilotScopeDigest} from './founder-ugig-pilot-contract.mjs';
+import {digest,orderKey} from './founder-restoration-integrity.mjs';
+import {createProductionOrderBindings} from './founder-production-order-bindings.mjs';
+import {openOrderRestoration} from './founder-order-restoration.mjs';
+import {planOrderActions} from './founder-order-lifecycle.mjs';
+import {normalizeInventory} from './founder-source-registry.mjs';
+import Database from 'better-sqlite3';
+const packages={rows:[{id:'u',label:'ugig',inventoryKind:'core'}]};
+const SYNTHETIC_ORIGIN='https://fixtures.invalid';
+function setup({mutate=x=>x,withSource=true,recipients}={}){
+ const f=pilotFixture(),base=fs.mkdtempSync(path.join(os.tmpdir(),'gate-acceptance-'));let on=true,calls=0,reads=0,generated=0,behaviour=mutate;
+ f.a.sourceId=normalizeInventory({},packages).sources[0].id;delete f.a.paymentAuthorization;
+ f.a.funding={...f.order(),verified:true,expiresAt:f.now+3600000,evidenceRef:'synthetic-prepayment',amountMinor:1000,netAmountMinor:900,currency:'USD',recipient:'synthetic-payee'};
+ f.a.customerWork={milestoneId:'one',inputsDigest:digest('inputs'),acceptanceDigest:digest('acceptance'),deadlineUtc:new Date(f.now+86400000).toISOString(),correctionScopeDigest:digest('corrections'),grossDecimal:'10',deductionsDecimal:'1',netDecimal:'9',currency:'USD',recipient:'synthetic-payee',paymentTrigger:'buyer-acceptance'};
+ f.a.scopeDigest=pilotScopeDigest(f.a);f.a.funding.scopeDigest=f.a.scopeDigest;
+ const invoice={id:'77777777-7777-4777-8777-777777777777',gig_id:f.a.gigId,application_id:f.a.applicationId,worker_id:f.a.ownerId,poster_id:f.a.buyerId,status:'paid',amount_usd:10,currency:'USD'};
+ const p={schema:'numaron-ugig-reviewed-v1',agreement:f.a,grant:{approved:true,agreementDigest:digest(f.a),expiresAt:f.now+3600000,evidenceRef:'synthetic-reviewed-grant',operations:['read','work','verify','submit','reconcile']},netReceipt:{reviewed:true,independentlyVerified:true,kind:'provider-settlement',receiptId:'fake-provider:1',evidenceRef:'synthetic:settlement',evidenceDigest:digest({synthetic:true}),scopeDigest:f.a.scopeDigest,recipient:'synthetic-payee',netAmountMinor:900,currency:'USD',receivedAt:new Date(f.now-1000).toISOString(),invoiceId:invoice.id,invoiceDigest:digest(invoice)}};
+ const dir=path.join(base,'artifacts/founder-autonomy-20261013/ugig-contracts');fs.mkdirSync(dir,{recursive:true});const file=path.join(dir,digest(orderKey(f.order()))+'.json'),save=()=>fs.writeFileSync(file,JSON.stringify(p));save();
+ const run='artifacts/numaron-local-monitor/runs/fake.json';fs.mkdirSync(path.dirname(path.join(base,run)),{recursive:true});fs.writeFileSync(path.join(base,run),JSON.stringify({checkedAt:new Date(f.now).toISOString(),data:{account:{username:'Obolus',id:f.a.ownerId},applicationsComplete:true,applications:[{id:f.a.applicationId,gig_id:f.a.gigId,applicant_id:f.a.ownerId,status:'accepted'}]}}));fs.writeFileSync(path.join(base,'artifacts/numaron-local-monitor/status.json'),JSON.stringify({sources:[{id:'ugig',status:'succeeded',checkedAt:f.now,evidence:run}]}));
+ const request=async(url,opt)=>{calls++;if(new URL(url).pathname.endsWith('/invoice'))return Response.json({data:[invoice]});return f.request(url,opt);};
+ const confirmedWorkSource=withSource?{testOnly:true,origin:SYNTHETIC_ORIGIN,async read(expected){reads++;const d=digest(expected),part={bindingDigest:d,sourceRef:SYNTHETIC_ORIGIN+'/evidence/'+reads};return behaviour({schema:'confirmed-funded-customer-work-v1',environment:'synthetic',bindingDigest:d,observedAt:f.now,expiresAt:f.now+60000,assignment:{...part,status:'assigned',buyerId:f.a.buyerId,contractorId:f.a.ownerId},compensation:{...part,...f.a.customerWork},funding:{...part,kind:'funded-escrow',status:'held',amountDecimal:'10',currency:'USD',recipient:'synthetic-payee'}},expected);}}:undefined;
+ const compose=()=>createProductionOrderBindings({base,isEnabled:()=>on,ugigPilotRequest:request,ugigPilotCredential:()=>'synthetic',now:()=>f.now,...(withSource?{confirmedWorkSource,allowSyntheticConfirmedWorkForTests:true,confirmedOwnRecipients:recipients??{[f.a.ownerId]:['synthetic-payee']}}:{})})({});
+ const options=compose();
+ const open=()=>openOrderRestoration({base,directory:path.join(base,'state'),isEnabled:()=>on,workPackages:packages,execution:{...options,generateContent:Object.assign(async()=>{generated++;return {package:{briefDigest:digest(f.a.contentBrief),items:[{id:'one',formatId:'social',kind:'social-post',text:f.a.contentBrief.source.text,evidence:[{sourceId:'source',quote:'two hours'}]}]},generationRunId:'gen',costReceipt:{actualCostRappen:1,evidenceRef:'gen'}};},{maxCostRappen:50}),reviewContent:{async execute(ctx){return {kind:'ugig-content-review',costReceipt:{actualCostRappen:1,evidenceRef:'review'},review:{agreementDigest:ctx.product.binding.workContractDigest,packageDigest:digest(ctx.product.package),reviewRunId:'review',generationRunId:'gen',verdict:'pass',checks:{factuality:true,meaning:true,tone:true,audience:true,completeness:true},findings:[],evidenceRefs:['source:two hours'],costReceipt:{actualCostRappen:1,evidenceRef:'review'}}};}}}});
+ const s={base,f,p,save,options,e:open(),calls:()=>calls,reads:()=>reads,generated:()=>generated,setOn:v=>on=v,setBehaviour:b=>behaviour=b,reopen(){s.e.close();s.e=open();},close(){s.e.close();fs.rmSync(base,{recursive:true,force:true});}};
+ return s;
+}
+const order=s=>s.e.store.snapshot().orders[0];
+const sourceOf=(s,o)=>s.e.registry.snapshot().sources.find(x=>x.id===o.sourceId);
+// Legacy planning is used deliberately: it proves the inner guard blocks even a task
+// that was already planned before funding disappeared.
+function legacyAction(s,kind){const o=order(s),cost=s.e.adapters['source-'+kind].maxCostRappen,action=planOrderActions({order:o,source:sourceOf(s,o),budget:{active:true,rootRemainingRappen:250},actionCosts:{[kind]:cost}})[0];assert.equal(action?.kind,kind);return {action,cost};}
+const step=async(s,kind)=>{const {action,cost}=legacyAction(s,kind);return s.e.adapters['source-'+kind].execute({task:{rootTaskId:order(s).rootTaskId,input:{action}},grant:{reservationId:'fake-'+kind,maxCostRappen:cost},assertActive(){}});};
+const assigned=async s=>{await s.e.refreshRegistrations({assertActive(){}});await step(s,'reconcile-application');assert.equal(order(s).state,'assigned');};
+async function assertBlockedAtPrepare(s){const posts=s.f.posts(),generated=s.generated();await assert.rejects(step(s,'prepare'),/confirmed|authority|funded|assignment|evidence|mismatch|recipient|binding/i);assert.equal(order(s).state,'assigned');assert.equal(s.f.posts(),posts);assert.equal(s.generated(),generated);}
+const strictPlan=s=>{const o=order(s);return planOrderActions({order:o,source:sourceOf(s,o),budget:{active:true,rootRemainingRappen:250},actionCosts:{prepare:0,work:50,verify:0,submit:0},requireConfirmedFundedOrders:s.options.requireConfirmedFundedOrders,confirmedWorkAuthority:s.options.confirmedWorkAuthority});};
+
+test('A1 production composition enables the gate with no extra option',()=>{const s=setup({withSource:false});try{assert.equal(s.options.requireConfirmedFundedOrders,true);assert.equal(typeof s.options.confirmedWorkAuthority?.refresh,'function');assert.equal(s.options.confirmedWorkAuthority.status().configured,false);assert.equal(s.e.status().confirmedFundedPolicy.required,true);}finally{s.close();}});
+test('A2 without a real reader every customer action stays blocked, zero work',async()=>{const s=setup({withSource:false});try{await assigned(s);await assertBlockedAtPrepare(s);assert.deepEqual(strictPlan(s),[]);}finally{s.close();}});
+test('A3 reconciliation persists the reviewed commercial terms on the order',async()=>{const s=setup();try{await assigned(s);assert.deepEqual(order(s).customerWork,s.f.a.customerWork);assert.equal(order(s).buyerId,s.f.a.buyerId);assert.equal(order(s).scopeDigest,s.f.a.scopeDigest);}finally{s.close();}});
+const refusals={
+ 'Z02 merged work without personal award':e=>{e.assignment.status='merged';return e;},
+ 'Z04 pending application without contract':e=>{e.assignment.status='pending';return e;},
+ 'Z06 funding for another recipient':e=>{e.funding.recipient='someone-else';return e;},
+ 'Z06 insufficient escrow amount':e=>{e.funding.amountDecimal='9.99';return e;},
+ 'Z06 escrow bound to another order':e=>{e.funding.bindingDigest=digest('other-order');return e;},
+ 'Z06 expired evidence snapshot':e=>{e.expiresAt=e.observedAt-1;return e;},
+ 'Z06 revoked funding':e=>{e.funding.status='revoked';return e;},
+ 'Z06 payment promise is not funding':e=>{e.funding.kind='payment-promise';e.funding.status='promised';return e;},
+ 'Z10 changed milestone':e=>{e.compensation.milestoneId='two';return e;}
+};
+for(const [name,mutate] of Object.entries(refusals))test(name+' blocks before prepare with zero writes',async()=>{const s=setup({mutate});try{await assigned(s);await assertBlockedAtPrepare(s);assert.deepEqual(strictPlan(s),[]);assert.ok(s.reads()>0);}finally{s.close();}});
+test('Z06 recipient outside the trusted registry blocks without reading evidence',async()=>{const s=setup({recipients:{other:['synthetic-payee']}});try{await assigned(s);const before=s.reads();await assertBlockedAtPrepare(s);assert.equal(s.reads(),before);}finally{s.close();}});
+test('Z10 funding revoked after prepare stops work with zero generation',async()=>{const s=setup();try{await assigned(s);await step(s,'prepare');assert.equal(order(s).state,'prepared');s.setBehaviour(e=>{e.funding.status='revoked';return e;});await assert.rejects(step(s,'work'),/funded|milestone|confirmed/i);assert.equal(order(s).state,'prepared');assert.equal(s.generated(),0);assert.equal(s.f.posts(),0);assert.equal(s.options.confirmedWorkAuthority.allows(order(s)),false);}finally{s.close();}});
+test('Z07 confirmed funded order reaches paid; acceptance alone stays accepted; reopen never pays twice',async()=>{const s=setup();try{
+ await assigned(s);await s.e.refreshRegistrations({assertActive(){}});assert.equal(strictPlan(s)[0]?.kind,'prepare');
+ for(const k of ['prepare','work'])await step(s,k);assert.equal(order(s).state,'worked');assert.equal(s.generated(),1);
+ const db=new Database(path.join(s.base,'state/products.db'),{readonly:true}),product=JSON.parse(db.prepare('SELECT payload FROM restoration_products').get().payload);db.close();
+ const o=order(s);await s.e.adapters['ugig-content-review'].execute({task:{rootTaskId:o.rootTaskId,input:{orderKey:orderKey(o),sourceRevision:o.sourceRevision,productDigest:product.digest}},grant:{reservationId:'fake-review',maxCostRappen:50},assertActive(){}});
+ for(const k of ['verify','submit'])await step(s,k);const delivered=order(s);assert.equal(delivered.state,'submitted');assert.equal(s.f.posts(),1);
+ const m={id:'88888888-8888-4888-8888-888888888888',sender_id:s.f.a.buyerId,conversation_id:s.f.a.conversationId,content:'Delivery accepted in full.',created_at:new Date(s.f.now+200).toISOString()};s.f.messages.push(m);s.f.now+=201;
+ s.p.acceptance={reviewed:true,noContractChangeReviewed:true,accepted:true,deliveryDigest:delivered.deliveryDigest,messageId:m.id,contentDigest:digest(m.content)};s.save();await step(s,'acceptance');assert.equal(order(s).state,'accepted');
+ const receipt=s.p.netReceipt;delete s.p.netReceipt;s.save();await assert.rejects(step(s,'payment'));assert.equal(order(s).state,'accepted');assert.equal(order(s).payment??null,null);
+ s.p.netReceipt=receipt;s.save();await step(s,'payment');assert.equal(order(s).state,'paid');const payment=digest(order(s).payment);const accounted=s.e.accounts({entriesComplete:true,entries:[]}).orders[0];assert.equal(accounted.contributionRappen,null);assert.ok(accounted.blockers.includes('receipt-source-policy-undecided'));
+ s.reopen();assert.equal(order(s).state,'paid');assert.equal(digest(order(s).payment),payment);assert.deepEqual(strictPlan(s),[]);assert.equal(s.f.posts(),1);
+}finally{s.close();}});
+test('OFF makes zero reader and zero platform calls',async()=>{const s=setup();try{s.setOn(false);await assert.rejects(s.e.refreshRegistrations({assertActive(){}}));assert.equal(s.calls(),0);assert.equal(s.reads(),0);assert.equal(s.generated(),0);assert.equal(s.options.confirmedWorkAuthority.allows(s.f.order()),false);}finally{s.close();}});

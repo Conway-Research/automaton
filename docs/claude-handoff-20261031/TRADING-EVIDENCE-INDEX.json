@@ -1,0 +1,203 @@
+{
+  "schema": "numaron-trading-documentation-handoff-v1",
+  "createdAtUTC": "2026-10-31T13:58:44.572581+00:00",
+  "scope": "Existing local evidence only; no new tests, strategy calculations, provider/broker calls or maintenance",
+  "document": "docs/claude-handoff-20261031/TRADING-HANDOFF.md",
+  "documentSha256": "c99ec773128d3616405c8dafe837e248efa6c44c063558c8fd2c0a92018ba323",
+  "powerObserved": {
+    "enabled": false,
+    "revision": 101
+  },
+  "newTestsRun": false,
+  "runtimeStarted": false,
+  "ordersSent": false,
+  "holdReleased": false,
+  "sources": [
+    {
+      "path": "artifacts/btc-forward-demo-1792700571962/",
+      "kind": "directory",
+      "recursivelyHashed": false
+    },
+    {
+      "path": "outputs/admirals-cfd500-20261023/report.txt",
+      "sha256": "f67e90a5cccdb795dd135a810f04e42cd86d4af035f995b1d30d925094da47ea",
+      "bytes": 10356
+    },
+    {
+      "path": "outputs/admirals-invest-fx500-20261023/bericht.txt",
+      "sha256": "5c6755d57287b90ed27c76b9a50a4bc5d25c9319549eea346d8e8772623247de",
+      "bytes": 11858
+    },
+    {
+      "path": "outputs/admirals-low-turnover-20261023/bericht.txt",
+      "sha256": "1343b265acf2203b61d77b54d714de2d5ae3dd2874af88581f9c87ebf8fa5440",
+      "bytes": 8275
+    },
+    {
+      "path": "outputs/admirals-noncrypto-20261023/report.txt",
+      "sha256": "1fb6818ef0c577eb72e1557478cb8dd6fdddf3cb23d419ab8af61cc94f679226",
+      "bytes": 4094
+    },
+    {
+      "path": "outputs/admirals-personal-fees-20261023/bericht.txt",
+      "sha256": "a761ebe92da76326465f957e00f8bdcff1dbd4279bcdd76b6c35e9d11e41b919",
+      "bytes": 11032
+    },
+    {
+      "path": "outputs/admirals-stock-fx-round2-20261023/bericht.txt",
+      "sha256": "b356cf8f50121e4fbbba04be9a01f9864015848ad83537ddd19d9d31fe0fae9f",
+      "bytes": 9234
+    },
+    {
+      "path": "outputs/admirals-stock-fx-round3-20261023/bericht.txt",
+      "sha256": "25aa543267f97dca372bc1241fb4e258b1d1d6f6da98c5eb605c8795849b54d1",
+      "bytes": 10714
+    },
+    {
+      "path": "outputs/btc-admirals-cost-test-20261021/BERICHT.txt",
+      "sha256": "d412699b754fe5713a131069a5224b3085cbf081e5e8e76d524ec21244308e30",
+      "bytes": 9553
+    },
+    {
+      "path": "outputs/btc-binance-coinbase-comparison-20261022/BERICHT.txt",
+      "sha256": "24bd53a39ce3f5d11bb4e009ea090aecdb6cf6548c2aa761fbabef1ace7688c8",
+      "bytes": 11039
+    },
+    {
+      "path": "outputs/btc-chf-lower-weights-20261022/BERICHT.txt",
+      "sha256": "c9eb1fc2db94915e19b829384db0af1802d0db6d7febf1a0be261f2d746fa2e1",
+      "bytes": 4735
+    },
+    {
+      "path": "outputs/btc-forward-runtime-20261022/",
+      "kind": "directory",
+      "recursivelyHashed": false
+    },
+    {
+      "path": "outputs/btc-paper30-chf-preparation-20261022/",
+      "kind": "directory",
+      "recursivelyHashed": false
+    },
+    {
+      "path": "outputs/btc-position-risk-20261021/BERICHT.txt",
+      "sha256": "3da65b843c600dc5ff017f37ee00c8a25a3f08d5eef67acae1215dfa88241fe0",
+      "bytes": 13420
+    },
+    {
+      "path": "outputs/btc-venue-spreads-chf-20261022/BERICHT.txt",
+      "sha256": "dbb08959e317a300fa834aca8d714a8b2ca45c0fbd3a524e5b101c993a672a9f",
+      "bytes": 8883
+    },
+    {
+      "path": "outputs/chf500-strategy-search-20261023/report.txt",
+      "sha256": "c5177f71b0edfc6623e6fe3a4b07a25359a5108cf279f301989994d3f0b84d61",
+      "bytes": 8254
+    },
+    {
+      "path": "outputs/daily-reversion-20261019/bericht.md",
+      "sha256": "286eaca5ae75f5a3352e74d421bc7881974058f030bec33029fd546b07d6c6ab",
+      "bytes": 9806
+    },
+    {
+      "path": "outputs/ema-vwap-extended-20261019/bericht.md",
+      "sha256": "99b61f19b5fe0e814eb2567d061cf212945804c9b15bdaa676c911b155f679b9",
+      "bytes": 6943
+    },
+    {
+      "path": "outputs/ema-vwap-no-cross-20261019/bericht.md",
+      "sha256": "3ebc6845e75431f38af9881e7dea5585788fe501c892b79e815d90a6fca38daa",
+      "bytes": 6640
+    },
+    {
+      "path": "outputs/ema-vwap-trend-20261019/bericht.md",
+      "sha256": "20cab283320b14327d6c014ef6bb700adb2bc2c39a74e92af7dd70ba67886269",
+      "bytes": 7644
+    },
+    {
+      "path": "outputs/high-win90-round2-20261022/BERICHT.txt",
+      "sha256": "440538c6ca4e94d8e6ffd3d1a303d5c79ebb59a05ed40e9e4b3cf427f369ac24",
+      "bytes": 12222
+    },
+    {
+      "path": "outputs/high-win90-universe-20261022/BERICHT.txt",
+      "sha256": "b45661f3ac803a18b5e1c4c22feb3e3593d290a72e1c99ea8b8e4377e63fe8e4",
+      "bytes": 6040
+    },
+    {
+      "path": "outputs/portfolio-trend-mr-20261022-v2/BERICHT.txt",
+      "sha256": "e4d2ddae2c07c6716644bffb301c373456a2bf319d23b9ae5a833de9ec94e571",
+      "bytes": 13014
+    },
+    {
+      "path": "outputs/r2-history-20261019/bericht.md",
+      "sha256": "c1c9e4d4c7ffe7ea392af3603e020d19fd5716c9821f3cc85c6c08cd32fd1b3c",
+      "bytes": 9879
+    },
+    {
+      "path": "outputs/r2-stops-20261019-verified/bericht.md",
+      "sha256": "60a88d9831adf95678a7e2129af89bbc19cdaa4c7a219100f771310fcd64d11f",
+      "bytes": 9006
+    },
+    {
+      "path": "outputs/r2-walkforward-20261019/bericht.md",
+      "sha256": "8b68a4a4d5944daadbe6b1b9a4632e7d2dc8e96db316db7cea83b5c5e8ec034b",
+      "bytes": 9847
+    },
+    {
+      "path": "outputs/spy-r2-offline-audit-20261021/BERICHT.txt",
+      "sha256": "707a142acaa1c7898c3a76b5ad86f0d99010d16a2dbd5409624130b00175edc1",
+      "bytes": 8221
+    },
+    {
+      "path": "outputs/strategy-research-50cagr-20261021/",
+      "kind": "directory",
+      "recursivelyHashed": false
+    },
+    {
+      "path": "outputs/strategy-search-50-lower-dd-20261021/BERICHT.txt",
+      "sha256": "8184331fe11f86650b8ad3c9927489b8720d53efdd447ddc1dc79bcb1579e2c5",
+      "bytes": 12050
+    },
+    {
+      "path": "scripts/founder-trading-history.mjs",
+      "sha256": "dc13fbcde373488e2ef53d77af6d3d5801c7596e071ffba0a4edc86bd4184cfb",
+      "bytes": 1799
+    },
+    {
+      "path": "scripts/founder-trading.mjs",
+      "sha256": "f5ee0b346cb338ad882af086493b99eaafbe326a46702958123d1017477188eb",
+      "bytes": 9552
+    },
+    {
+      "path": "scripts/mt5-trading-adapter.py",
+      "sha256": "035f7aa9ccc2a9fee9e013bb0624a44449df6a5b7914f57b829f8c29b7d1ea35",
+      "bytes": 30660
+    },
+    {
+      "path": "scripts/trading-cost-model.mjs",
+      "sha256": "033ea20d5693240dbdb93a03c001e7774518aef51b6a2a060516ab63211f9081",
+      "bytes": 2830
+    },
+    {
+      "path": "scripts/trading-execution.mjs",
+      "sha256": "d07728d88b99d8343c17188fa71a1b5658d8da6a7a3e13736aa2e173a2c359f5",
+      "bytes": 3700
+    },
+    {
+      "path": "scripts/trading-mt5.mjs",
+      "sha256": "b25f0a0321aaea6987b9fc6197bcd93d7376dbc18887e09538382c3332f16fef",
+      "bytes": 2113
+    },
+    {
+      "path": "scripts/trading-risk.mjs",
+      "sha256": "5d201eed516ee5029c203f6b26e6c13615f5de21a256acf6684b3db128beacf3",
+      "bytes": 3023
+    },
+    {
+      "path": "scripts/trading-strategies.mjs",
+      "sha256": "30a0d8cdd51681435bcb176b5d987408153c83fa95eb7ce404c3aea961d3224e",
+      "bytes": 1882
+    }
+  ],
+  "unresolvedReferences": []
+}

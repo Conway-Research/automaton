@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "WoodenChair_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "WoodenChair_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cube.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "WoodenChair_01_nor_gl",
+      "uri": "textures/WoodenChair_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "WoodenChair_01_diff",
+      "uri": "textures/WoodenChair_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "WoodenChair_01_metallic-WoodenChair_01_roughness",
+      "uri": "textures/WoodenChair_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 13327,
+      "max": [
+        0.3440864086151123,
+        2.2721478939056396,
+        0.2913127839565277
+      ],
+      "min": [
+        -0.3440864086151123,
+        -0.0013669622130692005,
+        -0.3671490550041199
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 13327,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 13327,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 59976,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 159924,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 159924,
+      "byteOffset": 159924
+    },
+    {
+      "buffer": 0,
+      "byteLength": 106616,
+      "byteOffset": 319848
+    },
+    {
+      "buffer": 0,
+      "byteLength": 119952,
+      "byteOffset": 426464
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 546416,
+      "uri": "WoodenChair_01.bin"
+    }
+  ]
+}

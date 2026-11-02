@@ -41,11 +41,31 @@ export function readFounderReports(base,now=Date.now()){
  let orders={status:'unavailable'},domains={status:'unavailable'},paper={status:'unavailable'};
  try{const dirs=fs.readdirSync(path.join(base,'artifacts')).filter(n=>/^order-monitor-\d{8}-\d{4}$/.test(n)).sort().reverse();
   // Do not silently fall back to an older successful report if the latest is broken.
-  const source=`artifacts/${dirs[0]}/completion.json`,r=read(source),at=r.checked_at??r.at??r.checkedAt;
-  const summaryOnly=!Array.isArray(r.prs??r.pr_states)&&Number.isFinite(Date.parse(at))&&['tracked','newComments','stateChanges'].every(k=>Number.isSafeInteger(r.github?.[k])&&r.github[k]>=0);
-  const normalized=summaryOnly?{prs:[],failures:0}:normalizeOrderReport(r),rows=normalized.prs,valid=()=>true;
+  const source=`artifacts/${dirs[0]}/completion.json`;let r=read(source),handoff=null;
+  if(r.status==='completed'&&(typeof r.reviewedLatestCompletedRun==='string'||typeof r.runId==='string')){
+   if(r.reviewedLatestCompletedRun&&r.runId&&r.reviewedLatestCompletedRun!==r.runId)throw Error('Conflicting completed run');
+   const id=r.reviewedLatestCompletedRun??r.runId;
+   if(!/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[a-f0-9]{8}$/.test(id))throw Error('Invalid completed run');
+   const completed=read(`artifacts/numaron-local-monitor/runs/${id}/completion.json`);
+   if(completed.status!=='completed'||completed.runId!==id||completed.at!==r.completedAt||!Number.isFinite(Date.parse(completed.at))||!Array.isArray(completed.rows)||completed.rows.length>1000||!completed.rows.every(x=>typeof x.source==='string'&&typeof x.status==='string'))throw Error('Completed monitor evidence mismatch');
+   r={at:completed.at,github:{checked:completed.rows.length,changes:[],errors:completed.rows.filter(x=>x.status!=='succeeded')},payments:'Keine Abnahme oder Zahlung aus einem zusammengefassten Monitorlauf ableitbar.'};
+  }
+  if(r.schema==='numaron-order-monitor-handoff-v1'){
+   const target=r.lastCompletedRun;
+   if(typeof target!=='string'||!/^artifacts\/order-monitor-\d{8}-\d{4}\/completion\.json$/.test(target)||target>=source)throw Error('Invalid handoff completion');
+   handoff={source,status:r.status};r=read(target);
+  }
+  const at=r.checked_at??r.at??r.checkedAt;
+  const interruptionSummary=r.newScheduledRoundOccurred===false&&r.answersFreshSincePreviousReview===false&&typeof r.lastCompletedRun==='string'&&Number.isFinite(Date.parse(r.lastCompletedAt))&&typeof r.status==='string';
+  const modernSummary=Number.isSafeInteger(r.github?.checked)&&r.github.checked>=0&&Array.isArray(r.github?.changes)&&Array.isArray(r.github?.errors);
+  const legacySummary=['tracked','newComments','stateChanges'].every(k=>Number.isSafeInteger(r.github?.[k])&&r.github[k]>=0);
+  const completedHandoffSummary=!!handoff&&r.status==='completed'&&Number.isSafeInteger(r.github?.items)&&r.github.items>=0;
+  const summaryOnly=!Array.isArray(r.prs??r.pr_states)&&Number.isFinite(Date.parse(at))&&(modernSummary||legacySummary||completedHandoffSummary);
+  const normalized=summaryOnly||interruptionSummary?{prs:[],failures:modernSummary?r.github.errors.length:0}:normalizeOrderReport(r),rows=normalized.prs,valid=()=>true;
   const failedFetches=normalized.failures;
   orders={status:freshness(at)==='stale'?'stale':failedFetches||summaryOnly?'partial':'recent',at,source,summaryOnly,failedFetches,changedComments:r.changedComments??null,payments:typeof r.payments==='string'?r.payments.slice(0,1500):'Abnahme, Vergütung und Zahlung nicht durch diesen Bericht bestätigt',prs:rows.filter(valid).map(p=>({repo:p.repo,number:p.n,state:p.state,merged:p.merged===true,error:p.error===true,url:`https://github.com/${p.repo}/pull/${p.n}`}))};
+  if(interruptionSummary)orders={...orders,status:freshness(r.lastCompletedAt)==='stale'?'stale':'partial',at:r.lastCompletedAt,summaryOnly:true,monitorStatus:r.status.slice(0,200),answersFreshSincePreviousReview:false};
+  if(handoff)orders={...orders,handoffSource:handoff.source,monitorStatus:String(handoff.status??'handoff').slice(0,200),answersFreshSincePreviousReview:false};
  }catch{}
  try{const r=read('sites/numaron/cloudflare-deployment-status.json');domains={status:freshness(r.checked_at),at:r.checked_at,remaining:Array.isArray(r.remaining)?r.remaining.filter(x=>typeof x==='string').map(x=>x.slice(0,500)):[],source:'sites/numaron/cloudflare-deployment-status.json'};}catch{}
  try{const r=read('artifacts/forward-paper-20261012/summary.json');const age=now-Date.parse(r.observedAt);paper={status:Number.isFinite(age)&&age>=-1000&&age<120000?r.status:'stale',at:r.observedAt,endsAt:r.endsAt,feedHealthy:r.feedHealthy===true,virtualPositions:r.openVirtualPositions,accounts:Array.isArray(r.accounts)?r.accounts.length:0,source:'artifacts/forward-paper-20261012/summary.json',liveAuthorized:false};}catch{}

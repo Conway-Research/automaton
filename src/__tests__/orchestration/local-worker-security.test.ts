@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { symlinkSync, linkSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GeneralHarness } from "../../agent/harnesses/general-harness.js";
@@ -102,6 +102,47 @@ describe("agent/general-harness security", () => {
     return harness;
   }
 
+  it("never reads local files after a remote read failure", async () => {
+    const filePath = path.join(testRoot, "remote-unavailable.txt");
+    writeFileSync(filePath, "LOCAL_ONLY_FIXTURE");
+    const client = createConwayStub({isLocal: false, readFile: async () => { throw new Error("Remote denied"); }});
+    const result = await runTool(client, "read_file", {path: filePath});
+    expect(result).not.toContain("LOCAL_ONLY_FIXTURE");
+    expect(result).toMatch(/Blocked|read error/);
+  });
+
+  it("does not execute a shell fallback after backend failure", async () => {
+    for (const isLocal of [true, false]) {
+      const client = createConwayStub({isLocal, exec: async () => { throw new Error("Backend denied"); }});
+      const result = await runTool(client, "exec", {command: "echo LOCAL_SHELL_SENTINEL"});
+      expect(result).toContain("Blocked");
+      expect(result).not.toContain("LOCAL_SHELL_SENTINEL");
+    }
+  });
+
+  it("never creates or changes local files after remote write failure", async () => {
+    const existing = path.join(testRoot, "existing.txt"), missing = path.join(testRoot, "new-folder", "new.txt");
+    writeFileSync(existing, "LOCAL_ORIGINAL");
+    for (const isLocal of [false, undefined]) {
+      const client = createConwayStub({isLocal, writeFile: async () => { throw new Error("Remote denied"); }});
+      for (const target of [existing, missing]) expect(await runTool(client, "write_file", {path: target, content: "REPLACEMENT"})).toContain("Blocked");
+    }
+    expect(readFileSync(existing, "utf8")).toBe("LOCAL_ORIGINAL");
+    expect(existsSync(path.dirname(missing))).toBe(false);
+  });
+
+  it("rejects local write aliases before changing their targets", async () => {
+    const original = path.join(testRoot, "original.txt");writeFileSync(original, "KEEP");
+    const hard = path.join(testRoot, "hard.txt");linkSync(original, hard);
+    const nested = path.join(testRoot, "target");mkdirSync(nested);
+    const alias = path.join(testRoot, "alias");symlinkSync(nested, alias, process.platform === "win32" ? "junction" : "dir");
+    let backendWrites = 0;
+    const client = createConwayStub({isLocal: true, writeFile: async () => { backendWrites++; }});
+    for (const target of [hard, path.join(alias,"new.txt")]) expect(await runTool(client,"write_file",{path:target,content:"OVERWRITE"})).toContain("Blocked");
+    expect(readFileSync(original,"utf8")).toBe("KEEP");expect(existsSync(path.join(nested,"new.txt"))).toBe(false);expect(backendWrites).toBe(0);
+
+  });
+
   async function runTool(
     conway: ConwayClient,
     toolName: string,
@@ -158,6 +199,7 @@ describe("agent/general-harness security", () => {
     writeFileSync(filePath, "hello", "utf8");
 
     const conway = createConwayStub({
+      isLocal: true,
       readFile: async () => {
         throw new Error("force local fallback");
       },
@@ -170,6 +212,7 @@ describe("agent/general-harness security", () => {
   it("allows normal write_file paths inside the allowed edit root", async () => {
     const filePath = path.join(testRoot, "out", "data.txt");
     const conway = createConwayStub({
+      isLocal: true,
       writeFile: async () => {
         throw new Error("force local fallback");
       },

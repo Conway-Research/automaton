@@ -5,15 +5,16 @@
  */
 
 import fs from "fs";
+import {readProtectedJson,writeProtectedJson} from "./security/protected-json.js";
 import path from "path";
+import os from "node:os";
 import type { AutomatonConfig, TreasuryPolicy, ModelStrategyConfig, SoulConfig } from "./types.js";
 import { DEFAULT_CONFIG, DEFAULT_TREASURY_POLICY, DEFAULT_MODEL_STRATEGY_CONFIG, DEFAULT_SOUL_CONFIG } from "./types.js";
 import { getAutomatonDir } from "./identity/wallet.js";
 import { loadApiKeyFromConfig } from "./identity/provision.js";
-import { createLogger } from "./observability/logger.js";
+import {registerConfigurationSecrets,registerLogSecrets} from './observability/redaction.js';
 import type { ChainType } from "./identity/chain.js";
 
-const logger = createLogger("config");
 const CONFIG_FILENAME = "automaton.json";
 
 export function getConfigPath(): string {
@@ -31,22 +32,27 @@ export function loadConfig(): AutomatonConfig | null {
   }
 
   try {
-    const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    const raw = readProtectedJson(configPath);
+    if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Invalid configuration document');
     const apiKey = raw.conwayApiKey || loadApiKeyFromConfig();
+    registerConfigurationSecrets(raw);
+    registerLogSecrets([apiKey]);
 
-    // Deep-merge treasury policy with defaults
+    // Omitted legacy fields retain defaults. Explicit malformed protection
+    // values must never be coerced or replaced with a more permissive limit.
+    if(raw.treasuryPolicy!==undefined&&(!raw.treasuryPolicy||typeof raw.treasuryPolicy!=='object'||Array.isArray(raw.treasuryPolicy)))
+      throw new Error('Invalid treasury policy');
     const treasuryPolicy: TreasuryPolicy = {
       ...DEFAULT_TREASURY_POLICY,
       ...(raw.treasuryPolicy ?? {}),
     };
 
-    // Validate all treasury values are positive numbers
-    for (const [key, value] of Object.entries(treasuryPolicy)) {
-      if (key === "x402AllowedDomains") continue; // array, not number
-      if (typeof value === "number" && (value < 0 || !Number.isFinite(value))) {
-        logger.warn(`Invalid treasury value for ${key}: ${value}, using default`);
-        (treasuryPolicy as any)[key] = (DEFAULT_TREASURY_POLICY as any)[key];
-      }
+    for (const key of Object.keys(DEFAULT_TREASURY_POLICY) as (keyof TreasuryPolicy)[]) {
+      const value=treasuryPolicy[key];
+      if(key==='x402AllowedDomains'){
+        if(!Array.isArray(value)||value.length>100||value.some(domain=>typeof domain!=='string'||domain.length>253||
+          !domain.split('.').every(label=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))))throw new Error('Invalid treasury domains');
+      }else if(!Number.isSafeInteger(value)||(value as number)<0)throw new Error('Invalid treasury limit');
     }
 
     // Deep-merge model strategy config with defaults
@@ -75,7 +81,9 @@ export function loadConfig(): AutomatonConfig | null {
       chainType: raw.chainType || "evm",
     } as AutomatonConfig;
   } catch {
-    return null;
+    // Missing configuration may trigger first-run setup. Unreadable existing
+    // identity/configuration must never be mistaken for that state.
+    throw new Error('Existing configuration could not be safely loaded; automatic setup is blocked');
   }
 }
 
@@ -96,17 +104,15 @@ export function saveConfig(config: AutomatonConfig): void {
     modelStrategy: config.modelStrategy ?? DEFAULT_MODEL_STRATEGY_CONFIG,
     soulConfig: config.soulConfig ?? DEFAULT_SOUL_CONFIG,
   };
-  fs.writeFileSync(configPath, JSON.stringify(toSave, null, 2), {
-    mode: 0o600,
-  });
+  writeProtectedJson(configPath,toSave);
 }
 
 /**
  * Resolve ~ paths to absolute paths.
  */
 export function resolvePath(p: string): string {
-  if (p.startsWith("~")) {
-    return path.join(process.env.HOME || "/root", p.slice(1));
+  if (p === "~" || p.startsWith("~/") || p.startsWith("~\\")) {
+    return path.join(process.env.HOME || os.homedir(), p.slice(1));
   }
   return p;
 }

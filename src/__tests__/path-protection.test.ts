@@ -60,6 +60,20 @@ function makeMockRequest(
 // ─── isProtectedFile Tests ──────────────────────────────────────
 
 describe("isProtectedFile", () => {
+  it.each(["inference/router", "inference/budget", "inference/reservations", "inference/budget-policy",
+    "inference/reconciliation", "v1/cost-review", "v1/runtime", "v1/dashboard", "v1/policy", "online/sources", "online/runtime", "online/dashboard", "state/database", "state/schema", "revenue/budget-governor", "revenue/capital-budget", "revenue/paper-portfolio", "revenue/paper-trading",
+    "revenue/outcome", "revenue/store", "revenue/mission", "agent/loop", "agent/worker-inference-bridge", "agent/harnesses/base-harness", "agent/harnesses/general-harness", "agent/harness-types", "orchestration/local-worker", "orchestration/orchestrator"])(
+    "protects budget safety module %s and compiled output", module => {
+      expect(isProtectedFile(`/some/path/src/${module}.ts`)).toBe(true);
+      expect(isProtectedFile(`/some/path/dist/${module}.js`)).toBe(true);
+    },
+  );
+  it.skipIf(process.platform !== "win32")("protects mixed-case Windows safety paths", () => {
+    expect(isProtectedFile("C:/some/path/src/Inference/BUDGET-POLICY.ts")).toBe(true);
+    expect(isProtectedFile("C:/some/path/src/AGENT/POLICY-RULES/path-protection.ts")).toBe(true);
+    expect(isProtectedFile("C:/some/path/Wallet.JSON")).toBe(true);
+    expect(isProtectedFile("C:/some/path/src/V1/RUNTIME.ts")).toBe(true);
+  });
   it("matches exact protected file names", () => {
     expect(isProtectedFile("wallet.json")).toBe(true);
     expect(isProtectedFile("config.json")).toBe(true);
@@ -113,6 +127,10 @@ describe("isProtectedFile", () => {
     expect(isProtectedFile("/home/user/.gnupg/keys")).toBe(true);
     expect(isProtectedFile("/etc/systemd/system/something.service")).toBe(true);
     expect(isProtectedFile("/proc/self/environ")).toBe(true);
+  });
+  it("does not confuse protected directory names with sibling prefixes", () => {
+    expect(isProtectedFile("/processor/readme.txt")).toBe(false);
+    expect(isProtectedFile("/etc/systemd-backup/readme.txt")).toBe(false);
   });
 });
 

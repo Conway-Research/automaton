@@ -1,0 +1,16 @@
+import {it,expect} from 'vitest';
+import {mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import {createHash} from 'node:crypto';
+import {openHistoryStore} from '../revenue/long-history/store.js';import {openHistoryRunner} from '../revenue/long-history/runner.js';import {sourceCatalogue} from '../revenue/long-history/sources.js';
+const hash=(x:string)=>createHash('sha256').update(x).digest('hex');
+const series={kind:'macro' as const,rows:[{date:Date.UTC(1946,9,31),annualRatePercent:1},{date:Date.UTC(2026,8,30),annualRatePercent:4}],field:'synthetic',currency:'USD',limitations:['synthetic fixture']};
+function fixture(){
+ const dir=mkdtempSync(join(tmpdir(),'history-cache-selection-')),store=openHistoryStore(dir),now=Date.UTC(2026,9,19,12);let downloads=0;
+ for(const s of sourceCatalogue())store.registerSource({...s,licenseStatus:'blocked'});
+ const add=(id:string,blocked=false)=>{const source={id,label:id,kind:'macro' as const,urls:['https://example.com/fixture'],allowedHosts:['example.com'],licenseStatus:'allowed' as const,licenseEvidence:'synthetic fixture',reviewedAt:'2026-10-19'};store.registerSource(source);const bytes=Buffer.from(id);const dataset=store.putDataset({sourceId:id,rawSha256:hash(id),revision:hash(id),normalizationVersion:'fixture',kind:'macro',start:series.rows[0].date,end:series.rows[1].date,frequency:'monthly',unit:'percent-per-year',currency:'USD',quality:{valid:true,issues:[]},limitations:['fixture'],provenance:'fixture'},bytes);store.saveJob({id:hash('import|'+id+'|2026-10-19|2026-10-19'),status:'completed',detail:{datasetId:dataset.id,sourceId:id}});if(blocked)store.registerSource({...source,licenseStatus:'blocked'});return dataset;};
+ const runner=openHistoryRunner({store,clock:()=>now,normalize:()=>series,download:async()=>{downloads++;throw Error('No network expected');}});
+ return {store,runner,add,get downloads(){return downloads;},async close(){await runner.close();store.close();rmSync(dir,{recursive:true,force:true});}};
+}
+it('cached research honors the requested source without evaluating unrelated archives',async()=>{const f=fixture();try{const target=f.add('target');f.add('other');f.runner.control('resume');await f.runner.tick({sourceId:'target'});expect(f.store.listReports(50).every(x=>x.datasetId===target.id)).toBe(true);expect(f.store.listReports(50)).toHaveLength(2);expect(f.downloads).toBe(0);}finally{await f.close();}});
+it('ineligible cached sources do not consume the three eligible source slots',async()=>{const f=fixture();try{const target=f.add('target');for(let i=0;i<3;i++)f.add('blocked-'+i,true);f.runner.control('resume');await f.runner.tick();expect(f.store.listReports(50).filter(x=>x.datasetId===target.id)).toHaveLength(2);expect(f.downloads).toBe(0);}finally{await f.close();}});
+it('a deduplicated round explicitly reports no new simulations instead of freshly saved reports',async()=>{const f=fixture();try{f.add('target');f.runner.control('resume');await f.runner.tick({sourceId:'target'});const count=f.store.listReports(50).length;await f.runner.tick({sourceId:'target'});expect(f.store.listReports(50)).toHaveLength(count);expect(f.runner.snapshot().activity).toMatch(/Keine neuen Simulationen/);expect(f.downloads).toBe(0);}finally{await f.close();}});
+

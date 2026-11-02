@@ -7,6 +7,7 @@
 
 import type BetterSqlite3 from "better-sqlite3";
 import { ulid } from "ulid";
+import { assertNoKnownSecrets } from "../observability/redaction.js";
 import type { ProceduralMemoryEntry, ProceduralStep } from "../types.js";
 import { createLogger } from "../observability/logger.js";
 const logger = createLogger("memory.procedural");
@@ -25,25 +26,27 @@ export class ProceduralMemoryManager {
     description: string;
     steps: ProceduralStep[];
   }): string {
+    assertNoKnownSecrets(entry);
     const id = ulid();
     try {
-      this.db.prepare(
+      const stored = this.db.prepare(
         `INSERT INTO procedural_memory (id, name, description, steps)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(name) DO UPDATE SET
            description = excluded.description,
            steps = excluded.steps,
-           updated_at = datetime('now')`,
-      ).run(
+           updated_at = datetime('now') RETURNING id`,
+      ).get(
         id,
         entry.name,
         entry.description,
         JSON.stringify(entry.steps),
       );
+      return (stored as {id:string}).id;
     } catch (error) {
       logger.error("Failed to save", error instanceof Error ? error : undefined);
     }
-    return id;
+    throw new Error("Memory persistence failed");
   }
 
   /**

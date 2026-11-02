@@ -1,0 +1,14 @@
+{
+  "schema": "numaron-maintenance-completed-v1",
+  "verifiedAt": "2026-10-19T11:35:23.806Z",
+  "state": "OFF; both completed-report pointer variants loaded",
+  "servicePid": 54556,
+  "maxWorkers": 10,
+  "controller": "stopped",
+  "activeWorkers": 0,
+  "budgetUnchanged": true,
+  "entriesUnchanged": true,
+  "monitorUnchanged": true,
+  "manualStartRequired": true,
+  "evidence": "artifacts/final-report-maintenance-20261019-1135/after.json"
+}

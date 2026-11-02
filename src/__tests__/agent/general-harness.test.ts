@@ -16,6 +16,19 @@ import { createTestConfig, createTestIdentity, MockConwayClient, MockSocialClien
 describe("agent/GeneralHarness", () => {
   let tempDir: string | undefined;
 
+  it('exposes economic inspection but blocks revisions from delegated workers before invoking a tool',async()=>{
+    let calls=0;
+    const tool:AutomatonTool={name:'revenue_research_economics',description:'Fixture',category:'revenue',riskLevel:'safe',parameters:{type:'object',properties:{}},execute:async()=>{calls++;return '{"profitabilityProven":false}';}};
+    const {harness,appDb}=await createHarness({toolCatalog:[tool]});
+    try{
+      const wrapped=harness.getToolDefs().find(t=>t.name===tool.name)!;
+      expect(await wrapped.execute({action:'revise',opportunity_id:'fixture'})).toContain('coordinating agent');
+      expect(calls).toBe(0);
+      expect(await wrapped.execute({action:'brief',opportunity_id:'fixture'})).toContain('profitabilityProven');
+      expect(calls).toBe(1);
+    }finally{appDb.close();}
+  });
+
   afterEach(() => {
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });

@@ -32,6 +32,9 @@ const DISCOVERY_TIMEOUT_MS = 60_000;
  *         192.168.0.0/16, 169.254.0.0/16, ::1, localhost, 0.0.0.0/8
  */
 export function isInternalNetwork(hostname: string): boolean {
+  hostname=hostname.toLowerCase().replace(/^\[|\]$/g,'').replace(/\.$/,'');
+  if(hostname.includes(':')||/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname)||
+    /^(?:192\.0\.|198\.(?:18|19)\.|(?:22[4-9]|23\d|24\d|25[0-5])\.)/.test(hostname)||hostname.endsWith('.localhost')||hostname.endsWith('.local'))return true;
   const blocked = [
     /^127\./,
     /^10\./,
@@ -53,6 +56,7 @@ export function isInternalNetwork(hostname: string): boolean {
 export function isAllowedUri(uri: string): boolean {
   try {
     const url = new URL(uri);
+    if(url.username||url.password||url.hash||url.port)return false;
     if (!['https:', 'ipfs:'].includes(url.protocol)) return false;
     if (url.protocol === 'https:' && isInternalNetwork(url.hostname)) return false;
     return true;
@@ -289,6 +293,8 @@ export async function fetchAgentCard(
   const cfg = { ...DEFAULT_DISCOVERY_CONFIG, ...config };
 
   // Handle data: URIs inline — no network request, no SSRF risk
+  if(!Number.isSafeInteger(cfg.maxCardSizeBytes)||cfg.maxCardSizeBytes<1||cfg.maxCardSizeBytes>262144||
+    typeof uri!=='string'||uri.length>cfg.maxCardSizeBytes*4||!Number.isSafeInteger(cfg.fetchTimeoutMs)||cfg.fetchTimeoutMs<1||cfg.fetchTimeoutMs>30000)return null;
   if (uri.startsWith("data:application/json,") || uri.startsWith("data:application/json;")) {
     try {
       let json: string;
@@ -304,15 +310,15 @@ export async function fetchAgentCard(
       }
       const data = JSON.parse(json);
       return validateAgentCard(data);
-    } catch (error) {
-      logger.error("data: URI parse failed:", error instanceof Error ? error : undefined);
+    } catch {
+      logger.error("data: URI parse failed; untrusted content withheld");
       return null;
     }
   }
 
   // SSRF protection: validate URI before fetching
   if (!isAllowedUri(uri)) {
-    logger.error(`Blocked URI (SSRF protection): ${uri}`);
+    logger.error("Blocked URI (SSRF protection); untrusted URI withheld");
     return null;
   }
 
@@ -322,6 +328,10 @@ export async function fetchAgentCard(
     if (uri.startsWith("ipfs://")) {
       fetchUrl = `${cfg.ipfsGateway}/ipfs/${uri.slice(7)}`;
     }
+    if(!isAllowedUri(fetchUrl))return null;
+    const destination=new URL(fetchUrl);
+    const hosts=cfg.allowedCardHosts??[];
+    if(!Array.isArray(hosts)||hosts.length>100||!hosts.includes(destination.hostname))return null;
 
     // Per-fetch timeout
     const controller = new AbortController();
@@ -330,9 +340,10 @@ export async function fetchAgentCard(
     try {
       const response = await fetch(fetchUrl, {
         signal: controller.signal,
+        redirect:'error',credentials:'omit',
       });
 
-      if (!response.ok) return null;
+      if (!response.ok||response.redirected) return null;
 
       // Phase 3.2: Check response size before parsing
       const contentLength = response.headers.get("content-length");
@@ -341,7 +352,12 @@ export async function fetchAgentCard(
         return null;
       }
 
-      const text = await response.text();
+      if(!response.body)return null;
+      const reader=response.body.getReader(),chunks:Uint8Array[]=[];let bytes=0;
+      try{while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;
+        if(bytes>cfg.maxCardSizeBytes)return null;chunks.push(part.value);}}
+      finally{await reader.cancel();reader.releaseLock();}
+      const text=Buffer.concat(chunks).toString('utf8');
       if (text.length > cfg.maxCardSizeBytes) {
         logger.error(`Agent card too large: ${text.length} bytes`);
         return null;
@@ -354,8 +370,8 @@ export async function fetchAgentCard(
     } finally {
       clearTimeout(timer);
     }
-  } catch (error) {
-    logger.error("Agent card fetch failed:", error instanceof Error ? error : undefined);
+  } catch {
+    logger.error("Agent card fetch failed; untrusted response withheld");
     return null;
   }
 }

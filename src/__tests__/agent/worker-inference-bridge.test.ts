@@ -1,56 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
 import { createWorkerInferenceBridge } from "../../agent/worker-inference-bridge.js";
+import { InferenceAdmissionError } from "../../agent/harness-types.js";
 
 describe("agent/worker-inference-bridge", () => {
-  it("forwards tier, responseFormat, tools, and token settings to unified inference", async () => {
-    const chat = vi.fn().mockResolvedValue({
-      content: '{"analysis":"ok"}',
-      toolCalls: [
-        {
-          id: "tool-1",
-          type: "function",
-          function: { name: "delegate_task", arguments: "{}" },
-        },
-      ],
+  it('classifies a stored-policy exception before provider access as an admission failure',async()=>{
+    const route=vi.fn().mockRejectedValue(new Error('Invalid stored shared budget policy; reconciliation required'));
+    const chatDirect=vi.fn();
+    const bridge=createWorkerInferenceBridge({route} as any,{chatDirect},'planner-session');
+    await expect(bridge.chat({messages:[{role:'user',content:'plan'}]})).rejects.toBeInstanceOf(InferenceAdmissionError);
+    expect(chatDirect).not.toHaveBeenCalled();
+  });
+  it("routes experiment, session and options through the central budget router", async () => {
+    const chatDirect = vi.fn().mockResolvedValue({ content: "ok", usage: { inputTokens: 10, outputTokens: 5 } });
+    const route = vi.fn(async (request, invoke) => {
+      const response = await invoke(request.messages, {
+        providerId: "openai", model: "test-model", maxTokens: request.maxTokens,
+        toolChoice: request.toolChoice, responseFormat: request.responseFormat,
+      });
+      expect(response.usage).toEqual({ promptTokens: 10, completionTokens: 5 });
+      return { content: response.message.content, finishReason: "stop" };
     });
-
-    const bridge = createWorkerInferenceBridge({ chat } as any);
-    const result = await bridge.chat({
-      tier: "reasoning",
-      messages: [{ role: "system", content: "# Planner Agent" }],
-      tools: [{ type: "function", function: { name: "delegate_task", description: "delegate", parameters: { type: "object", properties: {} } } }],
-      maxTokens: 123,
-      temperature: 0.2,
-      responseFormat: { type: "json_object" },
-    });
-
-    expect(chat).toHaveBeenCalledWith({
-      tier: "reasoning",
-      messages: [{ role: "system", content: "# Planner Agent" }],
-      tools: [{ type: "function", function: { name: "delegate_task", description: "delegate", parameters: { type: "object", properties: {} } } }],
-      maxTokens: 123,
-      temperature: 0.2,
-      responseFormat: { type: "json_object" },
-    });
-    expect(result.content).toBe('{"analysis":"ok"}');
-    expect(result.toolCalls?.[0].function.name).toBe("delegate_task");
+    const bridge = createWorkerInferenceBridge({ route } as any, { chatDirect }, "session");
+    expect(await bridge.chat({ messages: [{ role: "user", content: "validate" }], experimentId: "experiment",
+      survivalTier: "critical", maxTokens: 123, toolChoice: "required", responseFormat: { type: "json_object" } })).toMatchObject({ content: "ok" });
+    expect(route.mock.calls[0][0]).toMatchObject({ sessionId: "session", experimentId: "experiment", tier: "critical", maxTokens: 123 });
+    expect(chatDirect).toHaveBeenCalledWith(expect.objectContaining({ providerId: "openai", modelId: "test-model", maxTokens: 123, toolChoice: "required", responseFormat: { type: "json_object" } }));
   });
 
-  it("defaults tier to fast when omitted", async () => {
-    const chat = vi.fn().mockResolvedValue({ content: "ok", toolCalls: [] });
-    const bridge = createWorkerInferenceBridge({ chat } as any);
-
-    await bridge.chat({
-      messages: [{ role: "user", content: "hello" }],
-    });
-
-    expect(chat).toHaveBeenCalledWith({
-      tier: "fast",
-      messages: [{ role: "user", content: "hello" }],
-      tools: undefined,
-      maxTokens: undefined,
-      temperature: undefined,
-      responseFormat: undefined,
-    });
+  it("defaults to low_compute and never calls the provider after a budget denial", async () => {
+    const route = vi.fn().mockResolvedValue({ content: "Budget exceeded", finishReason: "budget_exceeded" });
+    const chatDirect = vi.fn();
+    const bridge = createWorkerInferenceBridge({ route } as any, { chatDirect }, "session");
+    await expect(bridge.chat({ messages: [{ role: "user", content: "hello" }] })).rejects.toBeInstanceOf(InferenceAdmissionError);
+    expect(route.mock.calls[0][0].tier).toBe("low_compute");
+    expect(chatDirect).not.toHaveBeenCalled();
   });
 });

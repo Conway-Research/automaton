@@ -1,0 +1,24 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "checkedAt": "2026-10-20T21:01:41.219Z",
+  "runId": "2026-10-20T20-51-27-167Z-f5c5498b",
+  "completedAt": "2026-10-20T20:53:27.437Z",
+  "rows": 36,
+  "succeeded": 34,
+  "http404": ["github-scaffold-studio-hq-scaffold-studio-mcp-134", "github-scaffold-studio-hq-scaffold-studio-mcp-138"],
+  "ugigCheckedAt": "2026-10-20T20:53:21.202Z",
+  "applications": 14,
+  "watched": {"450USD":"pending","100USD":"pending","90USD":"pending","50USD":"pending"},
+  "incomingLatestMessages": 0,
+  "unreadCounts": [0,0,0,0],
+  "gmailOrderSearchResults": 0,
+  "dealworkContracts": 0,
+  "screening": {
+    "ugig": "Only unpaid volunteer listing currently active",
+    "laborx": {"url":"https://laborx.com/jobs/community-calendar-manager-content-curator-104725","result":"Unverified availability: page advertises Apply but deadline September 30 2026 is past; mandatory interview and long-term weekly commitment. No application sent."},
+    "clustly": {"url":"https://clustly.ai/llms.txt","result":"Current official documentation describes hosted agent release/listing deployment, differing from directory claims of instant task signup. No verified open task selected; no registration, deployment, software execution or workspace upload initiated."},
+    "clawEarnDirectorySignal":"Directory describes worker collateral; not a no-upfront-cost candidate; no transaction initiated",
+    "newApplications":0
+  },
+  "operation": {"confirmedOn":true,"powerRevision":84,"servicePid":31996,"extraMonitorRunsStarted":0,"productionPowerActions":0,"restarts":0,"budgetOrProtectionChanges":0}
+}

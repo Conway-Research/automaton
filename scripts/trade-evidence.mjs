@@ -71,3 +71,4 @@ export function createTradeEvidence({file,python,terminal,login,server,script,co
  return {snapshot,refresh,observe(symbols){for(const s of symbols)if(typeof s==='string'&&/^[\w.#-]{1,80}$/.test(s)&&pending.size<100)pending.add(s);}};
 
 }
+

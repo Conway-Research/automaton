@@ -17,6 +17,16 @@ import type {
 import type { ChildLifecycle } from "./lifecycle.js";
 import { ulid } from "ulid";
 import { propagateConstitution } from "./constitution.js";
+import { assertChildGenesisFits } from "./genesis.js";
+import { installRuntimeBundle, validateRuntimeBundle, selectedRuntimeBundle, type RuntimeBundle } from "./runtime-bundle.js";
+
+async function verifyChildBootstrap(client: ConwayClient): Promise<void> {
+  const result = await client.exec(
+    'node --input-type=module -e "import {verifyChildGenesisConfiguration} from \'/root/automaton/dist/replication/bootstrap.js\'; verifyChildGenesisConfiguration(\'/root/.automaton\');"',
+    30_000,
+  );
+  if (result.exitCode !== 0) throw new Error("Child runtime cannot verify complete Genesis bootstrap");
+}
 
 /** Valid Conway sandbox pricing tiers. */
 const SANDBOX_TIERS = [
@@ -58,7 +68,14 @@ export async function spawnChild(
   db: AutomatonDatabase,
   genesis: GenesisConfig,
   lifecycle?: ChildLifecycle,
+  runtimeBundle?: RuntimeBundle,
 ): Promise<ChildAutomaton> {
+  const selected = selectedRuntimeBundle();
+  if (selected && runtimeBundle && selected.sha256 !== runtimeBundle.sha256) throw new Error("Child runtime conflicts with operator-selected release");
+  const bundle = runtimeBundle ? structuredClone(runtimeBundle) : selected;
+  if (bundle) validateRuntimeBundle(bundle);
+  // Also protect callers supplying GenesisConfig directly, before provisioning.
+  assertChildGenesisFits(genesis.genesisPrompt);
   // Check child limit from config
   const existing = db
     .getChildren()
@@ -81,7 +98,7 @@ export async function spawnChild(
 
   // If no lifecycle provided, use legacy path
   if (!lifecycle) {
-    return spawnChildLegacy(conway, identity, db, genesis, childId);
+    return spawnChildLegacy(conway, identity, db, genesis, childId, bundle);
   }
 
   try {
@@ -128,7 +145,8 @@ export async function spawnChild(
 
     // Install runtime (on the CHILD sandbox)
     await childConway.exec("apt-get update -qq && apt-get install -y -qq nodejs npm git curl", 120_000);
-    await childConway.exec(
+    if (bundle) await installRuntimeBundle(childConway, bundle);
+    else await childConway.exec(
       "git clone https://github.com/Conway-Research/automaton.git /root/automaton && cd /root/automaton && npm install && npm run build",
       180_000,
     );
@@ -173,6 +191,8 @@ export async function spawnChild(
     if (!isValidWalletAddress(childWallet, parentChainType)) {
       throw new Error(`Child wallet address invalid: ${childWallet}`);
     }
+
+    await verifyChildBootstrap(childConway);
 
     // Update address in children table
     db.raw
@@ -244,6 +264,7 @@ async function spawnChildLegacy(
   db: AutomatonDatabase,
   genesis: GenesisConfig,
   childId: string,
+  bundle?: RuntimeBundle,
 ): Promise<ChildAutomaton> {
   let sandboxId: string | undefined;
 
@@ -268,7 +289,8 @@ async function spawnChildLegacy(
       "apt-get update -qq && apt-get install -y -qq nodejs npm git curl",
       120_000,
     );
-    await childConway.exec(
+    if (bundle) await installRuntimeBundle(childConway, bundle);
+    else await childConway.exec(
       "git clone https://github.com/Conway-Research/automaton.git /root/automaton && cd /root/automaton && npm install && npm run build",
       180_000,
     );
@@ -306,6 +328,8 @@ async function spawnChildLegacy(
       throw new Error(`Child wallet address invalid: ${childWallet}`);
     }
 
+    await verifyChildBootstrap(childConway);
+
     const child: ChildAutomaton = {
       id: childId,
       name: genesis.name,
@@ -330,6 +354,7 @@ async function spawnChildLegacy(
     });
 
     return child;
+  // oxlint-disable-next-line no-useless-catch -- Preserve the explicit failed-sandbox retention boundary and existing error propagation.
   } catch (error) {
     // Sandbox deletion disabled — failed sandboxes left for potential reuse.
     throw error;

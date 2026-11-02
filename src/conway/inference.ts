@@ -15,10 +15,14 @@ import type {
   InferenceToolDefinition,
 } from "../types.js";
 import { ResilientHttpClient } from "./http-client.js";
+import {assertNoKnownSecrets} from '../observability/redaction.js';
+import {assertModelPrivacy} from '../security/privacy-egress.js';
+import {providerEgress} from '../security/provider-egress.js';
 
 const INFERENCE_TIMEOUT_MS = 60_000;
 
 interface InferenceClientOptions {
+  allowConway?: boolean;
   apiUrl: string;
   apiKey: string;
   defaultModel: string;
@@ -61,16 +65,31 @@ export function createInferenceClient(
     messages: ChatMessage[],
     opts?: InferenceOptions,
   ): Promise<InferenceResponse> => {
+    opts?.signal?.throwIfAborted();
+    assertNoKnownSecrets({messages,tools:opts?.tools});
     const model = opts?.model || currentModel;
     const tools = opts?.tools;
 
-    const backend = resolveInferenceBackend(model, {
+    let backend = resolveInferenceBackend(model, {
       openaiApiKey,
       anthropicApiKey,
       ollamaBaseUrl,
       getModelProvider,
     });
+    if (opts?.providerId) {
+      const selected = opts.providerId;
+      if (!(["openai", "anthropic", "conway", "ollama"] as string[]).includes(selected) ||
+          (selected === "openai" && !openaiApiKey) ||
+          (selected === "anthropic" && !anthropicApiKey) ||
+          (selected === "ollama" && !ollamaBaseUrl)) {
+        throw new Error("Selected inference provider is unavailable; fallback requires a new reservation");
+      }
+      backend = selected as InferenceBackend;
+    }
 
+    if(backend==='conway'&&options.allowConway===false)throw new Error('Conway inference unavailable in local mode; configure a direct provider');
+    if(backend==='ollama')providerEgress(ollamaBaseUrl!,true);
+    assertModelPrivacy({messages,tools},backend==='ollama');
     // Newer models (o-series, gpt-5.x, gpt-4.1) require max_completion_tokens.
     // Ollama always uses max_tokens.
     const usesCompletionTokens =
@@ -107,6 +126,8 @@ export function createInferenceClient(
         temperature: opts?.temperature,
         anthropicApiKey: anthropicApiKey as string,
         httpClient,
+        signal: opts?.signal,
+        singleAttempt: opts?.singleAttempt,
       });
     }
 
@@ -126,6 +147,8 @@ export function createInferenceClient(
       apiKey: openAiLikeApiKey,
       backend,
       httpClient,
+      signal: opts?.signal,
+      singleAttempt: opts?.singleAttempt,
     });
   };
 
@@ -201,6 +224,8 @@ function resolveInferenceBackend(
 }
 
 async function chatViaOpenAiCompatible(params: {
+  signal?: AbortSignal;
+  singleAttempt?: boolean;
   model: string;
   body: Record<string, unknown>;
   apiUrl: string;
@@ -218,6 +243,8 @@ async function chatViaOpenAiCompatible(params: {
           : params.apiKey,
     },
     body: JSON.stringify(params.body),
+    signal: params.signal,
+    retries: params.singleAttempt ? 0 : undefined,
     timeout: INFERENCE_TIMEOUT_MS,
   });
 
@@ -229,6 +256,7 @@ async function chatViaOpenAiCompatible(params: {
   }
 
   const data = await resp.json() as any;
+  if (params.singleAttempt) validateBillableUsage(data.usage?.prompt_tokens, data.usage?.completion_tokens);
   const choice = data.choices?.[0];
 
   if (!choice) {
@@ -237,6 +265,8 @@ async function chatViaOpenAiCompatible(params: {
 
   const message = choice.message;
   const usage: TokenUsage = {
+    cachedPromptTokens: Number.isSafeInteger(data.usage?.prompt_tokens_details?.cached_tokens)&&data.usage.prompt_tokens_details.cached_tokens>=0&&
+      data.usage.prompt_tokens_details.cached_tokens<=data.usage.prompt_tokens?data.usage.prompt_tokens_details.cached_tokens:undefined,
     promptTokens: data.usage?.prompt_tokens || 0,
     completionTokens: data.usage?.completion_tokens || 0,
     totalTokens: data.usage?.total_tokens || 0,
@@ -267,6 +297,8 @@ async function chatViaOpenAiCompatible(params: {
 }
 
 async function chatViaAnthropic(params: {
+  signal?: AbortSignal;
+  singleAttempt?: boolean;
   model: string;
   tokenLimit: number;
   messages: ChatMessage[];
@@ -310,6 +342,8 @@ async function chatViaAnthropic(params: {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify(body),
+    signal: params.signal,
+    retries: params.singleAttempt ? 0 : undefined,
     timeout: INFERENCE_TIMEOUT_MS,
   });
 
@@ -319,6 +353,7 @@ async function chatViaAnthropic(params: {
   }
 
   const data = await resp.json() as any;
+  if (params.singleAttempt) validateBillableUsage(data.usage?.input_tokens, data.usage?.output_tokens);
   const content = Array.isArray(data.content) ? data.content : [];
   const textBlocks = content.filter((c: any) => c?.type === "text");
   const toolUseBlocks = content.filter((c: any) => c?.type === "tool_use");
@@ -364,6 +399,13 @@ async function chatViaAnthropic(params: {
     usage,
     finishReason: normalizeAnthropicFinishReason(data.stop_reason),
   };
+}
+
+function validateBillableUsage(input: unknown, output: unknown): void {
+  if (!Number.isSafeInteger(input) || (input as number) < 0 ||
+      !Number.isSafeInteger(output) || (output as number) < 0) {
+    throw new Error("Missing or invalid billable usage; reservation must remain pending");
+  }
 }
 
 function transformMessagesForAnthropic(

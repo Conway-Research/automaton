@@ -186,12 +186,12 @@ describe("proceduralSearch wildcard escaping", () => {
     proceduralUpsert(db, {
       name: "deploy_100pct_coverage",
       description: "Deploy with 100% coverage",
-      steps: ["test", "deploy"],
+      steps: ["test", "deploy"].map((description, order) => ({order, description, tool:null, argsTemplate:null, expectedOutcome:null, onFailure:null})),
     });
     proceduralUpsert(db, {
       name: "deploy_basic",
       description: "Basic deployment",
-      steps: ["deploy"],
+      steps: ["deploy"].map((description, order) => ({order, description, tool:null, argsTemplate:null, expectedOutcome:null, onFailure:null})),
     });
 
     // Search for "100%" — should only match the first
@@ -204,12 +204,12 @@ describe("proceduralSearch wildcard escaping", () => {
     proceduralUpsert(db, {
       name: "run_tests",
       description: "Run test suite with run_tests command",
-      steps: ["run"],
+      steps: ["run"].map((description, order) => ({order, description, tool:null, argsTemplate:null, expectedOutcome:null, onFailure:null})),
     });
     proceduralUpsert(db, {
       name: "runXtests",
       description: "Run X tests",
-      steps: ["run"],
+      steps: ["run"].map((description, order) => ({order, description, tool:null, argsTemplate:null, expectedOutcome:null, onFailure:null})),
     });
 
     // Search for "run_tests" — _ should NOT match arbitrary character

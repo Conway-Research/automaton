@@ -313,7 +313,7 @@ describe("read_file sensitive file blocking", () => {
 
 // ─── read_file Fallback Shell Injection Prevention ───────────────
 
-describe("read_file fallback shell escaping", () => {
+describe("read_file fails closed without shell fallback", () => {
   let tools: AutomatonTool[];
   let ctx: ToolContext;
   let db: AutomatonDatabase;
@@ -336,16 +336,14 @@ describe("read_file fallback shell escaping", () => {
     db.close();
   });
 
-  it("escapes shell metacharacters in fallback cat command", async () => {
+  it("refuses shell fallback for paths containing spaces", async () => {
     const readTool = tools.find((t) => t.name === "read_file")!;
-    // Make readFile throw so the fallback exec(cat) path is triggered
+    // Make readFile throw to verify that no alternate transport is attempted
     vi.spyOn(conway, "readFile").mockRejectedValue(new Error("API broken"));
 
     await readTool.execute({ path: "/home/user/my file.txt" }, ctx);
 
-    expect(conway.execCalls.length).toBe(1);
-    // The path should be wrapped in single quotes by escapeShellArg
-    expect(conway.execCalls[0].command).toBe("cat '/home/user/my file.txt'");
+    expect(conway.execCalls.length).toBe(0);
   });
 
   it("prevents command injection via semicolons in fallback path", async () => {
@@ -354,20 +352,16 @@ describe("read_file fallback shell escaping", () => {
 
     await readTool.execute({ path: "foo; cat /etc/passwd" }, ctx);
 
-    expect(conway.execCalls.length).toBe(1);
-    // Semicolons inside single quotes are treated as literal characters
-    expect(conway.execCalls[0].command).toBe("cat 'foo; cat /etc/passwd'");
+    expect(conway.execCalls.length).toBe(0);
   });
 
-  it("escapes single quotes in file path in fallback", async () => {
+  it("refuses shell fallback for quoted paths", async () => {
     const readTool = tools.find((t) => t.name === "read_file")!;
     vi.spyOn(conway, "readFile").mockRejectedValue(new Error("API broken"));
 
     await readTool.execute({ path: "it's a file.txt" }, ctx);
 
-    expect(conway.execCalls.length).toBe(1);
-    // Single quotes are escaped using the '\'' technique
-    expect(conway.execCalls[0].command).toBe("cat 'it'\\''s a file.txt'");
+    expect(conway.execCalls.length).toBe(0);
   });
 
   it("prevents subshell injection via $() in fallback path", async () => {
@@ -376,9 +370,7 @@ describe("read_file fallback shell escaping", () => {
 
     await readTool.execute({ path: "$(whoami).txt" }, ctx);
 
-    expect(conway.execCalls.length).toBe(1);
-    // $() inside single quotes is treated as literal text
-    expect(conway.execCalls[0].command).toBe("cat '$(whoami).txt'");
+    expect(conway.execCalls.length).toBe(0);
   });
 });
 
@@ -535,16 +527,17 @@ describe("transfer_credits self-preservation", () => {
       ctx,
     );
     expect(result).toContain("Blocked");
-    expect(result).toContain("Self-preservation");
+    expect(result).toContain("reserving and reconciling adapter");
   });
 
-  it("allows transfer of less than half balance", async () => {
+  it("blocks legacy transfers even below half balance when no reserved adapter exists", async () => {
     const transferTool = tools.find((t) => t.name === "transfer_credits")!;
     const result = await transferTool.execute(
       { to_address: "0xrecipient", amount_cents: 4000 },
       ctx,
     );
-    expect(result).toContain("transfer submitted");
+    expect(result).toContain("Blocked");
+    expect(result).toContain("reserving and reconciling adapter");
   });
 
   it("blocks negative amount", async () => {
@@ -554,7 +547,7 @@ describe("transfer_credits self-preservation", () => {
       ctx,
     );
     expect(result).toContain("Blocked");
-    expect(result).toContain("positive number");
+    expect(result).toContain("reserving and reconciling adapter");
   });
 
   it("blocks zero amount", async () => {
@@ -564,7 +557,7 @@ describe("transfer_credits self-preservation", () => {
       ctx,
     );
     expect(result).toContain("Blocked");
-    expect(result).toContain("positive number");
+    expect(result).toContain("reserving and reconciling adapter");
   });
 });
 

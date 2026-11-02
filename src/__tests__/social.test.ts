@@ -8,6 +8,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { MIGRATION_V7 } from "../state/schema.js";
+import {fixtureSecurityReview} from './fixtures/security-review.js';
+import {PRODUCT_RELEASE_EVIDENCE} from '../commerce/quality-review.js';
+import {createSocialClient as runtimeSocialClient,socialPublicationScope} from '../social/client.js';
+
+const publicationDatabases:Database.Database[]=[];
+afterEach(()=>{for(const db of publicationDatabases.splice(0))db.close();});
+/** Mock review setup for the existing signing/rate-limit transport tests. */
+function reviewedSocialFixture(relay:string,account:Parameters<typeof runtimeSocialClient>[1]){
+ const db=new Database(':memory:');publicationDatabases.push(db);
+ const client=runtimeSocialClient(relay,account,db),send=client.send.bind(client);
+ client.send=async(to,content,replyTo)=>{
+  fixtureSecurityReview(db,socialPublicationScope(relay,account.address,to,content,replyTo),Date.now(),PRODUCT_RELEASE_EVIDENCE,[content]);
+  return send(to,content,replyTo);
+ };
+ return client;
+}
 
 // ─── Test helpers ───────────────────────────────────────────────
 
@@ -260,19 +276,17 @@ describe("Relay URL Validation", () => {
 
 describe("Social Client", () => {
   it("createSocialClient throws on HTTP relay URL", async () => {
-    const { createSocialClient } = await import("../social/client.js");
     const { privateKeyToAccount } = await import("viem/accounts");
     const account = privateKeyToAccount(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     );
 
-    expect(() => createSocialClient("http://relay.example.com", account)).toThrow(
+    expect(() => runtimeSocialClient("http://relay.example.com", account)).toThrow(
       "Relay URL must use HTTPS",
     );
   });
 
   it("send() calls signing module and validates message", async () => {
-    const { createSocialClient } = await import("../social/client.js");
     const { privateKeyToAccount } = await import("viem/accounts");
     const account = privateKeyToAccount(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -285,7 +299,7 @@ describe("Social Client", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const client = createSocialClient("https://relay.example.com", account);
+    const client = reviewedSocialFixture("https://relay.example.com", account);
     const result = await client.send(
       "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
       "Test message",
@@ -302,7 +316,6 @@ describe("Social Client", () => {
   });
 
   it("unreadCount() throws on HTTP error (not returns 0)", async () => {
-    const { createSocialClient } = await import("../social/client.js");
     const { privateKeyToAccount } = await import("viem/accounts");
     const account = privateKeyToAccount(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -316,14 +329,13 @@ describe("Social Client", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const client = createSocialClient("https://relay.example.com", account);
+    const client = reviewedSocialFixture("https://relay.example.com", account);
     await expect(client.unreadCount()).rejects.toThrow("Unread count failed");
 
     vi.unstubAllGlobals();
   });
 
   it("rate limiting: 101st message in hour is rejected", async () => {
-    const { createSocialClient } = await import("../social/client.js");
     const { privateKeyToAccount } = await import("viem/accounts");
     const account = privateKeyToAccount(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -335,7 +347,7 @@ describe("Social Client", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const client = createSocialClient("https://relay.example.com", account);
+    const client = reviewedSocialFixture("https://relay.example.com", account);
 
     // Send 100 messages successfully
     for (let i = 0; i < 100; i++) {
@@ -354,7 +366,6 @@ describe("Social Client", () => {
   });
 
   it("rate limiting: failed sends count toward the hourly limit", async () => {
-    const { createSocialClient } = await import("../social/client.js");
     const { privateKeyToAccount } = await import("viem/accounts");
     const account = privateKeyToAccount(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -369,7 +380,7 @@ describe("Social Client", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const client = createSocialClient("https://relay.example.com", account);
+    const client = reviewedSocialFixture("https://relay.example.com", account);
 
     // Send 100 messages that all fail with 500
     for (let i = 0; i < 100; i++) {

@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-19",
+  "scope": "Historical download cancellation, research lease renewal and truthful job outcomes",
+  "activation": "Loaded by explicitly authorized maintenance restart on 2026-10-19T15:11:10.188Z. Numaron was already confirmed OFF before restart and remains OFF for Patrice to activate personally.",
+  "evidence": {
+    "productionHistoryTask": "adaptive-history-1991572",
+    "queuedAt": "2026-10-19T13:06:44.000Z",
+    "runningAt": "2026-10-19T13:08:26.968Z",
+    "incorrectDoneAt": "2026-10-19T13:08:42.981Z",
+    "reportedBlocker": "Source request aborted",
+    "bitfinexImportJob": "7fadb2d9553e0035442cb7c93dd053078b85ea0a268a0225fef49a03cc84f065",
+    "incorrectImportStatus": "running with no research lease and no imported dataset",
+    "requestDeadlineMsUnchanged": 60000,
+    "controllerDeadlineMsUnchanged": 120000,
+    "leaseTtlMsUnchanged": 5000,
+    "isolatedReproduction": "Advancing the checkpoint clock by 16 seconds while the same worker still owns its five-second lease reproduces the failure; delaying the heartbeat while a fake download is pending reproduces the abort route.",
+    "runtimeUncertainty": "Historical diagnostics did not retain the abort origin or event-loop delay. The lease-expiry failure is reproduced and consistent with the recorded 16-second run; the exact production scheduling delay cannot be reconstructed from the old generic error alone."
+  },
+  "changes": [
+    {
+      "file": "src/revenue/long-history/store.ts",
+      "description": "Atomically renew only a lease still owned by the worker, retaining five-second TTL. Conditional job completion checks job ownership. Reconcile orphaned running jobs only after acquiring the exclusive research lease; never overwrite another worker's new job."
+    },
+    {
+      "file": "src/revenue/long-history/download.ts",
+      "description": "Distinguish source_timeout at the existing 60-second deadline from source_aborted by the parent. Existing allowlist, DNS pinning, TLS, redirect and size safeguards unchanged."
+    },
+    {
+      "file": "src/revenue/long-history/runner.ts",
+      "description": "Renew owned lease before checkpoints and in heartbeat. Preserve lease-loss cause. Close interrupted import/research jobs. Return explicit checked, failed, cancelled, waiting-capacity or not-run outcomes. Retry transient free imports only on existing scheduler ticks, at most three recorded attempts per source/day. Preserve completed imports and phase evidence."
+    },
+    {
+      "file": "scripts/founder-learning.mjs",
+      "description": "Accept checked only for an explicit successful runner outcome. Propagate failed, cancelled, not-run and missing outcomes instead of reporting checked; release the shared research lease on every exit."
+    }
+  ],
+  "verification": {
+    "historyCasesPassed": 64,
+    "nodeIntegrationCasesPassed": 24,
+    "typecheck": "tsc --noEmit completed without errors",
+    "fixtures": "Temporary isolated files/databases, fake download callbacks, fake clocks and zero-cost budget doubles only",
+    "externalProviderCallsByMaintenance": 0,
+    "coverage": [
+      "Delayed checkpoint and delayed heartbeat retain a still-owned lease",
+      "A replacement owner prevents committing output",
+      "Parent cancellation closes the job without inventing reports",
+      "A later controller grant can recover an interrupted import",
+      "Orphan reconciliation requires exclusive ownership",
+      "Transient retries stop after three attempts",
+      "Sixty-second source timeout differs from parent cancellation",
+      "Actual controller records failed research as failed instead of done",
+      "Existing Bitfinex OHLC, reference simulations, registration and stored phase outcomes remain covered"
+    ]
+  },
+  "preservation": {
+    "productionBudgetsModified": false,
+    "productionReservationsModified": false,
+    "reservedRappenAtLatestRead": 550,
+    "numaronEnabledAtLatestRead": true,
+    "powerRevisionAtLatestRead": 74,
+    "ledgerIdentityClaimed": false,
+    "note": "Autonomous production ledger activity continued; maintenance did not open production databases for writing."
+  },
+  "remaining": [
+    "Orphaned jobs will be reconciled on the next existing research scheduler grant after Patrice personally starts Numaron",
+    "Successful productive Bitfinex import and simulations still require readback after that start"
+  ],
+  "restartVerification": {
+    "readback": "artifacts/runtime-blocker-repair-20261019/bitfinex-abort-restart-readback.json",
+    "budgetUnchanged": true,
+    "budgetDigest": "18de14da4966db0a697cba17c6d31267a7e4f31a0c19f1cf12575620660ca87a",
+    "reservedRappen": 550,
+    "powerEnabled": false,
+    "activeJobs": 0,
+    "providerProbes": 0
+  }
+}

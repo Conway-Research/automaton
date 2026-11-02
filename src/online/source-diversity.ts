@@ -224,3 +224,4 @@ export async function collectReviewedDiverseSources(db:Database,topic:string,sig
  admission(db);for(const report of reports)admission(db,report.sourceId);
  return {reports,signals:reports.flatMap(r=>r.signals).slice(0,8),verifiedDemand:false,verifiedRevenue:false,liveReady:false,productionAccepted:false};
 }
+

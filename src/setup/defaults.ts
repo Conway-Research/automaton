@@ -1,3 +1,4 @@
+import os from "node:os";
 import fs from "fs";
 import path from "path";
 
@@ -113,7 +114,7 @@ const DEFAULT_SKILLS: { dir: string; content: string }[] = [
 
 export function installDefaultSkills(skillsDir: string): void {
   const resolved = skillsDir.startsWith("~")
-    ? path.join(process.env.HOME || "/root", skillsDir.slice(1))
+    ? path.join(process.env.HOME || os.homedir(), skillsDir.slice(1))
     : skillsDir;
 
   for (const skill of DEFAULT_SKILLS) {

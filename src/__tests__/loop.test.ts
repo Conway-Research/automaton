@@ -7,6 +7,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { runAgentLoop } from "../agent/loop.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
+import {ResearchDispatcher} from '../orchestration/research-dispatch.js';
+import {configureResearchDispatch} from '../revenue/research-handoff.js';
 import {
   MockInferenceClient,
   MockConwayClient,
@@ -18,6 +20,17 @@ import {
   noToolResponse,
 } from "./mocks.js";
 import type { AutomatonDatabase, AgentTurn, AgentState } from "../types.js";
+
+// Loop tests exercise scheduling and persistence, not public blockchain RPC.
+vi.mock("../conway/x402.js", async (original) => ({
+  ...await original<typeof import("../conway/x402.js")>(),
+  getUsdcBalance: vi.fn(async () => 0),
+}));
+vi.mock("../registry/discovery.js", async (original) => ({
+  ...await original<typeof import("../registry/discovery.js")>(),
+  discoverAgents: vi.fn(async () => []),
+  searchAgents: vi.fn(async () => []),
+}));
 
 describe("Agent Loop", () => {
   let db: AutomatonDatabase;
@@ -68,6 +81,49 @@ describe("Agent Loop", () => {
     // Verify conway.exec was called
     expect(conway.execCalls.length).toBeGreaterThanOrEqual(1);
     expect(conway.execCalls[0].command).toBe("echo hello");
+  });
+
+  it('wires opt-in research dispatch and pauses persisted running state before scheduling',async()=>{
+    configureResearchDispatch(db.raw,1);
+    const pool={spawn:vi.fn(),shutdown:vi.fn(async()=>{})};
+    await new ResearchDispatcher(db.raw,pool).control('running');
+    vi.spyOn(Orchestrator.prototype,'tick').mockResolvedValue({phase:'idle',tasksAssigned:0,tasksCompleted:0,tasksFailed:0,goalsActive:0,agentsActive:0});
+    const tick=vi.spyOn(ResearchDispatcher.prototype,'tick');
+    await runAgentLoop({identity,config:createTestConfig({maxTurnsPerCycle:1}),db,conway,inference:new MockInferenceClient([noToolResponse('Fixture only')])});
+    expect(tick).toHaveBeenCalled();
+    expect(db.raw.prepare('SELECT state FROM obolus_dispatch_control WHERE id=1').get()).toEqual({state:'paused'});
+    expect(JSON.parse(db.getKV('research_dispatch.last_tick')!)).toEqual({reason:'not_running'});
+    expect(pool.spawn).not.toHaveBeenCalled();
+  });
+
+  it('stops after one ambiguous provider attempt and blocks wakeups until cost reconciliation',async()=>{
+    vi.spyOn(Orchestrator.prototype,'tick').mockResolvedValue({phase:'idle',tasksAssigned:0,tasksCompleted:0,tasksFailed:0,goalsActive:0,agentsActive:0});
+    const inference=new MockInferenceClient([]);
+    const call=vi.spyOn(inference,'chat').mockRejectedValue(new Error('Fixture uncertain provider result'));
+    await runAgentLoop({identity,config,db,conway,inference});
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(db.getKV('inference.requires_reconciliation')).toBe('true');
+    expect(db.raw.prepare("SELECT COUNT(*) n FROM inference_reservations WHERE status='pending'").get()).toEqual({n:1});
+    db.setKV('sleep_until','2000-01-01T00:00:00Z');
+    await runAgentLoop({identity,config,db,conway,inference});
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(db.getAgentState()).toBe('sleeping');
+  });
+
+  it("keeps economic creation productive and exposes an open mission agenda", async () => {
+    const responses = Array.from({length: 12}, (_, i) => i % 2 === 0
+      ? toolCallResponse([{name:"revenue_create_opportunity",arguments:{name:`Specialist archive service ${i}`}}])
+      : toolCallResponse([{name:"revenue_get_snapshot",arguments:{}}]));
+    const turns: AgentTurn[] = [];
+    const inference = new MockInferenceClient(responses);
+    await runAgentLoop({identity, config:createTestConfig({maxTurnsPerCycle:12}), db, conway,
+      inference, onTurnComplete:turn=>turns.push(turn)});
+    expect(turns).toHaveLength(12);
+    const snapshot = turns.flatMap(t=>t.toolCalls).find(t=>t.name==="revenue_get_snapshot");
+    expect(snapshot?.error).toBeUndefined();
+    expect(JSON.parse(snapshot!.result).mission_agenda.actions[0].action).toBe("screen");
+    expect(db.raw.prepare("SELECT COUNT(*) n FROM revenue_opportunities").get()).toEqual({n:6});
+    expect(inference.calls.some(c=>c.messages.some(m=>m.content?.includes("Economic agenda (decision support")))).toBe(true);
   });
 
   it("forbidden patterns blocked", async () => {

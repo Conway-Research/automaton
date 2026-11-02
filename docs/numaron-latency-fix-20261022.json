@@ -1,0 +1,18 @@
+{
+  "schema": "numaron-latency-fix-v1",
+  "at": "2026-10-22T21:49:20.471Z",
+  "report": "artifacts/latency-cause-20261022/REPORT.md",
+  "source": "scripts/founder-outreach-transports.mjs",
+  "sourceSha256": "635276b09e10c6b72aea9331636cd39b4790b727e040fc82fa7779cd20df55a4",
+  "testFile": "scripts/founder-outreach-stalled-body.test.mjs",
+  "testsPassed": 44,
+  "status": "loaded-verified-off",
+  "runtimePidObserved": 50976,
+  "powerRevisionObserved": 101,
+  "productionRestarted": true,
+  "providerCalls": 0,
+  "budgetsChanged": false,
+  "uncertainRunningTasksMustNotBeReplayed": true,
+  "activationReport": "artifacts/maintenance-latency-20261023/REPORT.md",
+  "activationTestsPassed": 52
+}

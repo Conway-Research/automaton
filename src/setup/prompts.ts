@@ -92,8 +92,8 @@ export async function promptAddress(label: string, chainType?: string): Promise<
 export async function promptWithDefault(label: string, defaultValue: number): Promise<number> {
   const input = await ask(chalk.white(`  → ${label} [${defaultValue}]: `));
   if (!input || input.trim() === "") return defaultValue;
-  const parsed = parseInt(input, 10);
-  if (isNaN(parsed) || parsed < 0) {
+  const parsed = /^\d+$/.test(input) ? Number(input) : NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
     console.log(chalk.yellow(`  Invalid input, using default: ${defaultValue}`));
     return defaultValue;
   }

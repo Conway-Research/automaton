@@ -1,5 +1,8 @@
 import OpenAI from "openai";
+import {assertNoKnownSecrets} from '../observability/redaction.js';
+import {assertModelPrivacy} from '../security/privacy-egress.js';
 import type { ChatMessage } from "../types.js";
+import { STATIC_MODEL_BASELINE } from "./types.js";
 import {
   ProviderRegistry,
   type ModelTier,
@@ -16,6 +19,7 @@ export interface UnifiedInferenceResult {
   content: string;
   toolCalls?: unknown[];
   usage: {
+    cachedInputTokens?: number;
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
@@ -36,6 +40,9 @@ export interface UnifiedInferenceResult {
 }
 
 interface SharedChatParams {
+  signal?: AbortSignal;
+  /** A router reservation authorizes exactly one billable attempt. */
+  singleAttempt?: boolean;
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
@@ -148,6 +155,10 @@ export class UnifiedInferenceClient {
   }
 
   async chatDirect(params: UnifiedChatDirectParams): Promise<UnifiedInferenceResult> {
+    params.signal?.throwIfAborted();
+    if (params.singleAttempt && params.stream) {
+      throw new Error("Reserved streaming requires a verified final usage record; use non-streaming");
+    }
     if (this.isProviderCircuitOpen(params.providerId)) {
       throw new Error(`Provider '${params.providerId}' circuit is open`);
     }
@@ -195,7 +206,7 @@ export class UnifiedInferenceClient {
         return { result, retries };
       } catch (error) {
         const retryable = this.isRetryableError(error);
-        if (!retryable) {
+        if (!retryable || params.singleAttempt || params.signal?.aborted) {
           throw new ProviderAttemptError({
             providerId: resolved.provider.id,
             retries,
@@ -229,11 +240,13 @@ export class UnifiedInferenceClient {
   ): Promise<UnifiedInferenceResult> {
     const startedAt = Date.now();
     const payload = this.buildChatCompletionRequest(model.id, params);
+    assertNoKnownSecrets(payload);
+    assertModelPrivacy(payload,providerId==='local');
     if (params.stream) {
       const stream = await client.chat.completions.create({
         ...payload,
         stream: true,
-      } as any);
+      } as any, { signal: params.signal, maxRetries: 0 });
       const streamed = await this.consumeStreamResponse(stream as any);
       return this.buildUnifiedResult({
         providerId,
@@ -249,9 +262,15 @@ export class UnifiedInferenceClient {
     const completion = await client.chat.completions.create({
       ...payload,
       stream: false,
-    } as any);
+    } as any, { signal: params.signal, maxRetries: 0 });
 
     const choice = (completion as any).choices?.[0];
+    if (params.singleAttempt && (!Number.isSafeInteger((completion as any).usage?.prompt_tokens) ||
+        (completion as any).usage.prompt_tokens < 0 ||
+        !Number.isSafeInteger((completion as any).usage?.completion_tokens) ||
+        (completion as any).usage.completion_tokens < 0)) {
+      throw new Error("Missing or invalid billable usage; reservation must remain pending");
+    }
     if (!choice?.message) {
       throw new Error(`No completion choice returned from provider '${providerId}'`);
     }
@@ -264,6 +283,10 @@ export class UnifiedInferenceClient {
       content: extractText(choice.message.content),
       toolCalls: normalizeToolCalls(choice.message.tool_calls),
       usage: {
+        cachedInputTokens: Number.isSafeInteger((completion as any).usage?.prompt_tokens_details?.cached_tokens)&&
+          (completion as any).usage.prompt_tokens_details.cached_tokens>=0&&
+          (completion as any).usage.prompt_tokens_details.cached_tokens<=(completion as any).usage.prompt_tokens?
+          (completion as any).usage.prompt_tokens_details.cached_tokens:undefined,
         inputTokens: (completion as any).usage?.prompt_tokens ?? 0,
         outputTokens: (completion as any).usage?.completion_tokens ?? 0,
         totalTokens: (completion as any).usage?.total_tokens ?? 0,
@@ -288,7 +311,8 @@ export class UnifiedInferenceClient {
     }
 
     if (params.maxTokens !== undefined) {
-      payload.max_tokens = params.maxTokens;
+      const parameter = STATIC_MODEL_BASELINE.find(model => model.modelId === modelId)?.parameterStyle ?? "max_tokens";
+      payload[parameter] = params.maxTokens;
     }
 
     if (params.tools && params.tools.length > 0) {
@@ -381,6 +405,7 @@ export class UnifiedInferenceClient {
     content: string;
     toolCalls?: unknown[];
     usage: {
+      cachedInputTokens?: number;
       inputTokens: number;
       outputTokens: number;
       totalTokens: number;

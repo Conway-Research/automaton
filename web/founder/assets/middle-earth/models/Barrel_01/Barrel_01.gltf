@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "Barrel_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Barrel_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "Barrel_01_explosive_nor_gl",
+      "uri": "textures/Barrel_01_explosive_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "Barrel_01_explosive_diff",
+      "uri": "textures/Barrel_01_explosive_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "Barrel_01_explosive_metallic-Barrel_01_explosive_roughness",
+      "uri": "textures/Barrel_01_explosive_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 2052,
+      "max": [
+        0.28151753544807434,
+        0.8733857274055481,
+        0.28151771426200867
+      ],
+      "min": [
+        -0.2815175950527191,
+        -0.006614277604967356,
+        -0.28151750564575195
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 2052,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 2052,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 8046,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 24624,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 24624,
+      "byteOffset": 24624
+    },
+    {
+      "buffer": 0,
+      "byteLength": 16416,
+      "byteOffset": 49248
+    },
+    {
+      "buffer": 0,
+      "byteLength": 16092,
+      "byteOffset": 65664
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 81756,
+      "uri": "Barrel_01.bin"
+    }
+  ]
+}

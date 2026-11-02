@@ -144,6 +144,34 @@ def read_day_history(m,window,offset,now_ms,binding=None):
   previous=result.get('reasonCode')
 
 
+CRYPTO_SCAN_SYMBOLS=frozenset(['BTCUSD','BTCEUR','ETHUSD','ETHEUR','LTCUSD','LTCEUR',
+ 'XRPUSD','XRPEUR','BCHUSD','BCHEUR','ADAUSD','DOTUSD','DGEUSD','LNKUSD','SOLUSD','UNIUSD','XLMUSD'])
+
+def select_scan(m,universe,start,server,mode,clock):
+ """Demo-only priority reads. Eligibility and order gates remain independent."""
+ start=start%len(universe) if universe else 0
+ priority=[];catalog=[]
+ if server=='AdmiralsGroup-Demo' and mode==0 and clock is not None:
+  now=time.time();offset=clock['offsetSeconds']
+  for s in universe:
+   if s.name not in CRYPTO_SCAN_SYMBOLS and not str(getattr(s,'path','')).lower().startswith('cryptocurrencies\\'):continue
+   item={'symbol':s.name,'tradeMode':s.trade_mode,'reason':None};catalog.append(item)
+   if not s.visible:item['reason']='Market subscription unavailable';continue
+   if s.trade_mode!=getattr(m,'SYMBOL_TRADE_MODE_FULL',4):item['reason']='Trading restricted';continue
+   tick=m.symbol_info_tick(s.name)
+   if tick is None or not all(isinstance(getattr(tick,k,None),(int,float)) and math.isfinite(getattr(tick,k)) for k in ['time_msc','bid','ask']):item['reason']='Invalid quote';continue
+   if not -1<=now-tick.time_msc/1000+offset<=15 or not 0<tick.bid<=tick.ask:item['reason']='Fresh quote unavailable';continue
+   priority.append(s)
+  # Rotate the priority window too if the broker adds more than ten eligible products.
+  if len(priority)>10:
+   cursor=(start//40)%len(priority);priority=(priority[cursor:]+priority[:cursor])[:10]
+ width=40 if priority else 50
+ rotating=universe[start:start+width]
+ selected=[];seen=set()
+ for s in priority+list(rotating):
+  if s.name not in seen:selected.append(s);seen.add(s.name)
+ return selected,(start+len(rotating))%len(universe) if universe else 0,{'cryptoPriority':bool(priority),'prioritySymbols':[s.name for s in priority],'cryptoUniverse':catalog,'rotationProducts':len(rotating),'maxProducts':50}
+
 def collect_market(m,terminal,login,server,start=0,watch=(),day_window=None):
  if not m.initialize(terminal,timeout=10000):raise RuntimeError('MT5 initialization failed')
  try:
@@ -151,16 +179,18 @@ def collect_market(m,terminal,login,server,start=0,watch=(),day_window=None):
   if a is None or t is None or not t.connected or a.login!=login or a.server!=server:raise RuntimeError('Connected account mismatch')
   universe=m.symbols_get();positions=m.positions_get();orders=m.orders_get()
   if universe is None or positions is None or orders is None:raise RuntimeError('Incomplete account observation')
-  clock=_clock_module.verify_clock(_clock_module.sample_clock(m,[s for s in universe if s.visible],sample_interval=.4),server)
+  clock=_clock_module.read_clock(m,[s for s in universe if s.visible],server,sample_interval=.4)
   offset=clock['offsetSeconds'] if clock else 0
-  rows=[];start=start%len(universe) if universe else 0
-  for s in universe[start:start+50]:
+  selected,next_start,scan=select_scan(m,universe,start,server,getattr(a,'trade_mode',None),clock)
+  rows=[]
+  for s in selected:
    reasons=[]
    if not s.visible and not m.symbol_select(s.name,True):reasons.append('Market subscription unavailable')
    tick=m.symbol_info_tick(s.name)
-   if tick is None or (server=='AdmiralsGroup-Live' and clock is None) or not -1<=time.time()-tick.time_msc/1000+offset<=15:reasons.append('Fresh quote unavailable')
+   if tick is None or (server in _clock_module.BROKER_CLOCK_SERVERS and clock is None) or not -1<=time.time()-tick.time_msc/1000+offset<=15:reasons.append('Fresh quote unavailable')
    if s.trade_mode!=getattr(m,'SYMBOL_TRADE_MODE_FULL',4):reasons.append('Trading restricted')
-   bars=m.copy_rates_from_pos(s.name,m.TIMEFRAME_M5,1,100) if not reasons else None
+   history_requested=not reasons
+   bars=m.copy_rates_from_pos(s.name,m.TIMEFRAME_M5,1,100) if history_requested else None
    if bars is None or len(bars)<100:reasons.append('History unavailable')
    # All current research entries use breakout20. Query tick history only once
    # a necessary breakout condition holds; every actual entry still needs proof.
@@ -172,7 +202,8 @@ def collect_market(m,terminal,login,server,start=0,watch=(),day_window=None):
    if continuity is not None and not continuity['eligible']:reasons.append('Research quote continuity unavailable: '+str(continuity['reason']))
    rows.append({'symbol':s.name,'contractKind':str(getattr(s,'trade_calc_mode','unknown')),'capability':not reasons,'reasons':reasons,'bid':getattr(tick,'bid',None),'ask':getattr(tick,'ask',None),'quoteAt':getattr(tick,'time_msc',0)-offset*1000,'rawQuoteAt':getattr(tick,'time_msc',0),'clockOffsetSeconds':offset,'closedBars':[] if bars is None else [{**{k:float(b[k]) for k in ['open','high','low','close']},'time':float(b['time'])-offset,'rawTime':float(b['time'])} for b in bars],'volumeMin':s.volume_min,'volumeMax':s.volume_max,'volumeStep':s.volume_step,'stopDistance':s.trade_stops_level*s.point,'costEvidence':None,'costTerms':read_cost_terms(s)})
    rows[-1]['researchQuoteCoverage']=continuity
-  watch_quotes=read_watch_quotes(m,watch,offset) if clock or server!='AdmiralsGroup-Live' else []
+   rows[-1]['historyRead']={'requested':history_requested,'receivedBars':None if bars is None else len(bars)}
+  watch_quotes=read_watch_quotes(m,watch,offset) if clock or server not in _clock_module.BROKER_CLOCK_SERVERS else []
   end=m.account_info()
   if end is None or end.login!=login or end.server!=server:raise RuntimeError('Account changed')
   day_history=read_day_history(m,day_window,offset,int(time.time()*1000),{'account':str(login),'server':server}) if day_window else None
@@ -181,7 +212,7 @@ def collect_market(m,terminal,login,server,start=0,watch=(),day_window=None):
   stable=m.account_info()
   if stable is None or stable.login!=login or stable.server!=server or stable.balance!=end.balance or stable.equity!=end.equity:day_history={'complete':False,'windowVerified':False,'cashFlows':None,'reason':'Account changed during history read.'}
   fields=lambda x,n:{k:getattr(x,k) for k in n}
-  return {'schemaVersion':1,'clockProof':clock,'readOnly':True,'executionEnabled':False,'account':{'identity':str(login),'server':server,'company':getattr(end,'company',None),'currency':end.currency,'equity':end.equity,'balance':end.balance,'profit':end.profit,'credit':end.credit,'freeMargin':end.margin_free,'mode':end.trade_mode,'observedAt':int(time.time()*1000)},'instruments':rows,'positions':[fields(p,['ticket','symbol','type','volume','price_open','sl','tp','profit','magic']) for p in positions],'orders':[fields(o,['ticket','symbol','type','volume_current','price_open','sl','tp','magic']) for o in orders],'cashFlows':day_history['cashFlows'] if day_history and day_history.get('windowVerified') else None,'flowWindow':day_window,'dayHistory':day_history,'watchQuotes':watch_quotes,'totalProducts':len(universe),'nextStart':(start+len(rows))%len(universe) if universe else 0}
+  return {'schemaVersion':1,'clockProof':clock,'scan':scan,'readOnly':True,'executionEnabled':False,'account':{'identity':str(login),'server':server,'company':getattr(end,'company',None),'currency':end.currency,'equity':end.equity,'balance':end.balance,'profit':end.profit,'credit':end.credit,'freeMargin':end.margin_free,'mode':end.trade_mode,'observedAt':int(time.time()*1000)},'instruments':rows,'positions':[fields(p,['ticket','symbol','type','volume','price_open','sl','tp','profit','magic']) for p in positions],'orders':[fields(o,['ticket','symbol','type','volume_current','price_open','sl','tp','magic']) for o in orders],'cashFlows':day_history['cashFlows'] if day_history and day_history.get('windowVerified') else None,'flowWindow':day_window,'dayHistory':day_history,'watchQuotes':watch_quotes,'totalProducts':len(universe),'nextStart':next_start}
  finally:m.shutdown()
 
 # The callable execution boundary is not exposed as a CLI command.

@@ -1,6 +1,8 @@
 node_modules
 dist
 .env
+.env.local
+/artifacts/founder-integration-20261012/*billing*.json
 *.log
 .DS_Store
 *.db
@@ -11,3 +13,8 @@ dist
 .automaton/wallet.json
 .automaton/state.db
 
+# Local simulation ledgers are persistent runtime data, never source artifacts.
+/aureus-v1-data/
+/aureus-online-data/
+/obolus-online-data/
+/obolus-v1-data/

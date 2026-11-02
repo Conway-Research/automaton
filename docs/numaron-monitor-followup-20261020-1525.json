@@ -1,0 +1,43 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "checkedAt": "2026-10-20T13:24:47.355Z",
+  "regularRun": {
+    "id": "2026-10-20T13-15-23-273Z-def3b054",
+    "completedAt": "2026-10-20T13:17:27.151Z",
+    "rows": 36,
+    "succeeded": 34,
+    "http404": ["github-scaffold-studio-hq-scaffold-studio-mcp-134", "github-scaffold-studio-hq-scaffold-studio-mcp-138"]
+  },
+  "responses": {
+    "ugigCheckedAt": "2026-10-20T13:17:20.966Z",
+    "applicationsComplete": true,
+    "applications": 14,
+    "application450USD": "pending",
+    "application100USD": "pending",
+    "application90USD": "pending",
+    "application50USD": "pending",
+    "incomingLatestMessages": 0,
+    "unreadCounts": [0,0,0,0],
+    "gmailOrderSearchResultSizeEstimate": 0,
+    "dealworkContracts": 0
+  },
+  "screening": {
+    "newApplications": 0,
+    "ugigActiveListings": 1,
+    "ugigReason": "Only current listing is explicitly unpaid volunteer work; not a paid-order candidate",
+    "synmercoActiveIntents": 6,
+    "synmercoReason": "Promotional/referral jobs require verified publishing/community access, audience counts, third-party agent onboarding or seven-day retention and job occupancy. Current read-only evidence does not establish those delivery prerequisites. No new accounts, publishing, referrals or duplicate bids initiated.",
+    "arcbountyCount": 0,
+    "bidpostloopCount": 0,
+    "guru": "Existing monitor access gap remains; no unsupported live-check claim"
+  },
+  "operation": {
+    "confirmedOn": true,
+    "powerRevision": 82,
+    "servicePid": 52172,
+    "extraMonitorRunsStarted": 0,
+    "productionPowerActions": 0,
+    "restarts": 0,
+    "budgetOrProtectionChanges": 0
+  }
+}

@@ -1,0 +1,404 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "extensionsUsed": [
+    "KHR_materials_transmission"
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "lantern_chandelier_01",
+      "scale": [
+        0.686111569404602,
+        0.686111569404602,
+        0.686111569404602
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "lantern_chandelier_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "alphaMode": "BLEND",
+      "doubleSided": true,
+      "extensions": {
+        "KHR_materials_transmission": {
+          "transmissionFactor": 1,
+          "transmissionTexture": {
+            "index": 3
+          }
+        }
+      },
+      "name": "lantern_chandelier_01_glass",
+      "normalTexture": {
+        "index": 4
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 5
+        },
+        "metallicRoughnessTexture": {
+          "index": 6
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "emissiveFactor": [
+        1,
+        0.7282659411430359,
+        0.4313444495201111
+      ],
+      "name": "lantern_chandelier_01_lamp",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.8000000715255737,
+          0.7333472371101379,
+          0.5533292889595032,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.1664227843284607
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TEXCOORD_1": 3
+          },
+          "indices": 4,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 5,
+            "NORMAL": 6,
+            "TEXCOORD_0": 7,
+            "TEXCOORD_1": 8
+          },
+          "indices": 9,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 10,
+            "NORMAL": 11,
+            "TEXCOORD_0": 12,
+            "TEXCOORD_1": 13
+          },
+          "indices": 14,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    },
+    {
+      "sampler": 0,
+      "source": 6
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_01_nor_gl",
+      "uri": "textures/lantern_chandelier_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_01_diff",
+      "uri": "textures/lantern_chandelier_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_01_metal-lantern_chandelier_01_rough",
+      "uri": "textures/lantern_chandelier_01_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_glass_01_alpha",
+      "uri": "textures/lantern_chandelier_01_glass_alpha_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_glass_01_nor_gl",
+      "uri": "textures/lantern_chandelier_01_glass_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_glass_01_diff",
+      "uri": "textures/lantern_chandelier_01_glass_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "lantern_chandelier_glass_01_metal-lantern_chandelier_glass_01_rough",
+      "uri": "textures/lantern_chandelier_01_glass_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 5566,
+      "max": [
+        0.4282068610191345,
+        0.017969727516174316,
+        0.4188120663166046
+      ],
+      "min": [
+        -0.4159274101257324,
+        -1.2611048221588135,
+        -0.4187144637107849
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 5566,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 5566,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 5566,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5123,
+      "count": 17277,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 20,
+      "max": [
+        0.3263380229473114,
+        -0.771004319190979,
+        0.374904066324234
+      ],
+      "min": [
+        -0.3811676502227783,
+        -1.139709234237671,
+        -0.3689880967140198
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 20,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 20,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 20,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5123,
+      "count": 30,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 127,
+      "max": [
+        0.06969759613275528,
+        -0.673557698726654,
+        0.0675128772854805
+      ],
+      "min": [
+        -0.06818835437297821,
+        -0.830290675163269,
+        -0.07037296146154404
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 127,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 127,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 127,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5123,
+      "count": 606,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 66792,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 66792,
+      "byteOffset": 66792
+    },
+    {
+      "buffer": 0,
+      "byteLength": 44528,
+      "byteOffset": 133584
+    },
+    {
+      "buffer": 0,
+      "byteLength": 44528,
+      "byteOffset": 178112
+    },
+    {
+      "buffer": 0,
+      "byteLength": 34554,
+      "byteOffset": 222640
+    },
+    {
+      "buffer": 0,
+      "byteLength": 240,
+      "byteOffset": 257196
+    },
+    {
+      "buffer": 0,
+      "byteLength": 240,
+      "byteOffset": 257436
+    },
+    {
+      "buffer": 0,
+      "byteLength": 160,
+      "byteOffset": 257676
+    },
+    {
+      "buffer": 0,
+      "byteLength": 160,
+      "byteOffset": 257836
+    },
+    {
+      "buffer": 0,
+      "byteLength": 60,
+      "byteOffset": 257996
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1524,
+      "byteOffset": 258056
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1524,
+      "byteOffset": 259580
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1016,
+      "byteOffset": 261104
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1016,
+      "byteOffset": 262120
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 263136
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 264348,
+      "uri": "lantern_chandelier_01.bin"
+    }
+  ]
+}

@@ -7,6 +7,10 @@ import type { MessageTransport } from "../../orchestration/messaging.js";
 import { ColonyMessaging } from "../../orchestration/messaging.js";
 import type { AutomatonDatabase } from "../../types.js";
 import { createInMemoryDb } from "./test-db.js";
+import {InferenceAdmissionError,InferenceExecutionUncertainError} from '../../agent/harness-types.js';
+import type {PlanReviewer} from '../../orchestration/plan-mode.js';
+import {buildPlannerContext} from '../../orchestration/planner-context.js';
+import {buildPlannerPrompt} from '../../orchestration/planner.js';
 
 // ─── Fixtures ───────────────────────────────────────────────────
 
@@ -78,6 +82,8 @@ function makeOrchestrator(
     inference?: ReturnType<typeof makeInference>;
     config?: any;
     messaging?: ColonyMessaging;
+    isWorkerAlive?: (address:string)=>boolean;
+    planReviewer?:PlanReviewer;
   } = {},
 ): Orchestrator {
   const { messaging } = makeMessaging(db);
@@ -89,6 +95,8 @@ function makeOrchestrator(
     inference: overrides.inference ?? (makeInference() as any),
     identity: IDENTITY,
     config: overrides.config ?? {},
+    isWorkerAlive: overrides.isWorkerAlive,
+    planReviewer:overrides.planReviewer,
   });
 }
 
@@ -174,6 +182,51 @@ describe("orchestration/Orchestrator", () => {
   });
 
   // ─── tick() phase transitions ────────────────────────────────
+  it.each(['classifying','planning','replanning'])('does not turn denied or uncertain %s into an executable fallback',async phase=>{
+    for(const ErrorType of [InferenceAdmissionError,InferenceExecutionUncertainError]){
+      const goalId=insertGoal(db),failedTaskId=phase==='replanning'?insertTask(db,{goalId,status:'failed'}):null;
+      setOrchestratorState(db,{phase,goalId,replanCount:0,failedTaskId,failedError:failedTaskId?'Fixture failure':null});
+      const inference=makeInference();inference.chat.mockRejectedValue(new ErrorType('Fixture admission or unresolved provider'));
+      const funding=makeFunding(),tracker=makeAgentTracker();
+      const before=(db.prepare('SELECT COUNT(*) n FROM task_graph').get() as {n:number}).n;
+      const result=await makeOrchestrator(db,{inference,funding,agentTracker:tracker}).tick();
+      expect(result.phase).toBe('failed');
+      expect(inference.chat).toHaveBeenCalledOnce();
+      expect((db.prepare('SELECT COUNT(*) n FROM task_graph').get() as {n:number}).n).toBe(before);
+      expect(funding.fundChild).not.toHaveBeenCalled();
+      expect(tracker.getBestForTask).not.toHaveBeenCalled();
+      expect(db.prepare('SELECT status FROM goals WHERE id=?').get(goalId)).toEqual({status:'failed'});
+    }
+  });
+  it('does not reset or reassign research claims through the legacy scheduler',async()=>{
+    const goalId=insertGoal(db);
+    const assigned=insertTask(db,{goalId,status:'assigned',assignedTo:'local://dead'});
+    const pending=insertTask(db,{goalId,status:'pending'});
+    db.exec('CREATE TABLE obolus_dispatched_tasks(task_id TEXT PRIMARY KEY)');
+    db.prepare('INSERT INTO obolus_dispatched_tasks VALUES(?)').run(assigned);
+    db.prepare('INSERT INTO obolus_dispatched_tasks VALUES(?)').run(pending);
+    setOrchestratorState(db,{phase:'executing',goalId,replanCount:0,failedTaskId:null,failedError:null});
+    const tracker=makeAgentTracker();
+    const orchestrator=makeOrchestrator(db,{agentTracker:tracker,isWorkerAlive:()=>false});
+    await orchestrator.tick();
+    expect(db.prepare('SELECT status,assigned_to FROM task_graph WHERE id=?').get(assigned)).toEqual({status:'assigned',assigned_to:'local://dead'});
+    expect(db.prepare('SELECT status FROM task_graph WHERE id=?').get(pending)).toEqual({status:'pending'});
+    expect(tracker.getBestForTask).not.toHaveBeenCalled();
+  });
+
+  it.each(['executing','replanning'])('does not replan research failures from persisted phase %s',async(phase)=>{
+    const goalId=insertGoal(db);
+    const taskId=insertTask(db,{goalId,status:'failed'});
+    db.exec('CREATE TABLE obolus_dispatched_tasks(task_id TEXT PRIMARY KEY)');
+    db.prepare('INSERT INTO obolus_dispatched_tasks VALUES(?)').run(taskId);
+    setOrchestratorState(db,{phase,goalId,replanCount:0,failedTaskId:taskId,failedError:'Uncertain execution'});
+    const inference=makeInference();
+    const result=await makeOrchestrator(db,{inference}).tick();
+    expect(result.phase).toBe('executing');
+    expect(inference.chat).not.toHaveBeenCalled();
+    expect(db.prepare('SELECT COUNT(*) n FROM task_graph').get()).toEqual({n:1});
+    expect(db.prepare('SELECT status FROM task_graph WHERE id=?').get(taskId)).toEqual({status:'failed'});
+  });
 
   describe("tick() phase transitions", () => {
     it("idle with no goals stays idle", async () => {
@@ -275,15 +328,15 @@ describe("orchestration/Orchestrator", () => {
       expect(result.phase).toBe("executing");
     });
 
-    it("plan_review with no plan in KV auto-advances to executing", async () => {
+    it("plan_review with no plan in KV fails closed", async () => {
       const goalId = insertGoal(db);
       insertTask(db, { goalId, title: "existing-task", description: "Do something" });
       setOrchestratorState(db, { phase: "plan_review", goalId, replanCount: 0, failedTaskId: null, failedError: null });
-      // No plan in KV — should skip review and go to executing
+      // Missing review evidence cannot authorize the existing task graph.
 
       const orc = makeOrchestrator(db);
       const result = await orc.tick();
-      expect(result.phase).toBe("executing");
+      expect(result.phase).toBe("failed");
     });
 
     it("complete phase resets to idle", async () => {
@@ -458,7 +511,7 @@ describe("orchestration/Orchestrator", () => {
       const funding = makeFunding();
       const orc = makeOrchestrator(db, { funding, config: { defaultTaskFundingCents: 25 } });
       await orc.fundAgentForTask("0xagent", makeTaskWithCost(goalId, 0));
-      expect(funding.fundChild).toHaveBeenCalledWith("0xagent", 25);
+      expect(funding.fundChild).toHaveBeenCalledWith("0xagent", 25,undefined);
     });
 
     it("skips funding when estimated amount and default are both 0", async () => {
@@ -484,37 +537,6 @@ describe("orchestration/Orchestrator", () => {
   // ─── collectResults ──────────────────────────────────────────
 
   describe("collectResults", () => {
-    function buildMessagingWithResults(
-      raw: BetterSqlite3.Database,
-      messages: Array<{ type: string; content: string }>,
-    ) {
-      const processedMessages = messages.map((msg) => ({
-        message: {
-          id: ulid(),
-          type: msg.type,
-          from: "0xagent",
-          to: "0x1234",
-          goalId: null,
-          taskId: null,
-          content: msg.content,
-          priority: "normal" as const,
-          requiresResponse: false,
-          expiresAt: null,
-          createdAt: new Date().toISOString(),
-        },
-        handledBy: "handleTaskResult",
-        success: true,
-      }));
-
-      const messaging = {
-        processInbox: vi.fn().mockResolvedValue(processedMessages),
-        createMessage: vi.fn().mockReturnValue({}),
-        send: vi.fn().mockResolvedValue(undefined),
-      } as unknown as ColonyMessaging;
-
-      return messaging;
-    }
-
     it("processes task_result messages from inbox", async () => {
       const goalId = insertGoal(db);
       const taskId = insertTask(db, { goalId });
@@ -601,6 +623,19 @@ describe("orchestration/Orchestrator", () => {
         },
       };
     }
+
+    it('does not retry a research failure even with a legacy retry allowance',async()=>{
+      const goalId=insertGoal(db),taskId=insertTask(db,{goalId,status:'running'});
+      db.exec('CREATE TABLE obolus_dispatched_tasks(task_id TEXT PRIMARY KEY)');
+      db.prepare('INSERT INTO obolus_dispatched_tasks VALUES(?)').run(taskId);
+      db.prepare('UPDATE task_graph SET max_retries=3 WHERE id=?').run(taskId);
+      setOrchestratorState(db,{phase:'executing',goalId,replanCount:0,failedTaskId:null,failedError:null});
+      const orc=makeOrchestrator(db);
+      await orc.handleFailure(makeTaskNode(goalId,taskId),'Ambiguous execution');
+      await orc.handleFailure(makeTaskNode(goalId,taskId),'Repeated event');
+      expect(db.prepare('SELECT status,retry_count FROM task_graph WHERE id=?').get(taskId)).toEqual({status:'failed',retry_count:0});
+      expect(getOrchestratorState(db)?.phase).toBe('executing');
+    });
 
     it("transitions to replanning when task permanently fails and replanCount < maxReplans", async () => {
       const goalId = insertGoal(db, { status: "active" });
@@ -691,35 +726,46 @@ describe("orchestration/Orchestrator", () => {
       expect(result.phase).toBe("executing");
     });
 
-    it("rejected plan (malformed/no tasks in plan) transitions to executing when KV missing", async () => {
+    it("missing persisted plan blocks execution", async () => {
       const goalId = insertGoal(db);
       insertTask(db, { goalId, title: "t1", description: "desc" });
-      // No plan in KV — handlePlanReviewPhase returns executing
+      // No plan in KV: no approval is inferred.
       setOrchestratorState(db, { phase: "plan_review", goalId, replanCount: 0, failedTaskId: null, failedError: null });
 
       const orc = makeOrchestrator(db);
       const result = await orc.tick();
-      expect(result.phase).toBe("executing");
+      expect(result.phase).toBe("failed");
     });
 
-    it("supervised mode stays in plan_review (awaiting human approval)", async () => {
+    it("over-threshold plans require bounded revision rather than automatic approval", async () => {
       const goalId = insertGoal(db);
       insertTask(db, { goalId, title: "t1", description: "desc" });
       storePlan(db, goalId);
       setOrchestratorState(db, { phase: "plan_review", goalId, replanCount: 0, failedTaskId: null, failedError: null });
 
-      // We need reviewPlan to throw "awaiting human approval". The orchestrator calls it with mode: "auto".
-      // To get supervised behavior we mock the plan-mode module.
-      // The simplest way: store a plan that will trigger the supervised path by mocking vi.mock at module level.
-      // Instead we test the error-catch path by making the orchestrator's handlePlanReviewPhase catch it:
-      // The orchestrator calls reviewPlan with mode:"auto". In auto mode it always approves.
-      // To test supervised mode catching, we verify the catch branch indirectly:
-      // inject a plan with a very high cost to ensure the auto-approve path runs.
       storePlan(db, goalId, { estimatedTotalCostCents: 9999 });
       const orc = makeOrchestrator(db);
       const result = await orc.tick();
-      // auto mode approves above threshold too, so we get executing
-      expect(result.phase).toBe("executing");
+      expect(result.phase).toBe("planning");
+      expect(getOrchestratorState(db)?.replanCount).toBe(1);
+      const context=await buildPlannerContext({db});
+      expect(context.reviewFeedback).toEqual([{goalId,feedback:expect.stringContaining('exceeds automatic review threshold')}]);
+      expect(buildPlannerPrompt(context)).toContain('exceeds automatic review threshold');
+      setOrchestratorState(db,{phase:'plan_review',goalId,replanCount:3,failedTaskId:null,failedError:null});
+      expect((await orc.tick()).phase).toBe('failed');
+    });
+    it('respects configured supervised review and invokes an installed consensus reviewer only when selected',async()=>{
+      const goalId=insertGoal(db);storePlan(db,goalId);
+      const state={phase:'plan_review',goalId,replanCount:0,failedTaskId:null,failedError:null};
+      setOrchestratorState(db,state);
+      const planApproval={mode:'supervised',autoBudgetThreshold:5000,consensusCriticRole:'critic',reviewTimeoutMs:1000};
+      const review=vi.fn(async({planDigest}:{planDigest:string})=>({planDigest,approved:true,blockers:[]}));
+      expect((await makeOrchestrator(db,{config:{planApproval},planReviewer:{review}}).tick()).phase).toBe('plan_review');
+      expect(review).not.toHaveBeenCalled();
+      expect((await makeOrchestrator(db,{config:{planApproval:{...planApproval,mode:'consensus'}},planReviewer:{review}}).tick()).phase).toBe('executing');
+      expect(review).toHaveBeenCalledTimes(1);
+      const recorded=db.prepare("SELECT content FROM event_stream WHERE type='plan_reviewed' AND goal_id=?").get(goalId) as {content:string};
+      expect(JSON.parse(recorded.content)).toMatchObject({approved:true,planDigest:expect.stringMatching(/^[a-f0-9]{64}$/),executionPermissionGranted:false});
     });
   });
 });

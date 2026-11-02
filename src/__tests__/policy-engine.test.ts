@@ -473,6 +473,17 @@ describe("PolicyEngine", () => {
   });
 
   describe("logDecision()", () => {
+    it("blocks tool execution when the audit store is unavailable without leaking driver errors", async () => {
+      const engine = new PolicyEngine(db, []);
+      let executions = 0;
+      const tool = createMockTool({ execute: async () => { executions++; return "executed"; } });
+      db.exec("DROP TABLE policy_decisions");
+      await expect(executeTool(tool.name, {}, [tool], {} as ToolContext, engine, {
+        inputSource: "creator", turnToolCallCount: 0, sessionSpend: createMockSpendTracker(),
+      })).rejects.toThrow("Policy audit unavailable; execution blocked");
+      expect(executions).toBe(0);
+    });
+
     it("logs decisions to the policy_decisions table", () => {
       const engine = new PolicyEngine(db, []);
       const tool = createMockTool();

@@ -1,0 +1,412 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v4.0.44",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "brass_goblet_01",
+      "translation": [
+        -0.00032767606899142265,
+        0.004920530132949352,
+        0.12025979906320572
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "brass_goblet_02",
+      "translation": [
+        -0.14954441785812378,
+        0.005822327919304371,
+        -0.030845999717712402
+      ]
+    },
+    {
+      "mesh": 2,
+      "name": "brass_goblet_03",
+      "translation": [
+        0.15866722166538239,
+        0.006193193141371012,
+        -0.027895381674170494
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "brass_goblets_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "brass_goblets_02",
+      "normalTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "brass_goblets_03",
+      "normalTexture": {
+        "index": 6
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 7
+        },
+        "metallicRoughnessTexture": {
+          "index": 8
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "brass_goblet_01",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "brass_goblet_02",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "brass_goblet_03",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    },
+    {
+      "sampler": 0,
+      "source": 6
+    },
+    {
+      "sampler": 0,
+      "source": 7
+    },
+    {
+      "sampler": 0,
+      "source": 8
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_01_nor_gl",
+      "uri": "textures/brass_goblet_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_01_diff",
+      "uri": "textures/brass_goblet_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_01_metal-brass_goblet_01_rough",
+      "uri": "textures/brass_goblet_01_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_02_nor_gl",
+      "uri": "textures/brass_goblet_02_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_02_diff",
+      "uri": "textures/brass_goblet_02_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_02_metal-brass_goblet_02_rough",
+      "uri": "textures/brass_goblet_02_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_03_nor_gl",
+      "uri": "textures/brass_goblet_03_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_03_diff",
+      "uri": "textures/brass_goblet_03_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "brass_goblet_03_metal-brass_goblet_03_rough",
+      "uri": "textures/brass_goblet_03_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 1946,
+      "max": [
+        0.07483092695474625,
+        0.2719894349575043,
+        0.07483091205358505
+      ],
+      "min": [
+        -0.07483093440532684,
+        -2.7939677238464355e-9,
+        -0.07483094185590744
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 1946,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 1946,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 9216,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 2224,
+      "max": [
+        0.07055510580539703,
+        0.26576897501945496,
+        0.07055514305830002
+      ],
+      "min": [
+        -0.070555180311203,
+        -0.000004996545612812042,
+        -0.07055515050888062
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 2224,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 2224,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 9792,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 2209,
+      "max": [
+        0.0746278464794159,
+        0.2721051871776581,
+        0.07462787628173828
+      ],
+      "min": [
+        -0.07462790608406067,
+        3.259629011154175e-9,
+        -0.07462787628173828
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 2209,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 2209,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 9792,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 23352,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 23352,
+      "byteOffset": 23352,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 15568,
+      "byteOffset": 46704,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18432,
+      "byteOffset": 62272,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26688,
+      "byteOffset": 80704,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26688,
+      "byteOffset": 107392,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17792,
+      "byteOffset": 134080,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19584,
+      "byteOffset": 151872,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26508,
+      "byteOffset": 171456,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26508,
+      "byteOffset": 197964,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17672,
+      "byteOffset": 224472,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19584,
+      "byteOffset": 242144,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 261728,
+      "uri": "brass_goblets.bin"
+    }
+  ]
+}

@@ -203,6 +203,15 @@ export function openHistoryStore(directory:string){
 
   assertLease(owner:string,now:number){const row=db.prepare("SELECT owner,expires FROM leases WHERE name='worker'").get() as {owner:string;expires:number}|undefined;if(!row||row.owner!==owner||row.expires<now)throw Error('Research worker lease lost');},
 
+  renewLease(owner:string,now:number,ttl=5000){return db.prepare("UPDATE leases SET expires=? WHERE name='worker' AND owner=?").run(now+ttl,id(owner)).changes===1;},
+
+  saveOwnedJob(job:ResearchJob,owner:string){return db.prepare("UPDATE jobs SET status=?,payload=? WHERE id=? AND status='running' AND json_extract(payload,'$.detail.owner')=?").run(job.status,encode(job),id(job.id),owner).changes===1;},
+
+  cancelRunningJobs(owner:string,now:number,reasonCode:string,orphans=false){return db.transaction(()=>{
+   if(orphans){const lease=db.prepare("SELECT owner,expires FROM leases WHERE name='worker'").get() as {owner:string;expires:number}|undefined;if(!lease||lease.owner!==owner||lease.expires<now)throw Error('Research worker lease lost');}
+   for(const row of db.prepare("SELECT payload FROM jobs WHERE status='running' AND id!='runner-control'").all() as {payload:string}[]){const job=JSON.parse(row.payload) as ResearchJob;if(!orphans&&job.detail?.owner!==owner)continue;const next={...job,status:'cancelled' as const,detail:{...job.detail,attempt:job.detail?.attempt??1,reasonCode,retryable:true}};db.prepare('UPDATE jobs SET status=?,payload=? WHERE id=?').run(next.status,encode(next),job.id);}
+  })();},
+
   releaseLease(owner:string){db.prepare("DELETE FROM leases WHERE name='worker' AND owner=?").run(owner);},
 
   withResearchLease<T>(owner:string,now:number,roundId:string,action:()=>T):T{return db.transaction(()=>{
@@ -234,3 +243,4 @@ export function openHistoryStore(directory:string){
 }
 
 export type HistoryStore=ReturnType<typeof openHistoryStore>;
+

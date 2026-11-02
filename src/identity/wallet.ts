@@ -12,7 +12,10 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
 import fs from "fs";
+import {readProtectedJson,writeNewProtectedIdentity} from "../security/protected-json.js";
 import path from "path";
+import os from "node:os";
+import { registerLogSecrets } from "../observability/redaction.js";
 import type { WalletData } from "../types.js";
 import type { ChainType } from "./chain.js";
 import { EvmChainIdentity, SolanaChainIdentity } from "./chain.js";
@@ -42,7 +45,7 @@ function createSolanaStubAccount(solanaAddress: string): PrivateKeyAccount {
 }
 
 const AUTOMATON_DIR = path.join(
-  process.env.HOME || "/root",
+  process.env.HOME || os.homedir(),
   ".automaton",
 );
 const WALLET_FILE = path.join(AUTOMATON_DIR, "wallet.json");
@@ -85,9 +88,8 @@ export async function getWallet(chainType?: ChainType): Promise<{
   }
 
   if (fs.existsSync(WALLET_FILE)) {
-    const walletData: WalletData = JSON.parse(
-      fs.readFileSync(WALLET_FILE, "utf-8"),
-    );
+    const walletData: WalletData = readProtectedJson(WALLET_FILE);
+    registerLogSecrets([walletData.privateKey,walletData.secretKey]);
     const resolvedChainType = walletData.chainType || "evm";
 
     if (resolvedChainType === "solana" && walletData.secretKey) {
@@ -115,9 +117,9 @@ export async function getWallet(chainType?: ChainType): Promise<{
       createdAt: new Date().toISOString(),
     };
 
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(walletData, null, 2), {
-      mode: 0o600,
-    });
+    registerLogSecrets([walletData.privateKey,walletData.secretKey]);
+
+    writeNewProtectedIdentity(WALLET_FILE,walletData);
 
     const account = createSolanaStubAccount(address);
     return { account, chainIdentity: solanaIdentity, chainType: "solana", isNew: true };
@@ -125,6 +127,7 @@ export async function getWallet(chainType?: ChainType): Promise<{
 
   // EVM wallet
   const privateKey = generatePrivateKey();
+  registerLogSecrets([privateKey]);
   const account = privateKeyToAccount(privateKey);
 
   const walletData: WalletData = {
@@ -133,9 +136,9 @@ export async function getWallet(chainType?: ChainType): Promise<{
     createdAt: new Date().toISOString(),
   };
 
-  fs.writeFileSync(WALLET_FILE, JSON.stringify(walletData, null, 2), {
-    mode: 0o600,
-  });
+  registerLogSecrets([walletData.privateKey,walletData.secretKey]);
+
+  writeNewProtectedIdentity(WALLET_FILE,walletData);
 
   return { account, chainIdentity: new EvmChainIdentity(account), chainType: "evm", isNew: true };
 }
@@ -148,9 +151,8 @@ export function getWalletAddress(): string | null {
     return null;
   }
 
-  const walletData: WalletData = JSON.parse(
-    fs.readFileSync(WALLET_FILE, "utf-8"),
-  );
+  const walletData: WalletData = readProtectedJson(WALLET_FILE);
+    registerLogSecrets([walletData.privateKey,walletData.secretKey]);
 
   if (walletData.chainType === "solana" && walletData.secretKey) {
     const secretKey = bs58.decode(walletData.secretKey);
@@ -171,9 +173,8 @@ export function loadWalletAccount(): PrivateKeyAccount | null {
     return null;
   }
 
-  const walletData: WalletData = JSON.parse(
-    fs.readFileSync(WALLET_FILE, "utf-8"),
-  );
+  const walletData: WalletData = readProtectedJson(WALLET_FILE);
+    registerLogSecrets([walletData.privateKey,walletData.secretKey]);
 
   if (walletData.chainType === "solana") {
     // Solana wallets don't have a PrivateKeyAccount; callers should use getWallet() instead
@@ -191,9 +192,8 @@ export function getWalletChainType(): ChainType {
     return "evm";
   }
   try {
-    const walletData: WalletData = JSON.parse(
-      fs.readFileSync(WALLET_FILE, "utf-8"),
-    );
+    const walletData: WalletData = readProtectedJson(WALLET_FILE);
+    registerLogSecrets([walletData.privateKey,walletData.secretKey]);
     return walletData.chainType || "evm";
   } catch {
     return "evm";

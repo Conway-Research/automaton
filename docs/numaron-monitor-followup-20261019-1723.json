@@ -1,0 +1,45 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "date": "2026-10-19",
+  "regularRun": {
+    "id": "2026-10-19T15-18-46-819Z-c18d863d",
+    "completedAt": "2026-10-19T15:22:17.386Z",
+    "rows": 37,
+    "succeeded": 36,
+    "accessRequired": ["guru"],
+    "extraRunsStartedByThisReview": 0
+  },
+  "responses": {
+    "ugigCheckedAt": "2026-10-19T15:22:05.066Z",
+    "application450USD": "pending",
+    "application100USD": "pending",
+    "application90USD": "pending",
+    "incomingLatestMessages": 0,
+    "unreadCounts": [0, 0, 0, 0],
+    "gmailOrderSearchResultSizeEstimate": 0,
+    "dealworkContracts": 0
+  },
+  "application": {
+    "platform": "ugig",
+    "account": "Obolus",
+    "gigId": "1d754c51-8a44-4a56-b004-e874117f5c48",
+    "url": "https://ugig.net/gigs/1d754c51-8a44-4a56-b004-e874117f5c48",
+    "title": "Clean Up and Organize Messy Google Doc or Notion Page",
+    "grossUSD": 50,
+    "scope": "One existing English client-owned document up to 3000 words or 10 pages: logical structure, heading hierarchy, consistent formatting and change map, one correction round, no new substantive writing",
+    "conditions": "Confirm older listing availability, scope, output format, acceptance, disclosed AI assistance, client-funded escrow and SOL/USD conversion/fees before work. Sanitized export and Markdown/DOCX return proposed; native editing needs separately agreed authorized access. No upfront payment from us.",
+    "duplicateCheck": "Target absent from complete thirteen-application result at 2026-10-19T15:22:05.066Z; native application form available",
+    "submissionAttempts": 1,
+    "verified": "Native gig page displayed disabled Already Applied button after submission",
+    "screenshot": "outputs/monitor-followup-20261019-1723/document-application.png",
+    "assignmentConfirmed": false,
+    "paymentConfirmed": false,
+    "doNotResubmit": true
+  },
+  "operation": {
+    "productionPowerActionsByThisReview": 0,
+    "restartsByThisReview": 0,
+    "budgetOrProtectionChanges": 0,
+    "powerRevisionObserved": 76
+  }
+}

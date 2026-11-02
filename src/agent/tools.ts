@@ -1,3 +1,5 @@
+import {isSensitiveReadPath,readLocalToolFile} from "./read-path.js";
+import {localOperation,CONWAY_ONLY_TOOLS} from '../conway/operating-mode.js';
 /**
  * Automaton Tool System
  *
@@ -5,7 +7,7 @@
  * Tools are organized by category and exposed to the inference model.
  */
 
-import nodePath from "node:path";
+import {confineWritePath,assertWriteContent} from "./write-path.js";
 import { ulid } from "ulid";
 import type {
   AutomatonTool,
@@ -22,42 +24,39 @@ import type {
 import type { PolicyEngine } from "./policy-engine.js";
 import { sanitizeToolResult, sanitizeInput } from "./injection-defense.js";
 import { createLogger } from "../observability/logger.js";
+import {assertNoKnownSecrets,redactLogText} from '../observability/redaction.js';
+import { RevenueStore } from "../revenue/store.js";
+import { assessMarketingPlan, type MarketingPlan } from "../revenue/marketing.js";
+import {compareOptimization,type OptimizationComparison} from '../revenue/optimization-comparison.js';
+import {registerOptimizationTrial,recordOptimizationResult,assessOptimizationTrial,type TrialManifest,type TrialResult} from '../revenue/optimization-trials.js';
+import {assessOptimizationPayback,type OptimizationPaybackInput} from '../revenue/optimization-payback.js';
+import {bindOptimizationCost} from '../revenue/optimization-overhead.js';
+import {stageOptimizationRollout,inspectOptimizationRollout,rollbackOptimization} from '../revenue/optimization-rollout.js';
+import {ResearchStore} from '../revenue/research.js';
+import {recordEconomicCitation,type EconomicCitation} from '../revenue/research-assumptions.js';
+import { economicMissionAgenda } from "../revenue/mission.js";
+import {assessExperimentOutcome} from '../revenue/outcome.js';
+import {createLocalProductTool,createProductQualityTool} from '../commerce/product-tool.js';
+import {createServiceDeliveryTool} from '../commerce/service-delivery.js';
+import {createSupportTools} from '../commerce/support-tools.js';
+import { researchStrategies, strategyCatalogue, type StrategyResearchInput } from "../revenue/strategy-research.js";
+import { StrategySeriesStore, type SeriesRegistration, type TrialSettings } from "../revenue/strategy-series.js";
+import type { Bar } from "../revenue/paper-trading.js";
+import { PaperPortfolio, type PaperPortfolioLimits, type PaperObservation } from "../revenue/paper-portfolio.js";
+import type { PaperPlan } from "../revenue/paper-trading.js";
 
 const logger = createLogger("tools");
 
-// ─── Path Confinement ─────────────────────────────────────────
-// write_file is restricted to the sandbox home directory tree.
-// The sandbox home is /root for both local and remote execution.
-const SANDBOX_HOME = "/root";
-
-/**
- * Validate that a file path resolves to within the allowed root directory.
- * Returns the resolved absolute path, or an error string if out of bounds.
- */
-function confinePathToSandbox(filePath: string): string | { error: string } {
-  // Resolve ~ to SANDBOX_HOME
-  const expanded = filePath.startsWith("~")
-    ? nodePath.join(SANDBOX_HOME, filePath.slice(1))
-    : filePath;
-  // Resolve to absolute (relative paths resolve against SANDBOX_HOME)
-  const resolved = nodePath.resolve(SANDBOX_HOME, expanded);
-  // Ensure the resolved path is within the sandbox home
-  if (resolved !== SANDBOX_HOME && !resolved.startsWith(SANDBOX_HOME + "/")) {
-    return {
-      error: `Blocked: write_file path "${filePath}" resolves to "${resolved}" which is outside the allowed directory (${SANDBOX_HOME}). Writes are confined to the sandbox home.`,
-    };
-  }
-  return resolved;
-}
-
+// â”€â”€â”€ Path Confinement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Tools whose results come from external sources and need sanitization
 const EXTERNAL_SOURCE_TOOLS = new Set([
+  "revenue_research_economics",
   "exec",
   "web_fetch",
   "check_social_inbox",
 ]);
 
-// ─── Self-Preservation Guard ───────────────────────────────────
+// â”€â”€â”€ Self-Preservation Guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Defense-in-depth: policy engine (command.forbidden_patterns rule) is the primary guard.
 // This inline check is kept as a secondary safety net in case the policy engine is bypassed.
 
@@ -106,11 +105,15 @@ function isForbiddenCommand(command: string, sandboxId: string): string | null {
   return null;
 }
 
-// ─── Built-in Tools ────────────────────────────────────────────
+// â”€â”€â”€ Built-in Tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
-  return [
-    // ── VM/Sandbox Tools ──
+  const tools: AutomatonTool[] = [
+    createLocalProductTool(),
+    createProductQualityTool(),
+    createServiceDeliveryTool(),
+    ...createSupportTools(),
+    // â”€â”€ VM/Sandbox Tools â”€â”€
     {
       name: "exec",
       description:
@@ -158,11 +161,13 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
       execute: async (args, ctx) => {
         const filePath = args.path as string;
+        try { assertWriteContent(args.content); } catch { return "Blocked: write content must be text of at most 1 MiB UTF-8."; }
         // Path confinement: restrict writes to sandbox home directory
-        const confined = confinePathToSandbox(filePath);
+        const { isProtectedFile } = await import("../self-mod/code.js");
+        const confined = confineWritePath(filePath, ctx.conway.isLocal !== true);
         if (typeof confined === "object") return confined.error;
         // Guard against overwriting protected files (same check as edit_own_file)
-        const { isProtectedFile } = await import("../self-mod/code.js");
+
         if (isProtectedFile(confined)) {
           return "Blocked: Cannot overwrite protected file. This is a hard-coded safety invariant.";
         }
@@ -184,29 +189,17 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
       execute: async (args, ctx) => {
         const filePath = args.path as string;
-        // Block reads of sensitive files (wallet, env, config secrets)
-        const basename = filePath.split("/").pop() || "";
-        const sensitiveFiles = ["wallet.json", ".env", "automaton.json"];
-        const sensitiveExtensions = [".key", ".pem"];
-        if (
-          sensitiveFiles.includes(basename) ||
-          sensitiveExtensions.some((ext) => basename.endsWith(ext)) ||
-          basename.startsWith("private-key")
-        ) {
+        if (isSensitiveReadPath(filePath)) {
           return "Blocked: Cannot read sensitive file. This protects credentials and secrets.";
+        }
+        if (ctx.conway.isLocal === true) {
+          try { return readLocalToolFile(filePath,ctx.allowedReadRoot); }
+          catch { return "Blocked: Local file is unsafe, unavailable or exceeds the read limit."; }
         }
         try {
           return await ctx.conway.readFile(filePath);
         } catch {
-          // Conway files/read API may be broken — fall back to exec(cat)
-          const result = await ctx.conway.exec(
-            `cat ${escapeShellArg(filePath)}`,
-            30_000,
-          );
-          if (result.exitCode !== 0) {
-            return `ERROR: File not found or not readable: ${filePath}`;
-          }
-          return result.stdout;
+          return "Blocked: remote file read refused or unavailable; no alternate transport attempted.";
         }
       },
     },
@@ -246,7 +239,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
     },
 
-    // ── Conway API Tools ──
+    // â”€â”€ Conway API Tools â”€â”€
     {
       name: "check_credits",
       description: "Check your current Conway compute credit balance.",
@@ -404,7 +397,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
     },
 
-    // ── Self-Modification Tools ──
+    // â”€â”€ Self-Modification Tools â”€â”€
     {
       name: "edit_own_file",
       description:
@@ -565,7 +558,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         const pkg = args.package as string;
         // Defense-in-depth: validate package name inline in case the
         // policy engine's validate.package_name rule is bypassed.
-        if (!/^[@a-zA-Z0-9._\/-]+$/.test(pkg)) {
+        if (!/^[@a-zA-Z0-9._/-]+$/.test(pkg)) {
           return `Blocked: invalid package name "${pkg}"`;
         }
         const result = await ctx.conway.exec(`npm install -g ${pkg}`, 60000);
@@ -584,11 +577,11 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
           : `Failed to install ${pkg}: ${result.stderr}`;
       },
     },
-    // ── Self-Mod: Upstream Awareness ──
+    // â”€â”€ Self-Mod: Upstream Awareness â”€â”€
     {
       name: "review_upstream_changes",
       description:
-        "ALWAYS call this before pull_upstream. Shows every upstream commit with its full diff. Read each one carefully — decide per-commit whether to accept or skip. Use pull_upstream with a specific commit hash to cherry-pick only what you want.",
+        "ALWAYS call this before pull_upstream. Shows every upstream commit with its full diff. Read each one carefully â€” decide per-commit whether to accept or skip. Use pull_upstream with a specific commit hash to cherry-pick only what you want.",
       category: "self_mod",
       riskLevel: "caution",
       parameters: { type: "object", properties: {} },
@@ -614,7 +607,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
     {
       name: "pull_upstream",
       description:
-        "Apply upstream changes and rebuild. You MUST call review_upstream_changes first. Prefer cherry-picking individual commits by hash over pulling everything — only pull all if you've reviewed every commit and want them all.",
+        "Apply upstream changes and rebuild. You MUST call review_upstream_changes first. Prefer cherry-picking individual commits by hash over pulling everything â€” only pull all if you've reviewed every commit and want them all.",
       category: "self_mod",
       riskLevel: "dangerous",
       parameters: {
@@ -659,7 +652,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
         try {
           await run("npm install --ignore-scripts && npm run build");
         } catch (err: any) {
-          return `${appliedSummary} — but rebuild failed: ${err.message}. The code is applied but not compiled.`;
+          return `${appliedSummary} â€” but rebuild failed: ${err.message}. The code is applied but not compiled.`;
         }
 
         // Log modification
@@ -734,7 +727,7 @@ export function createBuiltinTools(sandboxId: string): AutomatonTool[] {
       },
     },
 
-    // ── Survival Tools ──
+    // â”€â”€ Survival Tools â”€â”€
     {
       name: "sleep",
       description:
@@ -877,7 +870,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Self-Mod: Update Genesis Prompt ──
+    // â”€â”€ Self-Mod: Update Genesis Prompt â”€â”€
     {
       name: "update_genesis_prompt",
       description:
@@ -899,6 +892,9 @@ Model: ${ctx.inference.getDefaultModel()}
         required: ["new_prompt", "reason"],
       },
       execute: async (args, ctx) => {
+        if (ctx.config.genesisPrompt.includes("OBOLUS — MASTER GENESIS DIRECTIVE")) {
+          return "Blocked: the authoritative Founder Master Genesis requires an offline Founder-approved update and verified restart. Autonomous replacement is disabled.";
+        }
         const { ulid } = await import("ulid");
         const newPrompt = args.new_prompt as string;
 
@@ -939,7 +935,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Self-Mod: Install MCP Server ──
+    // â”€â”€ Self-Mod: Install MCP Server â”€â”€
     {
       name: "install_mcp_server",
       description: "Install an MCP server to extend your capabilities.",
@@ -961,7 +957,7 @@ Model: ${ctx.inference.getDefaultModel()}
         const pkg = args.package as string;
         // Defense-in-depth: validate package name inline in case the
         // policy engine's validate.package_name rule is bypassed.
-        if (!/^[@a-zA-Z0-9._\/-]+$/.test(pkg)) {
+        if (!/^[@a-zA-Z0-9._/-]+$/.test(pkg)) {
           return `Blocked: invalid package name "${pkg}"`;
         }
         const result = await ctx.conway.exec(`npm install -g ${pkg}`, 60000);
@@ -994,7 +990,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Financial: Transfer Credits ──
+    // â”€â”€ Financial: Transfer Credits â”€â”€
     {
       name: "transfer_credits",
       description: "Transfer Conway compute credits to another address.",
@@ -1042,7 +1038,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Skills Tools ──
+    // â”€â”€ Skills Tools â”€â”€
     {
       name: "install_skill",
       description: "Install a skill from a git repo, URL, or create one.",
@@ -1196,7 +1192,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Git Tools ──
+    // â”€â”€ Git Tools â”€â”€
     {
       name: "git_status",
       description: "Show git status for a repository.",
@@ -1391,7 +1387,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Registry Tools ──
+    // â”€â”€ Registry Tools â”€â”€
     {
       name: "register_erc8004",
       description:
@@ -1876,7 +1872,7 @@ Model: ${ctx.inference.getDefaultModel()}
             return `Child ${child.name} started and healthy.`;
           } else {
             lifecycle.transition(child.id, "failed", "process did not start");
-            return `Child ${child.name} failed to start — process exited immediately. Check /root/.automaton/agent.log`;
+            return `Child ${child.name} failed to start â€” process exited immediately. Check /root/.automaton/agent.log`;
           }
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
@@ -1983,7 +1979,7 @@ Model: ${ctx.inference.getDefaultModel()}
 
     // === Phase 3.2: Social & Registry Tools ===
 
-    // ── Social / Messaging Tools ──
+    // â”€â”€ Social / Messaging Tools â”€â”€
     {
       name: "send_message",
       description:
@@ -2027,7 +2023,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Model Discovery (enhanced with Phase 2.3 tier routing + pricing) ──
+    // â”€â”€ Model Discovery (enhanced with Phase 2.3 tier routing + pricing) â”€â”€
     {
       name: "list_models",
       description:
@@ -2047,17 +2043,18 @@ Model: ${ctx.inference.getDefaultModel()}
           if (rows.length > 0) {
             const lines = rows.map(
               (r: any) =>
-                `${r.modelId} (${r.provider}) — tier: ${r.tierMinimum} | cost: ${r.costPer1kInput}/${r.costPer1kOutput} per 1k (in/out, hundredths of cents) | ctx: ${r.contextWindow} | tools: ${r.supportsTools ? "yes" : "no"} | ${r.enabled ? "enabled" : "disabled"}`,
+                `${r.modelId} (${r.provider}) â€” tier: ${r.tierMinimum} | cost: ${r.costPer1kInput}/${r.costPer1kOutput} per 1k (in/out, hundredths of cents) | ctx: ${r.contextWindow} | tools: ${r.supportsTools ? "yes" : "no"} | ${r.enabled ? "enabled" : "disabled"}`,
             );
             return `Model Registry (${rows.length} models):\n${lines.join("\n")}`;
           }
         } catch {
           // Registry not initialized yet, fall back to API
         }
+        if(localOperation(ctx.config,ctx.conway))return 'Local model registry unavailable; Conway model discovery is unavailable in local mode.';
         const models = await ctx.conway.listModels();
         const lines = models.map(
           (m) =>
-            `${m.id} (${m.provider}) — $${m.pricing.inputPerMillion}/$${m.pricing.outputPerMillion} per 1M tokens (in/out)`,
+            `${m.id} (${m.provider}) â€” $${m.pricing.inputPerMillion}/$${m.pricing.outputPerMillion} per 1M tokens (in/out)`,
         );
         return `Available models:\n${lines.join("\n")}`;
       },
@@ -2171,7 +2168,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── Domain Tools ──
+    // â”€â”€ Domain Tools â”€â”€
     {
       name: "search_domains",
       description: "Search for available domain names and get pricing.",
@@ -2457,7 +2454,7 @@ Model: ${ctx.inference.getDefaultModel()}
         return history
           .map(
             (h) =>
-              `v${h.version} [${h.changeSource}] ${h.createdAt}${h.changeReason ? ` — ${h.changeReason}` : ""}`,
+              `v${h.version} [${h.changeSource}] ${h.createdAt}${h.changeReason ? ` â€” ${h.changeReason}` : ""}`,
           )
           .join("\n");
       },
@@ -2722,7 +2719,7 @@ Model: ${ctx.inference.getDefaultModel()}
       },
     },
 
-    // ── x402 Payment Tool ──
+    // â”€â”€ x402 Payment Tool â”€â”€
     {
       name: "x402_fetch",
       description:
@@ -2855,7 +2852,7 @@ Model: ${ctx.inference.getDefaultModel()}
         }
 
         // Cap active goals to prevent accumulation.
-        // Only 1 goal at a time — the orchestrator processes goals sequentially.
+        // Only 1 goal at a time â€” the orchestrator processes goals sequentially.
         if (activeGoals.length >= 1) {
           const current = activeGoals[0];
           return (
@@ -3208,7 +3205,701 @@ Model: ${ctx.inference.getDefaultModel()}
         return lines.join("\n");
       },
     },
+
+    // ── Revenue Intelligence Tools ──
+    {
+      name:'advanced_paper_research',category:'revenue',riskLevel:'safe',
+      description:'Pure bounded offline scenarios for European cash-settled option combinations, linear long/short isolated margin, depth-aware IOC/FOK order fills, cash-long scalping round trips and prefunded two-venue arbitrage including failed-leg unwind. No DB writes, broker, provider, capital authorization or realized profit. Unknown or unsupported models fail closed. Results are supplied scenarios, not calibrated learning or live evidence.',
+      parameters:{type:'object',properties:{request:{type:'object',description:'AdvancedPaperRequest with explicit mode=paper and kind=options|margin|orderbook|arbitrage|scalping|intraday-signal. intraday-signal input: strategy=order-flow-imbalance, now,maxAgeMs,latencyMs,maxHoldingMs,threshold,quotes[{sequence,at,bid,ask,bidSize,askSize}]; or strategy=opening-range-breakout|market-close-momentum, sessionOpen,sessionClose,now,barMs,openingWindowMs,closingWindowMs,thresholdBps,bars[{start,end,open,high,low,close}]. Prices/sizes are positive bounded integers in consistent units; contiguous completed bars and externally supplied calendar; close signal only at sessionClose-closingWindowMs. Signals remain HOLD_UNVALIDATED; no permission or profit. scalping input: entryBook,exitBook,entryOrder(buy FOK),exitOrder(sell IOC),signalAt,entryAt,exitAt,latencyMs,maxAgeMs,maxHoldingMs,cashCents,otherCostsCents; same venue/instrument/lot; arrival snapshots and explicit costs; unclosed inventory is not profit. options input: underlying,currency,style=european,settlement=cash,expiry,at=expiry,terminalCents,capitalCents,maxLossCents,feePerContractCents,legs[{kind=call|put,side=long|short,strikeCents,premiumCents,contracts,multiplier}]. margin input: side,entryCents,stopCents,lots,collateralCents,equityCents,maxLossCents,maxLeverageBps,maintenanceBps,liquidationFeeBps,friction,borrowLocated,path[{time,markCents,executionCents,borrowCents,fundingCents}]. orderbook: book{venue,symbol,currency,lotId,observedAt,bids/asks[{priceMicros per lot,lots}]},order{side,lots,limitMicros,tif=IOC|FOK,feeBps,maxNotionalCents},now,maxAgeMs. arbitrage input: buyBook,sellBook,buyOrder,sellOrder,now,maxAgeMs,cashCents,prefundedSellLots,otherCostsCents,buyAvailable,sellAvailable, optional unwindBook/unwindLimitMicros. Explicit costs and caller assumptions never authorize live actions.'}},required:['request'],additionalProperties:false},
+      execute:async(args)=>{const {advancedPaper}=await import('../revenue/advanced-paper.js');return JSON.stringify(advancedPaper(args.request as Parameters<typeof advancedPaper>[0]));},
+    },
+    {
+      name:'paper_arbitrage',
+      description:'Evaluate net arbitrage economics or execute a bounded local PAPER settlement using an operator-registered immutable paper policy. Actions evaluate/execute/status/halt. No network, wallet, live order or real money. Supplied fills remain simulated, never independent live evidence. Bind future candidate IDs with revenue_paper_profit before execution when attributing an experiment.',
+      category:'revenue',riskLevel:'safe',
+      parameters:{type:'object',properties:{action:{type:'string',enum:['evaluate','execute','status','halt']},candidate:{type:'object',description:'ArbitrageCandidate: id, category, currency USD, capitalCents, grossProfitCents, all 13 costs (unknown=null), maximumLossCents, executableLiquidityCents, observedAt, expiresAt, evidence assumption|paper|executable_quote, legsAvailable.'},limits:{type:'object',description:'Evaluation only: capitalCents, liquidityReserveCents, maximumPositionCents, maximumLossCents, maximumCumulativeLossCents, maxQuoteAgeMs.'},now:{type:'integer'},actualGrossCents:{type:'integer'},actualCostsCents:{type:'integer'},failedLegLossCents:{type:'integer'}},required:['action']},
+      execute:async(args,ctx)=>{
+        const {ArbitragePaperEngine,evaluateArbitrage}=await import('../revenue/arbitrage.js');
+        if(args.action==='evaluate')return JSON.stringify(evaluateArbitrage(args.candidate as Parameters<typeof evaluateArbitrage>[0],args.limits as Parameters<typeof evaluateArbitrage>[1],args.now as number));
+        if(!['execute','status','halt'].includes(args.action as string))throw new Error('Invalid paper arbitrage action');
+        const engine=new ArbitragePaperEngine(ctx.db.raw);
+        if(args.action==='execute')return JSON.stringify(engine.executeConfiguredPaper({candidate:args.candidate as Parameters<typeof evaluateArbitrage>[0],now:args.now as number,actualGrossCents:args.actualGrossCents as number,actualCostsCents:args.actualCostsCents as number,failedLegLossCents:args.failedLegLossCents as number}));
+        if(args.action==='halt')engine.emergencyStop();
+        return JSON.stringify(engine.snapshot());
+      },
+    },
+    {
+      name:"paper_portfolio",
+      description:"Persistent cash-only USD paper account with explicit immutable capital, liquidity floor, aggregate open risk, daily gross loss, drawdown and position limits. Actions initialize/open/observe/settle/halt/status. Observe records synchronized marks and may close at stop/target; settlement closes at stop/target or supplied window end. No live broker or money.",
+      category:"revenue",riskLevel:"safe",
+      parameters:{type:"object",properties:{action:{type:"string",enum:["initialize","open","observe","settle","halt","status"]},limits:{type:"object",description:"initialCapitalCents, liquidityFloorCents, maxOpenRiskCents, maxDailyLossCents, maxDrawdownCents, maxPositions, friction {feeBps,slippageBps}"},id:{type:"string"},plan:{type:"object",description:"PaperPlan: symbol, thesis, entryCents, stopCents, targetsCents, exitRule, optional riskFraction <=0.02"},at:{type:"number"},quotes:{type:"array",items:{type:"object",description:"{id, bar:{time,open,high,low,close}}"}},bars:{type:"array",items:{type:"object"}},reason:{type:"string"}},required:["action"]},
+      execute:async(args,ctx)=>{
+        const portfolio=new PaperPortfolio(ctx.db.raw);
+        if(args.action==="initialize") portfolio.initialize(args.limits as PaperPortfolioLimits);
+        else if(args.action==="open") return JSON.stringify(portfolio.open(args.id as string,args.plan as PaperPlan,args.at as number));
+        else if(args.action==="observe") return JSON.stringify(portfolio.observe(args.at as number,args.quotes as PaperObservation[]));
+        else if(args.action==="settle") return JSON.stringify(portfolio.settle(args.id as string,args.bars as Bar[]));
+        else if(args.action==="halt") portfolio.halt(args.reason as string);
+        else if(args.action!=="status") throw new Error("Invalid paper portfolio action");
+        const state=portfolio.snapshot();return JSON.stringify({...state,positions:state.positions.slice(-20),totalPositions:state.positions.length});
+      },
+    },
+    {
+      name: 'paper_execution_audit',
+      description: 'Pure educational audit of caller-supplied hypothetical data. kind execution: side buy/sell, quoteCurrency, intended quantity, decisionPrice, receiptMid, deadlineMark, explicit nonnegative aggregate fees, fills [{id,quantity,price,laterMid}]. Prices use one quote-currency unit per base unit; laterMid must use a consistent post-fill horizon. kind availability: decisionMs and events [{id,eventMs,receivedMs,processedMs}] normalized to one clock. At most 1000 records. Returns costs, weighted spreads or future-information flags, never verified fills, strategy approval or live authority. No network or database.',
+      category: 'revenue', riskLevel: 'safe',
+      parameters: {type: 'object', properties: {input: {type: 'object', description: 'Execution or availability diagnostic input as specified in the tool description'}}, required: ['input']},
+      execute: async args => JSON.stringify((await import('../revenue/execution-audit.js')).executionAudit(args.input)),
+    },
+    {
+      name:'paper_event_opportunity_audit',category:'revenue',riskLevel:'safe',
+      description:'Offline event-opportunity diagnostic. First read paper_research_series action knowledge, eventOpportunities.diagnostic for all required fields and units. Checks claimed source status, information timing, opportunity expiry, quote freshness, claimed liquidity and two-outcome value under supplied probability and loss stress assumptions. No network, database, authentication, probability calibration or trading authority. A passing result is paper-review-only.',
+      parameters:{type:'object',properties:{input:{type:'object',description:'Complete hypothetical event case; fields and units in the eventOpportunities knowledge diagnostic.'}},required:['input']},
+      execute:async args=>JSON.stringify((await import('../revenue/event-opportunity.js')).eventOpportunityAudit(args.input)),
+    },
+    {
+      name:"paper_research_series",
+      description:"Use strategies for sourced intraday/scalping/HFT hypotheses and prerequisites, knowledge for sourced research lessons and their limits, literature for paged publisher-overview briefings using offset, limit and optional literature_topic; catalogue to obtain the fixed six-family, twelve-variant research universe. Persist a bounded paper research series: register, trial, lock, finalize, status, learning or learned-trial. learned-trial atomically applies feedback before a bounded development trial. Learning returns a nextSettings proposal from comparable earlier non-overlapping final tests, pausing failed variants; null means preserve capital. Books are research context, not outcome evidence or execution authority. No paid calls, broker, live authority or proof of unseen data. Never retune a revealed holdout.",
+      category:"revenue",riskLevel:"safe",
+      parameters:{type:"object",properties:{action:{type:"string",enum:["strategies","knowledge","literature","catalogue","register","trial","lock","finalize","status","learning","learned-trial"]},offset:{type:"integer",minimum:0},limit:{type:"integer",minimum:1,maximum:20},literature_topic:{type:"string",description:"A topic returned by knowledge.literature.researchAgenda"},series_id:{type:"string"},trial_id:{type:"string"},registration:{type:"object",description:"symbol, provenance, source, developmentBars, holdoutDigest (SHA256 of JSON tuples [time,open,high,low,close]), holdoutBars, maxTrials (1..20)"},settings:{type:"object",description:"StrategyResearchInput excluding bars, symbol and provenance; required for trial, learning and learned-trial"},holdout:{type:"array",items:{type:"object"}}},required:["action"]},
+      execute:async(args,ctx)=>{
+        if(args.action==="strategies") return JSON.stringify((await import("../revenue/intraday-knowledge.js")).intradayKnowledge());
+        if(args.action==="knowledge") return JSON.stringify((await import("../revenue/trading-knowledge.js")).tradingKnowledge());
+        if(args.action==="literature") return JSON.stringify((await import("../revenue/trading-knowledge.js")).literaturePage(args.offset,args.limit,args.literature_topic));
+        if(args.action==="catalogue") return JSON.stringify({mode:"paper-only",variants:strategyCatalogue(),liveAuthorized:false});
+        const store=new StrategySeriesStore(ctx.db.raw);
+        const id=args.series_id as string;
+        const compact=(report:ReturnType<typeof researchStrategies>)=>({decision:report.decision,netPnlCents:report.evaluation.netPnlCents,trades:report.evaluation.trades.length,inputDigest:report.inputDigest,provenance:report.provenance,diagnostics:report.diagnostics,frictionStress:report.frictionStress});
+        if(args.action==="learning") return JSON.stringify(store.learning(id,args.settings as TrialSettings));
+        if(args.action==="learned-trial") return JSON.stringify(store.learnedTrial(id,args.settings as TrialSettings));
+        if(args.action==="register") return JSON.stringify({seriesId:store.register(args.registration as SeriesRegistration)});
+        if(args.action==="trial") {const result=store.trial(id,args.settings as TrialSettings);return JSON.stringify({...result,report:compact(result.report)});}
+        if(args.action==="lock") store.lock(id,args.trial_id as string);
+        else if(args.action==="finalize") {const result=store.finalize(id,args.holdout as Bar[]);return JSON.stringify({...result,report:compact(result.report)});}
+        else if(args.action!=="status") throw new Error("Invalid series action");
+        const status=store.snapshot(id);return JSON.stringify({...status,finalReport:status.finalReport ? compact(status.finalReport) : null});
+      },
+    },
+    {
+      name: "paper_research_strategies",
+      description: "Compare bounded long-only candidates from the six strategy families in paper_research_series catalogue on local OHLC data with training-only selection and chronological forward paper evaluation. No broker or live execution. Prices and equity must use the same quote-currency cent unit; no conversion or verified profit claim.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: { type: "object", properties: { input: { type: "object", description: "StrategyResearchInput: provenance synthetic or historical-unverified; symbol; bars [{time,open,high,low,close}]; variants [{id,family,lookback,thresholdBps,stopBps,targetBps}]; trainSize; testSize; equityCents; friction {feeBps,slippageBps}; minTrainingTrades; maxTrainingClosedDrawdownFraction. Maximum 5000 bars, 20 variants, 50 windows; risk fixed at 1%, stop <=5%." } }, required: ["input"] },
+      execute: async args => {
+        const report = researchStrategies(args.input as StrategyResearchInput);
+        return JSON.stringify({ version: report.version, mode: report.mode, provenance: report.provenance, inputDigest: report.inputDigest,
+          decision: report.decision, netPnlCents: report.evaluation.netPnlCents, trades: report.evaluation.trades.length,
+          rejectedPlans: report.evaluation.rejectedPlans, closedDrawdownCents: report.closedDrawdownCents,
+          selections: report.selections.map(s=>({trainEnd:s.trainEnd,selectedId:s.selectedId})), diagnostics:report.diagnostics, frictionStress:report.frictionStress, limits: report.limits });
+      },
+    },
+    {
+      name:'revenue_run_optimization_rollout',
+      description:'Execute one exact registered text case through a staged lower-token rollout. Coordinator only, requires its current running experiment and matching survival tier. Uses configured inference with existing shared/capital/experiment reservations, plus rollout exposure limits. May incur provider cost. No tools or fallback calls; wrong or uncertain results withdraw the variant. No arbitrary tasks or global model changes.',
+      category:'revenue',riskLevel:'caution',
+      parameters:{type:'object',properties:{rollout_id:{type:'string'},operation_id:{type:'string'},case_id:{type:'string'},messages:{type:'array',description:'Exact registered text-only role/content messages; at most 20, 32768 UTF-8 bytes total.'}},required:['rollout_id','operation_id','case_id','messages'],additionalProperties:false},
+      execute:async(args,ctx)=>{
+        if(!ctx.optimizationRollout)throw new Error('Coordinator rollout executor unavailable');
+        return ctx.optimizationRollout({rolloutId:args.rollout_id as string,operationId:args.operation_id as string,caseId:args.case_id as string,messages:args.messages as import('../types.js').ChatMessage[]});
+      },
+    },
+    {
+      name:'revenue_optimization_rollout',
+      description:'Stage a bounded exact-text lower-token rollout after current replication/payback checks, inspect its persisted status, or roll it back. Same model/provider/settings only. One rollout per trial; 1..10 executions, 1..1000 USD cents and expiry within 24h, also capped by projected net savings. Staging does not start providers or modify global routing. Use revenue_run_optimization_rollout only through the guarded coordinator executor; arbitrary tasks and global adoption are unsupported.',
+      category:'revenue',riskLevel:'caution',
+      parameters:{type:'object',properties:{action:{type:'string',enum:['stage','inspect','rollback']},rollout_id:{type:'string'},scenario:{type:'object'},limits:{type:'object',description:'maxRuns, maxCostCents, expiresAt (Unix milliseconds)'}},required:['action']},
+      execute:async(args,ctx)=>JSON.stringify(args.action==='stage'?stageOptimizationRollout(ctx.db.raw,args.scenario as OptimizationPaybackInput,args.limits as {maxRuns:number;maxCostCents:number;expiresAt:number}):
+        args.action==='inspect'?inspectOptimizationRollout(ctx.db.raw,args.rollout_id as string):args.action==='rollback'?rollbackOptimization(ctx.db.raw,args.rollout_id as string):{error:'invalid_action'}),
+    },
+    {
+      name:'revenue_optimization_cost',
+      description:'Permanently attribute an existing non-inference USD cost event to one optimization trial. No expense creation or payment. Same event cannot be reused for another trial; altered source events require reconciliation. Payback rechecks these costs in the trial and its parent. Local attribution is not independent receipt verification.',
+      category:'revenue',riskLevel:'caution',
+      parameters:{type:'object',properties:{trial_id:{type:'string'},event_id:{type:'string'}},required:['trial_id','event_id']},
+      execute:async(args,ctx)=>JSON.stringify(bindOptimizationCost(ctx.db.raw,{trialId:args.trial_id as string,eventId:args.event_id as string})),
+    },
+    {
+      name:'revenue_optimization_payback',
+      description:'Read-only payback scenario for a held-out optimization replication and its parent. Revalidates actual local trial costs, direct collection and quality checks. Include all additional evaluation, failed exploration, deployment and monitoring costs explicitly, in USD cents. Future executions and retention of observed savings are assumptions, never verified demand. No deployment or budget authority.',
+      category:'revenue',riskLevel:'safe',
+      parameters:{type:'object',properties:{scenario:{type:'object',description:'trialId of replication; forecastExecutions and maximumPaybackExecutions (1..1000000); additionalOneTimeCostCents, additionalPerExecutionCostCents, minimumNetSavingsCents (integer 0..1000000000 USD cents); savingsRetentionPercent (integer 1..100). For a positive assessment workload:{lookbackDays:7..90,horizonDays:1..lookbackDays} is required; forecast cannot exceed the lower observed rate of two complete UTC windows. All cost assumptions required; do not invent future usage or omit costs.'}},required:['scenario']},
+      execute:async(args,ctx)=>JSON.stringify(assessOptimizationPayback(ctx.db.raw,args.scenario as OptimizationPaybackInput)),
+    },
+    {
+      name:'revenue_optimization_trial',
+      description:'Register immutable comparison criteria before inference, record output/quality observations with costs derived from the assigned session ledger, or assess a trial. Cases may all preregister qualityRule {kind: exact-output-sha256-v1, expectedOutputDigest: SHA256, maxOutputBytes: 1..16384}. Then provide actual output text when recording; score is derived, not self-rated, and raw output is not stored. Exact matching checks only the supplied text, not provider authenticity, safety or general business quality. Report provides assigned session IDs; inference still requires budget admission. Never invent scores. Does not launch calls or adopt policy.',
+      category:'revenue',riskLevel:'safe',
+      parameters:{type:'object',properties:{action:{type:'string',enum:['register','record','assess']},trial_id:{type:'string'},manifest:{type:'object',description:'Comparison fields datasetDigest, criteriaDigest, baseline, candidate, minimumQuality, maximumQualityDrop, minimumSavingsPercent, maximumLatencyRatio; 3..100 cases each with id and inputDigest. For automatic collection preregister recipes.baseline/candidate: tier, taskType, maxTokens, temperature, modelId, provider, modelDigest of local model contract; machine qualityRule on every case. phase exploration|replication; replication requires parentTrialId, unchanged criteria/recipes and new input digests. No measured results at registration.'},result:{type:'object',description:'trialId, caseId, side baseline|candidate, outputDigest SHA256, qualityScore 0..100, safetyPassed and completed booleans. Costs come from recorded inference in the assigned session.'}},required:['action']},
+      execute:async(args,ctx)=>JSON.stringify(args.action==='register'?registerOptimizationTrial(ctx.db.raw,args.manifest as TrialManifest):
+        args.action==='record'?recordOptimizationResult(ctx.db.raw,args.result as TrialResult):args.action==='assess'?assessOptimizationTrial(ctx.db.raw,args.trial_id as string):{error:'invalid_action'}),
+    },
+    {
+      name:'revenue_compare_optimization',
+      description:'Compare 3..100 distinct matched tasks for cost, quality, safety and latency. Measurements must come from observations, never invented estimates. Simulation and recorded input remain unverified. Returns rejection or candidate for replication; never changes models, budgets or safety policy.',
+      category:'revenue',riskLevel:'safe',
+      parameters:{type:'object',properties:{comparison:{type:'object',description:'mode simulation|recorded; datasetDigest and criteriaDigest SHA256; baseline and candidate identifiers; minimumQuality, maximumQualityDrop, minimumSavingsPercent (0..100), maximumLatencyRatio (1..10); cases with unique id and inputDigest SHA256, each with baseline and candidate measurements: costCents, latencyMs, qualityScore 0..100, safetyPassed boolean, completed boolean. Include all cases and all attributable costs; preregister criteria independently before collecting results.'}},required:['comparison']},
+      execute:async args=>JSON.stringify(compareOptimization(args.comparison as OptimizationComparison)),
+    },
+    {
+      name:'revenue_information_value',
+      description:'Bound the value of research before buying information. Supplied scenarios remain assumptions; perfect information is an upper bound, never permission to spend. Preserve capital is included.',
+      category:'revenue',riskLevel:'safe',
+      parameters:{type:'object',properties:{model:{type:'object',description:'probabilities: 2..20 probabilities summing to one; actions: 1..20 unique id and netCents per scenario including all costs; researchCostCents nonnegative integer. Use comparable horizons and a single currency.'}},required:['model']},
+      execute:async args=>{
+        const {informationValue}=await import('../revenue/validation-design.js');
+        return JSON.stringify(informationValue(args.model as Parameters<typeof informationValue>[0]));
+      },
+    },
+    {
+      name: "revenue_assess_marketing",
+      description: "Assess product marketing unit economics before a bounded experiment: audience, offer, channel, price, non-personnel costs, conservative sales, gross cash need, break-even and stop criteria. Never include employee costs, human labour charges or imputed hourly rates in any allowance. Optional humanInterventionMinutes records time only, without monetary valuation. Does not spend, publish or verify demand.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {type:"object",properties:{plan:{type:"object",description:"MarketingPlan: currency USD/CHF/EUR; product, audience, channel, offer, successCriterion, stopCriterion; priceCents, deliveryCostCents, paymentFeeCents, refundAllowanceCents, taxAllowanceCents, acquisitionCostPerSaleCents, fixedTestCostCents, operatingCostCents, availableTestBudgetCents, conservativeSales. Explicit nonnegative amounts in one currency."},scenarios:{type:'array',items:{type:'object'},description:'Optional up to 20 hypothetical stress scenarios: id, priceBps, salesBps, variableCostBps, fixedCostBps. 10000 means unchanged; all 0..50000. Not evidence.'}},required:["plan"]},
+      execute: async args => JSON.stringify(assessMarketingPlan(args.plan as MarketingPlan,args.scenarios as Parameters<typeof assessMarketingPlan>[1])),
+    },
+    {
+      name:'revenue_research_economics',
+      description:'Read a source-linked economic brief, cite a literal source passage with a separate supporting or contradicting interpretation, or save an immutable economic revision. Include reachable audience, offer, distribution, complete costs and explicit success/stop criteria. Unknown values must remain unknown: do not invent a plan to pass admission. Quotes and interpretations remain unverified. Revisions do not inherit source reviews, spend funds or start work.',
+      category:'revenue',riskLevel:'safe',
+      parameters:{type:'object',properties:{action:{type:'string',enum:['brief','revise','cite']},opportunity_id:{type:'string'},citation:{type:'object',description:'field: payer/offer/channel/price/deliveryCost/paymentFees/refundAllowance/taxAllowance/acquisitionCost/fixedTestCost/operatingCost/conservativeSales/probability/timeToRevenue; evidenceId, literal quote, separate interpretation, direction supports/contradicts. Quotes remain unverified reports.'},plan:{type:'object',description:'Complete MarketingPlan as in revenue_assess_marketing; USD only, with explicit conversion evidence if originating in another currency.'},probability:{type:'number'},days:{type:'integer'},reason:{type:'string'}},required:['action','opportunity_id']},
+      execute:async(args,ctx)=>{
+        const store=new ResearchStore(ctx.db.raw);
+        if(args.action==='brief')return JSON.stringify(store.economicBrief(args.opportunity_id as string));
+        if(args.action==='cite')return JSON.stringify(recordEconomicCitation(ctx.db.raw,args.opportunity_id as string,args.citation as EconomicCitation));
+        if(args.action==='revise')return JSON.stringify(store.reviseEconomics(args.opportunity_id as string,args.plan as MarketingPlan,args.probability as number,args.days as number,args.reason as string));
+        throw new Error('Unknown research economics action');
+      },
+    },
+    {
+      name: "revenue_create_opportunity",
+      description:
+        "Create a persistent revenue opportunity for a niche, business idea or economic opportunity. Use this when an opportunity becomes concrete enough to track, test and compare.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Short opportunity name" },
+          niche: { type: "string", description: "Market or niche" },
+          goal_id: { type: "string", description: "Optional related goal ID" },
+          status: {
+            type: "string",
+            enum: ["discovered", "screening", "validating", "active", "paused", "scale", "kill", "completed"],
+          },
+          evidence_level: { type: "string" },
+          confidence: { type: "number" },
+          probability_success: { type: "number" },
+          expected_revenue_cents: { type: "number" },
+          expected_cost_cents: { type: "number" },
+          expected_net_value_cents: { type: "number" },
+          time_to_revenue_days: { type: "number" },
+          max_experiment_budget_cents: { type: "number" },
+          focus_rank: { type: "number" },
+          hypothesis: { type: "string" },
+          kill_condition: { type: "string" },
+          next_action: { type: "string" },
+        },
+        required: ["name"],
+      },
+      execute: async (args, ctx) => {
+        const store = new RevenueStore(ctx.db.raw);
+
+        const expectedRevenue = Number(args.expected_revenue_cents ?? 0);
+        const expectedCost = Number(args.expected_cost_cents ?? 0);
+
+        const id = store.createOpportunity({
+          goalId: (args.goal_id as string | undefined) ?? null,
+          name: args.name as string,
+          niche: (args.niche as string | undefined) ?? null,
+          status: (args.status as any) ?? "discovered",
+          evidenceLevel: (args.evidence_level as string | undefined) ?? null,
+          confidence: args.confidence === undefined ? null : Number(args.confidence),
+          probabilitySuccess:
+            args.probability_success === undefined
+              ? null
+              : Number(args.probability_success),
+          expectedRevenueCents: expectedRevenue,
+          expectedCostCents: expectedCost,
+          expectedNetValueCents:
+            args.expected_net_value_cents === undefined
+              ? expectedRevenue - expectedCost
+              : Number(args.expected_net_value_cents),
+          timeToRevenueDays:
+            args.time_to_revenue_days === undefined
+              ? null
+              : Number(args.time_to_revenue_days),
+          maxExperimentBudgetCents: Number(args.max_experiment_budget_cents ?? 0),
+          focusRank:
+            args.focus_rank === undefined ? null : Number(args.focus_rank),
+          hypothesis: (args.hypothesis as string | undefined) ?? null,
+          killCondition: (args.kill_condition as string | undefined) ?? null,
+          nextAction: (args.next_action as string | undefined) ?? null,
+        });
+
+        return JSON.stringify({ ok: true, opportunity_id: id });
+      },
+    },
+    {
+      name: "revenue_update_opportunity",
+      description:
+        "Update a tracked revenue opportunity when evidence, economics, status, focus or the next action changes.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          opportunity_id: { type: "string" },
+          status: {
+            type: "string",
+            enum: ["discovered", "screening", "validating", "active", "paused", "scale", "kill", "completed"],
+          },
+          evidence_level: { type: "string" },
+          confidence: { type: "number" },
+          probability_success: { type: "number" },
+          expected_revenue_cents: { type: "number" },
+          expected_cost_cents: { type: "number" },
+          expected_net_value_cents: { type: "number" },
+          time_to_revenue_days: { type: "number" },
+          max_experiment_budget_cents: { type: "number" },
+          focus_rank: { type: "number" },
+          hypothesis: { type: "string" },
+          kill_condition: { type: "string" },
+          next_action: { type: "string" },
+        },
+        required: ["opportunity_id"],
+      },
+      execute: async (args, ctx) => {
+        const store = new RevenueStore(ctx.db.raw);
+        const id = args.opportunity_id as string;
+
+        if (!store.getOpportunity(id)) {
+          return JSON.stringify({ ok: false, error: "opportunity_not_found" });
+        }
+
+        const updates: Record<string, unknown> = {};
+        const map: Record<string, string> = {
+          status: "status",
+          evidence_level: "evidenceLevel",
+          confidence: "confidence",
+          probability_success: "probabilitySuccess",
+          expected_revenue_cents: "expectedRevenueCents",
+          expected_cost_cents: "expectedCostCents",
+          expected_net_value_cents: "expectedNetValueCents",
+          time_to_revenue_days: "timeToRevenueDays",
+          max_experiment_budget_cents: "maxExperimentBudgetCents",
+          focus_rank: "focusRank",
+          hypothesis: "hypothesis",
+          kill_condition: "killCondition",
+          next_action: "nextAction",
+        };
+
+        for (const [source, target] of Object.entries(map)) {
+          if (args[source] !== undefined) updates[target] = args[source];
+        }
+
+        store.updateOpportunity(id, updates as any);
+
+        return JSON.stringify({
+          ok: true,
+          opportunity: store.getOpportunity(id),
+        });
+      },
+    },
+    {
+      name: "revenue_create_experiment",
+      description:
+        "Create a bounded revenue experiment linked to an opportunity, with explicit hypothesis, budget, forecast and stop criteria.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          opportunity_id: { type: "string" },
+          hypothesis: { type: "string" },
+          goal_id: { type: "string" },
+          task_id: { type: "string" },
+          status: {
+            type: "string",
+            enum: ["planned", "running", "completed", "failed", "stopped"],
+          },
+          channel: { type: "string" },
+          offer: { type: "string" },
+          max_budget_cents: { type: "number" },
+          max_inference_cost_cents: { type: "number" },
+          max_duration_hours: { type: "number" },
+          success_criteria: { type: "string" },
+          failure_criteria: { type: "string" },
+          stop_condition: { type: "string" },
+          forecast_revenue_cents: { type: "number" },
+          forecast_cost_cents: { type: "number" },
+          forecast_probability_success: { type: "number" },
+          forecast_time_to_revenue_hours: { type: "number" },
+        },
+        required: ["opportunity_id", "hypothesis"],
+      },
+      execute: async (args, ctx) => {
+        const store = new RevenueStore(ctx.db.raw);
+        const opportunityId = args.opportunity_id as string;
+
+        if (!store.getOpportunity(opportunityId)) {
+          return JSON.stringify({ ok: false, error: "opportunity_not_found" });
+        }
+
+        const status = (args.status as any) ?? "planned";
+
+        const id = store.createExperiment({
+          opportunityId,
+          goalId: (args.goal_id as string | undefined) ?? null,
+          taskId: (args.task_id as string | undefined) ?? null,
+          status,
+          hypothesis: args.hypothesis as string,
+          channel: (args.channel as string | undefined) ?? null,
+          offer: (args.offer as string | undefined) ?? null,
+          maxBudgetCents: Number(args.max_budget_cents ?? 0),
+          maxInferenceCostCents: Number(args.max_inference_cost_cents ?? 0),
+          maxDurationHours:
+            args.max_duration_hours === undefined
+              ? null
+              : Number(args.max_duration_hours),
+          successCriteria: (args.success_criteria as string | undefined) ?? null,
+          failureCriteria: (args.failure_criteria as string | undefined) ?? null,
+          stopCondition: (args.stop_condition as string | undefined) ?? null,
+          forecastRevenueCents: Number(args.forecast_revenue_cents ?? 0),
+          forecastCostCents: Number(args.forecast_cost_cents ?? 0),
+          forecastProbabilitySuccess:
+            args.forecast_probability_success === undefined
+              ? null
+              : Number(args.forecast_probability_success),
+          forecastTimeToRevenueHours:
+            args.forecast_time_to_revenue_hours === undefined
+              ? null
+              : Number(args.forecast_time_to_revenue_hours),
+          actualRevenueCents: 0,
+          actualCostCents: 0,
+          result: null,
+          lesson: null,
+          startedAt: status === "running" ? new Date().toISOString() : null,
+          completedAt: null,
+        });
+
+        return JSON.stringify({ ok: true, experiment_id: id });
+      },
+    },
+    {
+      name: 'revenue_assess_outcome',
+      description: 'Assess preregistered demand criteria against independently reviewed customers and attributed provider payments. Persists evidence and may complete a live demand-validation experiment; never grants funds or scaling permission. Cannot create criteria or customer reviews.',
+      category: 'revenue',
+      riskLevel: 'safe',
+      parameters: {type:'object',properties:{experiment_id:{type:'string'}},required:['experiment_id']},
+      execute: async(args,ctx)=>JSON.stringify(assessExperimentOutcome(ctx.db.raw,args.experiment_id as string)??{error:'preregistered_outcome_contract_required'}),
+    },
+    {
+      name: "revenue_update_experiment",
+      description:
+        "Update a tracked revenue experiment with status, actual economics, result or learning as evidence arrives.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          experiment_id: { type: "string" },
+          status: {
+            type: "string",
+            enum: ["planned", "running", "completed", "failed", "stopped"],
+          },
+          actual_revenue_cents: { type: "number" },
+          actual_cost_cents: { type: "number" },
+          result: { type: "string" },
+          lesson: { type: "string" },
+          started_at: { type: "string" },
+          completed_at: { type: "string" },
+        },
+        required: ["experiment_id"],
+      },
+      execute: async (args, ctx) => {
+        return ctx.db.raw.transaction(() => {
+        const store = new RevenueStore(ctx.db.raw);
+        const id = args.experiment_id as string;
+        const existing = store.getExperiment(id);
+
+        if (!existing) {
+          return JSON.stringify({ ok: false, error: "experiment_not_found" });
+        }
+
+        const updates: Record<string, unknown> = {};
+
+        if (args.actual_revenue_cents !== undefined)
+          updates.actualRevenueCents = Number(args.actual_revenue_cents);
+
+        if (args.actual_cost_cents !== undefined)
+          updates.actualCostCents = Number(args.actual_cost_cents);
+
+        const requestedStatus =
+          args.status as
+            | "planned"
+            | "running"
+            | "completed"
+            | "failed"
+            | "stopped"
+            | undefined;
+
+        if (
+          requestedStatus !== undefined &&
+          requestedStatus !== existing.status
+        ) {
+          if(requestedStatus==='completed'){
+            const outcome=assessExperimentOutcome(ctx.db.raw,id);
+            if(outcome&&outcome.decision!=='demand_criteria_met')throw new Error('Preregistered outcome criteria not met; completion blocked');
+          }
+          store.transitionExperimentStatus(
+            id,
+            requestedStatus,
+            args.result as string | undefined,
+            args.lesson as string | undefined,
+          );
+        } else {
+          if (args.result !== undefined) updates.result = args.result;
+          if (args.lesson !== undefined) updates.lesson = args.lesson;
+        }
+
+        if (args.started_at !== undefined)
+          updates.startedAt = args.started_at;
+
+        if (args.completed_at !== undefined)
+          updates.completedAt = args.completed_at;
+
+        if (Object.keys(updates).length > 0) {
+          store.updateExperiment(id, updates as any);
+        }
+
+        return JSON.stringify({
+          ok: true,
+          experiment: store.getExperiment(id),
+        });
+        }).immediate();
+      },
+    },
+    {
+      name: "revenue_record_event",
+      description:
+        "Record an attributable economic event. Use a stable idempotency_key and occurred_at when retrying. Router inference costs are already recorded: do not book them again.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          opportunity_id: { type: "string" },
+          experiment_id: { type: "string" },
+          goal_id: { type: "string" },
+          task_id: { type: "string" },
+          event_type: {
+            type: "string",
+            enum: ["lead", "qualified_lead", "commitment", "payment", "refund", "cost", "delivery", "renewal", "expansion", "referral", "other"],
+          },
+          category: { type: "string" },
+          amount_cents: { type: "number" },
+          currency: { type: "string" },
+          channel: { type: "string" },
+          offer: { type: "string" },
+          customer_ref: { type: "string" },
+          metadata: { type: "object" },
+          occurred_at: { type: "string" },
+          idempotency_key: { type: "string" },
+        },
+        required: ["event_type"],
+      },
+      execute: async (args, ctx) => {
+        const store = new RevenueStore(ctx.db.raw);
+
+        const opportunityId =
+          (args.opportunity_id as string | undefined) ?? null;
+        const experimentId =
+          (args.experiment_id as string | undefined) ?? null;
+
+        if (opportunityId && !store.getOpportunity(opportunityId)) {
+          return JSON.stringify({ ok: false, error: "opportunity_not_found" });
+        }
+
+        if (experimentId && !store.getExperiment(experimentId)) {
+          return JSON.stringify({ ok: false, error: "experiment_not_found" });
+        }
+
+        if (args.idempotency_key && !args.occurred_at) {
+          throw new Error("Idempotent economic events require a stable occurred_at timestamp");
+        }
+        const id = store.addEconomicEvent({
+          opportunityId,
+          experimentId,
+          goalId: (args.goal_id as string | undefined) ?? null,
+          taskId: (args.task_id as string | undefined) ?? null,
+          eventType: args.event_type as string,
+          category: (args.category as string | undefined) ?? null,
+          amountCents: Number(args.amount_cents ?? 0),
+          currency: (args.currency as string | undefined) ?? "USD",
+          channel: (args.channel as string | undefined) ?? null,
+          offer: (args.offer as string | undefined) ?? null,
+          customerRef: (args.customer_ref as string | undefined) ?? null,
+          metadata:
+            (args.metadata as Record<string, unknown> | undefined) ?? {},
+          occurredAt:
+            (args.occurred_at as string | undefined) ??
+            new Date().toISOString(),
+        }, args.idempotency_key as string | undefined);
+
+        return JSON.stringify({ ok: true, economic_event_id: id });
+      },
+    },
+    {
+      name: "revenue_get_snapshot",
+      description:
+        "Read current revenue intelligence. With an opportunity ID, returns its economics and recent events. With an experiment ID, also returns forecast-vs-actual. Without IDs, returns the current focus opportunities.",
+      category: "revenue",
+      riskLevel: "safe",
+      parameters: {
+        type: "object",
+        properties: {
+          opportunity_id: { type: "string" },
+          experiment_id: { type: "string" },
+          event_limit: { type: "number" },
+        },
+      },
+      execute: async (args, ctx) => {
+        const store = new RevenueStore(ctx.db.raw);
+
+        const opportunityId =
+          (args.opportunity_id as string | undefined) ?? null;
+        const experimentId =
+          (args.experiment_id as string | undefined) ?? null;
+        if (!opportunityId && !experimentId) {
+          const focusOpportunities =
+            store.listFocusOpportunities(2);
+
+          const priorityExperiments =
+            store.listPriorityExperiments(
+              focusOpportunities.map((opportunity) => opportunity.id),
+              3,
+            );
+
+          return JSON.stringify({
+            focus_opportunities: focusOpportunities,
+            priority_experiments: priorityExperiments,
+            mission_agenda: economicMissionAgenda(ctx.db.raw),
+            accounting: (await import("../revenue/economic-state.js")).economicState(ctx.db.raw),
+          });
+        }
+
+        const experiment = experimentId
+          ? store.getExperiment(experimentId)
+          : null;
+
+        if (experimentId && !experiment) {
+          return JSON.stringify({ ok: false, error: "experiment_not_found" });
+        }
+
+        if (experiment && opportunityId && experiment.opportunityId !== opportunityId) {
+          return JSON.stringify({ok:false,error:"experiment_opportunity_mismatch"});
+        }
+
+        const resolvedOpportunityId =
+          opportunityId ?? experiment?.opportunityId ?? null;
+
+        if (!resolvedOpportunityId) {
+          return JSON.stringify({ ok: false, error: "opportunity_id_required" });
+        }
+
+        const opportunity = store.getOpportunity(resolvedOpportunityId);
+
+        if (!opportunity) {
+          return JSON.stringify({ ok: false, error: "opportunity_not_found" });
+        }
+
+        return JSON.stringify({
+          opportunity,
+          economics: store.getOpportunityEconomics(resolvedOpportunityId),
+          recent_events: store.listEconomicEvents(
+            resolvedOpportunityId,
+            Math.min(Math.max(Number(args.event_limit ?? 20), 1), 100),
+          ),
+          experiment,
+          experiment_review: experimentId ? store.getExperimentReview(experimentId) : null,
+          forecast_vs_actual: experimentId
+            ? store.getForecastVsActual(experimentId)
+            : null,
+        });
+      },
+    },
+    {
+      name:"revenue_plan_capital",
+      description:"Compare bounded experiment allocations against persisted budgets, capital, profiles and actual historical costs. Supplied limits can constrain a proposal but never grant spending authority. Returns preserve_capital when no eligible use exists.",
+      category:"revenue",riskLevel:"safe",
+      parameters:{type:"object",properties:{decision_id:{type:"string",description:"Optional immutable proposal comparison ID. Reuse on retry; not proof of execution."},proposal:{type:"object",description:"JSON with candidates, limits and policy for planCapitalAllocation; this is decision support, not configuration or permission."}},required:["proposal"]},
+      execute:async(args,ctx)=>{
+        const proposal=args.proposal as Parameters<typeof import('../revenue/capital-allocation.js').planCapitalAllocation> extends [unknown,infer C,infer L,infer P]?{candidates:C;limits:L;policy:P}:never;
+        const {planCapitalAllocation,recordAllocationComparison}=await import('../revenue/capital-allocation.js');
+        return JSON.stringify(args.decision_id?recordAllocationComparison(ctx.db.raw,args.decision_id as string,proposal.candidates,proposal.limits,proposal.policy):
+          planCapitalAllocation(ctx.db.raw,proposal.candidates,proposal.limits,proposal.policy));
+      },
+    },
+    {
+      name:"revenue_profitability",description:"Read evidence-derived profitability state, calibration, drift and policy ceilings. No state promotion, spending or permission changes.",
+      category:"revenue",riskLevel:"safe",
+      parameters:{type:"object",properties:{opportunity_id:{type:"string"}},required:["opportunity_id"]},
+      execute:async(args,ctx)=>{
+        const {profitabilitySnapshot}=await import('../revenue/profitability.js');
+        return JSON.stringify(profitabilitySnapshot(ctx.db.raw,args.opportunity_id as string));
+      },
+    },
+    {
+      name:'security_alternatives',description:'Evaluate up to sixteen genuinely different action scopes against existing trusted reviews. Preserves the objective; cannot create evidence, grant permissions, change root policy or execute actions. Approval here does not replace budget, risk, context, provider and data gates at execution.',
+      category:'revenue',riskLevel:'safe',parameters:{type:'object',properties:{objective_id:{type:'string'},blocked:{type:'object'},candidates:{type:'array',maxItems:16,items:{type:'object'}}},required:['objective_id','blocked','candidates'],additionalProperties:false},
+      execute:async(args,ctx)=>{
+        if(typeof args.objective_id!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(args.objective_id)||Object.keys(args).some(k=>!['objective_id','blocked','candidates'].includes(k)))throw Error('Bounded objective and scopes required');
+        const {selectSafeAlternative}=await import('../security/action-gate.js');
+        const selected=selectSafeAlternative(ctx.db.raw,args.blocked as import('../security/action-gate.js').ActionScope,args.candidates as import('../security/action-gate.js').ActionScope[]);
+        return JSON.stringify({objectiveId:args.objective_id,selected,executionAuthorized:false,next:selected?'Re-evaluate every applicable execution gate':'Continue bounded local research or simulation without external effects; request only genuinely missing external evidence'});
+      },
+    },
+    {
+      name:"revenue_compare_outcomes",description:"Read recorded allocation alternatives against available attributed results. Missing counterfactuals remain unknown; no real or paper order is executed.",
+      category:"revenue",riskLevel:"safe",parameters:{type:"object",properties:{decision_id:{type:"string"}},required:["decision_id"]},
+      execute:async(args,ctx)=>{const {observeAllocationComparison}=await import('../revenue/capital-allocation.js');return JSON.stringify(observeAllocationComparison(ctx.db.raw,args.decision_id as string));},
+    },
+    {
+      name:'revenue_compare_strategies',description:'Compare a validated champion with at most ten challengers using existing registered profitability confidence bounds, observed samples and declared resource comparability. Optional comparison_kind=pricing additionally requires comparable reconciled business cohorts and recommends controlled replication only. No strategy switch, price change, capital release or execution.',
+      category:'revenue',riskLevel:'safe',parameters:{type:'object',properties:{comparison_kind:{type:'string',enum:['strategy','pricing']},champion_id:{type:'string'},challengers:{type:'array',items:{type:'object',properties:{opportunityId:{type:'string'},switchingCostCents:{type:'integer'}},required:['opportunityId','switchingCostCents']}}},required:['champion_id','challengers']},
+      execute:async(args,ctx)=>{
+        if(args.comparison_kind!==undefined&&!['strategy','pricing'].includes(args.comparison_kind as string))throw new Error('Invalid comparison kind');
+        const {compareProfitabilityAlternatives,comparePricingAlternatives}=await import('../revenue/strategy-comparison.js');
+        return JSON.stringify((args.comparison_kind==='pricing'?comparePricingAlternatives:compareProfitabilityAlternatives)(ctx.db.raw,args.champion_id as string,args.challengers as {opportunityId:string;switchingCostCents:number}[]));
+      },
+    },
+    {
+      name:"revenue_paper_profit",description:"Bind future local paper positions or arbitrage candidate IDs (kind=arbitrage) to a running experiment with an immutable start forecast before executing them, or reconcile closed paper results. Always PAPER, never live proof or capital credit. Reconciliation needs a terminal experiment with no unresolved costs; legacy arbitrage reports without complete settlement amounts cannot be upgraded.",
+      category:"revenue",riskLevel:"safe",parameters:{type:"object",properties:{action:{type:"string",enum:['bind','reconcile']},experiment_id:{type:"string"},position_ids:{type:'array',items:{type:'string'}},comparison_basis:{type:'string'},kind:{type:'string',enum:['portfolio','arbitrage']}},required:['action','experiment_id']},
+      execute:async(args,ctx)=>{
+        const {bindPaperProfit,reconcilePaperProfit}=await import('../revenue/paper-profit.js');
+        if(args.action==='bind')return JSON.stringify(bindPaperProfit(ctx.db.raw,args.experiment_id as string,args.position_ids as string[],args.comparison_basis as string,args.kind as 'portfolio'|'arbitrage'|undefined));
+        if(args.action==='reconcile')return JSON.stringify(await reconcilePaperProfit(ctx.db.raw,args.experiment_id as string));
+        throw new Error('Invalid paper reconciliation action');
+      },
+    },
   ];
+  // These legacy adapters cannot yet reserve a verified total price and reconcile it.
+  // Guard the executor itself, including callers which bypass executeTool.
+  const unpriced = new Set(["topup_credits", "transfer_credits", "fund_child", "create_sandbox",
+    "spawn_child", "register_domain", "x402_fetch", "register_erc8004", "give_feedback"]);
+  const guarded = tools.map(tool => !unpriced.has(tool.name) ? tool : {...tool, execute: async () => {
+    // An absent capital-policy table is not spending authority. These legacy
+    // paths lack atomic reservations and cannot be enabled by removing state.
+    return "Blocked: Shared capital protection requires a priced, reserving and reconciling adapter for this operation.";
+  }});
+  return guarded.map(tool => !CONWAY_ONLY_TOOLS.has(tool.name) ? tool : {...tool,execute:async(args,ctx)=>{
+    if(unpriced.has(tool.name)&&!ctx.config)return tool.execute(args,ctx);
+    if(localOperation(ctx.config,ctx.conway))return 'Conway capability unavailable in local mode. Shared capital protection remains enforced.';
+    return tool.execute(args,ctx);
+  }});
 }
 
 /**
@@ -3257,7 +3948,7 @@ function createInstalledToolExecutor(tool: {
       // MCP tools would be executed via MCP protocol
       return `MCP tool ${tool.name} invoked with args: ${JSON.stringify(args)}`;
     }
-    // Generic installed tool — execute via sandbox shell if command is configured
+    // Generic installed tool â€” execute via sandbox shell if command is configured
     const command = tool.config?.command as string | undefined;
     if (command) {
       const result = await ctx.conway.exec(
@@ -3316,6 +4007,11 @@ export async function executeTool(
     };
   }
 
+  try { assertNoKnownSecrets(args); }
+  catch { return {id:ulid(),name:toolName,arguments:{},result:'',durationMs:Date.now()-startTime,error:'Blocked: credential material in tool arguments'}; }
+  if((!policyEngine||!turnContext)&&['dangerous','forbidden'].includes(tool.riskLevel)) {
+    return {id:ulid(),name:toolName,arguments:args,result:'',durationMs:Date.now()-startTime,error:'Blocked: privileged execution requires policy evaluation and audit'};
+  }
   // Policy evaluation (if engine is provided)
   if (policyEngine && turnContext) {
     const request: PolicyRequest = {
@@ -3334,13 +4030,14 @@ export async function executeTool(
         arguments: args,
         result: "",
         durationMs: Date.now() - startTime,
-        error: `Policy denied: ${decision.reasonCode} — ${decision.humanMessage}`,
+        error: `Policy denied: ${decision.reasonCode} â€” ${decision.humanMessage}`,
       };
     }
   }
 
   try {
     let result = await tool.execute(args, context);
+    assertNoKnownSecrets(result);
 
     // Sanitize results from external source tools
     if (EXTERNAL_SOURCE_TOOLS.has(toolName)) {
@@ -3405,7 +4102,7 @@ export async function executeTool(
       arguments: args,
       result: "",
       durationMs: Date.now() - startTime,
-      error: err.message || String(err),
+      error: redactLogText(err.message || String(err)),
     };
   }
 }

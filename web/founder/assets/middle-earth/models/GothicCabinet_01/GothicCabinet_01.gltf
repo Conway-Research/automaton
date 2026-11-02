@@ -1,0 +1,491 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "GothicCabinet_01_cabinet"
+    },
+    {
+      "mesh": 1,
+      "name": "GothicCabinet_01_door4",
+      "rotation": [
+        0,
+        0.15239322185516357,
+        0,
+        0.9883199334144592
+      ],
+      "translation": [
+        0.70871502161026,
+        0.7437360286712646,
+        0.44861799478530884
+      ]
+    },
+    {
+      "mesh": 2,
+      "name": "GothicCabinet_01_door3",
+      "rotation": [
+        0,
+        -0.08332230895757675,
+        0,
+        0.9965226650238037
+      ],
+      "translation": [
+        -0.6909459829330444,
+        0.7437360286712646,
+        0.44861799478530884
+      ]
+    },
+    {
+      "mesh": 3,
+      "name": "GothicCabinet_01_door2",
+      "rotation": [
+        0,
+        0.09699027240276337,
+        0,
+        0.9952853322029114
+      ],
+      "translation": [
+        0.70871502161026,
+        1.7461400032043457,
+        0.44861799478530884
+      ]
+    },
+    {
+      "mesh": 4,
+      "name": "GothicCabinet_01_door1",
+      "rotation": [
+        0,
+        -0.04182601720094681,
+        0,
+        0.9991250038146973
+      ],
+      "translation": [
+        -0.6909459829330444,
+        1.7461400032043457,
+        0.44861799478530884
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "GothicCabinet_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.004",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Plane.008",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Plane.007",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Plane.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Plane.000",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17,
+            "TEXCOORD_0": 18
+          },
+          "indices": 19,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "GothicCabinet_01_nor_gl",
+      "uri": "textures/GothicCabinet_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "GothicCabinet_01_diff",
+      "uri": "textures/GothicCabinet_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "GothicCabinet_01_metallic-GothicCabinet_01_roughness",
+      "uri": "textures/GothicCabinet_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3967,
+      "max": [
+        0.8595719337463379,
+        2.36090087890625,
+        0.5582708120346069
+      ],
+      "min": [
+        -0.8595718145370483,
+        -7.45047969985535e-8,
+        -0.4573075771331787
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3967,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3967,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 11154,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 2227,
+      "max": [
+        0.013516664505004883,
+        0.4448373317718506,
+        0.008910298347473145
+      ],
+      "min": [
+        -0.7112362384796143,
+        -0.44867900013923645,
+        -0.03863227367401123
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 2227,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 2227,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 6333,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 2248,
+      "max": [
+        0.694313645362854,
+        0.4448373317718506,
+        0.008910298347473145
+      ],
+      "min": [
+        -0.013516604900360107,
+        -0.44867900013923645,
+        -0.03863206505775452
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 2248,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 2248,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 6345,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 2229,
+      "max": [
+        0.013516604900360107,
+        0.4464590549468994,
+        0.008910268545150757
+      ],
+      "min": [
+        -0.7112362384796143,
+        -0.4470573663711548,
+        -0.038632363080978394
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 2229,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 2229,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 6333,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 2251,
+      "max": [
+        0.6943135857582092,
+        0.4464590549468994,
+        0.008910268545150757
+      ],
+      "min": [
+        -0.013516664505004883,
+        -0.4470573663711548,
+        -0.038632363080978394
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 2251,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 2251,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 6345,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 47604,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 47604,
+      "byteOffset": 47604
+    },
+    {
+      "buffer": 0,
+      "byteLength": 31736,
+      "byteOffset": 95208
+    },
+    {
+      "buffer": 0,
+      "byteLength": 22308,
+      "byteOffset": 126944
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26724,
+      "byteOffset": 149252
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26724,
+      "byteOffset": 175976
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17816,
+      "byteOffset": 202700
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12666,
+      "byteOffset": 220516
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26976,
+      "byteOffset": 233184
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26976,
+      "byteOffset": 260160
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17984,
+      "byteOffset": 287136
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12690,
+      "byteOffset": 305120
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26748,
+      "byteOffset": 317812
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26748,
+      "byteOffset": 344560
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17832,
+      "byteOffset": 371308
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12666,
+      "byteOffset": 389140
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27012,
+      "byteOffset": 401808
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27012,
+      "byteOffset": 428820
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18008,
+      "byteOffset": 455832
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12690,
+      "byteOffset": 473840
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 486532,
+      "uri": "GothicCabinet_01.bin"
+    }
+  ]
+}

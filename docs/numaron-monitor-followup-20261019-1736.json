@@ -1,0 +1,41 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "checkedAt": "2026-10-19T15:36:04.876Z",
+  "regularRuns": [
+    {"id":"2026-10-19T15-29-23-451Z-80adf9cf","status":"completed","completedAt":"2026-10-19T15:31:18.240Z","rows":25,"succeeded":25},
+    {"id":"2026-10-19T15-31-41-861Z-0174c63e","status":"completed","completedAt":"2026-10-19T15:32:24.924Z","rows":11,"succeeded":11}
+  ],
+  "responses": {
+    "ugigCheckedAt":"2026-10-19T15:32:17.119Z",
+    "applicationsComplete":true,
+    "applications":14,
+    "application450USD":"pending",
+    "application100USD":"pending",
+    "application90USD":"pending",
+    "application50USD":"pending",
+    "incomingLatestMessages":0,
+    "unreadCounts":[0,0,0,0],
+    "gmailCheckedAt":"2026-10-19T15:32:12.054Z",
+    "gmailOrderSearchResultSizeEstimate":0,
+    "dealworkContracts":0,
+    "synmercoInboxAndIntentsUnchanged":true,
+    "guru":"access-required; no fresh successful check"
+  },
+  "screening": {
+    "newApplications":0,
+    "reason":"No sufficiently compelling additional candidate in inspected results. Many technically relevant older ugig listings belong to already contacted buyers with existing pending proposals. No repeat proposals or follow-ups sent merely because no reply arrived. Other inspected candidates include unpaid work, unsupported in-person work and software execution outside current scope.",
+    "arcbountyCount":0,
+    "bidpostloopCount":0,
+    "githubDiscoveryItems":0,
+    "scope":"Evidence from existing regular monitor and stored listing inspection, not an exhaustive verification of every platform"
+  },
+  "operation": {
+    "confirmedOn":true,
+    "powerRevision":76,
+    "servicePid":42656,
+    "extraMonitorRunsStarted":0,
+    "productionPowerActions":0,
+    "restarts":0,
+    "budgetOrProtectionChanges":0
+  }
+}

@@ -53,7 +53,7 @@ export class OrchestratorHarness extends BaseHarness {
     }
 
     this.messages = [
-      { role: "system", content: this.buildSystemPrompt() },
+      { role: "system", content: this.buildEffectiveSystemPrompt() },
       { role: "user", content: this.buildTaskPrompt() },
     ];
   }
@@ -321,7 +321,7 @@ You follow a strict planner-backed plan → execute → verify → fix cycle:
       },
       {
         name: "verify_result",
-        description: "Verify that a completed task's output meets the success criteria. Runs a lightweight check.",
+        description: "Screen a completed task's text for criterion terms. This is a heuristic only, not external verification of correctness, demand or payment.",
         parameters: {
           type: "object",
           properties: {
@@ -333,6 +333,7 @@ You follow a strict planner-backed plan → execute → verify → fix cycle:
         execute: async (args) => {
           const taskId = args.task_id as string;
           const criteria = args.criteria as string;
+          if (typeof criteria !== "string" || !criteria.trim()) return "Invalid verification criteria: supply substantive criteria";
           const task = getTaskById(this.context.db, taskId);
           if (!task || task.goalId !== this.context.goalId) return `Task not found: ${taskId}`;
           if (task.status !== "completed") return `Task ${taskId} is not completed (status: ${task.status})`;
@@ -342,10 +343,11 @@ You follow a strict planner-backed plan → execute → verify → fix cycle:
           const criteriaTerms = criteria.toLowerCase().split(/\s+/u).filter((term) => term.length > 3);
           const outputLower = result.output.toLowerCase();
           const matched = criteriaTerms.filter((term) => outputLower.includes(term));
-          const matchRatio = criteriaTerms.length > 0 ? matched.length / criteriaTerms.length : 1;
+          if (!criteriaTerms.length) return "Invalid verification criteria: no substantive terms to check";
+          const matchRatio = matched.length / criteriaTerms.length;
 
           if (matchRatio >= 0.5) {
-            return `VERIFIED: Task output appears to meet criteria (${Math.round(matchRatio * 100)}% term match). Output preview: ${result.output.slice(0, 300)}`;
+            return `HEURISTIC MATCH ONLY: ${Math.round(matchRatio * 100)}% criterion terms occur in the reported output. This does not verify correctness, customer demand or payment; inspect independent evidence. Output preview: ${result.output.slice(0, 300)}`;
           }
 
           const taskNode = taskRowToTaskNode(task);
@@ -384,6 +386,13 @@ You follow a strict planner-backed plan → execute → verify → fix cycle:
         execute: async (args) => {
           const summary = args.summary as string;
           const success = args.success !== false;
+          if (success) {
+            const unresolved = this.getManagedTasks().filter(task =>
+              task.status !== "completed" || normalizeTaskResult(task.result)?.success !== true);
+            if (unresolved.length) {
+              throw new Error(`Cannot report orchestration success: ${unresolved.length} delegated task(s) are unfinished or unsuccessful. Inspect results, continue bounded work or report failure.`);
+            }
+          }
           return `TASK_COMPLETE:${success ? "SUCCESS" : "FAILURE"}:${summary}`;
         },
       },
@@ -423,8 +432,8 @@ You follow a strict planner-backed plan → execute → verify → fix cycle:
     }
 
     const plan = failureInput
-      ? await replanAfterFailure(planningGoal, failureInput, plannerContext, this.context.inference as any)
-      : await planGoal(planningGoal, plannerContext, this.context.inference as any);
+      ? await replanAfterFailure(planningGoal, failureInput, plannerContext, this.context.inference)
+      : await planGoal(planningGoal, plannerContext, this.context.inference);
 
     const persisted = await persistPlannerArtifacts({
       goalId: this.context.goalId,

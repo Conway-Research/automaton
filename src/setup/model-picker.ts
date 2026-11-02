@@ -33,6 +33,7 @@ export async function runModelPicker(): Promise<void> {
   const dbPath = resolvePath(config.dbPath);
   const db = createDatabase(dbPath);
 
+  try {
   // Seed static baseline + discover Ollama models
   const registry = new ModelRegistry(db.raw);
   registry.initialize();
@@ -47,9 +48,7 @@ export async function runModelPicker(): Promise<void> {
 
   if (models.length === 0) {
     console.log(chalk.yellow("  No models available in registry."));
-    db.close();
-    closePrompts();
-    return;
+      return;
   }
 
   console.log(chalk.cyan("\n  Available Models\n"));
@@ -57,18 +56,15 @@ export async function runModelPicker(): Promise<void> {
 
   console.log("");
   const input = await promptOptional("Enter model number (or press Enter to cancel)");
-  closePrompts();
 
   if (!input) {
     console.log(chalk.dim("  Cancelled."));
-    db.close();
     return;
   }
 
-  const idx = parseInt(input, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= models.length) {
+  const idx = /^\d+$/.test(input) ? Number(input) - 1 : NaN;
+  if (!Number.isSafeInteger(idx) || idx < 0 || idx >= models.length) {
     console.log(chalk.red(`  Invalid selection: "${input}"`));
-    db.close();
     return;
   }
 
@@ -82,7 +78,10 @@ export async function runModelPicker(): Promise<void> {
   console.log(chalk.green(`\n  Active model set to: ${selected.modelId} (${selected.displayName})`));
   console.log(chalk.dim("  Restart the automaton for the change to take effect.\n"));
 
-  db.close();
+  } finally {
+    db.close();
+    closePrompts();
+  }
 }
 
 function printModelTable(models: ModelEntry[], currentModelId: string): void {

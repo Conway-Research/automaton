@@ -1,5 +1,7 @@
 name: CI
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -7,40 +9,31 @@ jobs:
       matrix:
         node-version: [20, 22]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified upstream tag 2026-10-01
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4, verified upstream tag 2026-10-01
         with:
           node-version: ${{ matrix.node-version }}
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4, verified upstream tag 2026-10-01
       - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
       - run: pnpm run typecheck
+      - run: pnpm run typecheck:tests
+      - run: pnpm run security:scan
+      - run: pnpm run build
       - name: Run tests
         timeout-minutes: 10
-        run: |
-          set +e
-          timeout 300 pnpm test
-          RC=$?
-          set -e
-          # Exit code 124 means timeout killed the process (vitest hung after tests completed)
-          if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
-          exit $RC
+        run: timeout 300 pnpm test
       - name: Run security tests
         timeout-minutes: 10
-        run: |
-          set +e
-          timeout 180 pnpm test -- --grep "security|injection|policy|financial"
-          RC=$?
-          set -e
-          if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
-          exit $RC
+        run: timeout 180 pnpm exec vitest run --testNamePattern "security|injection|policy|financial"
 
   security-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified upstream tag 2026-10-01
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4, verified upstream tag 2026-10-01
         with:
           node-version: 22
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4, verified upstream tag 2026-10-01
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level=high || true
+      - run: pnpm audit --audit-level=low

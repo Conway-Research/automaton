@@ -18,8 +18,8 @@ export function detectEnvironment(): EnvironmentInfo {
   try {
     if (fs.existsSync("/etc/conway/sandbox.json")) {
       const data = JSON.parse(fs.readFileSync("/etc/conway/sandbox.json", "utf-8"));
-      if (data.id) {
-        const sandboxId = String(data.id).trim();
+      if (typeof data?.id === "string") {
+        const sandboxId = data.id.trim();
         if (sandboxId) {
           return { type: "conway-sandbox", sandboxId };
         }

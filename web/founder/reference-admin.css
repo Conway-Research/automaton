@@ -1,0 +1,12 @@
+.reference-admin-page main{margin:0 auto;max-width:1080px;padding:32px 24px 72px;min-width:0}
+.reference-admin-page h1{font-size:clamp(1.75rem,4vw,2.6rem);line-height:1.2}
+.reference-admin-page article{padding:24px;margin:16px 0;border:1px solid #bbc9c8;border-radius:16px;background:rgba(255,255,255,.66);overflow-wrap:anywhere}
+.reference-admin-page dl{display:grid;grid-template-columns:minmax(130px,180px) minmax(0,1fr);gap:8px 20px;margin:16px 0}
+.reference-admin-page dt{font-weight:650}.reference-admin-page dd{margin:0;overflow-wrap:anywhere}
+.reference-admin-page label{display:block;margin:16px 0;line-height:1.5}
+.reference-admin-page input:not([type=checkbox]){display:block;margin-top:6px;width:min(100%,480px);box-sizing:border-box;padding:10px;border:1px solid #667d7d;border-radius:8px;background:#fff;color:#163537}
+.reference-admin-page input[type=checkbox]{margin:0 8px;accent-color:#185e60}
+.reference-admin-page button{margin:5px 10px 5px 0;min-height:44px;white-space:normal}
+.reference-admin-page :focus-visible{outline:3px solid #167b89;outline-offset:3px}
+.reference-admin-page #message:not(:empty){padding:16px;border-left:4px solid #167b89;background:#eaf3f3;overflow-wrap:anywhere}
+@media(max-width:600px){.reference-admin-page main{padding:24px 16px}.reference-admin-page article{padding:16px}.reference-admin-page dl{grid-template-columns:1fr;gap:4px}.reference-admin-page dd{margin-bottom:10px}.reference-admin-page button{width:100%;margin-right:0}}

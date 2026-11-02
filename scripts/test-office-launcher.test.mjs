@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import path from 'node:path';
+import {preflightOfficeTests} from './test-office.mjs';
+test('launcher requires explicit absolute Python path before any process',()=>{let calls=0;for(const p of [undefined,'python','relative/python.exe'])assert.throws(()=>preflightOfficeTests(p,()=>{calls++;}),/absolute/i);assert.equal(calls,0);});
+test('launcher rejects missing executable or packages before tests',()=>{for(const result of [{error:Error('missing')},{status:1,stderr:'missing package'},{status:0,stdout:'invalid'}])assert.throws(()=>preflightOfficeTests(path.resolve('synthetic-python'),()=>result),/runtime|packages|probe/i);});
+test('launcher uses isolated Python and validates package probe',()=>{let args;const r=preflightOfficeTests(path.resolve('synthetic-python'),(exe,a)=>{args=a;return {status:0,stdout:JSON.stringify({python:'3.12.0',docx:'1.2.0',openpyxl:'3.1.5'})};});assert.equal(args[0],'-I');assert.ok(args[2].includes('import docx'));assert.equal(r.openpyxl,'3.1.5');});

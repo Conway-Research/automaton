@@ -1,3 +1,4 @@
+import os from "node:os";
 /**
  * Skills Loader
  *
@@ -6,7 +7,7 @@
  * YAML frontmatter + Markdown instructions.
  */
 
-import { execFileSync } from "child_process";
+import {hasRequiredBinary} from './requirements.js';
 import fs from "fs";
 import path from "path";
 import type { Skill, AutomatonDatabase } from "../types.js";
@@ -50,9 +51,11 @@ export function loadSkills(
 
   const entries = fs.readdirSync(resolvedDir, { withFileTypes: true });
   const loaded: Skill[] = [];
+  const pending = new Set<string>();
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    if (fs.existsSync(path.join(resolvedDir,entry.name,'.install-pending.json'))) {pending.add(entry.name);continue;}
 
     const skillMdPath = path.join(resolvedDir, entry.name, "SKILL.md");
     if (!fs.existsSync(skillMdPath)) continue;
@@ -82,7 +85,7 @@ export function loadSkills(
   }
 
   // Return all enabled skills (includes DB-only skills not on disk)
-  return db.getSkills(true);
+  return db.getSkills(true).filter(skill=>!pending.has(skill.name));
 }
 
 /**
@@ -92,7 +95,7 @@ const BIN_NAME_RE = /^[a-zA-Z0-9._-]+$/;
 
 /**
  * Check if a skill's requirements are met.
- * Uses execFileSync with argument arrays to prevent shell injection.
+ * Checks binary presence without executing a process.
  */
 function checkRequirements(skill: Skill): boolean {
   if (!skill.requires) return true;
@@ -104,11 +107,7 @@ function checkRequirements(skill: Skill): boolean {
       if (!BIN_NAME_RE.test(bin)) {
         return false;
       }
-      try {
-        execFileSync("which", [bin], { stdio: "ignore" });
-      } catch {
-        return false;
-      }
+      if (!hasRequiredBinary(bin)) return false;
     }
   }
 
@@ -156,7 +155,26 @@ function validateInstructionContent(instructions: string, skillName: string): st
  * Instructions are sanitized and wrapped with trust boundary markers.
  */
 export function getActiveSkillInstructions(skills: Skill[]): string {
-  const active = skills.filter((s) => s.enabled && s.autoActivate);
+  const priorityOrder = [
+    "survival",
+    "revenue-core",
+    "opportunity-tracker",
+  ];
+
+  const active = skills
+    .filter((s) => s.enabled && s.autoActivate)
+    .sort((a, b) => {
+      const ai = priorityOrder.indexOf(a.name);
+      const bi = priorityOrder.indexOf(b.name);
+
+      if (ai !== -1 || bi !== -1) {
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
   if (active.length === 0) return "";
 
   let totalLength = 0;
@@ -186,7 +204,7 @@ export function getActiveSkillInstructions(skills: Skill[]): string {
 
 function resolveHome(p: string): string {
   if (p.startsWith("~")) {
-    return path.join(process.env.HOME || "/root", p.slice(1));
+    return path.join(process.env.HOME || os.homedir(), p.slice(1));
   }
   return p;
 }

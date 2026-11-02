@@ -1,0 +1,13 @@
+{
+  "schema": "numaron-training-progress-audit-v1",
+  "report": "outputs/training-progress-audit-20261026/REPORT.md",
+  "completionPlan": "outputs/training-progress-audit-20261026/completion-plan.md",
+  "staticAudit": "outputs/training-progress-audit-20261026/static-audit.json",
+  "status": "diagnosed-progress-with-syntax-policy-and-regression-blockers",
+  "trainingModified": false,
+  "trainingInterrupted": false,
+  "newModelCalls": 0,
+  "productionTakeover": false,
+  "powerObserved": "OFF",
+  "powerRevision": 101
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "numaron-paid-order-pilot-handoff-v1",
+  "status": "implemented-isolated-offline-tested-not-deployed",
+  "worktree": "C:/Users/Patrice/.codex/worktrees/paid-order-pilot/automaton",
+  "branch": "codex/paid-order-pilot",
+  "prerequisiteSnapshotCommit": "952a885c",
+  "featureCommit": "f1fe50a7055deabfba31165bae24afb4a7257d59",
+  "report": "outputs/paid-order-pilot-20261025/REPORT.md",
+  "contract": "C:/Users/Patrice/.codex/worktrees/paid-order-pilot/automaton/docs/numaron-paid-order-pilot-20261025.md",
+  "tests": {
+    "passed": 109,
+    "failed": 0,
+    "scope": "ten-selected-offline-suites-not-whole-repository",
+    "networkDenied": true
+  },
+  "productionPowerObserved": "OFF",
+  "powerRevision": 101,
+  "productionTakeover": false,
+  "productionRestarted": false,
+  "externalActions": 0,
+  "personnelCostsIncluded": false,
+  "humanTimeUnit": "minutes-only",
+  "autonomy": "stored-discovery-through-authenticated-payment-with-existing-required-human-exceptions",
+  "remainingPrerequisites": [
+    "actual-passed-training-receipts-bound-to-scope-and-current-runtime",
+    "reviewed-source-contracts-and-authorized-platform-routes",
+    "actual-cost-and-confirmed-time-inputs-for-complete-economics",
+    "separate-human-authorized-coordinated-production-uptake"
+  ],
+  "doNotApplyPrerequisiteSnapshotBlindly": true,
+  "confirmedFundedOrdersSupplement": {
+    "spec": "C:/Users/Patrice/automaton/docs/numaron-confirmed-funded-orders-20261028.md",
+    "specSha256": "0988f9d90fc945483b815e99c123f02736b2a0045294c27df1bd288dd104eb74",
+    "acceptanceReceipt": "C:/Users/Patrice/automaton/outputs/document-status-20261026/confirmed-funded-orders-accepted-queue.json",
+    "status": "accepted-queued-after-original-technical-delivery",
+    "implemented": false,
+    "newTestsPassed": 0,
+    "requiredCaseIds": [
+      "Z01",
+      "Z02",
+      "Z03",
+      "Z04",
+      "Z05",
+      "Z06",
+      "Z07",
+      "Z08",
+      "Z09",
+      "Z10",
+      "Z11",
+      "Z12"
+    ],
+    "integratesExistingPilot": true,
+    "duplicatePipelineStarted": false
+  }
+}

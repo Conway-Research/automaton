@@ -1,0 +1,160 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v3.5.30",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "dead_tree_trunk"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "dead_tree_trunk",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "dead_tree",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "TEXCOORD_0": 1,
+            "NORMAL": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "dead_tree_trunk_nor_gl",
+      "uri": "textures/dead_tree_trunk_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "dead_tree_trunk_diff",
+      "uri": "textures/dead_tree_trunk_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "dead_tree_trunk_rough",
+      "uri": "textures/dead_tree_trunk_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 52593,
+      "max": [
+        1.5119144916534424,
+        0.2626980245113373,
+        0.10672463476657867
+      ],
+      "min": [
+        -1.5391005277633667,
+        -0.02773353084921837,
+        -0.17080287635326385
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 52593,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 52593,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 305406,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 631116,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 420744,
+      "byteOffset": 631116,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 631116,
+      "byteOffset": 1051860,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 610812,
+      "byteOffset": 1682976,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 2293788,
+      "uri": "dead_tree_trunk.bin"
+    }
+  ]
+}

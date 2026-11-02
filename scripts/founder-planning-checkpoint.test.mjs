@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createPlanningCheckpoint} from './founder-planning-checkpoint.mjs';
+test('large local planning traversals yield to the event loop and observe OFF',async()=>{let on=true,timerRan=false;const check=createPlanningCheckpoint({isActive:()=>on,batch:8});setImmediate(()=>{timerRan=true;on=false;});let processed=0;for(let i=0;i<10000;i++){if(!await check())break;processed++;}assert.equal(timerRan,true);assert.ok(processed<8);});
+test('OFF never processes work and cancelled traversal does not turn itself back on',async()=>{let on=false;const check=createPlanningCheckpoint({isActive:()=>on});assert.equal(await check(),false);assert.equal(on,false);});

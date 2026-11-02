@@ -1,0 +1,12 @@
+import {it,expect,vi,beforeEach,afterEach} from 'vitest';
+import {DEFAULT_TREASURY_POLICY} from '../types.js';
+const m=vi.hoisted(()=>({answers:[] as string[],close:vi.fn(),load:vi.fn(),save:vi.fn()}));
+vi.mock('readline',()=>({default:{createInterface:()=>({question:(_q:string,cb:(s:string)=>void)=>{if(!m.answers.length)throw Error('fixture exhausted');cb(m.answers.shift()!);},close:m.close})}}));
+vi.mock('../config.js',()=>({loadConfig:m.load,saveConfig:m.save,resolvePath:(s:string)=>s}));
+import {promptWithDefault,closePrompts} from '../setup/prompts.js';
+import {runConfigure} from '../setup/configure.js';
+beforeEach(()=>{vi.clearAllMocks();vi.spyOn(console,'log').mockImplementation(()=>{});});
+afterEach(()=>{closePrompts();vi.restoreAllMocks();});
+it.each(['1x','1.2','1e3','-1','Infinity','9007199254740992'])('rejects ambiguous financial input %s',async s=>{m.answers=[s];expect(await promptWithDefault('fixture',7)).toBe(7);});
+it('keeps treasury limits for invalid input through the actual menu',async()=>{const cfg={name:'fixture',treasuryPolicy:{...DEFAULT_TREASURY_POLICY}};m.load.mockReturnValue(cfg);m.answers=['3','1x','1.2','1e3','-1','Infinity','9007199254740992','bad','q'];await runConfigure();expect(cfg.treasuryPolicy).toEqual(DEFAULT_TREASURY_POLICY);expect(m.save).toHaveBeenCalledTimes(1);expect(m.close).toHaveBeenCalled();});
+it('allows exact zero and integer values',async()=>{m.answers=['0','42'];expect(await promptWithDefault('fixture',7)).toBe(0);expect(await promptWithDefault('fixture',7)).toBe(42);});

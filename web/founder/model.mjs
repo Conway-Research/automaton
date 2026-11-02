@@ -1,14 +1,36 @@
 const zone='Europe/Zurich';
 export function codeCapability(c,a){
  if(!a.codeOrders)return c;
- if(c.kind==='code-execution')return {...c,reason:'Freie Code-Ausführung bleibt gesperrt. Begrenzte Code-Aufträge laufen über Auftrag vorbereiten, Code erstellen, Code prüfen und Einreichung.'};
+ if(c.kind==='code-execution')return {...c,reason:c.reason||'Private JavaScript-Tests in geprüfter Offline-Isolation; keine Veröffentlichung oder Kundenabnahme.'};
  if(c.kind.startsWith('order-')&&c.status==='blocked'&&c.reason==='Offline-Isolation erfolgreich geprüft.'&&!a.codeOrders.isolated)return {...c,reason:'Regelmässige Schutzprüfung läuft; neue Code-Ausführungen warten bis zum erfolgreichen Abschluss.'};
  return c;
 }
-export function runtimeHealth(a={},now=Date.now()){
+export function runtimeHealth(a={},now=Date.now(),monitor=null){
  const tasks=a.tasks??[],counts=a.taskCounts??Object.fromEntries(['failed','blocked','queued','running','verifying'].map(status=>[status,tasks.filter(t=>t.status===status).length]));
- const active=a.activeWorkers??((counts.running??0)+(counts.verifying??0)),nextAt=tasks.filter(t=>t.status==='queued').map(t=>t.nextEligibleAt??t.input?.notBefore).filter(t=>Number.isFinite(t)&&t>now).sort((x,y)=>x-y)[0]??null;
- return {label:a.status==='running'?(active?'In Bearbeitung':'Eingeschaltet · wartet'):({paused:'Pausiert',stopped:'Ausgeschaltet',emergency_stopped:'Not-Aus aktiv'}[a.status]??'Status unbekannt'),active,failed:counts.failed??0,blocked:counts.blocked??0,queued:counts.queued??0,capabilityGaps:(a.capabilities??[]).filter(c=>c.status==='blocked').length,nextAt};
+ const active=a.activeWorkers??((counts.running??0)+(counts.verifying??0)),nextAt=tasks.filter(t=>t.status==='queued').map(t=>t.waitState?t.waitState.until:t.nextEligibleAt??t.input?.notBefore).filter(t=>Number.isFinite(t)&&t>now).sort((x,y)=>x-y)[0]??null;
+ const time=at=>new Date(at).toLocaleString('de-CH',{timeZone:zone});
+ const freshMonitor=monitor&&Number.isFinite(Date.parse(monitor.checkedAt))&&now-Date.parse(monitor.checkedAt)>=-1000&&now-Date.parse(monitor.checkedAt)<=900000;
+ const queued=tasks.filter(t=>t.status==='queued'),ready=queued.some(t=>t.waitState?.code==='worker'||!t.waitState&&!(t.nextEligibleAt>now)&&!(t.input?.notBefore>now));
+ const waits=[...new Set(queued.map(t=>{
+  const w=t.waitState;if(w?.code==='worker')return null;
+  if(w){const planned=w.until>now&&(w.code==='scheduled'||w.code==='cooldown');return `${w.reason??'Voraussetzung offen.'}${planned?' '+(w.code==='scheduled'?'Geplant ab ':'Abrufpause bis ')+time(w.until)+'.':' Fortsetzungstermin offen.'}${w.checkAt>now?' Nächste automatische Prüfung: '+time(w.checkAt)+'; kein zugesicherter Arbeitsbeginn.':''}`;}
+  const due=Math.max(t.nextEligibleAt??0,t.input?.notBefore??0,t.nextRetryAt??0);return due>now?'Geplant ab '+time(due)+'.':null;
+ }).filter(Boolean))];
+ let label,detail;
+ if(a.status!=='running'){
+  label=({paused:'Pausiert',stopped:'Ausgeschaltet',emergency_stopped:'Not-Aus aktiv'}[a.status]??'Status unbekannt');
+  detail=a.status==='stopped'?'Numaron bleibt ausgeschaltet, bis du persönlich einschaltest.':a.status==='paused'?'Die Aufgabenbearbeitung ist pausiert.':'Kein bestätigter laufender Aufgabenbetrieb.';
+ }else{
+  label=active?`${active} ${active===1?'Aufgabe':'Aufgaben'} in Arbeit`:freshMonitor&&monitor.status==='running'?'Auftragsprüfung läuft':ready?'Eingeschaltet · prüft nächste Schritte':nextAt||freshMonitor&&monitor.status==='waiting'?'Eingeschaltet · nächste Prüfungen geplant':'Eingeschaltet · Voraussetzungen offen';
+  const names=tasks.filter(t=>['running','verifying'].includes(t.status)).map(t=>t.title??t.input?.title??t.kind??'Aufgabe').slice(0,3);
+  const parts=[];if(active)parts.push(names.length?'Aktuell: '+names.join(' · ')+'.':'Aktive Bearbeitung; Aufgabendetails werden aktualisiert.');
+  else if(ready)parts.push('Ausführbare Aufgaben werden beim nächsten Controller-Durchlauf geprüft.');
+  if(monitor){if(!freshMonitor)parts.push('Monitorstatus veraltet oder nicht bestätigt.');else if(monitor.status==='running')parts.push('Die reguläre Auftragsprüfung läuft.');else if(monitor.status==='waiting')parts.push(monitor.nextAt>now?'Auftragsmonitor bereit · nächste Auftragsprüfung: '+time(monitor.nextAt)+'.':'Nächste Auftragsprüfung ist fällig; Ausführung noch nicht bestätigt.');else if(monitor.status==='waiting-power')parts.push('Monitor wartet noch auf einen bestätigten Betriebsstatus.');else parts.push('Monitorstatus: '+String(monitor.status??'unbekannt')+'.');}
+  if(waits.length)parts.push('Wartebedingungen: '+waits.slice(0,3).join(' ')+(waits.length>3?' Weitere Gründe unter Aufgaben.':''));
+  if(!parts.length)parts.push('Keine aktive Aufgabe gemeldet; Voraussetzungen und nächste Arbeit werden geprüft.');
+  detail=parts.join(' ');
+ }
+ return {label,detail,active,failed:counts.failed??0,blocked:counts.blocked??0,queued:counts.queued??0,capabilityGaps:(a.capabilities??[]).filter(c=>c.status==='blocked').length,nextAt};
 }
 export function capabilityStatus(c){
  if(c.status==='blocked')return /noch nicht geprüft/.test(c.reason??'')?'Seit Neustart ungeprüft':'Gesperrt';
@@ -17,6 +39,8 @@ export function capabilityStatus(c){
  return c.lastSuccessAt||c.status==='verified'?'Letzter Lauf erfolgreich · kein Nachweis dauerhafter Verfügbarkeit':'Eingerichtet · erfolgreicher Lauf noch offen';
 }
 export function taskWaitText(t,now=Date.now()){
+ if(t.waitState){const w=t.waitState;return w.reason+(w.until>now?' Weiter ab '+new Date(w.until).toLocaleString('de-CH',{timeZone:zone})+'.':w.checkAt>now?' Nächste automatische Prüfung: '+new Date(w.checkAt).toLocaleString('de-CH',{timeZone:zone})+'; kein zugesicherter Starttermin.':'');}
+ if(t.kind==='research'&&(t.input?.notBefore??0)<=now&&(t.nextRetryAt??0)<=now&&(t.nextEligibleAt??0)>now)return 'Wartet auf das reguläre Recherchefenster oder eine offene Quellenprüfung. Keine neue Kostenreservierung während dieser Wartephase.';
  const due=Math.max(t.nextEligibleAt??0,t.input?.notBefore??0,t.nextRetryAt??0);
  return due>now?'Geplant ab '+new Date(due).toLocaleString('de-CH',{timeZone:zone})+' · bis dahin kein Aufruf und keine neue Reservierung.':'Wartet auf Vorarbeiten, eine Abrufpause oder einen freien Bearbeiter. Keine persönliche Bestätigung erforderlich.';
 }
@@ -165,12 +189,20 @@ export function financialSummary(s,period,now=Date.now()){
 
 export function automaticContinuation(task){
  if(!['blocked','failed'].includes(task.status))return null;
- if(Number.isFinite(task.nextRetryAt))return 'numaron wiederholt diesen Lauf automatisch nach der Wartezeit, sobald das bestehende Budget reicht. Du musst nichts weiterschalten.';
+ if(task.automaticRetryScheduled===true&&Number.isFinite(task.nextRetryAt))return 'numaron wiederholt diesen Lauf automatisch nach der Wartezeit, sobald das bestehende Budget reicht. Du musst nichts weiterschalten.';
  if(task.reason==='Budget daily limit')return 'numaron prüft die Budgetkapazität automatisch und setzt fort, sobald sie reicht. Offene Kostenreservierungen zählen weiterhin zum Limit.';
  if(task.reason==='Voraussetzung nicht erfolgreich abgeschlossen.')return 'numaron wartet auf die Vorarbeit und setzt diese Aufgabe nach deren erfolgreichem Abschluss automatisch fort. Eine gescheiterte Vorarbeit bleibt separat sichtbar.';
  return null;
 }
 
+export function taskFailureLabel(task){
+ if(!['failed','blocked'].includes(task.status))return null;
+ if(/Anbieterausgang und Kosten ungeklärt/.test(task.reason??''))return 'Kostenklärung ausstehend';
+ if(/Antwort .*unvollständig/.test(task.reason??''))return 'Antwort unvollständig';
+ if(/Versuche ausgeschöpft/.test(task.reason??''))return 'Wiederholungen ausgeschöpft';
+ return task.status==='failed'?'Letzter Lauf fehlgeschlagen':null;
+}
 export function reportStatusLabel(status){
  return ({recent:'Aktueller lokaler Bericht',partial:'Teilweise',observing:'Datenfeed aktuell','feed-degraded':'Datenfeed gestört','initial-window-ended':'Beobachtungsfenster beendet',stale:'Bericht veraltet'})[status]??'Kein auswertbarer Bericht';
 }
+export {capabilityEvidenceText,capabilityCertificateText,qualityBindingText} from './capability-evidence.mjs';

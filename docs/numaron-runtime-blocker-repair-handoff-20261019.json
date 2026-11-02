@@ -1,0 +1,60 @@
+{
+  "schema": "numaron-runtime-blocker-repair-v1",
+  "checkedOn": "2026-10-19",
+  "runningService": {
+    "pid": 18668,
+    "supervisorPid": 22336,
+    "restarted": true,
+    "power": "OFF",
+    "revision": 58
+  },
+  "demo": {
+    "file": "scripts/mt5-demo-execution.py",
+    "loadedByRegularSubprocess": true,
+    "currentDayStillBlocked": true,
+    "fix": "Complete owned broker history and a flat account now save a future-day checkpoint even when current-day opening equity cannot be proven. Never backdate or fabricate the opening equity.",
+    "liveCheckpointVerifiedAt": "2026-10-18T23:45:06.192Z",
+    "historyRecords": 7,
+    "nextDayGate": "Only identical complete history and flat balance across a Zurich day boundary permit rollover."
+  },
+  "history": {
+    "file": "src/revenue/long-history/runner.ts",
+    "pendingNodeReload": false,
+    "fix": "Clear previous-round blockers only on a genuinely new round after stopped/initial. Pause/resume preserves the six-hour limit.",
+    "schedulerDependency": "Separate active chat owns founder-controller rootTaskId repair; no concurrent runtime/controller edits here."
+  },
+  "firecrawl": {
+    "file": "scripts/founder-firecrawl-free.mjs",
+    "accessAvailableInRunningService": true,
+    "oldJob": "firecrawl-exa-research-82967",
+    "pendingNodeReload": false,
+    "fix": "Explicit manual retry requires settled controller receipt and current availability/cooldown. No automatic replay and no paid fallback.",
+    "oldJobRetried": false,
+    "liveProviderProbe": false
+  },
+  "tests": {
+    "node": 42,
+    "history": 15,
+    "pythonDemo": 20,
+    "total": 77,
+    "failed": 0,
+    "mode": "isolated temporary state and fake brokers/transports"
+  },
+  "budget": {
+    "unchanged": true,
+    "reservedCHF": 5,
+    "digest": "32145d8a19f949cc1ed5f6722cef1e3b7ca540f1870c746d643ca7a421b9ad99"
+  },
+  "remaining": [
+    "Current-day opening equity remains unproven; demo entries stay blocked until independently proven day boundary.",
+    "No production ON or scheduler cycle tested; personal dashboard activation remains required."
+  ],
+  "maintenance": {
+    "authorizedBy": "Patrice: safe restart including scheduler; leave OFF",
+    "completedAt": "2026-10-18T23:52:39.049Z",
+    "loaded": true,
+    "power": "OFF",
+    "evidence": "artifacts/runtime-blocker-repair-20261019/restart-readback.json",
+    "testsImmediatelyBeforeRestart": 35
+  }
+}

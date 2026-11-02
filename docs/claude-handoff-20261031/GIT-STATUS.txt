@@ -1,0 +1,1270 @@
+ M .github/workflows/ci.yml
+ M .gitignore
+ M AGENTS.md
+AM docs/superpowers/specs/2026-10-13-founder-autonomy-design.md
+AM docs/superpowers/specs/2026-10-19-founder-evidence-and-lifecycle-design.md
+AM docs/superpowers/specs/2026-10-20-ugig-office-order-flow-design.md
+ M package.json
+ M packages/cli/package.json
+ M packages/cli/src/commands/send.ts
+ M pnpm-lock.yaml
+ M scripts/founder-budget.mjs
+ M scripts/founder-budget.test.mjs
+ M scripts/founder-code-sandbox.mjs
+ M scripts/founder-code-sandbox.test.mjs
+ M scripts/founder-connectors.mjs
+ M scripts/founder-connectors.test.mjs
+ M scripts/founder-controller.mjs
+ M scripts/founder-controller.test.mjs
+ M scripts/founder-dashboard.mjs
+ M scripts/founder-dashboard.test.mjs
+ M scripts/founder-google-oauth.mjs
+ M scripts/founder-health-ui.test.mjs
+ M scripts/founder-knowledge.mjs
+ M scripts/founder-local-access-worker.mjs
+ M scripts/founder-local-access.mjs
+ M scripts/founder-local-access.test.mjs
+ M scripts/founder-maintenance-restart.test.mjs
+ M scripts/founder-mt5-demo.mjs
+ M scripts/founder-mt5.mjs
+ M scripts/founder-operations.mjs
+ M scripts/founder-order-code.mjs
+ M scripts/founder-order-flow.mjs
+ M scripts/founder-order-flow.test.mjs
+ M scripts/founder-order-github.mjs
+ M scripts/founder-power-intent.test.mjs
+ M scripts/founder-power.mjs
+ M scripts/founder-private-split.test.mjs
+ M scripts/founder-research-query.mjs
+ M scripts/founder-runtime.mjs
+ M scripts/founder-runtime.test.mjs
+ M scripts/founder-supervisor.mjs
+ M scripts/founder-task-audit.mjs
+ M scripts/founder-task-audit.test.mjs
+ M scripts/founder-worker.mjs
+ M scripts/founder-worker.test.mjs
+ M scripts/long-history-worker.mjs
+ M scripts/mt5-demo-readonly.py
+ M scripts/mt5-market-readonly.py
+ M scripts/mt5-strategy-evidence.py
+ M scripts/mt5-trading-adapter.py
+ M scripts/start-numaron-founder.ps1
+ M scripts/trade-evidence.mjs
+ M scripts/trade-radar.mjs
+ M src/__tests__/agent/base-harness.integration.test.ts
+ M src/__tests__/agent/coding-harness.test.ts
+ M src/__tests__/agent/general-harness.test.ts
+ M src/__tests__/agent/harness-types.test.ts
+ M src/__tests__/agent/orchestrator-harness.test.ts
+ M src/__tests__/agent/worker-inference-bridge.test.ts
+ M src/__tests__/command-injection.test.ts
+ M src/__tests__/context-hardening.test.ts
+ M src/__tests__/database-search-wildcard.test.ts
+ M src/__tests__/heartbeat-scheduler.test.ts
+ M src/__tests__/http-client.test.ts
+ M src/__tests__/inference-router.test.ts
+ M src/__tests__/inference/inference-client.test.ts
+ M src/__tests__/inference/provider-registry.test.ts
+ M src/__tests__/integration/memory-retrieval.test.ts
+ M src/__tests__/integration/plan-execute-flow.test.ts
+ M src/__tests__/loop.test.ts
+ M src/__tests__/orchestration/local-worker-harness.test.ts
+ M src/__tests__/orchestration/local-worker-security.test.ts
+ M src/__tests__/orchestration/orchestrator.test.ts
+ M src/__tests__/orchestration/plan-mode.test.ts
+ M src/__tests__/orchestration/simple-tracker.test.ts
+ M src/__tests__/orchestration/test-db.ts
+ M src/__tests__/path-protection.test.ts
+ M src/__tests__/policy-engine.test.ts
+ M src/__tests__/skills-hardening.test.ts
+ M src/__tests__/social.test.ts
+ M src/__tests__/tools-security.test.ts
+ M src/__tests__/wallet-solana.test.ts
+MM src/agent/context.ts
+MM src/agent/harness-types.ts
+MM src/agent/harnesses/base-harness.ts
+ M src/agent/harnesses/coding-harness.ts
+ M src/agent/harnesses/general-harness.ts
+ M src/agent/harnesses/orchestrator-harness.ts
+ M src/agent/injection-defense.ts
+MM src/agent/loop.ts
+ M src/agent/policy-engine.ts
+ M src/agent/policy-rules/path-protection.ts
+MM src/agent/system-prompt.ts
+MM src/agent/tools.ts
+MM src/agent/worker-inference-bridge.ts
+ M src/config.ts
+MM src/conway/client.ts
+ M src/conway/http-client.ts
+ M src/conway/inference.ts
+MM src/git/state-versioning.ts
+MM src/git/tools.ts
+ M src/heartbeat/daemon.ts
+ M src/heartbeat/tasks.ts
+MM src/heartbeat/tick-context.ts
+ M src/identity/provision.ts
+ M src/identity/wallet.ts
+MM src/index.ts
+MM src/inference/budget.ts
+ M src/inference/inference-client.ts
+MM src/inference/provider-registry.ts
+MM src/inference/router.ts
+ M src/memory/episodic.ts
+ M src/memory/procedural.ts
+ M src/memory/relationship.ts
+ M src/memory/semantic.ts
+ M src/memory/working.ts
+ M src/observability/logger.ts
+ M src/observability/pretty-sink.ts
+ M src/ollama/discover.ts
+ M src/online/source-diversity.ts
+MM src/orchestration/local-worker.ts
+ M src/orchestration/orchestrator.ts
+ M src/orchestration/plan-mode.ts
+ M src/orchestration/planner-context.ts
+ M src/orchestration/planner.ts
+ M src/orchestration/simple-tracker.ts
+ M src/orchestration/task-graph.ts
+ M src/orchestration/types.ts
+ M src/orchestration/workspace.ts
+ M src/registry/agent-card.ts
+ M src/registry/discovery.ts
+ M src/replication/constitution.ts
+ M src/replication/genesis.ts
+ M src/replication/spawn.ts
+ M src/revenue/long-history/download.ts
+ M src/revenue/long-history/evaluate.ts
+ M src/revenue/long-history/normalize.ts
+ M src/revenue/long-history/runner.ts
+ M src/revenue/long-history/sources.ts
+ M src/revenue/long-history/store.ts
+ M src/revenue/long-history/types.ts
+ M src/self-mod/code.ts
+ M src/self-mod/tools-manager.ts
+ M src/self-mod/upstream.ts
+ M src/setup/configure.ts
+ M src/setup/defaults.ts
+ M src/setup/environment.ts
+ M src/setup/model-picker.ts
+ M src/setup/prompts.ts
+MM src/setup/wizard.ts
+MM src/skills/loader.ts
+ M src/skills/registry.ts
+ M src/social/client.ts
+ M src/soul/model.ts
+ M src/soul/reflection.ts
+ M src/soul/tools.ts
+ M src/soul/validator.ts
+ M src/state/database.ts
+ M src/state/schema.ts
+ M src/survival/funding.ts
+ M src/survival/monitor.ts
+MM src/types.ts
+ M vitest.config.ts
+ M web/founder/app.js
+ M web/founder/finance-refresh.mjs
+ M web/founder/index.html
+ M web/founder/interaction.mjs
+ M web/founder/model.mjs
+ M web/founder/style.css
+ M web/founder/trading.mjs
+?? .oxlintrc.json
+?? .superpowers/
+?? AUREUS_ALIGNMENT.md
+?? AUREUS_BEDIENUNG.md
+?? AUREUS_CHECKOUT.md
+?? AUREUS_HANDOFF.md
+?? AUREUS_METAMASK.md
+?? AUREUS_ONLINE.md
+?? AUREUS_PAPER_PORTFOLIO.md
+?? AUREUS_PROFITABILITY.md
+?? AUREUS_STRATEGY_RESEARCH.md
+?? AUREUS_V15_REPORT.md
+?? AUREUS_V1_ACCEPTANCE.md
+?? AUREUS_V1_RELEASE.md
+?? AUREUS_V1_REPORT.md
+?? AUREUS_WINDOWS.md
+?? OBOLUS.md
+?? OBOLUS_ABNAHME.md
+?? OBOLUS_AUSZAHLUNGSPRUEFUNG.md
+?? OBOLUS_BETREIBER_SUPPORT.md
+?? OBOLUS_BROWSERABNAHME_20260929.md
+?? OBOLUS_BUG_BOUNTY.md
+?? OBOLUS_CLAIM_LEARNING_2026-10-02.json
+?? OBOLUS_CLAIM_LEARNING_2026-10-02.md
+?? OBOLUS_COMPLETION_20260930.md
+?? OBOLUS_CONWAY_DECOUPLING_2026-10-02.md
+?? OBOLUS_ECONOMIC_EFFICIENCY.md
+?? OBOLUS_EINRICHTUNGSVORSCHAU.md
+?? OBOLUS_GESAMTPRUEFUNG_20260929.md
+?? OBOLUS_INFRASTRUKTUR.md
+?? OBOLUS_INTEGRATED_STATUS_2026-10-02.json
+?? OBOLUS_INTEGRATED_STATUS_2026-10-02.md
+?? OBOLUS_INTEGRATED_STATUS_2026-10-02_R2.json
+?? OBOLUS_INTEGRATED_STATUS_2026-10-02_R2.md
+?? OBOLUS_KAPITAL.md
+?? OBOLUS_LERNKREISLAUF.md
+?? OBOLUS_LINT_ABNAHME_20260930.md
+?? OBOLUS_LIVE_CHECK.md
+?? OBOLUS_LIVE_LUECKEN_20260929.md
+?? OBOLUS_LOCAL_RESOURCE_FOLLOWUP_2026-10-02.md
+?? OBOLUS_LOKALE_ABNAHME.md
+?? OBOLUS_LOKALE_AUSFUEHRUNG.md
+?? OBOLUS_MARKET_EVIDENCE_2026-10-02.md
+?? OBOLUS_MASTER_ABNAHME_20260930.md
+?? OBOLUS_MASTER_IMPLEMENTATION.md
+?? OBOLUS_NACHFRAGE_ABNAHME.md
+?? OBOLUS_OPTIMIERUNG.md
+?? OBOLUS_PERSONAL.md
+?? OBOLUS_PERSONNEL_CLEANUP_20261004.md
+?? OBOLUS_PERSONNEL_COST_POLICY.md
+?? OBOLUS_PROFITABILITY_COMPLETION_20261001.md
+?? OBOLUS_PROFITABILITY_REVIEW_20261001.md
+?? OBOLUS_PROFITABILITY_UPGRADE.md
+?? OBOLUS_QUALITAET.md
+?? OBOLUS_RECHERCHEBETRIEB.md
+?? OBOLUS_RELEASE_EVIDENCE_2026-10-02.json
+?? OBOLUS_RELEASE_EVIDENCE_2026-10-02.md
+?? OBOLUS_RELEASE_PATHS_2026-10-02.json
+?? OBOLUS_SECURITY_HARDENING.md
+?? OBOLUS_SHADOW_START.md
+?? OBOLUS_SPRACHDIENST.md
+?? OBOLUS_SUPPORT.md
+?? OBOLUS_THREAT_MODEL.md
+?? OBOLUS_VORGABENABGLEICH.md
+?? OBOLUS_WINDOWS_WSL_ISOLATION_AUDIT_2026-10-02.md
+?? OBOLUS_WIRTSCHAFTSDOSSIER.md
+?? OBOLUS_ZAHLUNGSZUORDNUNG.md
+?? artifacts/
+?? aureus-operational-context.txt
+?? cloudflare-email-status.jpg
+?? cloudflare-numaron-com.jpg
+?? cloudflare-test-ch.jpg
+?? cloudflare-test-com.jpg
+?? docs/claude-handoff-20261031/
+?? docs/numaron-access-diagnosis-20261022.json
+?? docs/numaron-access-recovery-20261022.json
+?? docs/numaron-all-corrections-loaded-20261019.json
+?? docs/numaron-autonomous-repair-20261019.md
+?? docs/numaron-avv-local-monitor.md
+?? docs/numaron-bitfinex-abort-repair-20261019.json
+?? docs/numaron-chat-crosscheck-20261019.json
+?? docs/numaron-communication-history-repair-20261019.json
+?? docs/numaron-communication-scope.md
+?? docs/numaron-confirmed-funded-orders-20261028.json
+?? docs/numaron-confirmed-funded-orders-20261028.md
+?? docs/numaron-continuation-index.json
+?? docs/numaron-cross-task-self-optimization-20261026.json
+?? docs/numaron-cross-task-self-optimization-20261026.md
+?? docs/numaron-current-status-20261019.md
+?? docs/numaron-expert-completeness-contract-20261026.json
+?? docs/numaron-expert-completeness-contract-20261026.md
+?? docs/numaron-expert-training-priorities-20261026.json
+?? docs/numaron-expert-training-priorities-20261026.md
+?? docs/numaron-founder-certification-20261019.md
+?? docs/numaron-founder-next-gaps-20261019.md
+?? docs/numaron-founder-quality-20261019.md
+?? docs/numaron-founder-quality-adapters-20261019.md
+?? docs/numaron-founder-revocation-20261019.md
+?? docs/numaron-historical-reference-repair-20261019.json
+?? docs/numaron-history-controller-window-20261019.json
+?? docs/numaron-income-monitor-fix-20261019.json
+?? docs/numaron-independent-operation.md
+?? docs/numaron-international-order-sources-20261026.json
+?? docs/numaron-international-order-sources-20261026.md
+?? docs/numaron-it-capabilities-20261024.json
+?? docs/numaron-latency-fix-20261022.json
+?? docs/numaron-long-term-adaptation-20261026.json
+?? docs/numaron-long-term-adaptation-20261026.md
+?? docs/numaron-mail-handoff-20261017.md
+?? docs/numaron-maintenance-coordination-20261019.json
+?? docs/numaron-maintenance-coordination-20261020.json
+?? docs/numaron-moltbook-offline-followup-acceptance-20261029.json
+?? docs/numaron-moltbook-readonly-research-20261029.json
+?? docs/numaron-moltbook-readonly-research-20261029.md
+?? docs/numaron-monitor-followup-20261019-1353.json
+?? docs/numaron-monitor-followup-20261019-1510.json
+?? docs/numaron-monitor-followup-20261019-1540.json
+?? docs/numaron-monitor-followup-20261019-1723.json
+?? docs/numaron-monitor-followup-20261019-1736.json
+?? docs/numaron-monitor-followup-20261020-1525.json
+?? docs/numaron-monitor-followup-20261020-2250.json
+?? docs/numaron-monitor-followup-20261020-2302.json
+?? docs/numaron-monitor-followup-20261022-2225.json
+?? docs/numaron-ohlc-internal-research-20261019.json
+?? docs/numaron-ohlc-no-new-simulations-20261019.json
+?? docs/numaron-order-accountability-20261019.md
+?? docs/numaron-order-selection.md
+?? docs/numaron-paid-order-pilot-20261025.json
+?? docs/numaron-payment-modes.md
+?? docs/numaron-profit-growth-work-package-20261026.json
+?? docs/numaron-profit-growth-work-package-20261026.md
+?? docs/numaron-project-author-20261024.md
+?? docs/numaron-reference-admin-20261019.md
+?? docs/numaron-reference-approvals-20261019.md
+?? docs/numaron-reference-composition-20261019.md
+?? docs/numaron-runtime-blocker-repair-handoff-20261019.json
+?? docs/numaron-scheduler-coordination-20261019.json
+?? docs/numaron-scheduler-pr142-coordination-20261019.json
+?? docs/numaron-security-logging-20261023.md
+?? docs/numaron-startup-off-audit-20261022.md
+?? docs/numaron-task-priority-and-contribution-20261023.md
+?? docs/numaron-training-progress-audit-20261026.json
+?? docs/numaron-ugig-binary-delivery-20261020.md
+?? docs/numaron-ugig-binary-delivery-design-20261019.md
+?? docs/numaron-ugig-composed-orders-20261019.md
+?? docs/numaron-ugig-contract-delivery-payment-20261019.md
+?? docs/numaron-ugig-escrow-sol-20261019.md
+?? docs/numaron-ugig-mixed-delivery-20261020.md
+?? docs/numaron-ugig-multipart-20261019.md
+?? docs/numaron-ugig-office-20261020.md
+?? docs/numaron-ugig-order-binding-20261019.md
+?? docs/numaron-ugig-reconciliation-20261019.json
+?? docs/numaron-ugig-specialist-evidence-20261021.md
+?? docs/numaron-workers-20261019.md
+?? docs/research/
+?? docs/superpowers/plans/
+?? docs/superpowers/specs/2026-10-13-founder-workflow-connectors-design.md
+?? docs/superpowers/specs/2026-10-13-numaron-autonomous-trading-design.md
+?? docs/superpowers/specs/2026-10-13-numaron-long-history-research-design.md
+?? docs/superpowers/specs/2026-10-16-numaron-dealwork-code-design.md
+?? docs/superpowers/specs/2026-10-17-numaron-adaptive-research-design.md
+?? docs/superpowers/specs/2026-10-17-numaron-independent-runtime-design.md
+?? docs/superpowers/specs/2026-10-18-numaron-payment-modes-design.md
+?? docs/superpowers/specs/2026-10-18-numaron-real-order-restoration-design.md
+?? docs/superpowers/specs/2026-10-18-numaron-source-inventory.json
+?? docs/superpowers/specs/2026-10-24-it-reference-design.md
+?? docs/superpowers/specs/2026-10-24-local-model-author-design.md
+?? docs/superpowers/specs/2026-10-24-project-author-design.md
+?? docs/superpowers/specs/2026-10-25-numaron-first-paid-orders-design.md
+?? docs/trading/
+?? examples/
+?? gmail-numaron-send-as.jpg
+?? infra/
+?? inspect-children.cjs
+?? inspect-state.cjs
+?? inspect-tasks.cjs
+?? launch_plan.md
+?? numaron-gmail-login.jpg
+?? outputs/
+?? packages/numaron-it-reference/
+?? products/
+?? raw_ideas.md
+?? reset-task.cjs
+?? reset-worker.cjs
+?? scored_ideas.md
+?? scripts/NUMARON-WARTUNG.txt
+?? scripts/__pycache__/
+?? scripts/bch-trade-learning.py
+?? scripts/bch-trade-learning.test.py
+?? scripts/check-firecrawl-keyless.mjs
+?? scripts/coding-benchmark.mjs
+?? scripts/daily-reversion-report.py
+?? scripts/daily-reversion-run.mjs
+?? scripts/daily-reversion.test.mjs
+?? scripts/ema-vwap-extended-download.py
+?? scripts/ema-vwap-extended-report.py
+?? scripts/ema-vwap-extended-run.mjs
+?? scripts/ema-vwap-history-run.mjs
+?? scripts/ema-vwap-history.test.mjs
+?? scripts/ema-vwap-no-cross-report.py
+?? scripts/ema-vwap-no-cross-run.mjs
+?? scripts/ema-vwap-no-cross.test.mjs
+?? scripts/ema-vwap-offline-run.mjs
+?? scripts/ema-vwap-offline.test.mjs
+?? scripts/ema-vwap-trend-report.py
+?? scripts/ema-vwap-trend-run.mjs
+?? scripts/ema-vwap-trend.test.mjs
+?? scripts/evaluate-local-language.mjs
+?? scripts/finalize-trading-three-stage.mjs
+?? scripts/fixtures/
+?? scripts/forward-paper.mjs
+?? scripts/forward-paper.test.mjs
+?? scripts/founder-adapter-learning-authority.test.mjs
+?? scripts/founder-adapter-learning-proof.test.mjs
+?? scripts/founder-adapter-learning.mjs
+?? scripts/founder-application-read.mjs
+?? scripts/founder-application-read.test.mjs
+?? scripts/founder-autonomy-status.test.mjs
+?? scripts/founder-billing.test.mjs
+?? scripts/founder-binary-archive.test.mjs
+?? scripts/founder-binary-artifacts.mjs
+?? scripts/founder-binary-artifacts.test.mjs
+?? scripts/founder-budget-projection.test.mjs
+?? scripts/founder-calculated-profit.test.mjs
+?? scripts/founder-capability-evidence.mjs
+?? scripts/founder-capability-evidence.test.mjs
+?? scripts/founder-capability-integration.test.mjs
+?? scripts/founder-capacity-recovery.mjs
+?? scripts/founder-capacity-recovery.test.mjs
+?? scripts/founder-certificate-currency.mjs
+?? scripts/founder-certificate-currency.test.mjs
+?? scripts/founder-certify-offline.mjs
+?? scripts/founder-certify-offline.test.mjs
+?? scripts/founder-code-execution.mjs
+?? scripts/founder-code-execution.test.mjs
+?? scripts/founder-communication-performance.test.mjs
+?? scripts/founder-communication-policy.test.mjs
+?? scripts/founder-communication-review.test.mjs
+?? scripts/founder-communication.mjs
+?? scripts/founder-communication.test.mjs
+?? scripts/founder-content-package.mjs
+?? scripts/founder-content-package.test.mjs
+?? scripts/founder-content-worker.mjs
+?? scripts/founder-content-worker.test.mjs
+?? scripts/founder-continuation.test.mjs
+?? scripts/founder-control-lifecycle.test.mjs
+?? scripts/founder-controller-index.test.mjs
+?? scripts/founder-cost-import.test.mjs
+?? scripts/founder-dashboard-audit.test.mjs
+?? scripts/founder-dashboard-sessions.test.mjs
+?? scripts/founder-dealwork-code.mjs
+?? scripts/founder-dealwork-code.test.mjs
+?? scripts/founder-dealwork-escrow.mjs
+?? scripts/founder-dealwork-escrow.test.mjs
+?? scripts/founder-dealwork-messages.mjs
+?? scripts/founder-dealwork-messages.test.mjs
+?? scripts/founder-dealwork-source.mjs
+?? scripts/founder-dealwork-source.test.mjs
+?? scripts/founder-dealwork-work.test.mjs
+?? scripts/founder-delivery.test.mjs
+?? scripts/founder-demo-diagnostic.test.mjs
+?? scripts/founder-demo-execution.mjs
+?? scripts/founder-demo-execution.test.mjs
+?? scripts/founder-discovery.mjs
+?? scripts/founder-discovery.test.mjs
+?? scripts/founder-docx-visual-evidence.mjs
+?? scripts/founder-docx-visual-evidence.test.mjs
+?? scripts/founder-escrowcom-sandbox.mjs
+?? scripts/founder-escrowcom-sandbox.test.mjs
+?? scripts/founder-evidence-repair.mjs
+?? scripts/founder-evidence-repair.test.mjs
+?? scripts/founder-evidence-restore.test.mjs
+?? scripts/founder-evidence-store.mjs
+?? scripts/founder-evidence-store.test.mjs
+?? scripts/founder-exa-legacy.mjs
+?? scripts/founder-exa-legacy.test.mjs
+?? scripts/founder-exa-protocol.mjs
+?? scripts/founder-exa-protocol.test.mjs
+?? scripts/founder-exa-retry.mjs
+?? scripts/founder-exa-retry.test.mjs
+?? scripts/founder-execution-access.mjs
+?? scripts/founder-execution-access.test.mjs
+?? scripts/founder-execution-window.mjs
+?? scripts/founder-failure-classification.mjs
+?? scripts/founder-failure-classification.test.mjs
+?? scripts/founder-finance-refresh-ui.test.mjs
+?? scripts/founder-finance-refresh.test.mjs
+?? scripts/founder-finance.test.mjs
+?? scripts/founder-firecrawl-free.mjs
+?? scripts/founder-firecrawl-free.test.mjs
+?? scripts/founder-freelancer-access.mjs
+?? scripts/founder-freelancer-access.test.mjs
+?? scripts/founder-fx.test.mjs
+?? scripts/founder-general-web.mjs
+?? scripts/founder-general-web.test.mjs
+?? scripts/founder-github-base-usdc.mjs
+?? scripts/founder-github-base-usdc.test.mjs
+?? scripts/founder-github-normal-terms.mjs
+?? scripts/founder-github-normal-terms.test.mjs
+?? scripts/founder-github-payment-reader.mjs
+?? scripts/founder-github-payment-reader.test.mjs
+?? scripts/founder-github-postpaid.mjs
+?? scripts/founder-github-postpaid.test.mjs
+?? scripts/founder-github-stale-checks.mjs
+?? scripts/founder-github-stale-checks.test.mjs
+?? scripts/founder-github-submission.mjs
+?? scripts/founder-gmail-order-replies.mjs
+?? scripts/founder-gmail-order-replies.test.mjs
+?? scripts/founder-google-consent-server.mjs
+?? scripts/founder-google-consent-server.test.mjs
+?? scripts/founder-google-oauth.test.mjs
+?? scripts/founder-group-root-controller.test.mjs
+?? scripts/founder-history-outcome.test.mjs
+?? scripts/founder-history-window.test.mjs
+?? scripts/founder-image-composition.test.mjs
+?? scripts/founder-image-runtime-config.json
+?? scripts/founder-image-runtime.mjs
+?? scripts/founder-image-runtime.test.mjs
+?? scripts/founder-income-refresh.mjs
+?? scripts/founder-income-refresh.test.mjs
+?? scripts/founder-interruption-recovery.test.mjs
+?? scripts/founder-it-reference.mjs
+?? scripts/founder-it-reference.test.mjs
+?? scripts/founder-key.test.mjs
+?? scripts/founder-knowledge.test.mjs
+?? scripts/founder-laborx-access.mjs
+?? scripts/founder-laborx-access.test.mjs
+?? scripts/founder-laborx-delivery.mjs
+?? scripts/founder-laborx-delivery.test.mjs
+?? scripts/founder-laborx-sahil.mjs
+?? scripts/founder-laborx-sahil.test.mjs
+?? scripts/founder-learning-adapters.mjs
+?? scripts/founder-learning-adapters.test.mjs
+?? scripts/founder-learning-budget.test.mjs
+?? scripts/founder-learning-config.mjs
+?? scripts/founder-learning-diagnostics.test.mjs
+?? scripts/founder-learning-licensed-search.test.mjs
+?? scripts/founder-learning-lifecycle.test.mjs
+?? scripts/founder-learning-quality.mjs
+?? scripts/founder-learning-quality.test.mjs
+?? scripts/founder-learning-recovery.mjs
+?? scripts/founder-learning-ui.test.mjs
+?? scripts/founder-learning.mjs
+?? scripts/founder-learning.test.mjs
+?? scripts/founder-ledger.test.mjs
+?? scripts/founder-licensed-task.mjs
+?? scripts/founder-lifecycle-acceptance.test.mjs
+?? scripts/founder-local-credential-path.mjs
+?? scripts/founder-local-credential-path.test.mjs
+?? scripts/founder-local-project-model.mjs
+?? scripts/founder-local-project-model.test.mjs
+?? scripts/founder-login-navigation.test.mjs
+?? scripts/founder-long-history-ui.test.mjs
+?? scripts/founder-long-history.test.mjs
+?? scripts/founder-maintenance-batch.test.mjs
+?? scripts/founder-maintenance-integration.test.mjs
+?? scripts/founder-maintenance.ps1
+?? scripts/founder-marketplace-work-source.mjs
+?? scripts/founder-marketplace-work-source.test.mjs
+?? scripts/founder-methods.test.mjs
+?? scripts/founder-missing-capability-learning.test.mjs
+?? scripts/founder-mission.test.mjs
+?? scripts/founder-monitor-compat.mjs
+?? scripts/founder-monitor-handoff.mjs
+?? scripts/founder-monitor-handoff.test.mjs
+?? scripts/founder-monitor-review-report.test.mjs
+?? scripts/founder-monitor-schema.test.mjs
+?? scripts/founder-multilanguage-order.test.mjs
+?? scripts/founder-native-output.test.mjs
+?? scripts/founder-native-work.mjs
+?? scripts/founder-offer-feasibility.mjs
+?? scripts/founder-offer-feasibility.test.mjs
+?? scripts/founder-office-canonical-minutes.test.mjs
+?? scripts/founder-office-capability-binding.test.mjs
+?? scripts/founder-office-capacity.test.mjs
+?? scripts/founder-office-commercial.test.mjs
+?? scripts/founder-office-consistency.test.mjs
+?? scripts/founder-office-deadline.test.mjs
+?? scripts/founder-office-numeric.test.mjs
+?? scripts/founder-office-phases.test.mjs
+?? scripts/founder-office-plan-gaps.test.mjs
+?? scripts/founder-office-portfolio.mjs
+?? scripts/founder-office-portfolio.test.mjs
+?? scripts/founder-office-resource-planning.test.mjs
+?? scripts/founder-office-service-plan.mjs
+?? scripts/founder-office-service-plan.test.mjs
+?? scripts/founder-office-versions.mjs
+?? scripts/founder-office-versions.test.mjs
+?? scripts/founder-offline-test-guard.mjs
+?? scripts/founder-offline-test-guard.test.mjs
+?? scripts/founder-opire-local.mjs
+?? scripts/founder-opire-local.test.mjs
+?? scripts/founder-opire-observations.mjs
+?? scripts/founder-opire-observations.test.mjs
+?? scripts/founder-opportunity-store.mjs
+?? scripts/founder-order-accountability.mjs
+?? scripts/founder-order-accountability.test.mjs
+?? scripts/founder-order-adapter-learning.mjs
+?? scripts/founder-order-adapter-learning.test.mjs
+?? scripts/founder-order-code.test.mjs
+?? scripts/founder-order-delivery.mjs
+?? scripts/founder-order-execution.mjs
+?? scripts/founder-order-execution.test.mjs
+?? scripts/founder-order-followup.mjs
+?? scripts/founder-order-funding.mjs
+?? scripts/founder-order-funding.test.mjs
+?? scripts/founder-order-github.test.mjs
+?? scripts/founder-order-handoff-report.test.mjs
+?? scripts/founder-order-income-fx.mjs
+?? scripts/founder-order-income-fx.test.mjs
+?? scripts/founder-order-income-ui.test.mjs
+?? scripts/founder-order-income.mjs
+?? scripts/founder-order-income.test.mjs
+?? scripts/founder-order-lifecycle.mjs
+?? scripts/founder-order-payment.mjs
+?? scripts/founder-order-payment.test.mjs
+?? scripts/founder-order-profile-sandbox.mjs
+?? scripts/founder-order-profit.test.mjs
+?? scripts/founder-order-quality.mjs
+?? scripts/founder-order-restoration.mjs
+?? scripts/founder-order-runtime.test.mjs
+?? scripts/founder-order-selection.integration.test.mjs
+?? scripts/founder-order-selection.mjs
+?? scripts/founder-order-selection.test.mjs
+?? scripts/founder-orders.test.mjs
+?? scripts/founder-outreach-stalled-body.test.mjs
+?? scripts/founder-outreach-transports.mjs
+?? scripts/founder-outreach-transports.test.mjs
+?? scripts/founder-outreach.mjs
+?? scripts/founder-outreach.test.mjs
+?? scripts/founder-payment-runtime.test.mjs
+?? scripts/founder-planner.test.mjs
+?? scripts/founder-planning-checkpoint.mjs
+?? scripts/founder-planning-checkpoint.test.mjs
+?? scripts/founder-platform-thread-links.mjs
+?? scripts/founder-platform-thread-links.test.mjs
+?? scripts/founder-policy-renewal.test.mjs
+?? scripts/founder-power-api.test.mjs
+?? scripts/founder-power-audit.test.mjs
+?? scripts/founder-power-race.test.mjs
+?? scripts/founder-power-startup-audit.test.mjs
+?? scripts/founder-power-stop-audit.test.mjs
+?? scripts/founder-power.test.mjs
+?? scripts/founder-pr142-followup.mjs
+?? scripts/founder-pr142-followup.test.mjs
+?? scripts/founder-product-images.integration.test.mjs
+?? scripts/founder-product-images.mjs
+?? scripts/founder-product-images.test.mjs
+?? scripts/founder-production-github-funding.mjs
+?? scripts/founder-production-github-funding.test.mjs
+?? scripts/founder-production-order-bindings.mjs
+?? scripts/founder-production-order-bindings.test.mjs
+?? scripts/founder-production-profile-runtimes.mjs
+?? scripts/founder-profile-sandbox.mjs
+?? scripts/founder-profile-sandbox.test.mjs
+?? scripts/founder-profile-worker.mjs
+?? scripts/founder-profile-worker.test.mjs
+?? scripts/founder-project-author-check.mjs
+?? scripts/founder-project-author-contract.mjs
+?? scripts/founder-project-author.mjs
+?? scripts/founder-project-author.test.mjs
+?? scripts/founder-project-blackbox.mjs
+?? scripts/founder-project-blackbox.test.mjs
+?? scripts/founder-project-delivery-verifier.mjs
+?? scripts/founder-project-delivery-verifier.test.mjs
+?? scripts/founder-project-diagnostics.mjs
+?? scripts/founder-project-diagnostics.test.mjs
+?? scripts/founder-project-document-verifier.mjs
+?? scripts/founder-project-document-verifier.test.mjs
+?? scripts/founder-project-execution-diagnostics.mjs
+?? scripts/founder-project-final-review-verifier.mjs
+?? scripts/founder-project-final-review-verifier.test.mjs
+?? scripts/founder-project-generation-context.test.mjs
+?? scripts/founder-project-package.mjs
+?? scripts/founder-project-patches.mjs
+?? scripts/founder-project-patches.test.mjs
+?? scripts/founder-project-release-verifier.mjs
+?? scripts/founder-project-release-verifier.test.mjs
+?? scripts/founder-project-repair-anchors.mjs
+?? scripts/founder-project-repair-anchors.test.mjs
+?? scripts/founder-project-repair-catalog.mjs
+?? scripts/founder-project-repair-tools.mjs
+?? scripts/founder-project-repair-tools.test.mjs
+?? scripts/founder-project-review-verifier.mjs
+?? scripts/founder-project-review-verifier.test.mjs
+?? scripts/founder-project-source-context.mjs
+?? scripts/founder-project-source-context.test.mjs
+?? scripts/founder-project-syntax-diagnostics.mjs
+?? scripts/founder-project-syntax-verifier.mjs
+?? scripts/founder-project-task.mjs
+?? scripts/founder-project-task.test.mjs
+?? scripts/founder-quality-bindings.mjs
+?? scripts/founder-quality-bindings.test.mjs
+?? scripts/founder-quality-profiles.mjs
+?? scripts/founder-quality-profiles.test.mjs
+?? scripts/founder-queue-review.mjs
+?? scripts/founder-queue-review.test.mjs
+?? scripts/founder-read-diagnostics.test.mjs
+?? scripts/founder-real-project-final-review-runner.test.mjs
+?? scripts/founder-real-project-run-final-review.mjs
+?? scripts/founder-real-project-run.mjs
+?? scripts/founder-real-project-spec.mjs
+?? scripts/founder-reconcile-20261015.mjs
+?? scripts/founder-reconcile-wait.test.mjs
+?? scripts/founder-reference-acceptance.mjs
+?? scripts/founder-reference-admin-records.mjs
+?? scripts/founder-reference-admin.mjs
+?? scripts/founder-reference-admin.test.mjs
+?? scripts/founder-reference-approvals.mjs
+?? scripts/founder-reference-approvals.test.mjs
+?? scripts/founder-reference-composition.mjs
+?? scripts/founder-reference-composition.test.mjs
+?? scripts/founder-reference-validation.test.mjs
+?? scripts/founder-repair.test.mjs
+?? scripts/founder-report-recovery.test.mjs
+?? scripts/founder-research-query.test.mjs
+?? scripts/founder-restoration-boundaries.test.mjs
+?? scripts/founder-restoration-core.test.mjs
+?? scripts/founder-restoration-integrity.mjs
+?? scripts/founder-restoration-runtime.test.mjs
+?? scripts/founder-retention-integration.test.mjs
+?? scripts/founder-retry-budget-performance.test.mjs
+?? scripts/founder-retry-projection.test.mjs
+?? scripts/founder-retry-state.test.mjs
+?? scripts/founder-search-allocation.test.mjs
+?? scripts/founder-security-audit.mjs
+?? scripts/founder-security-audit.test.mjs
+?? scripts/founder-session-renewal.test.mjs
+?? scripts/founder-settled-recovery.mjs
+?? scripts/founder-settled-recovery.test.mjs
+?? scripts/founder-sight-inspection.mjs
+?? scripts/founder-sight-inspection.test.mjs
+?? scripts/founder-snapshot-budget.test.mjs
+?? scripts/founder-source-excerpt.mjs
+?? scripts/founder-source-excerpt.test.mjs
+?? scripts/founder-source-quality.mjs
+?? scripts/founder-source-quality.test.mjs
+?? scripts/founder-source-registry.mjs
+?? scripts/founder-source-repair.mjs
+?? scripts/founder-source-repair.test.mjs
+?? scripts/founder-source-transport.mjs
+?? scripts/founder-specific-status.test.mjs
+?? scripts/founder-startup-status.mjs
+?? scripts/founder-startup-status.test.mjs
+?? scripts/founder-static-browser-config.json
+?? scripts/founder-static-browser.mjs
+?? scripts/founder-static-browser.test.mjs
+?? scripts/founder-static-website.mjs
+?? scripts/founder-static-website.test.mjs
+?? scripts/founder-superseded-reads.mjs
+?? scripts/founder-superseded-reads.test.mjs
+?? scripts/founder-supervisor-events.mjs
+?? scripts/founder-supervisor-events.test.mjs
+?? scripts/founder-supervisor-state.mjs
+?? scripts/founder-supervisor-state.test.mjs
+?? scripts/founder-task-followup.mjs
+?? scripts/founder-task-followup.test.mjs
+?? scripts/founder-task-retention.mjs
+?? scripts/founder-task-retention.test.mjs
+?? scripts/founder-test-summary.mjs
+?? scripts/founder-trading-history-ui.test.mjs
+?? scripts/founder-trading-history.mjs
+?? scripts/founder-trading-history.test.mjs
+?? scripts/founder-trading-ui.test.mjs
+?? scripts/founder-trading.test.mjs
+?? scripts/founder-ugig-binary-delivery.mjs
+?? scripts/founder-ugig-binary-delivery.test.mjs
+?? scripts/founder-ugig-coinpay-read.mjs
+?? scripts/founder-ugig-coinpay-read.test.mjs
+?? scripts/founder-ugig-completion.mjs
+?? scripts/founder-ugig-completion.test.mjs
+?? scripts/founder-ugig-evidence.mjs
+?? scripts/founder-ugig-evidence.test.mjs
+?? scripts/founder-ugig-group-replies.mjs
+?? scripts/founder-ugig-group-replies.test.mjs
+?? scripts/founder-ugig-mixed-package.mjs
+?? scripts/founder-ugig-multipart.test.mjs
+?? scripts/founder-ugig-office-composition.test.mjs
+?? scripts/founder-ugig-office-contract.mjs
+?? scripts/founder-ugig-office-contract.test.mjs
+?? scripts/founder-ugig-office-conversation.test.mjs
+?? scripts/founder-ugig-office-evidence.mjs
+?? scripts/founder-ugig-office-evidence.test.mjs
+?? scripts/founder-ugig-office-fixture.mjs
+?? scripts/founder-ugig-office-flow.integration.test.mjs
+?? scripts/founder-ugig-office-journal.mjs
+?? scripts/founder-ugig-office-journal.test.mjs
+?? scripts/founder-ugig-office-layout.mjs
+?? scripts/founder-ugig-office-layout.test.mjs
+?? scripts/founder-ugig-office-pipeline.mjs
+?? scripts/founder-ugig-office-pipeline.test.mjs
+?? scripts/founder-ugig-office-report.mjs
+?? scripts/founder-ugig-office-report.test.mjs
+?? scripts/founder-ugig-office-review-identity.test.mjs
+?? scripts/founder-ugig-office-specialist.mjs
+?? scripts/founder-ugig-office-specialist.test.mjs
+?? scripts/founder-ugig-office-test-support.mjs
+?? scripts/founder-ugig-office-visual-boundary.test.mjs
+?? scripts/founder-ugig-office-visual-workflow.mjs
+?? scripts/founder-ugig-office-visual-workflow.test.mjs
+?? scripts/founder-ugig-office-visual.mjs
+?? scripts/founder-ugig-office-visual.test.mjs
+?? scripts/founder-ugig-office-work.mjs
+?? scripts/founder-ugig-office-work.test.mjs
+?? scripts/founder-ugig-office.mjs
+?? scripts/founder-ugig-office.test.mjs
+?? scripts/founder-ugig-order-contract.mjs
+?? scripts/founder-ugig-order-contract.test.mjs
+?? scripts/founder-ugig-order-pipeline.mjs
+?? scripts/founder-ugig-order-pipeline.test.mjs
+?? scripts/founder-ugig-pilot-contract.mjs
+?? scripts/founder-ugig-pilot-contract.test.mjs
+?? scripts/founder-ugig-pilot-delivery.mjs
+?? scripts/founder-ugig-pilot-delivery.test.mjs
+?? scripts/founder-ugig-pilot-fixture.mjs
+?? scripts/founder-ugig-pilot.integration.test.mjs
+?? scripts/founder-ugig-production.integration.test.mjs
+?? scripts/founder-ugig-sol-fixture.mjs
+?? scripts/founder-ugig-sol-settlement.mjs
+?? scripts/founder-ugig-sol-settlement.test.mjs
+?? scripts/founder-ugig-sol.mjs
+?? scripts/founder-ugig-sol.test.mjs
+?? scripts/founder-wait-state.test.mjs
+?? scripts/founder-work-context.mjs
+?? scripts/founder-work-profiles.mjs
+?? scripts/founder-worker-limit.test.mjs
+?? scripts/h4-breakout10.py
+?? scripts/h4-breakout10.test.py
+?? scripts/h4-experiments.py
+?? scripts/h4-experiments.test.py
+?? scripts/image-sandbox-entry.py
+?? scripts/install-numaron-avv-monitor.ps1
+?? scripts/lib/
+?? scripts/market-error-logging.test.mjs
+?? scripts/market-error-timing.test.py
+?? scripts/market-phase-timing.test.mjs
+?? scripts/mt5-account-check.ts
+?? scripts/mt5-capture-timing.py
+?? scripts/mt5-capture-timing.test.py
+?? scripts/mt5-clock-budget.test.py
+?? scripts/mt5-demo-clock.test.py
+?? scripts/mt5-demo-execution.py
+?? scripts/mt5-demo-execution.test.py
+?? scripts/mt5-market-readonly.test.py
+?? scripts/mt5-paired-research-hook.py
+?? scripts/mt5-paired-research-hook.test.py
+?? scripts/mt5-postprocess-timing.py
+?? scripts/mt5-postprocess-timing.test.py
+?? scripts/mt5-quote-continuity.test.py
+?? scripts/mt5-signal-audit.py
+?? scripts/mt5-signal-audit.test.py
+?? scripts/mt5-trading-adapter.test.py
+?? scripts/multiframe-research.py
+?? scripts/multiframe-research.test.py
+?? scripts/news-archive.test.py
+?? scripts/numaron-audit-capture.mjs
+?? scripts/numaron-audit-capture.test.mjs
+?? scripts/numaron-avv-monitor.mjs
+?? scripts/numaron-avv-monitor.test.mjs
+?? scripts/numaron-github-batch.test.mjs
+?? scripts/numaron-github-partitions.mjs
+?? scripts/numaron-github-partitions.test.mjs
+?? scripts/numaron-launcher.test.mjs
+?? scripts/numaron-local-status.mjs
+?? scripts/numaron-local-status.test.mjs
+?? scripts/numaron-monitor-cadence.mjs
+?? scripts/numaron-monitor-cadence.test.mjs
+?? scripts/numaron-monitor-daemon.mjs
+?? scripts/numaron-monitor-data.test.mjs
+?? scripts/numaron-monitor-host.mjs
+?? scripts/numaron-monitor-overview.mjs
+?? scripts/numaron-monitor-overview.test.mjs
+?? scripts/numaron-monitor-register.mjs
+?? scripts/numaron-monitor-register.test.mjs
+?? scripts/numaron-monitor-setup.mjs
+?? scripts/numaron-monitor-setup.test.mjs
+?? scripts/numaron-monitor-sources.mjs
+?? scripts/numaron-monitor-sources.test.mjs
+?? scripts/numaron-monitor-ugig-pages.test.mjs
+?? scripts/numaron-monitor-ugig.test.mjs
+?? scripts/numaron-monitor.mjs
+?? scripts/numaron-monitor.test.mjs
+?? scripts/numaron-process.mjs
+?? scripts/obolus-language-service.ps1
+?? scripts/order-sources/
+?? scripts/paired-demo-research.mjs
+?? scripts/paired-demo-research.test.mjs
+?? scripts/r2-history-calendar.test.py
+?? scripts/r2-history-download.py
+?? scripts/r2-history-prepare.py
+?? scripts/r2-history-report.py
+?? scripts/r2-history-run.mjs
+?? scripts/r2-long-history.test.mjs
+?? scripts/r2-stops-report.py
+?? scripts/r2-stops-run.mjs
+?? scripts/r2-stops.test.mjs
+?? scripts/r2-walkforward-report.py
+?? scripts/r2-walkforward-run.mjs
+?? scripts/r2-walkforward.test.mjs
+?? scripts/recalculate-economic-reports.mjs
+?? scripts/recalculate-personnel-free-pilot.mjs
+?? scripts/research-admission-diagnostic.test.mjs
+?? scripts/research-costs.py
+?? scripts/research-costs.test.py
+?? scripts/retry-legacy-exa.mjs
+?? scripts/search-credentials.ps1
+?? scripts/security-scan.mjs
+?? scripts/setup-founder-google-send.mjs
+?? scripts/start-numaron-avv-monitor.ps1
+?? scripts/start-numaron-monitor.ps1
+?? scripts/stripe-account-check.test.mjs
+?? scripts/summarize-native-coverage.mjs
+?? scripts/test-founder-mt5.mjs
+?? scripts/test-fractional-replay.mjs
+?? scripts/test-mt5-readonly.py
+?? scripts/test-mt5-trade-feasibility.py
+?? scripts/test-office-launcher.test.mjs
+?? scripts/test-office.mjs
+?? scripts/test_docx_render.py
+?? scripts/test_image_sandbox_entry.py
+?? scripts/test_ugig_docx_visual.py
+?? scripts/test_ugig_office.py
+?? scripts/test_ugig_profile_readme.py
+?? scripts/test_ugig_reusable.py
+?? scripts/trade-evaluation.py
+?? scripts/trade-evaluation.test.py
+?? scripts/trade-evidence.test.mjs
+?? scripts/trade-highlight.test.mjs
+?? scripts/trade-journal.test.mjs
+?? scripts/trade-radar-ui.test.mjs
+?? scripts/trade-radar.test.mjs
+?? scripts/trade-review.test.mjs
+?? scripts/trading-context-study.test.mjs
+?? scripts/trading-context-ui.test.mjs
+?? scripts/trading-cost-model.test.mjs
+?? scripts/trading-execution.test.mjs
+?? scripts/trading-learning.mjs
+?? scripts/trading-mt5.mjs
+?? scripts/trading-mt5.test.mjs
+?? scripts/trading-optimization.test.mjs
+?? scripts/trading-replay.test.mjs
+?? scripts/trading-risk.test.mjs
+?? scripts/trading-state.test.mjs
+?? scripts/trading-strategies.test.mjs
+?? scripts/trading-tariff.test.mjs
+?? scripts/trading-three-stage.mjs
+?? scripts/trading-validation.mjs
+?? scripts/trading-validation.test.mjs
+?? scripts/ugig_docx_visual.py
+?? scripts/ugig_office.py
+?? scripts/verification-network-guard.cjs
+?? scripts/verify-obolus.mjs
+?? scripts/verify-trading-three-stage.mjs
+?? shortlist.md
+?? sites/
+?? smtp2go-domain-dns.jpg
+?? smtp2go-login.jpg
+?? smtp2go-signup.jpg
+?? smtp2go-user-setup.jpg
+?? smtp2go-verified-com.jpg
+?? src/__tests__/adaptive-research-application.test.ts
+?? src/__tests__/adaptive-research-benchmarks.test.ts
+?? src/__tests__/adaptive-research-curriculum.test.ts
+?? src/__tests__/adaptive-research-experiments.test.ts
+?? src/__tests__/adaptive-research-fixtures.ts
+?? src/__tests__/adaptive-research-improvement.test.ts
+?? src/__tests__/adaptive-research-opportunities.test.ts
+?? src/__tests__/adaptive-research-relevance.test.ts
+?? src/__tests__/adaptive-research-scenarios.test.ts
+?? src/__tests__/adaptive-research-sources.test.ts
+?? src/__tests__/adaptive-research-store.test.ts
+?? src/__tests__/advanced-paper.test.ts
+?? src/__tests__/bounded-product-check.test.ts
+?? src/__tests__/bounty-readonly.test.ts
+?? src/__tests__/bounty-shadow.test.ts
+?? src/__tests__/bounty-task-review.test.ts
+?? src/__tests__/bug-bounty.test.ts
+?? src/__tests__/business-learning.test.ts
+?? src/__tests__/campaign-design.test.ts
+?? src/__tests__/capital-quote.test.ts
+?? src/__tests__/capital-receipts.test.ts
+?? src/__tests__/child-funding-budget.test.ts
+?? src/__tests__/child-genesis-delivery.test.ts
+?? src/__tests__/claim-evidence.test.ts
+?? src/__tests__/coding-benchmark.test.ts
+?? src/__tests__/config-load-safety.test.ts
+?? src/__tests__/config-path.test.ts
+?? src/__tests__/continuing-education.test.ts
+?? src/__tests__/conway-capability.test.ts
+?? src/__tests__/conway-local-mode.test.ts
+?? src/__tests__/cost-review.test.ts
+?? src/__tests__/customer-analysis.test.ts
+?? src/__tests__/customer-product-cycle.test.ts
+?? src/__tests__/customer-subscriptions.test.ts
+?? src/__tests__/database-startup-safety.test.ts
+?? src/__tests__/delivery-assurance.test.ts
+?? src/__tests__/demand-origin-benchmark.test.ts
+?? src/__tests__/digital-delivery.test.ts
+?? src/__tests__/discovery.test.ts
+?? src/__tests__/economic-core.test.ts
+?? src/__tests__/efficiency-learning.test.ts
+?? src/__tests__/efficiency-reuse.test.ts
+?? src/__tests__/entrypoint-boundary.test.ts
+?? src/__tests__/event-opportunity.test.ts
+?? src/__tests__/execution-audit.test.ts
+?? src/__tests__/file-resource-limits.test.ts
+?? src/__tests__/fixtures/
+?? src/__tests__/focus-admission.test.ts
+?? src/__tests__/focus-release.test.ts
+?? src/__tests__/founder-paper.test.ts
+?? src/__tests__/founder-pilot-flow.test.ts
+?? src/__tests__/fractional-paper-sizing.test.ts
+?? src/__tests__/genesis-delivery.test.ts
+?? src/__tests__/genesis-request-path.test.ts
+?? src/__tests__/git-boundary-audit.test.ts
+?? src/__tests__/gmail-credentials.test.ts
+?? src/__tests__/heartbeat-daemon-boundary.test.ts
+?? src/__tests__/identity-recovery.test.ts
+?? src/__tests__/inference-phase-budget.test.ts
+?? src/__tests__/inference-reconciliation.test.ts
+?? src/__tests__/inference-reservations.test.ts
+?? src/__tests__/intraday-signals.test.ts
+?? src/__tests__/isolated-job-ledger.test.ts
+?? src/__tests__/isolated-podman-fixture.test.ts
+?? src/__tests__/isolated-runtime-capacity.test.ts
+?? src/__tests__/language-evaluation.test.ts
+?? src/__tests__/legacy-research-provenance.test.ts
+?? src/__tests__/live-daily-loss.test.ts
+?? src/__tests__/live-equity-refresh.test.ts
+?? src/__tests__/live-order-gateway.test.ts
+?? src/__tests__/live-preflight.test.ts
+?? src/__tests__/live-settlement.test.ts
+?? src/__tests__/local-home-integration.test.ts
+?? src/__tests__/local-resource-monitor.test.ts
+?? src/__tests__/local-shell-isolation.test.ts
+?? src/__tests__/log-redaction.test.ts
+?? src/__tests__/long-history-abort.test.ts
+?? src/__tests__/long-history-archive.test.ts
+?? src/__tests__/long-history-bitfinex.test.ts
+?? src/__tests__/long-history-cached-selection.test.ts
+?? src/__tests__/long-history-cli.test.ts
+?? src/__tests__/long-history-download.test.ts
+?? src/__tests__/long-history-evaluate.test.ts
+?? src/__tests__/long-history-history.test.ts
+?? src/__tests__/long-history-lessons.test.ts
+?? src/__tests__/long-history-macro.test.ts
+?? src/__tests__/long-history-normalize.test.ts
+?? src/__tests__/long-history-reference.test.ts
+?? src/__tests__/long-history-registry.test.ts
+?? src/__tests__/long-history-runner.test.ts
+?? src/__tests__/long-history-store.test.ts
+?? src/__tests__/long-history-trading-context.test.ts
+?? src/__tests__/long-history-worker.test.ts
+?? src/__tests__/marketing.test.ts
+?? src/__tests__/model-picker-boundary.test.ts
+?? src/__tests__/mt5-readonly.test.ts
+?? src/__tests__/native-coverage.ts
+?? src/__tests__/network-hardening.test.ts
+?? src/__tests__/offline-delivery-benchmark.test.ts
+?? src/__tests__/offline-economic-handoff.test.ts
+?? src/__tests__/offline-setup.ts
+?? src/__tests__/ollama-discovery-boundary.test.ts
+?? src/__tests__/open-boundaries-cycle.test.ts
+?? src/__tests__/operation-receipt-integrity.test.ts
+?? src/__tests__/operational-learning.test.ts
+?? src/__tests__/operator-cli.test.ts
+?? src/__tests__/optimization-comparison.test.ts
+?? src/__tests__/optimization-replication.test.ts
+?? src/__tests__/optimization-runner.test.ts
+?? src/__tests__/optimization-trials.test.ts
+?? src/__tests__/outcome.test.ts
+?? src/__tests__/paper-portfolio.test.ts
+?? src/__tests__/paper-status-snapshot.test.ts
+?? src/__tests__/paper-trading.test.ts
+?? src/__tests__/payout-reinvestment.test.ts
+?? src/__tests__/payout-verification.test.ts
+?? src/__tests__/pending-operation-integrity.test.ts
+?? src/__tests__/personal-focus.test.ts
+?? src/__tests__/personal-verification.test.ts
+?? src/__tests__/personnel-cost-policy.test.ts
+?? src/__tests__/preflight-spending-integrity.test.ts
+?? src/__tests__/privacy-egress.test.ts
+?? src/__tests__/proactive-research.test.ts
+?? src/__tests__/process-error-privacy.test.ts
+?? src/__tests__/product-adapter.test.ts
+?? src/__tests__/product-quality.test.ts
+?? src/__tests__/product-release-evidence.test.ts
+?? src/__tests__/profitability-governance.test.ts
+?? src/__tests__/protected-json-controller.test.ts
+?? src/__tests__/protected-json-write.test.ts
+?? src/__tests__/protected-json.test.ts
+?? src/__tests__/read-path.test.ts
+?? src/__tests__/readiness-plan.test.ts
+?? src/__tests__/reflection-boundary.test.ts
+?? src/__tests__/research-assumptions.test.ts
+?? src/__tests__/research-boundary-audit.test.ts
+?? src/__tests__/research-dispatch.test.ts
+?? src/__tests__/research-economics.test.ts
+?? src/__tests__/research-origin-admission.test.ts
+?? src/__tests__/research.test.ts
+?? src/__tests__/reservation-process.test.ts
+?? src/__tests__/reserved-inference-integration.test.ts
+?? src/__tests__/reserved-operation.test.ts
+?? src/__tests__/reserved-replay-integrity.test.ts
+?? src/__tests__/reserved-worker-integration.test.ts
+?? src/__tests__/revenue-paths.test.ts
+?? src/__tests__/revenue.test.ts
+?? src/__tests__/runtime-bundle.test.ts
+?? src/__tests__/sales-control.test.ts
+?? src/__tests__/scalping-paper.test.ts
+?? src/__tests__/search-connectors.test.ts
+?? src/__tests__/search-credential-boundary.test.ts
+?? src/__tests__/search-diagnostics.test.ts
+?? src/__tests__/search-transport.test.ts
+?? src/__tests__/security-action-gate.test.ts
+?? src/__tests__/service-delivery.test.ts
+?? src/__tests__/setup-environment-boundary.test.ts
+?? src/__tests__/setup-input-boundary.test.ts
+?? src/__tests__/setup-rehearsal.test.ts
+?? src/__tests__/shadow-preparation.test.ts
+?? src/__tests__/shadow-response-ingress.test.ts
+?? src/__tests__/shadow-router-binding.test.ts
+?? src/__tests__/shadow-runtime.test.ts
+?? src/__tests__/shadow-sources.test.ts
+?? src/__tests__/shared-budget-policy.test.ts
+?? src/__tests__/skill-binary-requirements.test.ts
+?? src/__tests__/skill-install-inspection.test.ts
+?? src/__tests__/source-diversity.test.ts
+?? src/__tests__/source-scout.test.ts
+?? src/__tests__/startup-admission.test.ts
+?? src/__tests__/storefront.test.ts
+?? src/__tests__/strategy-catalogue.test.ts
+?? src/__tests__/strategy-comparison.test.ts
+?? src/__tests__/strategy-research.test.ts
+?? src/__tests__/strategy-series.test.ts
+?? src/__tests__/stripe-checkout.test.ts
+?? src/__tests__/supply-chain-compatibility.test.ts
+?? src/__tests__/support-cycle.integration.test.ts
+?? src/__tests__/support-inbox.test.ts
+?? src/__tests__/support-outbox.test.ts
+?? src/__tests__/support-privacy.test.ts
+?? src/__tests__/technical-acceptance-boundaries.test.ts
+?? src/__tests__/tender-preselection.test.ts
+?? src/__tests__/tool-install-boundary.test.ts
+?? src/__tests__/trading-control.test.ts
+?? src/__tests__/trading-expertise.test.ts
+?? src/__tests__/trading-knowledge.test.ts
+?? src/__tests__/uncovered-runtime-boundary.test.ts
+?? src/__tests__/v1-policy.test.ts
+?? src/__tests__/v1-runtime.test.ts
+?? src/__tests__/validation-design.test.ts
+?? src/__tests__/validation-pilot.test.ts
+?? src/__tests__/wallet-balance.test.ts
+?? src/__tests__/wallet-creation-protection.test.ts
+?? src/__tests__/wallet-page.test.ts
+?? src/__tests__/wizard-boundary.test.ts
+?? src/__tests__/work-quality.test.ts
+?? src/__tests__/write-path.test.ts
+?? src/agent/coding-benchmark.ts
+?? src/agent/coding-delivery.ts
+?? src/agent/context.ts.backup-token-optimization
+?? src/agent/harness-types.ts.backup-before-worker-revenue-routing
+?? src/agent/harnesses/base-harness.ts.backup-task-completion
+?? src/agent/loop.ts.backup-before-financial-fix
+?? src/agent/loop.ts.backup-before-router-bridge
+?? src/agent/loop.ts.backup-before-worker-survival-tier
+?? src/agent/loop.ts.backup-idle-optimization
+?? src/agent/loop.ts.backup-openai
+?? src/agent/read-path.ts
+?? src/agent/system-prompt.ts.backup-idle-optimization
+?? src/agent/system-prompt.ts.backup-openai-windows
+?? src/agent/tools.ts.backup-before-revenue-tools
+?? src/agent/tools.ts.backup-before-revenue-update-lifecycle
+?? src/agent/work-quality.ts
+?? src/agent/worker-inference-bridge.ts.backup-before-router-bridge
+?? src/agent/write-path.ts
+?? src/commerce/bounded-product-check.ts
+?? src/commerce/code-quality.ts
+?? src/commerce/delivery.ts
+?? src/commerce/hold-sync.ts
+?? src/commerce/language-evaluation.ts
+?? src/commerce/payout-verification.ts
+?? src/commerce/product-adapter.ts
+?? src/commerce/product-quality.ts
+?? src/commerce/product-tool.ts
+?? src/commerce/sales-control.ts
+?? src/commerce/service-delivery.ts
+?? src/commerce/storefront.ts
+?? src/commerce/stripe-checkout.ts
+?? src/commerce/subscriptions.ts
+?? src/commerce/support-followups.ts
+?? src/commerce/support-review.ts
+?? src/commerce/webhook-server.ts
+?? src/commerce/workspace.ts
+?? src/commerce/writing-quality.ts
+?? src/conway/client.ts.backup-before-cwd-fix
+?? src/conway/operating-mode.ts
+?? src/git/state-versioning.ts.backup-before-windows-fix
+?? src/git/tools.ts.backup-before-windows-fix
+?? src/heartbeat/tick-context.ts.backup-direct-openai
+?? src/heartbeat/tick-context.ts.backup-openai
+?? src/identity/provision.ts.backup
+?? src/index.ts.backup-openai
+?? src/inference/context-admission.ts
+?? src/inference/provider-registry.ts.backup-openai
+?? src/inference/reconciliation.ts
+?? src/inference/router.ts.backup-before-v13
+?? src/inference/router.ts.backup-before-worker-router-options
+?? src/online/bounty-readonly.ts
+?? src/orchestration/local-worker.ts.backup-before-worker-revenue-routing
+?? src/orchestration/local-worker.ts.backup-lifecycle-fix
+?? src/replication/bootstrap.ts
+?? src/replication/runtime-bundle.ts
+?? src/research/
+?? src/revenue/adapter-permissions.ts
+?? src/revenue/advanced-paper.ts
+?? src/revenue/arbitrage.ts
+?? src/revenue/bounty-task-review.ts
+?? src/revenue/budget-governor.ts.backup-before-duration
+?? src/revenue/capital-allocation.ts
+?? src/revenue/edition-policy.ts
+?? src/revenue/execution-audit.ts
+?? src/revenue/focus-admission.ts
+?? src/revenue/fractional-paper-sizing.ts
+?? src/revenue/historical-bars.ts
+?? src/revenue/intraday-knowledge.ts
+?? src/revenue/intraday-signals.ts
+?? src/revenue/live-daily-loss.ts
+?? src/revenue/live-orders.ts
+?? src/revenue/long-history/bitfinex.ts
+?? src/revenue/long-history/reference.ts
+?? src/revenue/operation-reconciliation.ts
+?? src/revenue/optimization-budget.ts
+?? src/revenue/optimization-overhead.ts
+?? src/revenue/optimization-payback.ts
+?? src/revenue/optimization-rollout.ts
+?? src/revenue/optimization-runner.ts
+?? src/revenue/optimization-workload.ts
+?? src/revenue/paper-portfolio.ts
+?? src/revenue/paper-profit.ts
+?? src/revenue/payout-reconciliation.ts
+?? src/revenue/research-integrity.ts
+?? src/revenue/reserved-operation.ts
+?? src/revenue/store.ts.backup-before-experiment-scoring
+?? src/revenue/store.ts.backup-before-lifecycle
+?? src/revenue/store.ts.backup-before-opportunity-scoring
+?? src/revenue/store.ts.backup-before-worker-task-experiment
+?? src/revenue/strategy-comparison.ts
+?? src/revenue/strategy-series.ts
+?? src/revenue/trading-control.ts
+?? src/revenue/validation-pilot.ts
+?? src/security/identity-recovery.ts
+?? src/security/isolated-job-ledger.ts
+?? src/security/isolated-job-supervisor.ts
+?? src/security/isolated-podman-fixture.ts
+?? src/security/isolated-runtime-capacity.ts
+?? src/security/paper-status-snapshot.ts
+?? src/security/protected-json.ts
+?? src/security/provider-egress.ts
+?? src/security/reviewed-runtime-binding.ts
+?? src/self-mod/process-environment.ts
+?? src/setup/wizard.ts.backup
+?? src/skills/install-inspection.ts
+?? src/skills/loader.ts.backup-before-skill-priority
+?? src/skills/requirements.ts
+?? src/state/database.ts.backup-before-revenue-v12
+?? src/state/database.ts.backup-before-v13
+?? src/state/schema.ts.backup-before-revenue-v12
+?? src/state/schema.ts.backup-before-v13
+?? src/types.ts.backup-before-cwd-fix
+?? src/types.ts.backup-before-v13
+?? src/types.ts.backup-before-worker-router-options
+?? src/types.ts.backup-token-budget
+?? src/v1/cli.ts
+?? src/v1/cost-review.ts
+?? src/v1/founder-paper-cli.ts
+?? src/v1/founder-paper.ts
+?? src/v1/live-preflight.ts
+?? src/v1/offline-input.ts
+?? src/v1/personal-benchmark.ts
+?? src/v1/personal-verification.ts
+?? src/v1/setup-rehearsal.ts
+?? src/v1/shadow-cli.ts
+?? src/v1/shadow-preparation.ts
+?? src/v1/shadow-response-ingress.ts
+?? src/v1/shadow-router-binding.ts
+?? src/v1/shadow-runtime.ts
+?? src/v1/startup-admission.ts
+?? src/v1/strategy-series.ts
+?? src/v1/verification.ts
+?? test-duration-governor.ts
+?? test-worker-inference.mjs
+?? tsconfig.tests.json
+?? validation_plans.md
+?? validation_review.md
+?? web/founder/capability-evidence.mjs
+?? web/founder/learning.mjs
+?? web/founder/reference-admin.css
+?? web/founder/reference-admin.html
+?? web/founder/reference-admin.mjs

@@ -8,6 +8,7 @@
 
 import type BetterSqlite3 from "better-sqlite3";
 import { ulid } from "ulid";
+import { createHash } from "node:crypto";
 import type {
   InferenceRequest,
   InferenceResult,
@@ -20,7 +21,16 @@ import type {
 } from "../types.js";
 import { ModelRegistry } from "./registry.js";
 import { InferenceBudgetTracker } from "./budget.js";
+import { pendingInferenceCost, reserveInferenceCost, settleInferenceCost } from "./reservations.js";
+import { haltInferenceBudget } from "./budget-policy.js";
+import {observeInferencePhase} from './phase-budget.js';
+import { ExperimentBudgetGovernor } from "../revenue/budget-governor.js";
 import { DEFAULT_ROUTING_MATRIX, TASK_TIMEOUTS } from "./types.js";
+import { withGenesis, inspectGenesisDelivery } from "../agent/genesis.js";
+import { fitsModelContext, effectiveContextWindow, contextInputUpperBound } from "./context-admission.js";
+import { createLogger } from "../observability/logger.js";
+import {assertNoKnownSecrets} from '../observability/redaction.js';
+import {beginEfficiencyObservation,finishEfficiencyObservation,chooseEfficientRoute} from './efficiency.js';
 
 type Database = BetterSqlite3.Database;
 
@@ -28,11 +38,14 @@ export class InferenceRouter {
   private db: Database;
   private registry: ModelRegistry;
   private budget: InferenceBudgetTracker;
+  private experimentBudget: ExperimentBudgetGovernor;
 
-  constructor(db: Database, registry: ModelRegistry, budget: InferenceBudgetTracker) {
+  constructor(db: Database, registry: ModelRegistry, budget: InferenceBudgetTracker,
+    private readonly genesisPrompt: string = "", private readonly requirePhase: boolean = false) {
     this.db = db;
     this.registry = registry;
     this.budget = budget;
+    this.experimentBudget = new ExperimentBudgetGovernor(db);
   }
 
   /**
@@ -43,10 +56,15 @@ export class InferenceRouter {
     request: InferenceRequest,
     inferenceChat: (messages: any[], options: any) => Promise<any>,
   ): Promise<InferenceResult> {
-    const { messages, taskType, tier, sessionId, turnId, tools } = request;
+    observeInferencePhase(this.db);
+    const { messages, taskType, tier, sessionId, turnId, experimentId, tools } = request;
+    const learningRequest={...request,messages:withGenesis(messages,this.genesisPrompt)};
 
     // 1. Select model from routing matrix
-    const model = this.selectModel(tier, taskType);
+    const baseline = this.selectModel(tier, taskType);
+    const eligible=(this.getPreference(tier,taskType)?.candidates??[]).map(id=>this.registry.get(id)).filter((m):m is ModelEntry=>!!m&&m.enabled);
+    const routeChoice = baseline?chooseEfficientRoute(this.db,learningRequest,baseline,eligible):null;
+    const model = routeChoice?.model;
     if (!model) {
       return {
         content: "",
@@ -62,32 +80,57 @@ export class InferenceRouter {
     }
 
     // 2. Estimate cost and check budget
-    const estimatedTokens = messages.reduce((sum, m) => sum + (m.content?.length || 0) / 4, 0);
-    const estimatedCostCents = Math.ceil(
-      (estimatedTokens / 1000) * model.costPer1kInput / 100 +
-      (request.maxTokens || 1000) / 1000 * model.costPer1kOutput / 100,
-    );
-
-    const budgetCheck = this.budget.checkBudget(estimatedCostCents, model.modelId);
-    if (!budgetCheck.allowed) {
+    const preference = this.getPreference(tier, taskType);
+    const requestedTokens = request.maxTokens ?? preference?.maxTokens ?? model.maxTokens;
+    if (!Number.isSafeInteger(requestedTokens) || requestedTokens <= 0 ||
+        !Number.isSafeInteger(model.maxTokens) || model.maxTokens <= 0 ||
+        !Number.isSafeInteger(model.contextWindow) || model.contextWindow <= 0 ||
+        !Number.isFinite(model.costPer1kInput) || model.costPer1kInput < 0 ||
+        !Number.isFinite(model.costPer1kOutput) || model.costPer1kOutput < 0) {
       return {
-        content: `Budget exceeded: ${budgetCheck.reason}`,
-        model: model.modelId,
-        provider: model.provider,
-        inputTokens: 0,
-        outputTokens: 0,
-        costCents: 0,
-        latencyMs: 0,
+        content: "Inference blocked: invalid model pricing or token limits",
+        model: model.modelId, provider: model.provider,
+        inputTokens: 0, outputTokens: 0, costCents: 0, latencyMs: 0,
         finishReason: "budget_exceeded",
       };
     }
+    const maxTokens = Math.min(requestedTokens, model.maxTokens, model.contextWindow);
+    // A character heuristic is not an upper bound (tools, Unicode and provider
+    // framing can all exceed it). Reserve the full configured input capacity.
+    // This assumes the adapter enforces these limits and performs one billable
+    // attempt at the configured rates; hidden retries require separate holds.
+    const estimatedCostCents = Math.ceil(
+      (model.contextWindow / 1000) * model.costPer1kInput / 100 +
+      maxTokens / 1000 * model.costPer1kOutput / 100,
+    );
 
-    // 3. Check session budget
-    if (request.sessionId && this.budget.config.sessionBudgetCents > 0) {
-      const sessionCost = this.budget.getSessionCost(request.sessionId);
-      if (sessionCost + estimatedCostCents > this.budget.config.sessionBudgetCents) {
+    // Validate local input before reserving. No network work is performed while
+    // holding the write lock; other connections see the reservation before await.
+    assertNoKnownSecrets({messages,tools,genesis:this.genesisPrompt});
+    const transformedMessages = this.transformMessagesForProvider(learningRequest.messages, model.provider);
+    const delivery = inspectGenesisDelivery(transformedMessages, this.genesisPrompt);
+    const contextWindow = effectiveContextWindow(model.modelId, model.contextWindow);
+    const diagnostic = { ...delivery, contextWindow, outputReserve: maxTokens,
+      inputTokenUpperBound: contextInputUpperBound(transformedMessages, tools) };
+    if (!delivery.complete) throw new Error("Genesis delivery failed: complete section missing");
+    createLogger("genesis-delivery").debug("Genesis prepared for provider", diagnostic);
+    if (!fitsModelContext(transformedMessages, tools, contextWindow, maxTokens)) {
+      createLogger("genesis-delivery").warn("Genesis request blocked", {
+        ...diagnostic, reason: "context_capacity_exceeded", requestSent: false,
+      });
+      return {
+        content: "Inference blocked: complete policy, task context, tools and output reserve exceed model context capacity",
+        model: model.modelId, provider: model.provider,
+        inputTokens: 0, outputTokens: 0, costCents: 0, latencyMs: 0,
+        finishReason: "budget_exceeded",
+      };
+    }
+    let reservationId = "";
+    const denial = this.db.transaction((): InferenceResult | undefined => {
+      const budgetCheck = this.budget.checkBudget(estimatedCostCents, model.modelId);
+      if (!budgetCheck.allowed) {
         return {
-          content: `Session budget exceeded: ${sessionCost}c spent + ${estimatedCostCents}c estimated > ${this.budget.config.sessionBudgetCents}c limit`,
+          content: `Budget exceeded: ${budgetCheck.reason}`,
           model: model.modelId,
           provider: model.provider,
           inputTokens: 0,
@@ -97,20 +140,134 @@ export class InferenceRouter {
           finishReason: "budget_exceeded",
         };
       }
-    }
 
-    // 4. Transform messages for provider
-    const transformedMessages = this.transformMessagesForProvider(messages, model.provider);
+      if (experimentId) {
+        const durationCheck = this.experimentBudget.checkDuration(experimentId);
+
+        if (!durationCheck.allowed) {
+          if (
+            durationCheck.maxDurationHours !== null &&
+            durationCheck.maxDurationHours > 0 &&
+            durationCheck.elapsedHours >= durationCheck.maxDurationHours
+          ) {
+            this.experimentBudget.stopExperiment(
+              experimentId,
+              durationCheck.reason ?? "Experiment duration exceeded",
+            );
+          }
+
+          return {
+            content: durationCheck.reason ?? "Experiment duration exceeded",
+            model: model.modelId,
+            provider: model.provider,
+            inputTokens: 0,
+            outputTokens: 0,
+            costCents: 0,
+            latencyMs: 0,
+            finishReason: "budget_exceeded",
+          };
+        }
+      }
+      if (experimentId) {
+        const experimentBudgetCheck = this.experimentBudget.checkInferenceBudget(
+          experimentId,
+          estimatedCostCents,
+        );
+
+        if (!experimentBudgetCheck.allowed) {
+          if (
+            experimentBudgetCheck.limitCents > 0 &&
+            experimentBudgetCheck.currentInferenceCostCents >=
+              experimentBudgetCheck.limitCents
+          ) {
+            this.experimentBudget.stopExperiment(
+              experimentId,
+              experimentBudgetCheck.reason ??
+                "Experiment inference budget exhausted",
+            );
+          }
+
+          return {
+            content: experimentBudgetCheck.reason ?? "Experiment inference budget exceeded",
+            model: model.modelId,
+            provider: model.provider,
+            inputTokens: 0,
+            outputTokens: 0,
+            costCents: 0,
+            latencyMs: 0,
+            finishReason: "budget_exceeded",
+          };
+        }
+      }
+      if (experimentId) {
+        const totalBudgetCheck = this.experimentBudget.checkTotalBudget(
+          experimentId,
+          estimatedCostCents,
+        );
+
+        if (!totalBudgetCheck.allowed) {
+          if (
+            totalBudgetCheck.limitCents > 0 &&
+            totalBudgetCheck.currentTotalCostCents >=
+              totalBudgetCheck.limitCents
+          ) {
+            this.experimentBudget.stopExperiment(
+              experimentId,
+              totalBudgetCheck.reason ??
+                "Experiment total budget exhausted",
+            );
+          }
+
+          return {
+            content: totalBudgetCheck.reason ?? "Experiment total budget exceeded",
+            model: model.modelId,
+            provider: model.provider,
+            inputTokens: 0,
+            outputTokens: 0,
+            costCents: 0,
+            latencyMs: 0,
+            finishReason: "budget_exceeded",
+          };
+        }
+      }
+      // 3. Check session budget
+      const sessionLimit = this.budget.getSessionLimit();
+      if (sessionLimit !== null) {
+        const sessionCost = this.budget.getSessionCost(request.sessionId) +
+          pendingInferenceCost(this.db, { sessionId: request.sessionId });
+        if (sessionCost + estimatedCostCents > sessionLimit) {
+          return {
+            content: `Session budget exceeded: ${sessionCost}c spent + ${estimatedCostCents}c estimated > ${sessionLimit}c limit`,
+            model: model.modelId,
+            provider: model.provider,
+            inputTokens: 0,
+            outputTokens: 0,
+            costCents: 0,
+            latencyMs: 0,
+            finishReason: "budget_exceeded",
+          };
+        }
+      }
+
+      reservationId = reserveInferenceCost(this.db, sessionId, experimentId, model.modelId, estimatedCostCents,
+        { provider: model.provider, turnId, tier, taskType,requirePhase:this.requirePhase });
+      beginEfficiencyObservation(this.db,reservationId,learningRequest,model,estimatedCostCents,baseline!.modelId);
+      return undefined;
+    }).immediate();
+    if (denial) return denial;
 
     // 5. Build inference options
-    const preference = this.getPreference(tier, taskType);
-    const maxTokens = request.maxTokens || preference?.maxTokens || model.maxTokens;
     const timeout = TASK_TIMEOUTS[taskType] || 120_000;
 
     const inferenceOptions: any = {
       model: model.modelId,
+      providerId: model.provider,
+      singleAttempt: true,
       maxTokens,
       tools: tools,
+      toolChoice: request.toolChoice,
+      temperature: request.temperature,
+      responseFormat: request.responseFormat,
     };
 
     // 6. Call inference with timeout
@@ -127,6 +284,7 @@ export class InferenceRouter {
       }
     } catch (error: any) {
       const latencyMs = Date.now() - startTime;
+      finishEfficiencyObservation(this.db,reservationId,{status:'failed',latencyMs});
       // If fallback is enabled, try next candidate
       if (error.name === "AbortError") {
         return {
@@ -145,17 +303,44 @@ export class InferenceRouter {
     const latencyMs = Date.now() - startTime;
 
     // 7. Calculate actual cost
-    const inputTokens = response.usage?.promptTokens || 0;
-    const outputTokens = response.usage?.completionTokens || 0;
+    const inputTokens = response.usage?.promptTokens;
+    const outputTokens = response.usage?.completionTokens;
+    if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 ||
+        !Number.isSafeInteger(outputTokens) || outputTokens < 0) {
+      // Unknown usage is not proof of zero cost. Keep the durable hold.
+      finishEfficiencyObservation(this.db,reservationId,{status:'unknown',latencyMs});
+      return {
+        content: "Inference usage missing or invalid; cost reservation retained for reconciliation",
+        model: model.modelId, provider: model.provider,
+        inputTokens: 0, outputTokens: 0, costCents: 0, latencyMs,
+        finishReason: "error",
+      };
+    }
     const actualCostCents = Math.ceil(
       (inputTokens / 1000) * model.costPer1kInput / 100 +
       (outputTokens / 1000) * model.costPer1kOutput / 100,
     );
+    if (!Number.isSafeInteger(actualCostCents) || actualCostCents < 0) {
+      haltInferenceBudget(this.db, "Unrepresentable provider charge; hold retained");
+      return { content: "Provider charge invalid; reservation retained", model: model.modelId, provider: model.provider,
+        inputTokens, outputTokens, costCents: 0, latencyMs, finishReason: "error" };
+    }
 
+    // A learned substitution remains subject to its machine-verifiable quality
+    // contract on EVERY use. A mismatch is billed, rejected and never retried here.
+    const qualityMismatch=!!routeChoice?.expectedOutputDigest&&(
+      response.finishReason!=='stop'||!!response.toolCalls?.length||typeof response.message?.content!=='string'||
+      createHash('sha256').update(response.message.content).digest('hex')!==routeChoice.expectedOutputDigest);
     // 8. Record cost
-    this.budget.recordCost({
+    settleInferenceCost(this.db, reservationId, () => {
+      const cached=response.usage?.cachedPromptTokens;
+      finishEfficiencyObservation(this.db,reservationId,{status:qualityMismatch?'failed':'completed',latencyMs,inputTokens,outputTokens,estimatedCents:actualCostCents,
+        qualityVerified:!!routeChoice?.expectedOutputDigest&&!qualityMismatch,
+        ...(Number.isSafeInteger(cached)&&cached>=0&&cached<=inputTokens?{cachedInputTokens:cached}:{})});
+      this.budget.recordCost({
       sessionId,
       turnId: turnId || null,
+      experimentId: experimentId || null,
       model: model.modelId,
       provider: model.provider,
       inputTokens,
@@ -165,9 +350,25 @@ export class InferenceRouter {
       tier,
       taskType,
       cacheHit: false,
-    });
+      });
+      if (inputTokens > model.contextWindow || outputTokens > maxTokens || actualCostCents > estimatedCostCents) {
+        haltInferenceBudget(this.db, "Provider exceeded reserved price/token contract");
+      }
+    },actualCostCents);
 
     // 9. Build result
+    if (inputTokens > model.contextWindow || outputTokens > maxTokens) {
+      // Never hide an incurred cost, even if an adapter breaks its contract.
+      // Return an error after booking it so workers cannot treat this as success.
+      return {
+        content: "Provider usage exceeded reserved model limits; reconciliation required",
+        model: model.modelId, provider: model.provider,
+        inputTokens, outputTokens, costCents: actualCostCents, latencyMs,
+        finishReason: "error",
+      };
+    }
+    if(qualityMismatch)return {content:'Learned route failed its verified quality contract; result rejected, cost recorded, no automatic retry',
+      model:model.modelId,provider:model.provider,inputTokens,outputTokens,costCents:actualCostCents,latencyMs,finishReason:'error'};
     return {
       content: response.message?.content || "",
       model: model.modelId,

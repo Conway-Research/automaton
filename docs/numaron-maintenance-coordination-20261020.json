@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-10-20T21:44:15.955Z",
+  "state": "OFF; local Amplitude/Dealwork access refresh immediately before execution loaded",
+  "servicePid": 28104,
+  "maxWorkers": 10,
+  "budgetMatchesStartup": true,
+  "evidenceBackedUp": true,
+  "duplicateTaskIds": 0,
+  "manualStartRequired": true,
+  "additionalRestartAvoided": true,
+  "evidence": "artifacts/access-timing-maintenance-20261020-2143/after.json"
+}

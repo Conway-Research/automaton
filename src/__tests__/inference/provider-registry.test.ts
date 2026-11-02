@@ -173,7 +173,7 @@ describe("ProviderRegistry", () => {
     const registry = createRegistryFromDefaults();
     const resolved = registry.resolveModel("fast");
 
-    expect(resolved.provider.id).toBe("groq");
+    expect(resolved.provider.id).toBe("openai");
     expect(resolved.model.tier).toBe("fast");
   });
 
@@ -203,7 +203,7 @@ describe("ProviderRegistry", () => {
     const resolved = registry.resolveModel("reasoning", true);
 
     expect(resolved.model.tier).toBe("fast");
-    expect(resolved.provider.id).toBe("groq");
+    expect(resolved.provider.id).toBe("openai");
   });
 
   it("resolveModel in survival mode downgrades fast to cheap", () => {

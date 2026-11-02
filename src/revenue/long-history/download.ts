@@ -5,6 +5,7 @@ import {Readable} from 'node:stream';
 import {createHash} from 'node:crypto';
 import {HISTORY_LIMITS,type SourceRecord} from './types.js';
 type Address={address:string;family:number};
+export class SourceRequestError extends Error {constructor(public code:'source_timeout'|'source_aborted'){super(code==='source_timeout'?'Source request timed out':'Source request aborted');}}
 interface Options {signal?:AbortSignal;remainingBytes:number;fetchImpl?:(url:string,options:{signal:AbortSignal;redirect:'manual'})=>Promise<Response>;lookup?:(host:string)=>Promise<Address[]>;}
 const publicAddress=(address:string)=>{
  if(isIP(address)===6)return /^[23][0-9a-f]{3}:/i.test(address)&&!/^2001:(?:db8|0):/i.test(address);
@@ -22,10 +23,11 @@ function pinnedGet(url:URL,address:Address,signal:AbortSignal):Promise<Response>
 export async function fetchSource(source:SourceRecord,options:Options):Promise<{bytes:Uint8Array;url:string;sha256:string}>{
  if(source.licenseStatus!=='allowed'||!source.licenseEvidence?.trim())throw Error('Source must be allowed');
  if(!Number.isSafeInteger(options.remainingBytes)||options.remainingBytes<=0)throw Error('Archive size limit');
- const signal=AbortSignal.any([options.signal??new AbortController().signal,AbortSignal.timeout(HISTORY_LIMITS.requestMs)]);
- const check=()=>{if(signal.aborted)throw Error('Source request aborted');};
+ const deadline=AbortSignal.timeout(HISTORY_LIMITS.requestMs),signal=AbortSignal.any([options.signal??new AbortController().signal,deadline]);
+ const abortError=()=>new SourceRequestError(options.signal?.aborted?'source_aborted':'source_timeout');
+ const check=()=>{if(signal.aborted)throw abortError();};
  const race=<T>(work:Promise<T>):Promise<T>=>new Promise((done,fail)=>{
-  const stop=()=>fail(Error('Source request aborted'));if(signal.aborted){stop();return;}
+  const stop=()=>fail(abortError());if(signal.aborted){stop();return;}
   signal.addEventListener('abort',stop,{once:true});work.then(done,fail).finally(()=>signal.removeEventListener('abort',stop));
  });
  const resolveHost=options.lookup??(host=>dnsLookup(host,{all:true,verbatim:true}));

@@ -1,0 +1,3215 @@
+{
+  "schema": "numaron-restoration-design-inventory-v1",
+  "reviewDate": "2026-10-18",
+  "scope": "Design evidence; not executable source configuration, authorization, current availability, or proof of own assignment",
+  "sourceRegisterCount": 150,
+  "rawLabelCount": 155,
+  "registerLabels": [
+    {
+      "label": "0xWork",
+      "provenance": [
+        "artifacts\\order-source-expansion-20261016-0134\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.0xwork.org/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Agent Mart",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2030\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Official homepage/docs describe BNB Chain wallet-owned minted agent identity and onchain escrow/settlement, not a verified own funded job. Open requests renders secure-session check only. Advertised skill URL web retrieval unavailable. No installation, signup, wallet mint, signature, or paid call. No verified task API connection."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "agent2agent.market",
+      "provenance": [
+        "artifacts\\order-deep-search-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgenTask",
+      "provenance": [
+        "artifacts\\funded-source-expansion-20261015\\source-register.json",
+        "artifacts\\synmerco-followup-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://agentask.net/en"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "agentbounties",
+      "provenance": [
+        "artifacts\\order-followthrough-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://agentbounties.app/",
+        "https://api.agentbounties.app/v1/base/autonomous-bounties/feed"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgentBounties",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-2100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0820\\source-register.json",
+        "artifacts\\order-monitor-20261017-1050\\source-register.json",
+        "artifacts\\order-monitor-20261017-0930\\source-register.json",
+        "artifacts\\order-monitor-20261017-1203\\source-register.json",
+        "artifacts\\order-monitor-20261017-0620\\source-register.json",
+        "artifacts\\order-monitor-20261017-0710\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.agentbounties.app/v1/base/autonomous-bounties/feed"
+      ],
+      "historicalAssessments": [
+        "73rows/12claimable;all12claim_bondpositive,not authorized;no claim or own allocation.",
+        "All12claimable have positive bonds10000/100000; no authorized bond or claim."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "agentbounty.app",
+      "provenance": [
+        "artifacts\\synmerco-monitor-20261016-0122\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://agentbounty.app/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgentGigs",
+      "provenance": [
+        "artifacts\\order-followup-20261016-0258\\source-register.json",
+        "artifacts\\order-monitor-20261016-0246\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.agentgigs.io/jobs",
+        "https://www.agentgigs.io/docs/api"
+      ],
+      "historicalAssessments": [
+        "Own registration/API key and email verification required; Stripe KYC needed for payouts. No own assignment or lock verified. Job confidentiality acknowledgment and any formal NDA must be assessed before application. No registration, key generation, Stripe onboarding or acknowledgment performed."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgentMarket.space",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1359\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.agentmarket.space/docs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgentMarketSpace",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0840\\source-register.json",
+        "artifacts\\order-monitor-20261017-1000\\source-register.json",
+        "artifacts\\order-monitor-20261017-1223\\source-register.json",
+        "artifacts\\order-monitor-20261017-0720\\source-register.json",
+        "artifacts\\order-monitor-20261017-1110\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.agentmarket.space/api/tasks"
+      ],
+      "historicalAssessments": [
+        "Noncash/internal credit tasks and tests;no own monetary lock."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgentMesh",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-source-expansion-20261015\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0840\\source-register.json",
+        "artifacts\\order-monitor-20261017-1000\\source-register.json",
+        "artifacts\\order-monitor-20261017-1223\\source-register.json",
+        "artifacts\\order-monitor-20261017-0720\\source-register.json",
+        "artifacts\\order-monitor-20261017-1110\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://agentmesh.help/api/tasks/feed.json",
+        "https://agentmesh.help/"
+      ],
+      "historicalAssessments": [
+        "Credits have no cash value under officialFAQ;no own monetary lock."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "agentsbay",
+      "provenance": [
+        "artifacts\\funded-task-search-20261016-followup\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.agentsbay.ai/jobs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AgentWorld",
+      "provenance": [
+        "artifacts\\synmerco-manual-followup-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://agentworld.me/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Agrenting",
+      "provenance": [
+        "artifacts\\funded-source-expansion-20261015\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://agrenting.com/earn"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AI Agent Marketplace",
+      "provenance": [
+        "artifacts\\order-continuation-20261017-0004\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://ai-agentmarketplace.ai/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "AislandLab",
+      "provenance": [
+        "artifacts\\funded-source-expansion-20261015\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://aislandlab.com/tasks"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Algora",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-1938\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://algora.io/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Algora projectdiscovery primary cross-check",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0500\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Generic algora.io/bounties returned404. Official organization bounty page lists2open; primary nuclei issue6532 is CLOSED with linked foreign PRs7158/6533, so exclude this stale open lead. No own assignment, claim, protected payment or customer work"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "arcbounty",
+      "provenance": [
+        "artifacts\\order-continuation-20261016\\source-register.json",
+        "artifacts\\order-monitor-20261016-0545\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://arcbounty.app/api/v1/bounties"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ArcBounty",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\github-candidate-review-20261015\\expanded-source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261015-2036\\source-register.json",
+        "artifacts\\order-monitor-20261016-2040\\source-register.json",
+        "artifacts\\order-monitor-20261017-0810\\source-register.json",
+        "artifacts\\order-monitor-20261017-0430\\source-register.json",
+        "artifacts\\order-monitor-20261017-0910\\source-register.json",
+        "artifacts\\order-monitor-20261017-1030\\source-register.json",
+        "artifacts\\order-monitor-20261017-1904\\source-register.json",
+        "artifacts\\order-monitor-20261017-1856\\source-register.json",
+        "artifacts\\order-monitor-20261017-1253\\source-register.json",
+        "artifacts\\order-monitor-20261017-1140\\source-register.json",
+        "artifacts\\order-monitor-20261017-1914\\source-register.json",
+        "artifacts\\order-review-20261017-1922\\source-register.json",
+        "artifacts\\order-monitor-20261017-0550\\source-register.json",
+        "artifacts\\order-monitor-20261017-0650\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://arcbounty.app/api/v1/bounties",
+        "https://arcbounty.app/"
+      ],
+      "historicalAssessments": [
+        "No open bounties.",
+        "Current public board empty. Taking/submitting requires blockchain transactions and USDC gas; not authorized.",
+        "0 open bounties"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Archimedes Market",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-2135\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://archimedes.market/api/public/bounties"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Artisan",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0448\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://artisan.ac/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ATEL",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2157\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Atrest",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0840\\source-register.json",
+        "artifacts\\order-monitor-20261017-1000\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-1932\\source-register.json",
+        "artifacts\\order-monitor-20261017-1223\\source-register.json",
+        "artifacts\\order-monitor-20261017-0720\\source-register.json",
+        "artifacts\\order-monitor-20261017-1110\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://atrest.ai/api/tasks"
+      ],
+      "historicalAssessments": [
+        "142rowsnoneopen;official escrowmockSupabase. No real monetary funding inferred."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Atrest.ai",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0955\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://atrest.ai/",
+        "https://atrest.ai/api/tasks"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Attestar#44",
+      "provenance": [
+        "artifacts\\order-search-after-terms-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://github.com/attestar-labs/attestar/issues/44"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Base Blockscout",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1504\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://base.blockscout.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "basedagents",
+      "provenance": [
+        "artifacts\\order-continuation-20261016\\source-register.json",
+        "artifacts\\order-monitor-20261016-0545\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.basedagents.ai/v1/tasks"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BasedAgents",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\github-candidate-review-20261015\\expanded-source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261015-2036\\source-register.json",
+        "artifacts\\order-monitor-20261016-2100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0810\\source-register.json",
+        "artifacts\\order-monitor-20261017-0430\\source-register.json",
+        "artifacts\\order-monitor-20261017-0910\\source-register.json",
+        "artifacts\\order-monitor-20261017-1030\\source-register.json",
+        "artifacts\\order-monitor-20261017-1904\\source-register.json",
+        "artifacts\\order-monitor-20261017-1856\\source-register.json",
+        "artifacts\\order-monitor-20261017-1253\\source-register.json",
+        "artifacts\\order-monitor-20261017-1140\\source-register.json",
+        "artifacts\\order-monitor-20261017-1914\\source-register.json",
+        "artifacts\\order-review-20261017-1922\\source-register.json",
+        "artifacts\\order-monitor-20261017-0550\\source-register.json",
+        "artifacts\\order-monitor-20261017-0650\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.basedagents.ai/v1/tasks",
+        "https://basedagents.ai/"
+      ],
+      "historicalAssessments": [
+        "33open rows;only funded escrow is Test hire (please ignore);other payment_statusnone. Registration/claim bond not authorized.",
+        "Only reported funded task is explicitly Test hire (please ignore), checking paid flow and to be cancelled. Current official skill also requires 1 USDC refundable claim bond for bounty tasks. No registration, wallet binding or claim performed.",
+        "32 open. Only escrow.status=funded row is Test hire (please ignore). Other pending payment rows escrow=null, not concrete funding. Existing claim-bond/signature restriction unchanged; no own assignment.",
+        "29 open rows; test hire explicitly to be cancelled; new Industrial Sentinel offers require installing/operating external runtime and revenue monitoring, beyond existing no-new-daemon/production limits. Other coding tasks lack current own allocation/protection; known registration/claim bond not authorized. No registration/claim/customer work."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "bidpostloop",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0545\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://bidpostloop.com/api/public/tasks"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BidPostLoop",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-source-expansion-20261015\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261015-2135\\source-register.json",
+        "artifacts\\order-monitor-20261016-2040\\source-register.json",
+        "artifacts\\order-monitor-20261017-0810\\source-register.json",
+        "artifacts\\order-monitor-20261017-0430\\source-register.json",
+        "artifacts\\order-monitor-20261017-0910\\source-register.json",
+        "artifacts\\order-monitor-20261017-1030\\source-register.json",
+        "artifacts\\order-monitor-20261017-1904\\source-register.json",
+        "artifacts\\order-monitor-20261017-1856\\source-register.json",
+        "artifacts\\order-monitor-20261017-1253\\source-register.json",
+        "artifacts\\order-monitor-20261017-1140\\source-register.json",
+        "artifacts\\order-monitor-20261017-1914\\source-register.json",
+        "artifacts\\order-review-20261017-1922\\source-register.json",
+        "artifacts\\order-monitor-20261017-0550\\source-register.json",
+        "artifacts\\order-monitor-20261017-0650\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://bidpostloop.com/api/public/tasks",
+        "https://bidpostloop.com/agents",
+        "https://bidpostloop.com/api/public/agent-opportunities"
+      ],
+      "historicalAssessments": [
+        "No open tasks;poolcredits not own lock;stake/cashout restrictions persist.",
+        "0 open tasks"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Bildfie",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0057\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "bitroad",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2147\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BotBounty",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-1100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0830\\source-register.json",
+        "artifacts\\order-monitor-20261017-0950\\source-register.json",
+        "artifacts\\order-monitor-20261017-0610\\source-register.json",
+        "artifacts\\order-monitor-20261017-1213\\source-register.json",
+        "artifacts\\order-monitor-20261017-0730\\source-register.json",
+        "artifacts\\order-search-20261016-0125\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://botbounty-production.up.railway.app/api/agent/bounties",
+        "https://botbounty.ai/skill.md"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BotGuild",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2147\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Bounty / trybounty.ai",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1201\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://docs.trybounty.ai/agents/raw-interface/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "bountyboard",
+      "provenance": [
+        "artifacts\\synmerco-followup-20261016-1130\\source-register.json",
+        "artifacts\\order-monitor-20261016-0857\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.bountyboard.work/api/bounties"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BountyBoard",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0545\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.bountyboard.work/",
+        "https://www.bountyboard.work/api/bounties"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BountyBook",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\capture-delay-repair-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0450\\source-register.json",
+        "artifacts\\order-monitor-20261017-0440\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.bountybook.ai/jobs",
+        "https://bountybook.ai/"
+      ],
+      "historicalAssessments": [
+        "125rowsall7pagesretrieved;newwarmintro requires third-party recruitment. No trusted own identity/beneficiary lock;homepagepreviouslyparked. Code tasks are advertised rewards,not own assignments."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "bountybook-docs",
+      "provenance": [
+        "artifacts\\capture-delay-repair-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://bountybook.ai/llms.txt"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "bountybook-jobs",
+      "provenance": [
+        "artifacts\\capture-delay-repair-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.bountybook.ai/jobs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Bountydot.money",
+      "provenance": [
+        "artifacts\\order-broad-search-20261017-0056\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BountyHub.dev",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2010\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Official docs describe sponsor payment held until claim approval and Stripe payout. Solver requires GitHub account and Stripe onboarding/identity verification; PR must match account and normally merge before approval. General policy is not a specific own assignment or locked recipient-bound funding record. No registration, Stripe link, claim or customer work. Separate from unrelated bountyhub.org."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "BountyMin",
+      "provenance": [
+        "artifacts\\funded-task-search-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://bountymin.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Brio",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0143\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://briotask.app/"
+      ],
+      "historicalAssessments": [
+        "Public extraction returned no readable content; no task API or escrow confirmed."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Callboard",
+      "provenance": [
+        "artifacts\\order-followup-20261016-0258\\source-register.json",
+        "artifacts\\order-followup-20261016-0252\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://getcallboard.com/docs/api-reference",
+        "https://getcallboard.com/docs/directory"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClaudeWork",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0147\\source-register.json",
+        "artifacts\\order-monitor-20261017-0740\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClawdMarket",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-2040\\source-register.json",
+        "artifacts\\order-monitor-20261016-1914\\source-register.json",
+        "artifacts\\order-monitor-20261017-0022\\source-register.json",
+        "artifacts\\order-monitor-20261016-2157\\source-register.json",
+        "artifacts\\order-monitor-20261017-0430\\source-register.json",
+        "artifacts\\order-monitor-20261017-0920\\source-register.json",
+        "artifacts\\order-monitor-20261017-1020\\source-register.json",
+        "artifacts\\order-monitor-20261017-0640\\source-register.json",
+        "artifacts\\order-monitor-20261017-0750\\source-register.json",
+        "artifacts\\order-monitor-20261017-1233\\source-register.json",
+        "artifacts\\order-monitor-20261017-1120\\source-register.json",
+        "artifacts\\order-monitor-20261017-0550\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://clawdmkt.com/api/tasks"
+      ],
+      "historicalAssessments": [
+        "No open tasks.",
+        "0 tasks; has_more false"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClawFreelance",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-1804\\source-register.json",
+        "artifacts\\order-monitor-20261017-0850\\source-register.json",
+        "artifacts\\order-monitor-20261017-1010\\source-register.json",
+        "artifacts\\order-monitor-20261017-0740\\source-register.json",
+        "artifacts\\order-monitor-20261017-0620\\source-register.json",
+        "artifacts\\order-monitor-20261017-1243\\source-register.json",
+        "artifacts\\order-monitor-20261017-1130\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://clawfreelance.com/api/v1/tasks",
+        "https://www.clawfreelance.com/en"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClawGig",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-1932\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://clawgig.ai/"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClawHunt",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-task-search-20261016-followup\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0850\\source-register.json",
+        "artifacts\\order-monitor-20261017-1010\\source-register.json",
+        "artifacts\\order-monitor-20261017-1243\\source-register.json",
+        "artifacts\\order-monitor-20261017-0610\\source-register.json",
+        "artifacts\\order-monitor-20261017-1130\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://clawhunt.store/api/problems/",
+        "https://clawhunt.store/guide"
+      ],
+      "historicalAssessments": [
+        "First50rows include enterprise-series funded claims,not own assignment/recipient;scope/data missing and known payout prerequisites unresolved."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Clawlancer",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-source-expansion-20261015\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-1100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0440\\source-register.json",
+        "artifacts\\order-monitor-20261017-0830\\source-register.json",
+        "artifacts\\order-monitor-20261017-0950\\source-register.json",
+        "artifacts\\order-monitor-20261017-1213\\source-register.json",
+        "artifacts\\order-monitor-20261017-0730\\source-register.json",
+        "artifacts\\order-monitor-20261017-0600\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.clawlancer.ai/api/listings",
+        "https://www.clawlancer.ai/api-docs"
+      ],
+      "historicalAssessments": [
+        "First50listingrows,mostlymicrotasks;no own agent wallet/assignment/lock. Registration/gas/claim restrictions persist."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClawMolt",
+      "provenance": [
+        "artifacts\\funded-task-search-20261016-followup\\source-register.json",
+        "artifacts\\synmerco-monitor-20261016-0122\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-1932\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.clawmolt.ai/bounties"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "CLAWORK official docs/API candidate",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0650\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ClawTasks",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1607\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://clawtasks.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Clean",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-1201\\source-register.json",
+        "artifacts\\order-monitor-20261017-0850\\source-register.json",
+        "artifacts\\order-monitor-20261017-1010\\source-register.json",
+        "artifacts\\order-monitor-20261017-0740\\source-register.json",
+        "artifacts\\order-monitor-20261017-1243\\source-register.json",
+        "artifacts\\order-monitor-20261017-1130\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://cleanmarket.vercel.app/api/opportunities",
+        "https://cleanmarket.vercel.app/docs"
+      ],
+      "historicalAssessments": [
+        "Demo opportunities/nonpayablecredits,not own cash lock."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Clustly",
+      "provenance": [
+        "artifacts\\github-candidate-review-20261015\\expanded-source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.clustly.ai/docs"
+      ],
+      "historicalAssessments": [
+        "Directed hires tied to registered managed-wallet agents, requires new operator setup/treasury and transactions; no own hire or access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "CoinPayPortal",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-1938\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.coinpayportal.com/docs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Contra",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0450\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Official paid-project documentation describes fixed/hourly escrow, approval release and configurable fee payer; commission-free marketing does not mean no processing/payout fees. New account/payment onboarding, signatures/contracts and actual protected own job still needed; no signup, payout binding or customer work. Search surfaced provider showcase rather than verified suitable live buyer vacancy."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Cue OS",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0057\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Dealwork",
+      "provenance": [
+        "artifacts\\order-filtered-search-20261017-0017\\source-register.json",
+        "artifacts\\order-continuation-20261017-0004\\source-register.json",
+        "artifacts\\order-monitor-20261015-2135\\source-register.json",
+        "artifacts\\order-monitor-20261015-2036\\source-register.json",
+        "artifacts\\order-monitor-20261015-1938\\source-register.json",
+        "artifacts\\order-monitor-20261016-2050\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://dealwork.ai/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "DeFIS",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0143\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://defis.life/tasks"
+      ],
+      "historicalAssessments": [
+        "Public page timed out; no task or funding confirmed."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "DJN",
+      "provenance": [
+        "artifacts\\order-search-20261017-0253\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://djn.3d-labs.com/project_view.php"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "DJN DreamJobNetwork",
+      "provenance": [
+        "artifacts\\order-broad-search-20261017-0053\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Dragos Comedy",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0857\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Execution Market",
+      "provenance": [
+        "artifacts\\funded-order-search-20261016-1810\\source-register.json",
+        "artifacts\\synmerco-monitor-20261016-0122\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://execution.market/"
+      ],
+      "historicalAssessments": [
+        "Only published task requires physical presence/photo in Bogota; no own assignment or escrow. Agent mutations require ERC-8128 wallet signatures, not authorized."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ExecutionMarket",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-2100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0430\\source-register.json",
+        "artifacts\\order-monitor-20261017-0920\\source-register.json",
+        "artifacts\\order-monitor-20261017-1020\\source-register.json",
+        "artifacts\\order-monitor-20261017-0640\\source-register.json",
+        "artifacts\\order-monitor-20261017-0750\\source-register.json",
+        "artifacts\\order-monitor-20261017-1233\\source-register.json",
+        "artifacts\\order-monitor-20261017-1120\\source-register.json",
+        "artifacts\\order-monitor-20261017-0550\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.execution.market/api/v1/tasks"
+      ],
+      "historicalAssessments": [
+        "Miami/Bogota physicalphoto tasks unsuitable;no own assignment.",
+        "Two physical photo tasks remain unsuitable, no own assignment. No identity/signature.",
+        "2 physical Miami/Bogota photo tasks; not suitable remote software work"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Expensify primary candidate review",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0510\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Public primary issue remains open at250USD but Help Wanted label removedOct10; assigned to QichenZhu and stitesExpensify, multiple competing proposals and locally verified foreign fixes. Full middle history not loaded100remaining; not a complete history review. Do not submit speculative duplicate proposal or attribute foreign work. Upwork job linkage is not proof of own payment protection. No registration, contract, account or customer work"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "First Agents Bank",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1949\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "All API requests require new auth; docs charge registration0.10USD,query0.001USD,bid/deliver0.01USD,settlement0.02USD. No paid API call/registration performed. EC reward not automatically USDC or own lock."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Florida UCC",
+      "provenance": [
+        "artifacts\\order-filtered-search-20261017-0017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Frantic",
+      "provenance": [
+        "artifacts\\order-continuation-20261016-2107\\source-register.json",
+        "artifacts\\order-monitor-20261015-1938\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://gofrantic.com/"
+      ],
+      "historicalAssessments": [
+        "Official homepage rendered no concrete bounty rows; cannot conclude empty live board from client placeholders. OpenAPI public board/policy GET attempted; both board and policy timed out (20s each); no functional public GET connection verified. Paid access requires new identity verification; no enlistment, oath, star, registration or external disclosure. Foreign Codex-agent profiles not ours."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "FreddyWorks",
+      "provenance": [
+        "artifacts\\github-candidate-review-20261015\\expanded-source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://freddyworks.net/"
+      ],
+      "historicalAssessments": [
+        "General escrow description only; no own specific escrow/contract. No wallet connected."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Freelance Guru",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0158\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Freelance Yard primary buyer detail",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0520\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Official buyer detail for SRA Startup gives500-1000EGP and deadline10July2026, now past. Exclude expired scope; new login/account not authorized or performed. Public hiring search also returned provider service advertisements on LaborX/Dealwork/XmrBazaar, not buyer tasks. No own order or payment protection inferred"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Freelancehunt primary buyer screening",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0540\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Official buyer posting advertises385USD for PII masking and classification, body1400files versus1200title,37foreign proposals. Samples, processing rights, acceptance and secure authorized access unclear; public access material not used or copied into report. New own platform account and protected stage not present. Foreign AI-disclosing bids remain foreign, no attribution to Numaron. No registration, login, proposal or customer work"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Freelancer",
+      "provenance": [
+        "artifacts\\order-expansion-20261016-2140\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.freelancer.com/jobs/python/",
+        "https://www.freelancer.com/projects/data-analysis/sales-marketing-data-analysis-report"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Gitcoin",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-1938\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://gitcoin.co/mechanisms/bounties"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub",
+      "provenance": [
+        "artifacts\\order-filtered-search-20261017-0017\\source-register.json",
+        "artifacts\\order-continuation-20261017-0004\\source-register.json",
+        "artifacts\\order-monitor-20261015-2135\\source-register.json",
+        "artifacts\\order-monitor-20261015-1938\\source-register.json",
+        "artifacts\\order-monitor-20261016-1359\\source-register.json",
+        "artifacts\\order-search-after-terms-20261017\\source-register.json",
+        "artifacts\\order-search-20261017-1200\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://github.com/",
+        "https://github.com/search"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub Algora refreshed page1",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2157\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub discovery",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2147\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub funded discovery",
+      "provenance": [
+        "artifacts\\github-candidate-review-20261015\\expanded-source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://github.com/"
+      ],
+      "historicalAssessments": [
+        "Search results are leads. Label is not independent financing proof; many funded-live mirrors marked archived, unavailable, verification-unavailable, closed-to-new-work, or require funding/bond/transactions."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub global discovery",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2110\\source-register.json",
+        "artifacts\\order-monitor-20261016-2030\\source-register.json",
+        "artifacts\\order-search-20261017-0253\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.github.com/search/issues"
+      ],
+      "historicalAssessments": [
+        "Funding-word leads checked for role: internal strategy and software issues not jobs, quarantined child bounty requires spending, Verdikta76 requires ETH funding, foreign proposed rewards lack own assignment/lock. Mirror listings are discovery only. No own contract or application.",
+        "Rotated all four queries to page2. Leads are not own assignments. Verdikta76 requires posting/funding ETH, prohibited; microcredit17 is internal strategy not an available customer assignment; PeerLink64 needs private bank/account access and reservation, not suitable existing scope. Unfunded/proposed and mirror leads not funding proof. No applications or customer work."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub global rotating discovery",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1100\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub ownmonitor",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0042\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "GitHub public discovery",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0350\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Global GitHub",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0107\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Guru",
+      "provenance": [
+        "artifacts\\order-expansion-20261016-2140\\source-register.json",
+        "artifacts\\order-monitor-20261017-0147\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.guru.com/m/find/freelance-jobs/data-cleaning/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Guru.com",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0208\\source-register.json",
+        "artifacts\\order-monitor-20261017-0238\\source-register.json",
+        "artifacts\\order-monitor-20261017-0218\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.guru.com/d/jobs/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Handsel",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-1100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0830\\source-register.json",
+        "artifacts\\order-monitor-20261017-0950\\source-register.json",
+        "artifacts\\order-monitor-20261017-0610\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-0134\\source-register.json",
+        "artifacts\\order-monitor-20261017-1213\\source-register.json",
+        "artifacts\\order-monitor-20261017-0730\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://handsel-main.vercel.app/api/tasks",
+        "https://handsel-main.vercel.app/"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Handsel Kairose-master deployment",
+      "provenance": [
+        "artifacts\\funded-search-20261016-0053\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://github.com/Kairose-master/handsel/blob/main/docs/agent-integration.md"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "https://ugig.net/gigs?category=Data",
+      "provenance": [
+        "artifacts\\ugig-survey-application-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Humans2AI",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0143\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.humans2ai.com/docs/api"
+      ],
+      "historicalAssessments": [
+        "Tasks require own API key; apply documented for human executor, payout A9token. No own reservation/funding or confirmed suitable agent seller route; no registration."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Hummingbot Connector Bounties",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0032\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://hummingbot.org/bounties/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Indeelancer",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0158\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "iWorkFreelancer",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0127\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Jobbi",
+      "provenance": [
+        "artifacts\\order-continuation-20261017-0230\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0117\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://jobbi.org/gigs.json"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Jobs for AI Agents",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-2135\\source-register.json",
+        "artifacts\\order-monitor-20261015-2036\\source-register.json",
+        "artifacts\\order-monitor-20261015-2341\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://jobsforaiagents.com/jobs.json",
+        "https://jobsforaiagents.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "JobsForAIAgents",
+      "provenance": [
+        "artifacts\\order-followup-20261016-0252\\source-register.json",
+        "artifacts\\order-monitor-20261016-0246\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://jobsforaiagents.com/jobs.json",
+        "https://jobsforaiagents.com/"
+      ],
+      "historicalAssessments": [
+        "Web read unavailable; prior official landing requires externally signed lifecycle. No claim or signing.",
+        "Search discovery only: official landing page describes caller-signed lifecycle and unavailable live feed. No signed action or own escrow."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Mercatai",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\synmerco-followup-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-2040\\source-register.json",
+        "artifacts\\order-monitor-20261016-0448\\source-register.json",
+        "artifacts\\order-monitor-20261017-0117\\source-register.json",
+        "artifacts\\order-monitor-20261016-1303\\source-register.json",
+        "artifacts\\order-monitor-20261017-0022\\source-register.json",
+        "artifacts\\order-monitor-20261016-2157\\source-register.json",
+        "artifacts\\order-monitor-20261017-0430\\source-register.json",
+        "artifacts\\order-monitor-20261017-0920\\source-register.json",
+        "artifacts\\order-monitor-20261017-1020\\source-register.json",
+        "artifacts\\order-monitor-20261017-0640\\source-register.json",
+        "artifacts\\order-monitor-20261017-0750\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-1932\\source-register.json",
+        "artifacts\\order-monitor-20261017-1233\\source-register.json",
+        "artifacts\\order-monitor-20261017-1120\\source-register.json",
+        "artifacts\\order-monitor-20261017-0550\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://mercatai.eu/api/v1/tasks",
+        "https://mercatai.eu/",
+        "https://mercatai.eu/developer"
+      ],
+      "historicalAssessments": [
+        "No tasks.",
+        "tasks empty"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Mettle",
+      "provenance": [
+        "artifacts\\funded-task-search-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://mettle-six.vercel.app/market"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "MikroTask",
+      "provenance": [
+        "artifacts\\order-search-20261017-1200\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.latausasemat.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "MoltJobs",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-task-search-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-2100\\source-register.json",
+        "artifacts\\order-monitor-20261017-0800\\source-register.json",
+        "artifacts\\order-monitor-20261017-0440\\source-register.json",
+        "artifacts\\order-monitor-20261017-1040\\source-register.json",
+        "artifacts\\order-monitor-20261017-0900\\source-register.json",
+        "artifacts\\order-monitor-20261017-1150\\source-register.json",
+        "artifacts\\order-monitor-20261017-0600\\source-register.json",
+        "artifacts\\order-monitor-20261017-0700\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.moltjobs.io/v1/jobs",
+        "https://moltjobs.io/open-jobs"
+      ],
+      "historicalAssessments": [
+        "10OPENplatformreferrals,not independent customer work;agentIdnull,no own escrow/recipient.",
+        "All10PLATFORM_REFERRAL, no own agent assignment. No recruitment/claims."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "NEAR",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0630\\source-register.json",
+        "artifacts\\order-monitor-20261017-0940\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://market.near.ai/v1/jobs/board"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "NEAR Agents Marketplace",
+      "provenance": [
+        "artifacts\\funded-task-search-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://market.near.ai/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Nexus",
+      "provenance": [
+        "artifacts\\order-deep-search-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "NoFee",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0740\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "50page PDFtoWord,50–75USDhourly,26proposals; detail deadline15Oct2026 expired although OPEN, do not apply; no account creation"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Nothing.gripe",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0057\\source-register.json",
+        "artifacts\\order-search-20261017-0253\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://nothing.gripe/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Open Bounty",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-1938\\source-register.json",
+        "artifacts\\order-monitor-20261016-1303\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-1932\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.openbounty.app/",
+        "https://www.openbounty.app/api/v1/bounties",
+        "https://www.openbounty.app/api/docs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Open Lance",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0530\\source-register.json",
+        "artifacts\\order-search-20261017-0253\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://openlance.io/jobs"
+      ],
+      "historicalAssessments": [
+        "Official public jobs page lists4 roles, 2ongoing WordPress hourly, expert branding fixed and AI Workflow monthly. No bounded currently suitable own assignment. Pricing:10free starter bids after complete profile;1fixed/2hourly/5dedicated application; do not call all proposals necessarily paid. Paid bid packs and Ultra prohibited. Standard commission5percent; withdrawal2USD/min50USD/7businessday clearance with card reversibility and extra provider fees possible. New account, identity and payout steps not authorized; no signup, proposal, payout binding or customer work. General escrow policy is not own-job protection evidence"
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "OpenBounty",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-2157\\source-register.json",
+        "artifacts\\order-monitor-20261017-0920\\source-register.json",
+        "artifacts\\order-monitor-20261017-1020\\source-register.json",
+        "artifacts\\order-monitor-20261017-0640\\source-register.json",
+        "artifacts\\order-monitor-20261017-0610\\source-register.json",
+        "artifacts\\order-monitor-20261017-1233\\source-register.json",
+        "artifacts\\order-monitor-20261017-1120\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.openbounty.app/api/v1/bounties"
+      ],
+      "historicalAssessments": [
+        "No bounties."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Openbounty.ai",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0107\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "OpenLance",
+      "provenance": [
+        "artifacts\\order-broad-search-20261017-0053\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "OpenWork.network",
+      "provenance": [
+        "artifacts\\order-continuation-20261016-2107\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Different platform from Dealwork/OpenWork and openwork.technology. API task lists require new agent registration and key. Generic reward examples do not demonstrate redeemable funding or own escrow; no signup/API identity created."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "OphirPay/OphirPay1378",
+      "provenance": [
+        "artifacts\\ophirpay1378-preflight-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Opire",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2000\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "PeoplePerHour",
+      "provenance": [
+        "artifacts\\order-expansion-20261016-2140\\source-register.json",
+        "artifacts\\order-monitor-20261017-0250\\source-register.json",
+        "artifacts\\order-monitor-20261017-0127\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.peopleperhour.com/freelance-python-jobs",
+        "https://www.peopleperhour.com/freelance-data-cleansing-jobs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Postwork",
+      "provenance": [
+        "artifacts\\payment-model-expansion-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ProjectWorm",
+      "provenance": [
+        "artifacts\\order-continuation-20261017-0230\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.projectworm.com/job/findjobs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "QueenSkiilia",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0022\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://queenskillia.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Qwikyo AI",
+      "provenance": [
+        "artifacts\\funded-search-20261016-0053\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://qwikyo.ai/docs/pilot"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Radix Guild",
+      "provenance": [
+        "artifacts\\github-candidate-review-20261015\\expanded-source-register.json",
+        "artifacts\\order-monitor-20261015-2036\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://radixguild.com/",
+        "https://radixguild.com/api/v1/tasks"
+      ],
+      "historicalAssessments": [
+        "Claim requires funded worker account, badge, claim bond (at least 76.45 XRD under documented current terms) and blockchain transactions; forbidden financial actions. No own escrow recipient binding verified."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "RadixGuild",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0820\\source-register.json",
+        "artifacts\\order-monitor-20261017-1050\\source-register.json",
+        "artifacts\\order-monitor-20261017-0930\\source-register.json",
+        "artifacts\\order-monitor-20261017-1203\\source-register.json",
+        "artifacts\\order-monitor-20261017-0620\\source-register.json",
+        "artifacts\\order-monitor-20261017-0710\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://radixguild.com/api/v1/tasks"
+      ],
+      "historicalAssessments": [
+        "Public tasks require new Radix identity/bond/onchain actions;no own locked escrow."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Riner",
+      "provenance": [
+        "artifacts\\order-expansion-20261016-2140\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://riner.io/docs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "SAM.gov",
+      "provenance": [
+        "artifacts\\order-filtered-search-20261017-0017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "SAM.gov access preflight",
+      "provenance": [
+        "artifacts\\order-broad-search-20261017-0056\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://sam.gov/entity-information"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "SettleBridge Marketplace",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2050\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://settlebridge.ai/api/bounties"
+      ],
+      "historicalAssessments": [
+        "Official docs reward ATE exchange tokens; no demonstrated cash redemption/native USDC mapping. All three rows escrow_id=pending_claim. Market/account plus exchange identity/registration and new API token required; no registration/claim performed. Two signed-tier financial analyses (one stale2025 deadline) and one test watchlist; none own assigned funded work. No SDK installed."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Skarnfall",
+      "provenance": [
+        "artifacts\\order-search-20261017-1200\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.skarnfall.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Skillo",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0042\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://skillo.work/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Speedbot",
+      "provenance": [
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-0752\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://speedbot.dev/"
+      ],
+      "historicalAssessments": [
+        "Official current board: no external sponsored tasks; first-party reward pools not own allocation; custom agent jobs direct payment after acceptance, no escrow. External taskmarket competition previews. Pro 10USDC optional, no purchase; wallet binding signs message and new identity needed, not performed. Foreign Codex SourceWorks Audit/Seal profiles not ours."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Stubly",
+      "provenance": [
+        "artifacts\\order-expansion-20261016-2140\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://stubly.org/list"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "SwarmMemo",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-1949\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [
+        "Credit reward held; docs credits not cash.0.20/0.40USDC tiers paid by poster directly,not own locked monetary escrow. No signingkey/claim/account."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Synmerco",
+      "provenance": [
+        "artifacts\\funded-search-20261016-0053\\source-register.json",
+        "artifacts\\order-filtered-search-20261017-0017\\source-register.json",
+        "artifacts\\order-expansion-20261016-2140\\source-register.json",
+        "artifacts\\order-continuation-20261017-0004\\source-register.json",
+        "artifacts\\order-monitor-20261017-0042\\source-register.json",
+        "artifacts\\order-search-after-terms-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://synmerco.com/docs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "taskbounty",
+      "provenance": [
+        "artifacts\\synmerco-followup-20261016-1130\\source-register.json",
+        "artifacts\\order-monitor-20261016-0857\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.task-bounty.com/api/v1/tasks"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "TaskBounty",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-task-search-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0800\\source-register.json",
+        "artifacts\\order-monitor-20261017-0440\\source-register.json",
+        "artifacts\\order-monitor-20261017-1040\\source-register.json",
+        "artifacts\\order-monitor-20261017-0900\\source-register.json",
+        "artifacts\\order-monitor-20261017-1150\\source-register.json",
+        "artifacts\\order-search-20261016-0125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0600\\source-register.json",
+        "artifacts\\order-monitor-20261017-0700\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.task-bounty.com/api/v1/tasks",
+        "https://www.task-bounty.com/for-agents"
+      ],
+      "historicalAssessments": [
+        "Empty live funded task list."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "TaskForce",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-followup-20261016-0258\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-0246\\source-register.json",
+        "artifacts\\order-monitor-20261016-1708\\source-register.json",
+        "artifacts\\order-monitor-20261015-2341\\source-register.json",
+        "artifacts\\order-monitor-20261017-0630\\source-register.json",
+        "artifacts\\order-monitor-20261017-0940\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://task-force.app/api/agent/tasks",
+        "https://www.task-force.app/browse",
+        "https://www.task-force.app/docs/api",
+        "https://www.task-force.app/"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access.",
+        "Documented task reads authenticated. Registration automatically creates Solana wallet; existing Base MetaMask binding cannot be transferred. No registration, verification challenge, wallet creation or API credential performed."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "taskmarket",
+      "provenance": [
+        "artifacts\\synmerco-followup-20261016-1130\\source-register.json",
+        "artifacts\\order-followthrough-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://taskmarket.dev/api/tasks",
+        "https://taskmarket.dev/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Taskmarket",
+      "provenance": [
+        "artifacts\\order-continuation-20261016-2107\\source-register.json",
+        "artifacts\\order-monitor-20261016-2147\\source-register.json",
+        "artifacts\\order-monitor-20261016-2110\\source-register.json",
+        "artifacts\\order-monitor-20261016-2000\\source-register.json",
+        "artifacts\\order-monitor-20261016-2100\\source-register.json",
+        "artifacts\\order-monitor-20261016-1949\\source-register.json",
+        "artifacts\\order-monitor-20261016-2050\\source-register.json",
+        "artifacts\\order-monitor-20261016-2040\\source-register.json",
+        "artifacts\\order-monitor-20261016-2030\\source-register.json",
+        "artifacts\\order-monitor-20261016-0046\\source-register.json",
+        "artifacts\\order-monitor-20261016-2010\\source-register.json",
+        "artifacts\\order-monitor-20261016-2020\\source-register.json",
+        "artifacts\\order-monitor-20261017-0117\\source-register.json",
+        "artifacts\\order-monitor-20261016-1303\\source-register.json",
+        "artifacts\\order-monitor-20261017-0022\\source-register.json",
+        "artifacts\\order-monitor-20261017-0107\\source-register.json",
+        "artifacts\\order-monitor-20261017-0032\\source-register.json",
+        "artifacts\\order-monitor-20261016-2157\\source-register.json",
+        "artifacts\\order-monitor-20261017-0057\\source-register.json",
+        "artifacts\\order-source-expansion-20261016-1932\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://taskmarket.dev/api/tasks",
+        "https://docs.taskmarket.dev/"
+      ],
+      "historicalAssessments": [
+        "Nine open: agent recruitment excluded; eight arcade benchmarks are competitive, no own assignment or recipient-bound lock/signature authorization. No claims/work.",
+        "Nine open competitive game/art/integration/agent-campaign tasks, one stale August leaderboard deadline. No own exclusive assignment or beneficiary-bound funding/signature authorization. No work, recruitment or claims.",
+        "Next20 cursorrows scanned. Open4 include paidendpointdiscount,opportunityresearch,OEMpartsearch,marketingfilm. No own assignment or beneficiaryboundescrow/signaturepermission; no customerwork.",
+        "Three open competitive product builds (inference-index/API, brand kit, media tracker); no own reserved assignment/recipient lock or signature permission. No customer work.",
+        "Next20 after prior cursor,hasMoretrue;4open/15completed/1cancelled. Open trust-triangle outreach,game screenshots or competing coding bounty;no own assigned escrow. No signature/claim/customerwork.",
+        "11 open: seven paid-entry Diplomacy contests excluded (financial/gambling entry and continuous polling), two creative competition artifacts, persistent-mode implementation, and external MCP testing. No own assignment/beneficiary-bound lock or signature permission. No work or claims.",
+        "Three open leads: product-comparison report, buyer-data-preferences competition, and creative personal health-data visualization. No own assignment or beneficiary-bound lock, signature permission absent. No customer work.",
+        "Six open rows: five educational website competitions (3/4USDC one winner) and a corrected testing brief requiring inaccessible job logs. No own reserved assignment/recipient-bound lock or signature permission; no bid or customer work.",
+        "Continued prior cursor. No own assignment or verified beneficiary-bound escrow. Open identity task requires wallet proof; onchain execution task prohibited; no claims or signatures.",
+        "No open tasks on this cursor page. Pending and claimed foreign work not our assignments. No signature or claim."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Taskmarket Daydreams",
+      "provenance": [
+        "artifacts\\order-monitor-20261015-2341\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://docs-market.daydreams.systems/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Taskmarket-next",
+      "provenance": [
+        "artifacts\\order-continuation-20261016-2125\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://taskmarket.dev/api/tasks"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "TheJobCafe",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\funded-source-expansion-20261015\\source-register.json",
+        "artifacts\\synmerco-followup-20261016\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261016-1504\\source-register.json",
+        "artifacts\\order-monitor-20261017-0630\\source-register.json",
+        "artifacts\\order-monitor-20261017-0940\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://thejobcafe.com/api/public/bounties",
+        "https://thejobcafe.com/for-agents"
+      ],
+      "historicalAssessments": [
+        "Access or service error; not connected; no bypass, registration or paid access."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "TryBounty",
+      "provenance": [
+        "artifacts\\order-deep-search-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Twine",
+      "provenance": [
+        "artifacts\\ugig-gui-status-20261017\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "ugig",
+      "provenance": [
+        "artifacts\\order-broad-search-20261017-0056\\source-register.json",
+        "artifacts\\order-filtered-search-20261017-0017\\source-register.json",
+        "artifacts\\order-deep-search-20261017\\source-register.json",
+        "artifacts\\order-continuation-20261017-0425\\source-register.json",
+        "artifacts\\order-monitor-20261015-2135\\source-register.json",
+        "artifacts\\order-monitor-20261015-2036\\source-register.json",
+        "artifacts\\order-monitor-20261015-1938\\source-register.json",
+        "artifacts\\order-monitor-20261017-0208\\source-register.json",
+        "artifacts\\order-monitor-20261017-0218\\source-register.json",
+        "artifacts\\order-monitor-20261017-0137\\source-register.json",
+        "artifacts\\order-search-20261017-1200\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://ugig.net/gigs/3cb8156d-eed9-438e-9505-9b3cb3b57cca",
+        "https://ugig.net/gigs/59764120-7ae8-4de4-b436-a0f7f32896cf",
+        "https://ugig.net/",
+        "https://ugig.net/gigs"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "UpMoltWork search lead",
+      "provenance": [
+        "artifacts\\synmerco-followup-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Verdikta Bounties",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-2020\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Warpspeed bounties",
+      "provenance": [
+        "artifacts\\order-continuation-20261017-0230\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://github.com/warpspeedopen-source/warpspeed-bounties/issues"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "WDOYN",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0137\\source-register.json",
+        "artifacts\\order-search-20261017-0253\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://www.wdoyn.com/browse"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Wenrwa",
+      "provenance": [
+        "artifacts\\all-source-search-20261016-2000\\source-register.json",
+        "artifacts\\order-continuation-20261016-2125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0800\\source-register.json",
+        "artifacts\\order-monitor-20261017-0440\\source-register.json",
+        "artifacts\\order-monitor-20261017-1040\\source-register.json",
+        "artifacts\\order-monitor-20261017-0900\\source-register.json",
+        "artifacts\\order-monitor-20261017-1150\\source-register.json",
+        "artifacts\\order-search-20261016-0125\\source-register.json",
+        "artifacts\\order-monitor-20261017-0600\\source-register.json",
+        "artifacts\\order-monitor-20261017-0700\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://api.wenrwa.com/api/v1/bounties",
+        "https://marketplace.wenrwa.com/developers"
+      ],
+      "historicalAssessments": [
+        "3returnedtasksallcompleted."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Workia.dev",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0147\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Worklo",
+      "provenance": [
+        "artifacts\\capture-delay-repair-20261016\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://worklo.ai/agents/api"
+      ],
+      "historicalAssessments": [
+        "Official agent API is buyer-side task posting from prepaid balance, not own assigned seller escrow. New provider onboarding not performed."
+      ],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "WORKORA",
+      "provenance": [
+        "artifacts\\order-search-20261017-0253\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://workuora.com/freelancers"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Workpnp",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0350\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://workpnp.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "WorkProtocol",
+      "provenance": [
+        "artifacts\\order-monitor-20261016-0857\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "WorkUSDC",
+      "provenance": [
+        "artifacts\\order-expansion-20261016-2140\\source-register.json"
+      ],
+      "historicalPublicUrls": [
+        "https://workusdc.com/"
+      ],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    },
+    {
+      "label": "Zinn Hub",
+      "provenance": [
+        "artifacts\\order-monitor-20261017-0127\\source-register.json"
+      ],
+      "historicalPublicUrls": [],
+      "historicalAssessments": [],
+      "currentAccess": "not-revalidated",
+      "admission": "inventory-only",
+      "executionAuthorizedByInventory": false
+    }
+  ],
+  "cataloguePublishers": [
+    "Stack Exchange",
+    "opendata.swiss",
+    "Find a Tender",
+    "Crossref",
+    "data.gov.uk",
+    "US Federal Register",
+    "Europe PMC / EMBL-EBI",
+    "Bugcrowd",
+    "Intigriti",
+    "HackerOne",
+    "simap.ch",
+    "GitHub",
+    "Gitpay",
+    "Opire",
+    "Superteam Earn",
+    "Freelancer",
+    "Upwork",
+    "UNGM",
+    "USA.gov",
+    "DrivenData",
+    "NLnet",
+    "Algora",
+    "Immunefi",
+    "Code4rena",
+    "YesWeHack",
+    "Kaggle",
+    "Topcoder",
+    "OurResearch / OpenAlex",
+    "World Bank"
+  ],
+  "catalogueCandidates": [
+    {
+      "id": "gitpay-contributions",
+      "label": "Gitpay",
+      "publicUrl": "https://gitpay.me/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "opire-bounties",
+      "label": "Opire",
+      "publicUrl": "https://opire.dev/home",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "superteam-agent-tasks",
+      "label": "Superteam Earn",
+      "publicUrl": "https://superteam.fun/earn/agents",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "simap-opportunities",
+      "label": "simap.ch",
+      "publicUrl": "https://www.simap.ch/de",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "freelancer-projects",
+      "label": "Freelancer",
+      "publicUrl": "https://www.freelancer.com/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "upwork-projects",
+      "label": "Upwork",
+      "publicUrl": "https://www.upwork.com/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "ungm-opportunities",
+      "label": "UNGM",
+      "publicUrl": "https://www.ungm.org/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "usagov-challenges",
+      "label": "USA.gov",
+      "publicUrl": "https://www.usa.gov/challenges",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "drivendata-challenges",
+      "label": "DrivenData",
+      "publicUrl": "https://www.drivendata.org/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "nlnet-funding",
+      "label": "NLnet",
+      "publicUrl": "https://nlnet.nl/propose/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "algora-bounties",
+      "label": "Algora",
+      "publicUrl": "https://algora.io/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "immunefi-programs",
+      "label": "Immunefi",
+      "publicUrl": "https://immunefi.com/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "code4rena-audits",
+      "label": "Code4rena",
+      "publicUrl": "https://code4rena.com/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "yeswehack-programs",
+      "label": "YesWeHack",
+      "publicUrl": "https://www.yeswehack.com/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "kaggle-challenges",
+      "label": "Kaggle",
+      "publicUrl": "https://www.kaggle.com/competitions",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "topcoder-challenges",
+      "label": "Topcoder",
+      "publicUrl": "https://www.topcoder.com/challenges",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "openalex-research",
+      "label": "OurResearch / OpenAlex",
+      "publicUrl": "https://openalex.org/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    },
+    {
+      "id": "worldbank-data",
+      "label": "World Bank",
+      "publicUrl": "https://data.worldbank.org/",
+      "provenance": "src/online/source-catalog.ts",
+      "admission": "candidate-only"
+    }
+  ],
+  "secondaryIndex": {
+    "provenance": "artifacts/all-source-search-20261016-2000/source-register.json",
+    "label": "Jobbi",
+    "boards": [
+      "bountybook",
+      "rentahuman",
+      "algora",
+      "opentask",
+      "issuehunt",
+      "openwork",
+      "basedagents",
+      "agentbounties",
+      "bountyhub",
+      "frantic",
+      "opire"
+    ],
+    "primaryVerificationRequired": true
+  },
+  "coreSources": [
+    "GitHub",
+    "ugig",
+    "Dealwork",
+    "Synmerco",
+    "Guru",
+    "Gmail",
+    "ArcBounty",
+    "BidPostLoop"
+  ],
+  "chatEvidence": [
+    {
+      "threadId": "01a14ac7-ac59-7a73-b9bc-0521d0fcf0c5",
+      "title": "numaron – Aufträge und Bewerbungen ·…"
+    },
+    {
+      "threadId": "01a14acc-4a4c-7d93-a08b-afd5a3b7a090",
+      "title": "numaron – Weiterentwicklung und Betrieb…"
+    },
+    {
+      "threadId": "01a0dade-e259-7ad0-a347-875f70131307",
+      "title": "numaron – Weiterentwicklung und Betrieb"
+    }
+  ],
+  "supplementalEvidence": [
+    "artifacts/chat-handover-20261017/task-register.json",
+    "artifacts/chat-handover-20261017/human-messages-index.json",
+    "artifacts/ugig-local-monitor-20261017/completion.json",
+    "artifacts/guru-independent-monitor-20261017/completion.json"
+  ],
+  "historicalChatSupplement": [
+    {
+      "label": "AnySearch",
+      "kind": "marketplace",
+      "historicalHost": "github.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 40320,
+          "path": "/anysearch-team/open-source-bounty/blob/main/bounty-projects.md"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "TED",
+      "kind": "program",
+      "historicalHost": "ted.europa.eu",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 41516,
+          "path": "/en/notice/635430-2026/pdf"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Mercell",
+      "kind": "marketplace",
+      "historicalHost": "info.mercell.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31307,
+          "path": "/en/for-suppliers/tender-discovery/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Stotles",
+      "kind": "index",
+      "historicalHost": "www.stotles.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 39407,
+          "path": "/tenders/2026/W23/uk-937-web-accessibility-audit-services"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Workana",
+      "kind": "marketplace",
+      "historicalHost": "www.workana.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31398,
+          "path": "/en/job/automation-and-workflow-contractor-for-administrative-process-streamlining"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "TenderBulletins",
+      "kind": "index",
+      "historicalHost": "tenderbulletins.co.za",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 39407,
+          "path": "/tender-bulletin/data-cleansing-2/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "TenderWatch",
+      "kind": "index",
+      "historicalHost": "tenderwatch.ie",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 39407,
+          "path": "/tender/571964-2026/website-and-app-accessibility-audit-solution"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "CharityVillage",
+      "kind": "marketplace",
+      "historicalHost": "www.charityvillage.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 46203,
+          "path": "/job/request-quotations-website-redesign-project-341361"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 46387,
+          "path": "/job/request-quotations-website-redesign-project-341361"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Colosseum",
+      "kind": "program",
+      "historicalHost": "colosseum.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 47579,
+          "path": "/hackathon"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "BNB Chain",
+      "kind": "program",
+      "historicalHost": "www.bnbchain.org",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 47618,
+          "path": "/en/blog/set-and-earn-hire-and-build-ai-agents-on-bnb-chain-win"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Drips",
+      "kind": "program",
+      "historicalHost": "docs.drips.network",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 116151,
+          "path": "/wave/points-and-rewards/"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 116151,
+          "path": "/wave/contributors/faq/"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 116151,
+          "path": "/wave/withdrawing-rewards/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "AgentBounty.org",
+      "kind": "marketplace",
+      "historicalHost": "agentbounty.org",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 47783,
+          "path": "/bounties"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Conway Social",
+      "kind": "context",
+      "historicalHost": "social.conway.tech",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 28667,
+          "path": "/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "FunctionSpace",
+      "kind": "context",
+      "historicalHost": "functionspace.dev",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 47876,
+          "path": "/research/bounties/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "BloqSocial",
+      "kind": "context",
+      "historicalHost": "bloqsocial.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 47876,
+          "path": "/bounties/design-12-nfts-for-our-founder-pass"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Gumroad",
+      "kind": "sales-channel",
+      "historicalHost": "gumroad.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31307,
+          "path": "/pricing"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Patreon",
+      "kind": "sales-channel",
+      "historicalHost": "www.patreon.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a12cbd-bafa-7482-a51d-0cd2788b8ccf",
+          "line": 2665,
+          "path": "/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Shopify",
+      "kind": "sales-channel",
+      "historicalHost": "apps.shopify.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31212,
+          "path": "/order-printer-pro"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31307,
+          "path": "/excel-export-import"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Make Community",
+      "kind": "context",
+      "historicalHost": "community.make.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31307,
+          "path": "/t/need-help-with-agentic-workflow/110223"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31398,
+          "path": "/t/make-freelancer-needed-for-project/115431"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31398,
+          "path": "/t/i-need-help-with-a-scenario-to-connect-the-whatsapp-cloud-api-with-google-sheets/115156"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "QA Wolf",
+      "kind": "candidate",
+      "historicalHost": "www.qawolf.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 31212,
+          "path": "/pricing"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Lindy",
+      "kind": "context",
+      "historicalHost": "www.lindy.ai",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 76660,
+          "path": "/pricing"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "ProofOfData",
+      "kind": "candidate",
+      "historicalHost": "www.proofofdata.dev",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 47876,
+          "path": "/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Tavily",
+      "kind": "search-provider",
+      "historicalHost": "app.tavily.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 46203,
+          "path": "/home"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 60965,
+          "path": "/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Brave Search",
+      "kind": "search-provider",
+      "historicalHost": "api-dashboard.search.brave.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 38123,
+          "path": "/documentation/resources/help-feedback"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61167,
+          "path": "/documentation/resources/help-feedback"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61234,
+          "path": "/register"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Serper",
+      "kind": "search-provider",
+      "historicalHost": "serper.dev",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 38123,
+          "path": "/"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 39049,
+          "path": "/terms"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 46203,
+          "path": "/terms"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "SerpAPI",
+      "kind": "search-provider",
+      "historicalHost": "serpapi.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61167,
+          "path": "/pricing"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "SearchAPI",
+      "kind": "search-provider",
+      "historicalHost": "www.searchapi.io",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61167,
+          "path": "/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Linkup",
+      "kind": "search-provider",
+      "historicalHost": "www.linkup.so",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61167,
+          "path": "/pricing"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Parallel",
+      "kind": "search-provider",
+      "historicalHost": "parallel.ai",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61167,
+          "path": "/blog/free-web-search-mcp"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "Jina",
+      "kind": "search-provider",
+      "historicalHost": "jina.ai",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 38123,
+          "path": "/reader/"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "You.com",
+      "kind": "search-provider",
+      "historicalHost": "you.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 61167,
+          "path": "/docs/welcome"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "GDELT",
+      "kind": "context",
+      "historicalHost": "gdeltproject.org",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 90033,
+          "path": "/data.html"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "arXiv",
+      "kind": "context",
+      "historicalHost": "arxiv.org",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 52020,
+          "path": "/abs/1011.6402"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 52020,
+          "path": "/abs/1512.03492"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 52283,
+          "path": "/html/1011.6402v3"
+        }
+      ],
+      "assessment": "Historical mention/review only; not evidence of configured access, permission or current availability",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "OnlyDust",
+      "kind": "marketplace",
+      "historicalHost": "www.onlydust.com",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 49145,
+          "path": "/terms"
+        }
+      ],
+      "assessment": "Historical review only; no active access or execution attested",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    },
+    {
+      "label": "AnyTasks",
+      "kind": "marketplace",
+      "historicalHost": "anytasks.io",
+      "chatProvenance": [
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 114631,
+          "path": "/task/59"
+        },
+        {
+          "sessionId": "01a0dade-e259-7ad0-a347-875f70131307",
+          "line": 114631,
+          "path": "/about"
+        }
+      ],
+      "assessment": "Historical review only; no active access or execution attested",
+      "fetchAuthorized": false,
+      "executionAuthorized": false
+    }
+  ],
+  "auditEvidence": "artifacts/chat-preservation-audit-20261018/summary.json",
+  "historicalDomainEvidence": "artifacts/chat-preservation-audit-20261018/all-final-domains.json"
+}

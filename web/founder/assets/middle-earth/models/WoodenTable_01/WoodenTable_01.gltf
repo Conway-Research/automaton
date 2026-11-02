@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "WoodenTable_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "WoodenTable_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "WoodenTable_01_nor_gl",
+      "uri": "textures/WoodenTable_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "WoodenTable_01_diff",
+      "uri": "textures/WoodenTable_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "WoodenTable_01_metallic-WoodenTable_01_roughness",
+      "uri": "textures/WoodenTable_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 1136,
+      "max": [
+        0.8998239636421204,
+        0.5488492250442505,
+        0.3285874128341675
+      ],
+      "min": [
+        -0.8998239636421204,
+        -4.5886007882245394e-8,
+        -0.32858723402023315
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 1136,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 1136,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 2856,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 13632,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13632,
+      "byteOffset": 13632
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9088,
+      "byteOffset": 27264
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5712,
+      "byteOffset": 36352
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 42064,
+      "uri": "WoodenTable_01.bin"
+    }
+  ]
+}

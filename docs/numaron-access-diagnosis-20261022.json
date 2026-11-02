@@ -1,0 +1,26 @@
+{
+  "schema": "numaron-access-diagnosis-v1",
+  "date": "2026-10-22",
+  "scope": "Local diagnosis only; no provider requests, production power actions, restarts or monitor rounds initiated here",
+  "runtimeEvidence": {
+    "processPid":41528,
+    "observationWasStale":true,
+    "controllerLastObservedEvent":"2026-10-22T17:34:09.218Z",
+    "marketReadExample":{"endedAt":"2026-10-22T17:45:25.921Z","elapsedMs":725654.6812000014,"eventLoopDelayMaxMs":675628.7750000022},
+    "conclusion":"Severe main-event-loop delays observed; precise blocking code position not proven by this review. Merely writing a fresh timestamp would not establish runtime health."
+  },
+  "localCredentialChecks": {
+    "method":"Existing readLocalCredential worker, no secrets printed, no external calls",
+    "dealwork":{"available":true,"accountMatch":true,"elapsedMs":416},
+    "googleAccess":{"readable":true,"accountMatch":true,"credentialPresent":true,"expired":false,"elapsedMs":429},
+    "googleClient":{"readable":true,"elapsedMs":541},
+    "limitation":"Does not establish successful authenticated provider responses from the independent monitor process"
+  },
+  "parallelMaintenance": {
+    "chatId":"01a14ac7-ac59-7a73-b9bc-0521d0fcf0c5",
+    "evidence":"Human explicitly authorized controlled maintenance restart there; that chat stopped verified unresponsive service and persisted OFF under artifacts/runtime-unblock-20261022",
+    "policy":"Do not launch a second repair/restart, alter its files or restart collection while OFF. Patrice must personally switch ON after maintenance."
+  },
+  "remaining": ["Owner maintenance must finish runtime repair and verification","After Patrice personally enables, use existing regular monitor to verify Gmail and Dealwork without extra rounds","Resume paid-order search and deduplicated no-upfront-cost applications only after confirmed operating state"],
+  "actions":{"providerCalls":0,"powerChanges":0,"restarts":0,"newMonitorRounds":0,"budgetChanges":0,"submissions":0}
+}

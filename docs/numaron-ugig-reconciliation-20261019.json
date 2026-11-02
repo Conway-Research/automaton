@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-19",
+  "scope": "uGig free application reconciliation and reviewed conversation checks",
+  "diagnosis": "Queued reads can outlive the eleven-minute monitor evidence capability. Dispatch then correctly rejects expired evidence. Replaying the exact failed action with current stored evidence in isolated state succeeded without provider requests.",
+  "conversationCorrection": "The 44 blocked conversation jobs previously reported are GitHub targets, not uGig. All 20 observed uGig conversation jobs were done.",
+  "implementation": "Adopted the isolated research-planning-fix sourceWait/nextReadyAtFor/waitStateFor patch into scripts/founder-order-restoration.mjs, plus scripts/founder-reconcile-wait.test.mjs. No other overlapping scheduler edits made.",
+  "verification": {
+    "targetedTests": 28,
+    "passed": 28,
+    "externalTransportGuard": true,
+    "broaderCommunicationSuite": "One existing GitHub policy test fails: expected rejection is now a classified non-send result. No uGig test failed. Not repaired here because GitHub classification is separate shared work."
+  },
+  "activationPending": false,
+  "productionServiceRestarted": false,
+  "productionDatabasesModified": false,
+  "powerObserved": "OFF",
+  "powerRevision": 62,
+  "servicePidObservedInStatus": 57972,
+  "budgetsChanged": false,
+  "boundary": "Controlled OFF/restart explicitly authorized by Patrice in parallel chats and already completed. Read-only readback confirms prepared files loaded, OFF, unchanged budget ledger, no extra restart or production start here. Original historical failures remain history.",
+  "activationEvidence": "outputs/order-reconcile-wait-20261019/activation-report.json",
+  "liveUgigResultAfterActivationVerified": false
+}

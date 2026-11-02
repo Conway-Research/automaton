@@ -1,0 +1,14 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {createFounderLearning} from './founder-learning.mjs';import {openLearningStore} from '../src/research/store.ts';
+import {openFounderController} from './founder-controller.mjs';
+const context={now:1000,powerEnabled:true,controllerRunning:true,budgetActive:true,availableSlots:1,budgetRemainingRappen:100,dayRemainingRappen:100,rootRemainingRappen:100,goalId:'fixture',goalVersion:1,limitsDigest:'fixture',policyDigest:'fixture',activationApproved:true,permissions:['research']};
+for(const outcome of [{status:'failed',code:'source_timeout'},{status:'cancelled',code:'source_aborted'},{status:'not-run'},undefined])test('history bridge rejects an incomplete research outcome '+JSON.stringify(outcome),async()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'history-outcome-')),store=openLearningStore({directory}),engine=createFounderLearning({store,controller:{},budget:{},getContext:()=>context});
+ try{const ctx={task:{rootTaskId:'fixture'},signal:new AbortController().signal,assertActive(){}};await assert.rejects(engine.runHistory(ctx,async()=>outcome),/History research/);assert.equal((await engine.runHistory(ctx,async()=>({status:'checked'}))).status,'checked');}finally{engine.close();store.close();if(!path.resolve(directory).startsWith(path.resolve(os.tmpdir())+path.sep))throw Error('Unsafe cleanup');fs.rmSync(directory,{recursive:true,force:true});}
+});
+test('an actual controller records a failed research outcome as failed, not done, and settles only fake zero cost',async()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'history-controller-outcome-')),store=openLearningStore({directory:path.join(directory,'learning')}),engine=createFounderLearning({store,controller:{},budget:{},getContext:()=>context});let settled=0;
+ const budget={snapshot:()=>({active:true,remainingRappen:100,dayRemainingRappen:100,entries:[]}),reserve:()=>({}),settle:receipt=>{assert.equal(receipt.actualCostRappen,0);settled++;}};
+ const controller=openFounderController({file:path.join(directory,'controller.db'),budget,adapters:{'adaptive-history':{maxCostRappen:0,execute:ctx=>engine.runHistory(ctx,async()=>({status:'failed',code:'source_timeout'})),verify:r=>r?.kind==='adaptive-history'}}});
+ try{controller.enqueue({id:'history-fixture',rootTaskId:'history-fixture',kind:'adaptive-history',input:{},dependencies:[],resources:['research-cpu']});controller.control('start');await controller.tick();assert.equal(controller.snapshot().tasks[0].status,'failed');assert.equal(settled,1);}finally{await controller.close();engine.close();store.close();if(!path.resolve(directory).startsWith(path.resolve(os.tmpdir())+path.sep))throw Error('Unsafe cleanup');fs.rmSync(directory,{recursive:true,force:true});}
+});

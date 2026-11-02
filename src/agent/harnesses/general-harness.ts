@@ -1,4 +1,6 @@
-import { exec as execCb } from "node:child_process";
+import {writeWorkspaceFile} from "../write-path.js";
+import {readHarnessFile} from "../read-path.js";
+
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { AutomatonTool, SpendTrackerInterface } from "../../types.js";
@@ -9,12 +11,16 @@ import { sanitizeToolResult } from "../injection-defense.js";
 import { executeTool } from "../tools.js";
 import { getForbiddenCommandMatch, isForbiddenCommand } from "../policy-rules/command-safety.js";
 import { isSensitiveFile } from "../policy-rules/path-protection.js";
+import {RevenueStore} from '../../revenue/store.js';
 
 const MAX_EXEC_TIMEOUT_MS = 30_000;
 const MAX_READ_SIZE = 10_000;
 const MAX_EXEC_OUTPUT = 16_000;
 const MAX_SOCIAL_MESSAGES = 20;
 const GENERAL_WRAPPED_TOOL_ALLOWLIST = new Set([
+  "revenue_research_economics",
+  "revenue_register_local_product",
+  "revenue_service_delivery",
   "expose_port",
   "remove_port",
   "check_credits",
@@ -132,7 +138,7 @@ When calling task_done, provide:
             const result = await this.context.conway.exec(command, timeoutMs);
             return formatExecResult(result.stdout ?? "", result.stderr ?? "");
           } catch {
-            return localExec(command, timeoutMs);
+            return "Blocked: command backend failed; local fallback is disabled.";
           }
         },
       },
@@ -158,16 +164,10 @@ When calling task_done, provide:
             return `Blocked: cannot write to protected file "${filePath}"`;
           }
           try {
-            await this.context.conway.writeFile(confined, content);
+            await writeWorkspaceFile(this.context.conway, confined, content, this.context.allowedEditRoot);
             return `Wrote ${content.length} bytes to ${confined}`;
           } catch {
-            try {
-              await fs.mkdir(path.dirname(confined), { recursive: true });
-              await fs.writeFile(confined, content, "utf8");
-              return `Wrote ${content.length} bytes to ${confined} (local)`;
-            } catch (error) {
-              return `write error: ${error instanceof Error ? error.message : String(error)}`;
-            }
+            return "Blocked: write refused or backend unavailable.";
           }
         },
       },
@@ -191,15 +191,10 @@ When calling task_done, provide:
             return confined.error;
           }
           try {
-            const content = await this.context.conway.readFile(confined);
+            const content = await readHarnessFile(this.context.conway, confined, this.context.allowedEditRoot);
             return content.slice(0, MAX_READ_SIZE) || "(empty file)";
           } catch {
-            try {
-              const content = await fs.readFile(confined, "utf8");
-              return content.slice(0, MAX_READ_SIZE) || "(empty file)";
-            } catch (error) {
-              return `read error: ${error instanceof Error ? error.message : String(error)}`;
-            }
+            return "Blocked: file read refused or unavailable.";
           }
         },
       },
@@ -300,6 +295,13 @@ When calling task_done, provide:
         if (!this.context.toolContext) {
           return `Error: tool context unavailable for ${tool.name}`;
         }
+        if(tool.name==='revenue_research_economics'&&args.action!=='brief')
+          return 'Error: delegated workers may inspect economic briefs; economic revisions belong to the coordinating agent';
+        if(tool.name==='revenue_register_local_product'){
+          const experiment=new RevenueStore(this.context.db).getActiveExperimentForTask(this.task.id,true);
+          if(!experiment||experiment.status!=='running'||args.experiment_id!==experiment.id)
+            return 'Error: product registration must use the assigned running experiment';
+        }
 
         const result = await executeTool(
           tool.name,
@@ -395,16 +397,4 @@ function formatExecResult(stdout: string, stderr: string): string {
     ? stderr.slice(0, 4000) + "\n[TRUNCATED]"
     : stderr;
   return err ? `stdout:\n${out}\nstderr:\n${err}` : out || "(no output)";
-}
-
-function localExec(command: string, timeoutMs: number): Promise<string> {
-  return new Promise((resolve) => {
-    execCb(command, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error && !stdout && !stderr) {
-        resolve(`exec error: ${error.message}`);
-        return;
-      }
-      resolve(formatExecResult(stdout ?? "", stderr ?? ""));
-    });
-  });
 }

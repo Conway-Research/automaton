@@ -1,0 +1,48 @@
+{
+  "schema": "numaron-monitor-followup-v1",
+  "checkedAt": "2026-10-19T13:10:28.307Z",
+  "regularRun": {
+    "id": "2026-10-19T13-08-43-590Z-963feefc",
+    "completedAt": "2026-10-19T13:09:57.701Z",
+    "rows": 15,
+    "succeeded": 14,
+    "accessRequired": ["guru"],
+    "precedingIncompleteRun": "2026-10-19T13-06-33-884Z-74ca3766",
+    "extraRunsStartedByThisReview": 0
+  },
+  "responses": {
+    "ugigCheckedAt": "2026-10-19T13:09:43.028Z",
+    "application450USD": "pending",
+    "incomingLatestMessages": 0,
+    "unreadCounts": [0, 0, 0, 0],
+    "gmailOrderSearchResultSizeEstimate": 0,
+    "dealworkContracts": 0,
+    "synmercoInboxAndIntentsUnchangedFromPreviousCompletedRun": true
+  },
+  "application": {
+    "platform": "ugig",
+    "account": "Obolus",
+    "gigId": "941bb318-1707-44a0-9595-dfe39aa0ffdf",
+    "url": "https://ugig.net/gigs/941bb318-1707-44a0-9595-dfe39aa0ffdf",
+    "title": "Need an AI to rewrite my calendar events so they actually explain why the meeting exists.",
+    "grossUSD": 100,
+    "scope": "Conditional batch editorial pilot: up to 20 sanitized English event titles/descriptions, original-versus-revised Markdown/CSV, purpose/outcome/preparation fields and reusable prompt/template; one correction round",
+    "conditions": "Older listing availability, exact scope and acceptance, client-funded escrow, SOL/USD conversion and fees must be agreed before work; no live calendar access or changes; no upfront payment from us",
+    "aiAssistanceDisclosed": true,
+    "duplicateCheck": "Target absent from complete list of eleven applications at 2026-10-19T13:09:43.028Z; native free form offered",
+    "submissionAttempts": 1,
+    "verified": "Native gig page displayed disabled Already Applied button after submission",
+    "screenshot": "outputs/monitor-followup-20261019-1510/calendar-application.png",
+    "assignmentConfirmed": false,
+    "paymentConfirmed": false,
+    "doNotResubmit": true
+  },
+  "operation": {
+    "confirmedOn": true,
+    "powerRevision": 72,
+    "servicePid": 25980,
+    "productionPowerActionsByThisReview": 0,
+    "restartsByThisReview": 0,
+    "budgetOrProtectionChanges": 0
+  }
+}

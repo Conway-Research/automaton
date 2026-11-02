@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-19",
+  "problem": "The controller's generic 120-second deadline interrupted a legitimate multi-phase OHLC research run after 14 saved phase outcomes, before its 36 final reports could be assembled.",
+  "activation": "Loaded by explicitly authorized controlled stop and guarded maintenance restart on 2026-10-19. New process PID 36544 started at 2026-10-19T16:30:26.391Z. Numaron remains OFF pending Patrice personally enabling it.",
+  "implementation": {
+    "policyFile": "scripts/founder-execution-window.mjs",
+    "integrationFile": "scripts/founder-controller.mjs",
+    "researchEligibility": {
+      "kind": "adaptive-history",
+      "rootTaskId": "adaptive-history",
+      "resources": [
+        "research-cpu"
+      ],
+      "maxCostRappen": 0,
+      "providerTracked": false
+    },
+    "historyExecutionMs": 480000,
+    "historyControllerLeaseMs": 540000,
+    "existingSharedResearchLeaseMs": 600000,
+    "ordinaryExecutionMsUnchanged": 120000,
+    "ordinaryControllerLeaseMsUnchanged": 180000,
+    "individualResearchCalculationMsUnchanged": 60000,
+    "sourceRequestMsUnchanged": 60000,
+    "roundMsUnchanged": 21600000,
+    "inputCannotExtendWindow": true,
+    "manualStopStillImmediate": true,
+    "modelCostsAndRiskLimitsChanged": false,
+    "workersChanged": false,
+    "recovery": "Existing immutable phase outcomes and interrupted-job recovery remain in place if an eight-minute run is still interrupted. No background bypass or unconditional completion."
+  },
+  "verification": {
+    "passed": 34,
+    "failed": 0,
+    "files": [
+      "scripts/founder-history-window.test.mjs",
+      "scripts/founder-history-outcome.test.mjs",
+      "scripts/founder-controller.test.mjs"
+    ],
+    "externalNetworkBlocked": true,
+    "syntacticChecks": [
+      "node --check scripts/founder-execution-window.mjs",
+      "node --check scripts/founder-controller.mjs",
+      "git diff --check on changed files"
+    ],
+    "fullOHLCIntegration": {
+      "temporaryStores": true,
+      "syntheticOHLC": true,
+      "fakeDownload": true,
+      "actualBoundedResearchWorkers": true,
+      "actualControllerAndLearningBridge": true,
+      "virtualElapsedMs": 234000,
+      "variants": 12,
+      "phaseOutcomes": 36,
+      "reports": 36,
+      "controllerStatus": "done",
+      "liveAuthorized": false
+    },
+    "deadlineTests": [
+      "Completion after two simulated minutes",
+      "Persisted nine-minute controller lease",
+      "Abort exactly at eight minutes",
+      "Ordinary work still aborts after two minutes",
+      "Manual stop aborts within extended window",
+      "Paid, provider-tracked and incorrectly scoped tasks do not receive the larger window"
+    ],
+    "cleanup": "Temporary databases, synthetic source files and test state removed"
+  },
+  "maintenanceReadback": {
+    "powerEnabled": true,
+    "powerRevision": 76,
+    "pid": 42656,
+    "reservedRappen": 550,
+    "productionBudgetsModified": false,
+    "productionReservationsModified": false,
+    "ledgerIdentityClaimed": false,
+    "note": "The running autonomous system continued its own ledger activity; maintenance did not write production financial state."
+  },
+  "remaining": [
+    "Only Patrice may personally turn Numaron ON afterward",
+    "Confirm complete OHLC reports in a subsequent production readback; isolated completion is not proof of production completion or profitability"
+  ],
+  "restartVerification": {
+    "checkedAt": "2026-10-19T16:30:34.998Z",
+    "previousPid": 42656,
+    "pid": 36544,
+    "service": {
+      "at": "2026-10-19T16:30:27.959Z",
+      "status": "running",
+      "supervisorPid": 52272,
+      "childPid": 36544,
+      "restarts": 0,
+      "url": "http://127.0.0.1:51439",
+      "paidExecution": "See authenticated controller budget and capabilities"
+    },
+    "power": {
+      "enabled": false,
+      "status": "off",
+      "revision": 77,
+      "changedAt": "2026-10-19T16:29:55.748Z",
+      "modules": [
+        {
+          "name": "Aufgaben und AI-Fähigkeiten",
+          "enabled": false
+        },
+        {
+          "name": "Langzeit- und Strategieforschung",
+          "enabled": false
+        },
+        {
+          "name": "Trading-Analyse und Marktbeobachtung",
+          "enabled": false
+        },
+        {
+          "name": "Automatischer Kostenabruf",
+          "enabled": false
+        }
+      ],
+      "liveTradingEnabled": false
+    },
+    "controller": {
+      "status": "stopped",
+      "revision": 171,
+      "generation": 100
+    },
+    "activeJobs": 0,
+    "runtimeStartedAt": "2026-10-19T16:30:26.391Z",
+    "historyTopLevelKeys": [
+      "longHistory",
+      "marketContext",
+      "csrf"
+    ],
+    "sources": [
+      {
+        "file": "scripts/founder-controller.mjs",
+        "modifiedAt": "2026-10-19T15:40:45.156Z",
+        "sha256": "d9e3675fa43150f850542e3d0e814def7234d1285707f7d1d88d659cd6403f26"
+      },
+      {
+        "file": "scripts/founder-execution-window.mjs",
+        "modifiedAt": "2026-10-19T15:40:45.154Z",
+        "sha256": "1b3a3dd21f247601376f829c9e9bddf6e0ea0cfde2fc2f0fa55e735a61bf1370"
+      }
+    ],
+    "historyWindow": {
+      "executionMs": 480000,
+      "leaseMs": 540000
+    },
+    "ordinaryWindow": {
+      "executionMs": 120000,
+      "leaseMs": 180000
+    },
+    "providerProbes": 0,
+    "productionResearchTriggered": false,
+    "historyStatus": "stopped",
+    "budgetVerification": {
+      "unchanged": true,
+      "digest": "b3ab5617c08e6d974dea9f987094f59a1743611514f8e8fc1b76a166a029ed7d",
+      "entries": 3380,
+      "reservedRappen": 550
+    },
+    "budgetBefore": "artifacts/runtime-blocker-repair-20261019/history-window-restart-before.json",
+    "budgetAfter": "artifacts/runtime-blocker-repair-20261019/history-window-restart-after.json",
+    "evidence": "artifacts/runtime-blocker-repair-20261019/history-window-restart-readback.json"
+  }
+}
