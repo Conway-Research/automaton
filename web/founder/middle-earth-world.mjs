@@ -213,7 +213,11 @@ export async function buildWorld(){
   else if(d(P.messengers,430)){kind=vnoise(jx/30,jy/30)>.45?'oak':'birch';need=.58;}
   else if(hypot(jx-rohan.x,jy-rohan.y)<300)continue;
   else if(hv>.6){kind='pine';need=.4;}
-  if(density>need+(vnoise(jx/9,jy/9)-.5)*.12)trees.push({x:jx,y:jy,kind,s:.8+vnoise(jx/3,jy/3)*.6,tone:.82+vnoise(jx/5,jy/7)*.36});
+  if(density>need+(vnoise(jx/9,jy/9)-.5)*.12){trees.push({x:jx,y:jy,kind,s:.8+vnoise(jx/3,jy/3)*.6,tone:.82+vnoise(jx/5,jy/7)*.36});if(kind!=='dead'&&density>need+.12&&vnoise(jx/2.3,jy/2.3)>.86)trees.push({x:jx+7,y:jy+5,kind:'log',s:.7+vnoise(jx/4,jy/4)*.5,tone:.9});}
+  // Bushes and young growth gather at the edge of every wood.
+  else if(kind!=='dead'&&density>need-.06&&vnoise(jx/4,jy/4)>.68)trees.push({x:jx,y:jy,kind:kind==='dark'?'darkbush':kind==='mallorn'?'goldbush':'bush',s:.7+vnoise(jx/3,jy/3)*.8,tone:.82+vnoise(jx/5,jy/7)*.36});
  }
- return {land,trees,light};
+ // A mallorn never stands alone: stray ones at the edge of the wood are left out.
+ const golden=trees.filter(t=>t.kind==='mallorn'),alone=new Set(golden.filter(t=>golden.filter(o=>hypot(o.x-t.x,o.y-t.y)<62).length<5));
+ return {land,trees:trees.filter(t=>!alone.has(t)),light};
 }

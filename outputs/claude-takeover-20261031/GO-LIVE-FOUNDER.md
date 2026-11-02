@@ -13,12 +13,12 @@ node scripts/founder-go-live-check.mjs
 | # | Schritt | Wer | Stand |
 |---|---|---|---|
 | 1 | Modellpreis und Bedingungen der Lesequellen neu belegen und die Fristen erneuern | Claude | Erledigt am 2.11., gültig bis 9.11., noch nicht geladen. Liegt der Start später, muss ich die Seiten erneut lesen. |
-| 2 | Dashboard-Arbeit abschließen | Sitzung „Founder Dashboard öffnen“ | Figuren-Runde am 2.11. gemeldet fertig. Eine weitere Runde verlangt eine neue Regression vor dem Apply. |
+| 2 | Dashboard-Arbeit abschließen | Sitzung „Founder Dashboard öffnen“ | Runden Wälder bis Bildrate am 2.11. fertig und geladen. Jede weitere Runde braucht wieder Regression und Apply. |
 | 3 | Unabhängiger Review des Zahlungs-Gates (Paket C) | Claude | Erledigt am 2.11., Ergebnis in `INDEPENDENT-PACKAGE-C-REVIEW-v1.md`. Blocker B1 und H3 behoben, 239 Tests grün. H1, H2 und die mittleren Befunde sind offen und vor dem Anschluss eines Readers zu schließen. |
-| 4 | Gesamtregression auf dem endgültigen Stand | Claude | Erledigt am 2.11. über alle `founder-*`- und `numaron-*`-Tests plus `trade-radar-ui`: 2399 Tests, 2393 grün, 4 übersprungen, 2 rot (beide unten unter „Bekannt“). Einschaltknopf-Tests grün. Nach der Figuren-Runde wiederholt, gleiches Ergebnis, Quellen während des Laufs unverändert. Beleg: `evidence/regression-endstand2-20261102.tap`. |
-| 5 | Commit | Du entscheidest | Nichts committet. Änderungen landen derzeit auf `feat/founder-mittelerde-dashboard`. |
-| 6 | Apply über den gemeinsamen Launcher | Du gibst frei, ausdrücklich für diesen Batch | Blockiert: Dateien neuer als der geladene Stand (aktuelle Zahl im Check). |
-| 7 | „Numaron einschalten“ | Nur du persönlich | Zuletzt. |
+| 4 | Gesamtregression auf dem endgültigen Stand | Claude | Erledigt am 2.11. nach der Innenräume-Runde: 2399 Tests, 2393 grün, 4 übersprungen, 2 rot (siehe „Bekannt“). Beleg: `evidence/regression-endstand3-20261102.tap`. |
+| 5 | Commit | Du entscheidest | `e0c5bc97` auf `feat/founder-mittelerde-dashboard`, nicht gepusht. Die später geladenen Dashboard-Runden sind noch nicht committet. |
+| 6 | Apply über den gemeinsamen Launcher | Du gibst frei, ausdrücklich für diesen Batch | Erledigt am 2.11.: zuletzt Batch `fff19771…` durch die Dashboard-Sitzung nach deiner Freigabe dort, 2393 von 2399 grün (Angabe der Sitzung). Check meldet `ready: true`, Dienst antwortet, Numaron aus. |
+| 7 | „Numaron einschalten“ | Nur du persönlich | Offen. Vorher: Preisfrist 9.11. beachten und Platz auf C: schaffen (2.11.: 12,6 GB frei). |
 
 ## Was nicht warten muss
 
@@ -42,5 +42,6 @@ SOFA ist seit 20.10. abgelaufen und laut deiner früheren Entscheidung nicht ern
 - Offen aus der Liste „vor Anbindung“ (`REVIEW3-20261101.md`): gilt für die nicht eingebundenen Pakete und ist vor deren Einbindung zu schließen, nicht vor dem Start.
 - `scripts/trade-radar-ui.test.mjs` ist rot. Der Test erwartet einen Fehlerpfad, den `web/founder/app.js` schon im letzten Commit nicht mehr enthält. Ich habe die Erwartung nicht abgeschwächt. Trading-Anzeige, kein Start-Blocker.
 - 4 übersprungene Fälle: 2 „agreed heading page“ und 2 „real visual step“ im Office-Weg, sie laufen in dieser Umgebung nicht.
+- Der erste Anlauf des letzten Apply scheiterte: Der Supervisor meldete `startup-evidence-mismatch` und beendete den Dienst nach 45 s, der zweite Anlauf lief durch. Ursache nicht belegt (siehe `PROGRESS.md`). Es fällt sicher aus und betrifft den Dienststart, nicht den Knopf.
 - `scripts/trading-mt5.test.mjs` nicht ausgeführt (Trading-Vorgabe „keine Tests“), `founder-sofa-key` ohne `pwsh.exe` unbewiesen.
 - Stock V13 ist am 2.11. ohne Fortschritt geendet (bester Stand 29 von 79, Befund: Modell reicht nicht). Ein Projekt dieser Größe darf Numaron deshalb nicht als lieferbar zusagen. Der Start wird dadurch nicht blockiert.

@@ -221,3 +221,19 @@ Naechste Aktion: Apply-Freigabe von Patrice; Reader-Entscheidungen offen.
 
 evidence/regression-endstand2-20261102.tap: 2399 Tests, 2393 gruen, 4 uebersprungen, 2 rot (founder-sofa-key, trade-radar-ui, wie zuvor). Quellen-Hash vor und nach dem Lauf gleich, power-state.jsonl unveraendert, OFF Revision 101.
 Naechste Aktion: Apply-Freigabe von Patrice.
+
+## Commit und Apply, 2.11.2026, 14:14
+
+Nach Freigabe von Patrice: Regression evidence/regression-endstand3-20261102.tap 2393/2399 (2 bekannte rot, 4 uebersprungen). Commit e0c5bc97, 1542 Dateien, Autor wie bisherige Commits, nicht gepusht. Ausgeschlossen: artifacts, outputs ausser Uebergabe-md und zwei Belege, src/src, web/web, __pycache__, .backup-*, Screenshots. Git auto-gc nach dem Commit fuellte C: bis 0 Byte (tmp_pack 10,7 GB). Nach Pruefung (kein Packprozess, Datei nicht offen) nur diesen tmp_pack entfernt, 12,6 GB frei. Alte tmp_obj nicht angefasst. Vormerkung und Apply ueber start-numaron-founder.ps1, Batch 3117232378664cd9913ce6eb6b52fc11. Dienst pid 17200 auf 127.0.0.1:51439, HTTP 200, OFF Revision 101, go-live ready true. Knopf nicht beruehrt.
+Risiko: jeder weitere Commit kann auto-gc erneut ausloesen (75000 lose Objekte); -c gc.auto=0 verwenden, solange C: knapp ist.
+Naechste Aktion: Knopf nur Patrice; Platz auf C:; Reader-Entscheidungen offen.
+
+## Wiederholung fehlgeschlagener Hintergrundaufgaben, 2.11.2026
+
+Einziger echter Fehlschlag dieser Sitzung: git auto-gc nach Commit e0c5bc97 (Platz). Nicht wiederholt: 54 Objekte ueber 50 MB, die groessten sind lokale Modelle und Installationsdateien aus outputs/, erreichbar ueber eine andere Referenz; prune-packed findet 0 Objekte. Packen braeuchte rund 19 GB bei 13 GB frei und braechte wenig. Stock V13 endete per Regel und wird nicht wiederholt. Rote Tests sind keine Hintergrundaufgaben. Risiko: auto-gc kann bei jedem Commit wieder laufen.
+
+## Apply der Dashboard-Runden, 2.11.2026, 15:14 Ortszeit
+
+Von der Dashboard-Sitzung ausgefuehrt, laut ihr nach Freigabe von Patrice dort. Nachgeprueft: loaded.json Batch fff197712f8f435cb1151c6a39aeb0e4, go-live ready true, HTTP 200 auf 127.0.0.1:51439, OFF Revision 101. Ihre Regression 2393/2399 nicht selbst wiederholt. Dashboard-Aenderungen geladen, aber uncommittet.
+Beobachtung: erster Anlauf mit startup-evidence-mismatch (reason matching-runtime-health-missing), Dienst nach 45 s beendet, zweiter Anlauf bestaetigt. Pruefung in founder-supervisor.mjs:22 verlangt h.pid===pid, at>=startedAt und at<=Date.now(); jede dieser Bedingungen und jeder Lesefehler ergibt denselben Grund. Vermutung der Sitzung (2 ms Uhrabweichung) nicht belegt. watchFounderStartup bricht nach einer falschen Pruefung nicht neu ab, sondern laeuft in den 45-s-Timeout. Nichts geaendert.
+Naechste Aktion: Commit der Dashboard-Runden bei Patrice; Knopf nur Patrice.

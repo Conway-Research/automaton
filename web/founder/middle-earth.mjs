@@ -1,9 +1,9 @@
 import {capabilityStatus,taskWaitText} from './model.mjs';
 import {stations,HUB,workshopView,observedFlows,previewFlows,reportFlows,taskName} from './middle-earth-model.mjs';
 import {WORLD,HUB_SITE,sitePlaces,crews,wanderers,workstationNames,roadLoop,hubGate,spokes,mountDoom,rohan,buildWorld,groundAt,EXTENT,SUN} from './middle-earth-world.mjs';
-import {THREE as T,Kit,solid,glowing,HALL,crewPoint,makeFigure,buildDistrict,buildHub,buildForest,eyeSprites,smokeTexture} from './middle-earth-3d.mjs';
+import {THREE as T,Kit,solid,glowing,HALL,crewPoint,makeFigure,buildDistrict,buildHub,buildForest,forestTime,leafCrowns,eyeSprites,smokeTexture} from './middle-earth-3d.mjs';
 import {loadSurfaces,loadSky,addTerrainDetail,surfaceMaterial,placeModels,regionProps,worldProps,loadRigs,dressFigure} from './middle-earth-assets.mjs';
-import {landmarks,roofs,closeDetails,buildBalrog,buildBlackGate} from './middle-earth-regions.mjs';
+import {landmarks,roofs,closeDetails,buildBalrog,buildBlackGate,regionLeaves} from './middle-earth-regions.mjs';
 import {roomInteriors,roomLight,buildWalls} from './middle-earth-rooms.mjs';
 // Display only. The on/off switch stays in renderPower (app.js); this module never talks to the server.
 const statusLabels={queued:'wartet',planned:'geplant',running:'in Arbeit',verifying:'wird geprüft',working:'in Arbeit',blocked:'blockiert',failed:'fehlgeschlagen',review:'wartet auf dich',done:'erledigt',cancelled:'abgebrochen'};
@@ -203,6 +203,8 @@ export function createMiddleEarth(host,{openTask}={}){
    const at=q=>new T.Vector3(c.x+q[0],y+q[1],c.y+q[2]);for(const q of d.fx.smoke)smokePoints.push(at(q));for(const q of d.fx.embers)particleSources.embers.push(at(q));for(const q of d.fx.spray)particleSources.spray.push(at(q));for(const q of d.fx.leaves)particleSources.leaves.push(at(q));
    crews[s.id].forEach((m,index)=>{const p=crewPoint(m),home={x:c.x+p.x,y:c.y+p.z};actors.push(addFigure({kind:'worker',site:s.id,index,f:m,home,x:home.x,y:home.y,heading:Math.PI/2,station:Math.PI/2,phase:Math.random()*6,mode:'rest',until:0,path:null,busy:false,note:''}));});
   }
+  // Great trees wear painted crowns; those over a hall thin out leaf by leaf when zooming in.
+  for(const [id,plan] of Object.entries(regionLeaves)){const d=districts.get(id);d.outside.add(leafCrowns(plan.kind,plan.outside));const over=leafCrowns(plan.kind,plan.roof);d.roof.add(over);roofLeaves.push(over.material);}
   // Grass, stones and fallen leaves around every place, each in the colours of its land.
   const litter={scouts:['#7c7a4a','#6d6a44','#8a8a60'],library:['#3e6a36','#4c7a3e','#35602f'],forge:['#34362a','#3f402e','#2c2d24'],treasury:['#46482f','#515336','#3b3d29'],council:['#23391f','#2d4a26','#4a3a1e'],lorien:['#b0962e','#c9a93a','#7f8a3a'],gate:['#6a7a48','#7c8850','#5c6c40'],observatory:['#7c8048','#8a8a54','#6a6e3e'],isengard:['#3a342a','#4a4232','#2c2822'],messengers:['#4f8a3a','#5f9a45','#437a32']};
   const bladeGeometry=new T.ConeGeometry(.42,8,3),pebbleGeometry=new T.IcosahedronGeometry(1,0),matrix=new T.Matrix4(),quat=new T.Quaternion(),scale=new T.Vector3(),pos=new T.Vector3(),color=new T.Color(),yAxis=new T.Vector3(0,1,0);
@@ -244,16 +246,18 @@ export function createMiddleEarth(host,{openTask}={}){
   smokeMesh=new T.Points(smokeGeometry,new T.PointsMaterial({map:smokeTexture(),color:'#4a4640',size:26,transparent:true,opacity:.5,depthWrite:false}));smokeMesh.frustumCulled=false;scene.add(smokeMesh);
   const m=mini.getContext('2d');m.drawImage(world.land,-EXTENT.x,-EXTENT.y,WORLD.w,WORLD.h,0,0,280,175);miniBase=m.getImageData(0,0,280,175);
   const rohanGroup=new T.Group();rohanGroup.position.set(rohan.x,Math.max(2,groundAt(rohan.x,rohan.y)),rohan.y);scene.add(rohanGroup);placeModels(rohanGroup,worldProps).catch(e=>console.error(e));
+  // The light and leaf programs are prepared while the loading note still shows, so the first picture does not freeze.
+  await renderer.compileAsync(scene,camera).catch(()=>{});
   loading.remove();ready=true;renderCrew();renderTrays();
   // The 3D world works without them; simple figures simply stay until these have arrived.
   loadRigs().then(all=>{rigMap=all;}).catch(e=>console.error(e));
  }
  const ease=(from,to,k)=>from+(to-from)*k;
  const tilt=d=>.58+Math.min(1,Math.max(0,(d-300)/1800))*.3;
- const projected=new T.Vector3(),beamFrom=new T.Vector3(),beamTo=new T.Vector3();
+ const viewProjection=new T.Matrix4(),viewFrustum=new T.Frustum(),figureBounds=new T.Sphere(new T.Vector3(),46),projected=new T.Vector3(),beamFrom=new T.Vector3(),beamTo=new T.Vector3();
  const screenOf=(x,y,z)=>{projected.set(x,y,z).project(camera);return projected.z<1?{x:(projected.x+1)/2*W,y:(1-projected.y)/2*H}:null;};
  const pill=(text,x,y,bg,fg,font='600 12px "Palatino Linotype",Georgia,serif')=>{ctx.font=font;const w=ctx.measureText(text).width+12;ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(x-w/2,y-9,w,18,5);ctx.fill();ctx.fillStyle=fg;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y+.5);};
- let ashClouds=[],plume=[],sauronBeam=null,waterNormal=null,landTime=null;
+ let roofLeaves=[],ashClouds=[],plume=[],sauronBeam=null,waterNormal=null,landTime=null;
  let rigMap=null,focusY=0,lastFrame=performance.now(),lastMini=0,lastReport=performance.now(),frames=0,frameMark=performance.now();
  function frame(now){
   requestAnimationFrame(frame);
@@ -270,12 +274,15 @@ export function createMiddleEarth(host,{openTask}={}){
   if(!preview&&now-lastReport>32000){lastReport=now;for(const flow of reportFlows(view))dispatch(flow);}
   const t=reduced()?0:now;
   let dressing=1;
+  viewProjection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);viewFrustum.setFromProjectionMatrix(viewProjection);
   for(const a of [...actors,...couriers]){
    const inside=a.kind==='worker';a.mesh.position.set(a.x,(inside?districts.get(a.site).y:Math.max(2,groundAt(a.x,a.y)))+.3,a.y);a.mesh.rotation.y=a.heading;
    const walking=a.mode==='walk',working=a.mode==='work';
    a.mesh.userData.pose(walking?a.phase:0,walking?Math.sin(a.phase)*.6:working?-1.15+Math.sin(t*.009+(a.index??0)*2)*.95:0,(a.carrying||a.kind==='courier')&&walking);
    // Near the camera the simple figure gives way to a fully animated one.
-   const near=rigMap&&Math.hypot(camera.position.x-a.x,camera.position.y-a.mesh.position.y,camera.position.z-a.y)<1250;
+   // Whoever is out of sight costs nothing, and only those near the camera are fully animated.
+   figureBounds.center.copy(a.mesh.position);const seen=viewFrustum.intersectsSphere(figureBounds);a.mesh.visible=seen;
+   const near=seen&&rigMap&&Math.hypot(camera.position.x-a.x,camera.position.y-a.mesh.position.y,camera.position.z-a.y)<900;
    if(near&&!a.rich&&dressing>0){dressing--;a.rich=dressFigure(rigMap,a.f.people,a.f.tool);a.mesh.add(a.rich.group);}
    if(a.rich){const show=Boolean(near);a.rich.group.visible=show;a.mesh.userData.body.visible=!show;if(show)a.rich.play(a.mode,a.speed??0,reduced()?0:dt,(a.carrying||a.kind==='courier')&&walking);}
   }
@@ -290,13 +297,14 @@ export function createMiddleEarth(host,{openTask}={}){
    const inside=nearest?1-closed:0,plan=nearest?roomLight[nearest.id]:null,target=plan?1+(plan.day-1)*inside:1;daylight=ease(daylight,target,Math.min(1,dt*3));sun.intensity=3.1*daylight;sky.intensity=.4*daylight;scene.environmentIntensity=.62*(.4+.6*daylight);
    if(nearest!==litRoom&&plan){litRoom=nearest;plan.lamps.forEach(([x,y,z,color],i)=>{roomLamps[i].position.set(nearest.c.x+x,nearest.y+y,nearest.c.y+z);roomLamps[i].color.set(color);});}
    roomLamps.forEach((lamp,i)=>{const strength=plan&&litRoom===nearest?plan.lamps[i][4]:0,flicker=reduced()?1:1+Math.sin(now*.011+i*2)*.07+Math.sin(now*.027+i)*.05;lamp.intensity=strength*inside*flicker;});}
+  for(const leaves of roofLeaves)leaves.alphaTest=.34+(1-closed)*.64;
   // Close-up life appears as the camera comes near; far away only the great shapes remain.
   for(const d of districts.values()){const near=Math.hypot(camera.position.x-d.c.x,camera.position.z-d.c.y)<1500&&cam.d<1500;d.closeMesh.visible=near;const inPlace=near&&Math.hypot(cam.x-d.c.x,cam.y-d.c.y)<620;d.props.visible=inPlace;if(inPlace&&!d.propsAsked&&d.id&&regionProps[d.id]){d.propsAsked=true;placeModels(d.props,regionProps[d.id]).catch(e=>console.error(e));}}
   // Up close, a neighbour's tall landmark must not stand between the camera and what is being looked at.
   {const ax=cam.x,ay=cam.y,bx=camera.position.x-ax,by=camera.position.z-ay,len=bx*bx+by*by||1;
    for(const d of districts.values()){const u=Math.max(0,Math.min(1,((d.c.x-ax)*bx+(d.c.y-ay)*by)/len)),gap=Math.hypot(d.c.x-(ax+bx*u),d.c.y-(ay+by*u)),own=Math.hypot(d.c.x-ax,d.c.y-ay)<HALL.half*2;d.outside.visible=cam.d>1100||own||u<.02||gap>420;if(!own&&u>.02&&gap<300&&cam.d<1700)d.roof.visible=false;}}
   if(balrog){const moria=districts.get('forge');balrog.stage.visible=closed<.995&&Math.hypot(cam.x-moria.c.x,cam.y-moria.c.y)<950;if(balrog.stage.visible&&!reduced())balrog.animate(now);}
-  if(landTime&&!reduced())landTime.value=now/1000;
+  if(landTime&&!reduced()){landTime.value=now/1000;forestTime.value=now/1000;}
   if(waterNormal&&!reduced()){waterNormal.offset.x=now*.000012;waterNormal.offset.y=now*.000008;}
   for(const p of plume){if(!reduced())p.k=(p.k+dt*.016)%1;const q=p.k,w=70+q*420;p.sprite.position.set(mountDoom.x+Math.sin(p.seed)*(14+q*60)+q*q*520,p.base+16+q*680,mountDoom.y+Math.cos(p.seed)*(14+q*60)-q*q*230);p.sprite.scale.set(w,w*.82,1);p.sprite.material.color.setRGB(.5*(1-q)+.11,.2*(1-q)+.09,.09*(1-q)+.085);p.sprite.material.opacity=Math.min(1,q*14)*(1-q)*.62;}
   for(const c of ashClouds){c.a+=dt*.012;c.sprite.position.x=HUB_SITE.x+Math.cos(c.a)*c.r;c.sprite.position.z=HUB_SITE.y+Math.sin(c.a)*c.r*.72;}

@@ -53,3 +53,4 @@ Ziel selbstständiges Handeln: Ablauf in `trading-supplement-20261101/STUFENPLAN
 - **Erst Einnahmen mit Reader.** Damit Numaron bezahlte Aufträge bearbeiten kann, braucht es eine Quelle für bestätigte Zahlungen je Plattform und deine Entscheidung, welche Zahlungsquellen als Beleg zählen. Das folgt nach dem Start.
 - **Altkopien entfernt** (dein Ja vom 2.11.). `scripts/scripts`: alle 1421 Dateien inhaltsgleich anderswo vorhanden, liegt im Windows-Papierkorb. `docs/superpowers/docs`: 3080 leere Ordner, entfernt.
 - **Reader:** Plan und fünf Entscheidungen in `PLAN-READER-BESTAETIGTE-ZAHLUNG.md`.
+- **`src/src` und `web/web` bleiben** (Entscheidung Patrice, 2.11.). Sie sind nicht im Commit und fließen weiter in den Quell-Fingerabdruck ein.
