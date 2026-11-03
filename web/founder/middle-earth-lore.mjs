@@ -253,6 +253,15 @@ export function towerInside(k,g){
  for(let i=0;i<3;i++)k.box(0,116+i*3,-34-i*2,40-i*8,3,20-i*2,i%2?'#2e2a26':'#1d1a17');
  k.box(0,125,-38,16,10,10,'#0b0a09');k.box(0,135,-43,16,44,2.4,'#0b0a09');for(const s of [-1,1]){k.box(s*8,125,-38,2.4,12,10,'#141210');k.cone(s*8,179,-43,2,14,iron,5);k.cone(s*3,179,-43,1.5,9,iron,5);}k.cone(0,179,-43,2.4,18,iron,5);
  for(const s of [-1,1]){k.column(s*26,116,-22,1.4,22,iron,6);k.cyl(s*26,138,-22,5,1.6,3,iron,8);g.lamp(s*26,144,-22,4.4);lit(s*40,-30,-s*.8,()=>{k.box(0,120,0,14,60,.6,'#180a08');g.box(0,150,.4,8,4,.3,'#b52a0a');g.box(0,150,.6,2.6,1.8,.3,'#ffb23a');g.box(0,150,.8,.5,3.6,.3,'#060302');});}
+ // The throne itself carries the burning Eye on its high back, edged in gold; gold runs along every step.
+ {const eye=s=>{const n=10;for(let i=0;i<n;i++){const t0=-1+2*i/n,t1=-1+2*(i+1)/n,x0=8*t0,x1=8*t1,y0=158+s*4*(1-t0*t0),y1=158+s*4*(1-t1*t1);g.add(g.cube(),(x0+x1)/2,(y0+y1)/2,-41.5,Math.hypot(x1-x0,y1-y0)+.2,.6,.4,'#ffb23a',0,0,Math.atan2(y1-y0,x1-x0));}};eye(1);eye(-1);
+  g.add(g.torus(3,.45),0,158,-41.4,1,1,1,'#e8560e');g.add(g.cube(),0,158,-41.2,.8,6.4,.3,'#ffd27a');g.add(g.cube(),0,158,-41.1,.35,5.6,.3,'#050302');
+  for(const s of [-1,1]){g.add(g.cube(),s*8.6,157,-41.6,.4,44,.4,'#c9962d');}g.add(g.cube(),0,179.2,-41.6,17.6,.4,.4,'#c9962d');
+  for(let i=0;i<3;i++)g.box(0,119+i*3,-24-i*3,40-i*8,.25,.3,'#ffb23a');
+  // A red carpet edged in gold runs from the shaft to the steps, between two pools of fire.
+  k.box(0,116.1,-16,11,.2,16,'#4a0a05');for(const s of [-1,1]){g.box(s*5.6,116.15,-16,.4,.25,16,'#ffb23a');g.column(s*24,116.05,-38,5.4,.35,'#e8560e',16);g.column(s*24,116.1,-38,3,.35,'#ffc23a',12);k.add(k.torus(5.6,.8),s*24,116.4,-38,1,1,1,'#0c0a09',0,Math.PI/2);}
+  // Four piers of black glass with veins of fire rise behind the throne, each crowned with flame.
+  for(const a of [Math.PI-.4,Math.PI+.4,Math.PI-.75,Math.PI+.75]){const x=Math.sin(a)*52,z=Math.cos(a)*52,c=Math.cos(a),s=Math.sin(a);k.cyl(x,116,z,3,3.8,58,'#0d0a09',8);k.cyl(x,174,z,4.6,3,2,iron,8);g.lamp(x,178,z,3);for(const o of [-1.2,1.2])g.box(x-s*2.9+c*o,116,z-c*2.9-s*o,.35,56,.35,o>0?'#ff4a12':'#ffb23a',a);}}
  // The chamber of the seeing stone of Minas Ithil, with shelves of dark records and chains.
  k.column(0,220,-22,7,3,'#141210',10);k.cyl(0,223,-22,2.4,4,10,'#17151a',8);k.cyl(0,233,-22,5,2.4,3,iron,8);g.ball(0,240,-22,5,'#d0480a');g.ball(0,240,-22,3,'#ffb04a');
  for(let i=0;i<5;i++){const a=2+i*.55,x=Math.sin(a)*33,z=Math.cos(a)*33;lit(x,z,a+Math.PI,()=>{k.box(0,220,0,15,46,4,'#1a1613');for(let r=0;r<4;r++){k.box(0,226+r*10,1.8,13,.7,3,'#2a2420');for(let c=0;c<5;c++)k.box(-5+c*2.5,227+r*10,2.2,1.5,6+(c%3),1.8,['#3a1a14','#26221c','#4a4034'][c%3]);}});}
