@@ -429,3 +429,9 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Barad-dûr: Die Ringschmiede steht jetzt auf der Seite, zu der sich der Turm öffnet, nahe der Mitte der Torhalle. Sie wird ohne Aufschnitt gezeichnet und hat ein offenes Glutbett mit eigenem Feuerlicht. Sauron steht seitlich am Amboss. Bild: barad-dur-ringschmiede-20261103.jpg.
 - Tests: Node-Tests 21 von 21 grün. Vitest-Suite 4410 von 4410 grün. In einem ersten Lauf schlug ein Test fehl, beim erneuten Lauf nicht mehr (nicht reproduzierbar).
 - Nur isolierte Vorschau, Hook wieder entfernt. Kein Apply, Numaron AUS.
+
+## 2026-11-03 – Höllische Torhalle mit der Ringschmiede als Herz
+- Barad-dûr Erdgeschoss: Boden als Lidloses Auge (goldene Mandel, Feuer-Iris, Schaft als Pupille), Feuerrunenring, Lavagraben, Glutrisse, Feueradern und Feuerschalen an den Säulen, Lavafall an der Ostwand, Banner des Auges, dritte rote Turmlampe.
+- Ringschmiede: Podest aus schwarzem Glas mit Goldkante, vier Feuerbecken, Goldrinne zum Amboss, schwebender rotierender Einer Ring über der Esse, stärkere Glut.
+- Felssockel des Turms innen ausgehöhlt (hollowCore), damit er den Hallenboden nicht mehr verdeckt; Turmansicht zielt tiefer (towerY+100), die Schmiede steht im Bildzentrum.
+- Bild: barad-dur-torhalle-ringschmiede-20261103.jpg. Numaron AUS, kein Apply.

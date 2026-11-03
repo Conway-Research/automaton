@@ -21,6 +21,18 @@ export function reveal(material){
  return material;
 }
 export const setReveal=(material,x,z,sill)=>{const u=material.userData.reveal;u.dir.value.set(x,z);u.sill.value=sill;};
+// The rock the tower stands on is hollow inside its walls, so the gate hall floor lies open instead of under the crag.
+export function hollowCore(material,radius,floor){
+ const before=material.onBeforeCompile,key=material.customProgramCacheKey;
+ material.onBeforeCompile=function(shader,renderer){
+  before?.call(this,shader,renderer);
+  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vHollowP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvHollowP=position;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vHollowP;').replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
+   if(vHollowP.y>${floor.toFixed(1)}&&length(vHollowP.xz)<${radius.toFixed(1)})discard;`);
+ };
+ material.customProgramCacheKey=function(){return (key?key.call(this):'')+'|hollow';};
+ return material;
+}
 // The great rent in the flank of Mount Doom: a jagged V towards the south-east, deepest in its middle. Land, road and the rock behind share it.
 export const rentGlsl='float doomRent(vec3 p,vec4 h){vec2 d=p.xz-h.xy;if(length(d)>h.z)return 0.;float rag=sin(p.x*.19+p.z*.23)*sin(p.x*.07-p.z*.11);return p.y>h.w+rag*2.5?1.:0.;}';
 export function holeCut(material,hole){
@@ -189,12 +201,19 @@ export const flowMaterial=()=>new T.ShaderMaterial({vertexColors:true,transparen
  }`});
 
 // ---- The Dark Tower, opened: each storey narrower than the one below, the shaft of fire running up to the Eye ----
-const floors=[[26,80,'#2a2522'],[116,57,'#2c2724'],[220,40,'#26211f'],[312,26,'#221d1b']];
+const floors=[[26,80,'#161110'],[116,57,'#2c2724'],[220,40,'#26211f'],[312,26,'#221d1b']];
 // Sauron's ring forge in the gate hall, on the side the tower opens towards: an open bed of embers, the anvil with a glowing ring on it, a quenching trough and his tools.
 // It is drawn without the reveal cut, so the floors above never hide it; its hearth faces the side the tower opens towards.
 export const ringForge={x:0,z:30,turn:0};
+// The One Ring hangs burning in the air above the hearth, turning slowly, with its fiery letters showing.
+export function oneRingInto(g){g.add(g.torus(6,.95),0,0,0,1,1,1,'#ffd27a');g.add(g.torus(6,.4),0,0,.8,1,1,1,'#ff5a12');g.add(g.torus(6,.4),0,0,-.8,1,1,1,'#ff5a12');for(let i=0;i<12;i++){const a=i/12*TAU;g.ball(Math.cos(a)*9.4,Math.sin(a)*9.4,0,.4,'#ffb23a');}}
 export function ringForgeInto(k,g){
- k.lights=g;k.local(ringForge.x,ringForge.z,ringForge.turn,()=>{k.box(0,26,-11,26,10,16,'#1c1815');k.box(0,36,-11,28,1.4,18,'#2a2622');g.box(0,36.6,-11,20,.6,11,'#ff5a12');g.box(0,37,-11,12,.6,6,'#ffc23a');for(let i=0;i<9;i++)g.ball(-8+i*2,37.6+(i%3)*.5,-11+((i*5)%7)-3,.9+(i%2)*.5,i%3?'#ff7a2a':'#ffd27a');for(const s of [-1,1])k.box(s*15,26,-11,3,16,3,'#2a2622');
+ k.lights=g;k.local(ringForge.x,ringForge.z,ringForge.turn,()=>{
+  // It stands on a raised dais of black glass edged with gold, with a brazier on each corner, so the eye goes to it first.
+  k.box(0,25.4,-2,42,1.6,42,'#0e0b0a');for(const [x,z,w,d] of [[0,19,42,.5],[0,-23,42,.5],[21,-2,.5,42],[-21,-2,.5,42]])g.box(x,26.9,z,w,.25,d,'#ffb23a');for(const s of [-1,1])for(const t of [-1,1]){k.cyl(s*19,27,-2+t*19,2.4,1.4,7,'#1c1815',8);k.cyl(s*19,34,-2+t*19,3,2.2,1.6,'#3a332e',8);g.lamp(s*19,37,-2+t*19,2.4);}
+  // Molten gold runs from the hearth in a channel down to the anvil.
+  g.box(0,26.95,-1,1.6,.3,8,'#ffc23a');g.box(0,26.9,-1,3,.2,8,'#ff5a12');
+k.box(0,26,-11,26,10,16,'#1c1815');k.box(0,36,-11,28,1.4,18,'#2a2622');g.box(0,36.6,-11,20,.6,11,'#ff5a12');g.box(0,37,-11,12,.6,6,'#ffc23a');for(let i=0;i<9;i++)g.ball(-8+i*2,37.6+(i%3)*.5,-11+((i*5)%7)-3,.9+(i%2)*.5,i%3?'#ff7a2a':'#ffd27a');for(const s of [-1,1])k.box(s*15,26,-11,3,16,3,'#2a2622');
   k.box(0,26,8,5,7,4,'#2a2826');k.box(0,33,8,13,3.2,6,'#3f3c39');k.box(8,33.6,8,4,2,3,'#3f3c39');for(let i=0;i<12;i++){const a=i/12*TAU;g.ball(Math.cos(a)*1.5,36.5,8+Math.sin(a)*1.5,.42,'#ffd27a');}g.ball(0,36.6,8,.5,'#ff8a2a');
   k.box(-17,26,6,9,6,16,'#2a2320');g.box(-17,32.05,6,7.4,.2,14.4,'#5a1206');k.box(16,26,4,10,14,3,'#2a2320');for(const [x,h] of [[12.5,10],[15,12],[17.5,9],[20,11]])k.box(x,40,4.4,.8,h,.8,'#3a3734');});k.lights=null;
 }
@@ -213,6 +232,21 @@ export function towerInside(k,g){
  for(let i=0;i<3;i++){const a=2.515+i*.628,x=Math.sin(a)*68,z=Math.cos(a)*68;lit(x,z,a+Math.PI,()=>{k.box(0,26,0,24,24,12,'#1c1815');k.box(0,26,6.2,18,14,.5,'#060403');g.box(0,27,6.5,14,10,.3,'#ff6a1a');g.box(0,28,6.7,8,6,.3,'#ffc23a');k.box(0,50,0,10,34,8,'#191613');});}
  lit(0,-30,0,()=>{k.box(0,26,0,44,11,24,'#2a2320');k.box(0,37,0,47,1.2,27,'#3a2f28');k.box(0,38.2,0,38,.3,20,'#6a5a40');for(const [a,b] of [[-12,-3],[-3,5],[8,-5],[13,4]])g.ball(a,39,b,1,'#ff7a2a');});
  for(let i=0;i<7;i++){const a=-2.3+i*.14;k.box(Math.sin(a)*72,26,Math.cos(a)*72,.8,34,.8,'#3a2a18');k.cone(Math.sin(a)*72,60,Math.cos(a)*72,1.6,6,steel,4);}
+ // The floor of the gate hall is the Eye itself: a gold almond of light on black glass, the ring of fire as its iris and the burning shaft as its pupil.
+ {const eye=(sign)=>{const n=18;for(let i=0;i<n;i++){const t0=-1+2*i/n,t1=-1+2*(i+1)/n,x0=30*t0,x1=30*t1,z0=sign*10*(1-t0*t0),z1=sign*10*(1-t1*t1),len=Math.hypot(x1-x0,z1-z0);g.box((x0+x1)/2,26.12,(z0+z1)/2,.9,.24,len+.3,'#ffb23a',Math.atan2(x1-x0,z1-z0));}};eye(1);eye(-1);
+  g.add(g.torus(11,.8),0,26.2,0,1,1,1,'#b8300a',0,Math.PI/2);g.add(g.torus(8.6,.35),0,26.25,0,1,1,1,'#ffb23a',0,Math.PI/2);for(let i=0;i<24;i++){const a=i/24*TAU;g.box(Math.sin(a)*13.4,26.1,Math.cos(a)*13.4,.3,.2,2.6+(i%3),'#ff7a2a',a);}
+  // A ring of fiery letters, as on the One Ring, runs round the Eye wherever the floor is free.
+  for(let i=0;i<64;i++){const a=i/64*TAU,x=Math.sin(a)*40,z=Math.cos(a)*40;if(Math.abs(x)<20&&z>0||Math.abs(x)<26&&z<0)continue;const w=[1.4,.5,2.2,.9][i%4],d=[.6,2,.8,1.6][(i*3)%4];g.box(x,26.1,z,w,.2,d,'#ffb23a',a+(i%2)*.5);if(i%3===0)g.ball(x+Math.cos(a)*1.4,26.15,z-Math.sin(a)*1.4,.4,'#ffd27a',.4);}
+  // A moat of molten rock between black kerbs closes the floor in, just inside the pillars.
+  g.add(g.torus(50,1.1),0,25.6,0,1,1,1,'#7a1804',0,Math.PI/2);g.add(g.torus(50,.32),0,26.6,0,1,1,1,'#e8560e',0,Math.PI/2);for(const r of [47.6,52.4])k.add(k.torus(r,.9),0,26.3,0,1,1,1,'#0c0a09',0,Math.PI/2);
+  // Fine cracks of ember run through the black glass.
+  for(let i=0;i<46;i++){const a=i*2.399,r=17+((i*37)%28),x=Math.sin(a)*r,z=Math.cos(a)*r;if(Math.abs(x)<19&&z>9||Math.abs(x)<25&&z<-15)continue;g.box(x,26.06,z,.22,.12,3+(i%4)*1.6,i%5?'#8a1c06':'#ff4a12',a*1.7);}}
+ // Each pillar carries veins of fire up its inner face and an iron bowl of flame.
+ for(let i=0;i<10;i++){const a=(i+.5)/10*TAU,s=Math.sin(a),c=Math.cos(a);for(const [o,h] of [[-1.6,64],[1.4,48]])g.box(s*53.2+c*o,26,c*53.2-s*o,.5,h,.4,'#ff4a12',a);k.box(s*52,70,c*52,3,1.2,5,iron,a);k.cyl(s*50.5,71,c*50.5,3.2,1.6,2.6,iron,8);g.lamp(s*50.5,77,c*50.5,2.2);}
+ // A fall of molten rock pours down the eastern wall into a glowing basin.
+ {k.box(77,26,0,4,80,16,'#120d0b');for(const [z,w,c] of [[0,9,'#ff5a12'],[0,4,'#ffc23a'],[-3,1.2,'#ffe8a0']])g.box(74.8,26,z,1,76,w,c);for(const [y,z,r] of [[44,-7,4],[62,6,3.4],[82,-6,3.8],[96,5,3]])k.rock(75.5,y,z,r,r*.8,r,'#1a1310',y);g.column(68,26.1,0,8.6,.5,'#ff6a1a',18);g.column(68,26.2,0,5,.5,'#ffc23a',14);k.add(k.torus(8.8,1),68,26.4,0,1,1,1,'#0c0a09',0,Math.PI/2);}
+ // Banners of the Lidless Eye hang between the pillars.
+ for(const a of [1.885,-1.885,2.2,-2.2]){const x=Math.sin(a)*74,z=Math.cos(a)*74;lit(x,z,a+Math.PI,()=>{k.box(0,58,0,10,40,.5,'#1a0806');k.box(0,98,0,13,1.4,1.4,iron);g.box(0,82,.4,6.4,3.6,.3,'#c0300a');g.box(0,82,.6,2.4,2,.3,'#ffb23a');g.box(0,82,.8,.5,3.6,.3,'#050302');});}
  // The throne room: the black seat on its steps, braziers, banners of the Eye.
  for(let i=0;i<3;i++)k.box(0,116+i*3,-34-i*2,40-i*8,3,20-i*2,i%2?'#2e2a26':'#1d1a17');
  k.box(0,125,-38,16,10,10,'#0b0a09');k.box(0,135,-43,16,44,2.4,'#0b0a09');for(const s of [-1,1]){k.box(s*8,125,-38,2.4,12,10,'#141210');k.cone(s*8,179,-43,2,14,iron,5);k.cone(s*3,179,-43,1.5,9,iron,5);}k.cone(0,179,-43,2.4,18,iron,5);
