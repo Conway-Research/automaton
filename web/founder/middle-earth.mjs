@@ -79,6 +79,8 @@ export function createMiddleEarth(host,{openTask}={}){
  const roomLamps=[new T.PointLight('#ffffff',0,525,1.25),new T.PointLight('#ffffff',0,525,1.25)];scene.add(...roomLamps);let litRoom=null,daylight=1;
  // Rivendell's homely house: three warm pools of lamplight over the valley that wake only at night.
  const homely=[[0,175,60],[0,-160,70],[0,0,190]].map(([a,b,up])=>{const c=hallCentre('library'),x=c.x+a*RS,z=c.y+b*RS,l=new T.PointLight('#ffb25a',0,760,1);l.position.set(x,groundAt(x,z)+up,z);scene.add(l);return l;});
+ // At sunrise a golden light comes over the eastern rim of Rivendell and gilds roofs, towers and falls.
+ const dawnGlow=(()=>{const c=hallCentre('library'),x=c.x+280*RS,z=c.y-80*RS,l=new T.PointLight('#ffbe5c',0,1300,1);l.position.set(x,groundAt(x,z)+260,z);scene.add(l);return l;})();
  // A low evening sun: long shadows and warm light give the land its depth.
  const sun=new T.DirectionalLight('#ffdcb0',2.7);sun.castShadow=true;sun.shadow.mapSize.setScalar(matchMedia('(pointer:coarse)').matches?2048:4096);sun.shadow.bias=-.0006;sun.shadow.normalBias=1.2;scene.add(sun,sun.target);
 
@@ -716,7 +718,7 @@ export function createMiddleEarth(host,{openTask}={}){
   if(moving)shownHour=(shownHour+Math.sign(gap)*Math.min(Math.abs(gap),dt*Math.max(1.5,Math.abs(gap)*2.2))+24)%24;
   if(!skyLight||moving||now-skyStamp>4000){skyStamp=now;const date=atZurichHour(shownHour,base),s=sunOverZurich(date);skyLight=lightAt(s);skyPhase=phaseOf(s,shownHour);
    const L=skyLight;dome.uniforms.sunDir.value.set(L.sunOnly.x,L.sunOnly.y,L.sunOnly.z);dome.uniforms.moonDir.value.set(L.moonDir.x,L.moonDir.y,L.moonDir.z);dome.uniforms.zenith.value.setRGB(...L.zenith);dome.uniforms.horizon.value.setRGB(...L.horizon);dome.uniforms.night.value=L.night;dome.uniforms.golden.value=L.golden;
-   scene.fog.color.setRGB(...L.fog);worldDay.value=L.day;for(const l of homely)l.intensity=L.night*1500;sea?.material.uniforms.sunDir.value.set(L.dir.x,L.dir.y,L.dir.z);film?.setNight?.(L.night);
+   scene.fog.color.setRGB(...L.fog);worldDay.value=L.day;for(const l of homely)l.intensity=L.night*1500;dawnGlow.intensity=(shownHour<12.5?L.golden:0)*2800;sea?.material.uniforms.sunDir.value.set(L.dir.x,L.dir.y,L.dir.z);film?.setNight?.(L.night);
    if(landBake)landBake.value=Math.max(0,Math.min(1,((L.dir.x*SUN.x+L.dir.y*SUN.y+L.dir.z*SUN.z)/Math.hypot(SUN.x,SUN.y,SUN.z)-.86)/.12))*L.day;
    for(const q of dimmed)q.m.color.copy(q.base).multiplyScalar(.14+.86*L.day);
    if(nightLamps){const v=Math.max(0,1-L.day*1.6);nightLamps.material.uniforms.level.value=v;nightLamps.visible=v>.01;}

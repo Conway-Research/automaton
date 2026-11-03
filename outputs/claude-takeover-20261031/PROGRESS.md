@@ -393,3 +393,19 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 
 - Die Reiter wählen ihre Ziele nur noch unter den Orten ohne Lothlórien und Bruchtal. Elronds Tal bleibt ihnen verschlossen wie Galadriels Reich.
 - Zusammen mit der Lothlórien-Sperre committet und auf den Fork gepusht. Kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Bruchtal-Brücken, goldener Morgen, Minas Tirith klar
+
+- Bruchtal-Brücken: Das Flusstal fällt unter den beiden Fußbrücken um bis zu 30 Einheiten ab. Jedes Brückenteil wurde einzeln auf den Boden gesetzt und sackte ab (Treppenstufen, Lücken). Jetzt ist jede Brücke ein starrer Bogen von Ufer zu Ufer, der zum tieferen Ostufer hin abfällt, mit Widerlagern an beiden Enden.
+- Bruchtal: Ein goldenes Licht über dem Ostrand des Tals leuchtet nur vormittags, gesteuert über L.golden. Es vergoldet Dächer, Türme, Bäume und Fälle.
+- Minas Tirith und Bruchtal bei klarem Morgen angesehen. Das Wetter wurde nur im temporären Vorschau-Hook auf klar gestellt. Im Code bleibt das Wetter unverändert.
+- Bilder: bruchtal-bruecken-20261103.jpg, bruchtal-goldener-morgen-20261103.jpg, minas-tirith-klarer-morgen-20261103.jpg.
+- Noch nicht committet. Kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Graue Anfurten eingebettet
+
+- Geländemessung: Die östliche Halle stand in der Flussmündung (bis 31 Einheiten tiefer), dazu eine zweite Halle halb im Graben. Der Turm am Ostende und das Kai-Ende reichten über den Fluss.
+- Beide Hallen stehen jetzt auf dem ebenen Grund hinter dem Kai (Westblock). Der Hauptturm ist leicht versetzt, der Ostturm steht vor der Mündung. Der Kai läuft nur noch über festen Grund (x -250 bis 170). Lampen, Geländer, Poller, Netze und Wellenpflaster sind angepasst.
+- Elbendächer: drei ineinander gesetzte Walmdächer in hellem, verwittertem Kupfer, flach ausschwingend an der Traufe und steil zum Goldfirst, mit aufgebogenen Ecken.
+- Gärten zwischen den Hallen: Birken und Buchen sowie niedrige Hecken.
+- Bild: graue-anfurten-20261103.jpg. Noch nicht committet. Kein Apply, Numaron AUS.
