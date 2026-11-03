@@ -56,7 +56,11 @@ export const bonds=[
  {a:'Legolas',b:'Gimli',tone:'warm'},
  {a:'Legolas',b:'Aragorn',tone:'warm'},
  {a:'Gimli',b:'Aragorn',tone:'warm'},
-];
+].map(b=>({...b,known:true}));
+// Beyond the well-known pairs every great figure may meet every other: Saruman is the foe of all, Gollum trusts nobody, the rest are friends.
+{const SAY={warm:[a=>`Schön, dich zu sehen, ${a}.`,b=>`Ganz meinerseits, ${b}. Was gibt es Neues?`],wary:[a=>`Was führt dich hierher, ${a}?`,b=>`Nur der Weg, ${b}. Nichts weiter.`],hostile:[a=>`Du wagst es, mir unter die Augen zu treten, ${a}?`,b=>`Geh mir aus dem Weg, ${b}.`]};
+ const tone=(x,y)=>x==='Saruman'||y==='Saruman'?'hostile':x==='Gollum'||y==='Gollum'?'wary':'warm';
+ for(let i=0;i<wanderers.length;i++)for(let j=i+1;j<wanderers.length;j++){const a=wanderers[i].name,b=wanderers[j].name;if(bonds.some(q=>q.a===a&&q.b===b||q.a===b&&q.b===a))continue;const t=tone(a,b);bonds.push({a,b,tone:t,lines:[SAY[t][0](b),SAY[t][1](a)]});}}
 // Friends and rivals also seek each other out in the halls, whenever the one at home has nothing real to do. Scenery as well.
 export const hallVisits=[
  {guest:'Frodo',host:'Bilbo',tone:'warm'},

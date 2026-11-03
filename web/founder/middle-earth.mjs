@@ -30,7 +30,7 @@ const scenes={
 };
 
 export function createMiddleEarth(host,{openTask}={}){
- const workLine=new Map(),namedCache=new Map();let lineUsed=0,pinned=null,following=false,actsFor=null,nextMeeting=4000,nextVisit=6000,nextChat=2000,lastLife=0;
+ const workLine=new Map(),namedCache=new Map();let lineUsed=0,pinned=null,following=false,actsFor=null,nextMeeting=4000,nextVisit=6000,nextDoom=150000,nextChat=2000,lastLife=0;
  let selected=null,hovered=null,view=null,health=null,power=null,previousTasks=null,preview=false,previewTimer=null,ready=false;
  const reduced=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  const canvas=el('canvas',undefined,'me-canvas');canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Mittelerde in 3D: zehn Arbeitsbezirke um das Auge von Numaron. Alle Orte lassen sich auch über die Legende öffnen.');
@@ -137,7 +137,7 @@ export function createMiddleEarth(host,{openTask}={}){
   }else Object.assign(goal,home());
  }
  // ---- Rooms below the land. The veil closes, the camera is there, the veil opens. ----
- const innerRooms=new Map();let inner=null,outerCam=null,innerTimer=null,doomDoor=null,puffTexture=null,rockSurface=null;
+ const innerRooms=new Map();let inner=null,outerCam=null,innerTimer=null,doomDoor=null,doomWay=null,puffTexture=null,rockSurface=null;
  const swapVeil=fn=>{veil.dataset.on='true';clearTimeout(innerTimer);innerTimer=setTimeout(()=>{fn();requestAnimationFrame(()=>requestAnimationFrame(()=>{veil.dataset.on='false';}));},reduced()?0:560);};
  function roomFor(id){if(innerRooms.has(id))return innerRooms.get(id);const room=buildOrcPits(rockSurface,puffTexture),u=room.userData,glow=new T.HemisphereLight(u.ambient,'#2a140a',5);glow.layers.set(1);room.add(glow);const deep=-15000;room.position.set(0,deep,0);u.focus={x:u.focus.x,y:u.focus.y+deep,z:u.focus.z};scene.add(room);innerRooms.set(id,room);return room;}
  function enterInner(id){
@@ -199,7 +199,7 @@ export function createMiddleEarth(host,{openTask}={}){
  // ---- Actors. Workers move only for real tasks or the labelled preview; the known figures are scenery. ----
  const actors=[],couriers=[],districts=new Map();
  let talks=[];
- const spoken=(bond,who)=>{const t=talks.find(q=>q.station===who?.f.home&&performance.now()-(q.told??-1e9)>45000);if(t)t.told=performance.now();return {...bond,lines:t?t.lines:[]};};
+ const spoken=(bond,who)=>{const t=talks.find(q=>q.station===who?.f.home&&performance.now()-(q.told??-1e9)>45000);if(t)t.told=performance.now();return {...bond,lines:t?t.lines:(bond.lines??[])};};
  const addFigure=a=>{a.mesh=makeFigure(a.f.people,a.f.tool);a.mesh.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=false;}});scene.add(a.mesh);return a;};
  const wayToHub=id=>{const i=Object.keys(sitePlaces).indexOf(id);return i<0?[hubGate]:[...lanes[id],...spokes[i]];};
  // The riders turn in the lane well before the door; they never ride into a house.
@@ -240,6 +240,7 @@ export function createMiddleEarth(host,{openTask}={}){
    else if(!a.busy){a.stage=-1;if(a.chat){if(now>a.chat.until){a.chat=null;a.mode='rest';a.heading=a.station;}else{a.mode='talk';a.heading=Math.atan2(a.chat.other.x-a.x,a.chat.other.y-a.y);}}}
    else if(now>a.until){a.chat=null;beginPiece(a,now);}
   }else{
+   if(a.quest){questStep(a,now,dt);return;}
    if(living(a,now,dt))return;
    if(a.f.name==='Sam'&&!a.visit&&!namedActor('Frodo').visit&&a.mode!=='walk'&&now>a.until){const lead=namedActor('Frodo'),d=Math.hypot(lead.x-a.x,lead.y-a.y);if(d>48){const k=(d-30)/d;setPath(a,[{x:a.x+(lead.x-a.x)*k,y:a.y+(lead.y-a.y)*k}],d>160?44:26);a.until=now+900;return;}}
    if(a.mode==='walk'){if(stepAlong(a,dt)){a.mode='rest';a.until=now+6500;}}
@@ -304,7 +305,7 @@ export function createMiddleEarth(host,{openTask}={}){
   if(now>m.until)endTalk(a,now);
   return true;
  }
- const lifeText=a=>{if(a.hideUntil>performance.now())return 'Versteckt sich vor dem Feind.';if(a.guardUntil>performance.now())return 'Stellt sich dem Feind.';const m=a.meet;if(m)return m.state==='go'?`Unterwegs zu ${m.other.f.name}.`:m.state==='wait'?`Erwartet ${m.other.f.name}.`:`Spricht mit ${m.other.f.name}.`;return a.f.home?'Ist in der Nähe seiner Heimat unterwegs.':'Reist durch Mittelerde.';};
+ const lifeText=a=>{if(a.quest)return a.quest.stage==='inside'?'Ist im Schicksalsberg.':a.quest.stage==='down'?'Kommt vom Schicksalsberg zurück.':'Steigt zum Schicksalsberg hinauf.';if(a.hideUntil>performance.now())return 'Versteckt sich vor dem Feind.';if(a.guardUntil>performance.now())return 'Stellt sich dem Feind.';const m=a.meet;if(m)return m.state==='go'?`Unterwegs zu ${m.other.f.name}.`:m.state==='wait'?`Erwartet ${m.other.f.name}.`:`Spricht mit ${m.other.f.name}.`;return a.f.home?'Ist in der Nähe seiner Heimat unterwegs.':'Reist durch Mittelerde.';};
  const FIGHTERS=new Set(['Aragorn','Boromir','Faramir','Legolas','Gimli','Éowyn','Théoden','Gandalf']),HIDERS=new Set(['Frodo','Sam','Gollum']);
  function lifeTick(now){
   if(reduced()||!ready)return;
@@ -322,11 +323,14 @@ export function createMiddleEarth(host,{openTask}={}){
    for(const a of walkers)if(FIGHTERS.has(a.f.name)&&Math.hypot(a.x-q.x,a.y-q.y)<90){q.alertUntil=now+1800;q.alertAt=a;break;}
   }
   if(now>nextMeeting){nextMeeting=now+7000+Math.random()*7000;
-   const free=a=>a&&!a.meet&&!a.visit&&a.mode==='rest'&&!a.path&&!(a.hideUntil>now)&&!(a.guardUntil>now),open=bonds.filter(b=>{const x=namedActor(b.a),y=namedActor(b.b);return free(x)&&free(y)&&now-(b.last??-1e9)>90000;});
-   if(open.length){const b=open[Math.floor(Math.random()*open.length)];b.last=now;startMeeting(namedActor(b.a),namedActor(b.b),spoken(b,namedActor(b.a)),now);}
+   const free=a=>a&&!a.meet&&!a.visit&&!a.quest&&a.mode==='rest'&&!a.path&&!(a.hideUntil>now)&&!(a.guardUntil>now),open=bonds.filter(b=>{const x=namedActor(b.a),y=namedActor(b.b);return free(x)&&free(y)&&now-(b.last??-1e9)>90000;});
+   // The well-known pairs come first half the time; otherwise any two of the great figures may meet.
+   const known=open.filter(b=>b.known);
+   if(open.length){const pool=known.length&&Math.random()<.5?known:open,b=pool[Math.floor(Math.random()*pool.length)];b.last=now;startMeeting(namedActor(b.a),namedActor(b.b),spoken(b,namedActor(b.a)),now);}
   }
+  if(now>nextDoom&&doomWay){nextDoom=now+5000;const fr=namedActor('Frodo'),sa=namedActor('Sam'),go=namedActor('Gollum'),idle=a=>a&&!a.meet&&!a.visit&&!a.quest&&!(a.hideUntil>now);if(idle(fr)&&idle(sa)&&idle(go)){nextDoom=now+200000+Math.random()*160000;startDoomWalk([[fr,0,30,48000],[sa,1800,30,48000],[go,0,24,60000,fr]],now);}}
   if(now>nextVisit){nextVisit=now+9000+Math.random()*9000;
-   const free=a=>a&&!a.meet&&!a.visit&&a.mode==='rest'&&!a.path&&!(a.hideUntil>now)&&!(a.guardUntil>now),open=hallVisits.filter(v=>{const g=namedActor(v.guest),h=namedActor(v.host);return free(g)&&h&&!h.busy&&!h.chat&&h.mode==='rest'&&now-(v.last??-1e9)>120000;}).sort((p,q)=>{const near=v=>{const g=namedActor(v.guest),h=namedActor(v.host);return Math.hypot(g.x-h.x,g.y-h.y)+Math.random()*700;};return near(p)-near(q);});
+   const free=a=>a&&!a.meet&&!a.visit&&!a.quest&&a.mode==='rest'&&!a.path&&!(a.hideUntil>now)&&!(a.guardUntil>now),open=hallVisits.filter(v=>{const g=namedActor(v.guest),h=namedActor(v.host);return free(g)&&h&&!h.busy&&!h.chat&&h.mode==='rest'&&now-(v.last??-1e9)>120000;}).sort((p,q)=>{const near=v=>{const g=namedActor(v.guest),h=namedActor(v.host);return Math.hypot(g.x-h.x,g.y-h.y)+Math.random()*700;};return near(p)-near(q);});
    const handover=talks.map(t=>{if(!t.handover||now-(t.told??-1e9)<120000)return null;const g=actors.find(a=>a.kind==='wanderer'&&a.f.home===t.from&&free(a)),h=actors.find(a=>a.kind==='worker'&&a.site===t.station&&!a.busy&&!a.chat&&a.mode==='rest');return g&&h?{t,g,h}:null;}).find(Boolean);
    if(handover){handover.t.told=now;startVisit(handover.g,handover.h,{tone:'warm',lines:handover.t.handover},now);}else if(open.length){const v=open[0];v.last=now;startVisit(namedActor(v.guest),namedActor(v.host),spoken(v,namedActor(v.guest)),now);}
   }
@@ -372,8 +376,8 @@ export function createMiddleEarth(host,{openTask}={}){
   const line=NAUR_LINES.find(l=>t>=l[0]&&t<l[1]);naurLine=line?{who:naurCast[line[2]],text:line[3]}:null;
   for(const c of Object.values(naurCast)){if(!c.rich&&rigMap){c.rich=dressFigure(rigMap,c.people,c.tool,c.name);c.root.add(c.rich.group);}if(c.rich&&c.root.visible){c.rich.group.visible=true;c.root.userData.body.visible=false;c.rich.play(c.mode,c.speed,reduced()?0:dt,false,c===gollum?'hostile':'warm');}else if(c.root.visible)c.root.userData.pose?.(c.mode==='walk'?now*.012:0,0,false);}
  }
- // Now and then Denethor runs ablaze from the Hall of Kings past the White Tree, along the prow and over the point.
- let pyre=null,pyreAt=performance.now()+45000,pyreClock=-1;
+ // Now and then Denethor runs ablaze from the Hall of Kings past the White Tree, along the prow, and leaps from its point down the whole height of the city.
+ let pyre=null,pyreAt=performance.now()+25000,pyreClock=-1;
  const DENETHOR_WAY=[[0,-2],[17,8],[17,38],[0,56],[0,168]];
  function denethorStep(now,dt){
   const d=districts.get('gate'),c=d.c,close=Math.hypot(cam.x-c.x,cam.y-c.y)<900&&cam.d<1500&&d.open<.15;
@@ -381,10 +385,27 @@ export function createMiddleEarth(host,{openTask}={}){
   if(!pyre){const root=makeFigure('gondor','seal');root.scale.setScalar(.42);root.traverse(n=>{if(n.isMesh)n.castShadow=false;});const flames=[];for(let i=0;i<16;i++){const s=new T.Sprite(new T.SpriteMaterial({map:puffTexture,color:i%3?'#ff4a0a':'#ffa41e',transparent:true,depthWrite:false,fog:false}));root.add(s);flames.push(s);}const light=new T.PointLight('#ff7a2a',600,240,1.5);light.position.y=16;root.add(light);scene.add(root);pyre={root,flames,light};}
   pyreClock+=dt;let left=pyreClock*13*RS,x=DENETHOR_WAY[0][0],z=DENETHOR_WAY[0][1],ry=0,done=true;
   for(let i=0;i<DENETHOR_WAY.length-1;i++){const a=DENETHOR_WAY[i],b=DENETHOR_WAY[i+1],len=Math.hypot(b[0]-a[0],b[1]-a[1])*RS;ry=Math.atan2(b[0]-a[0],b[1]-a[1]);if(left<len){const f=left/len;x=a[0]+(b[0]-a[0])*f;z=a[1]+(b[1]-a[1])*f;done=false;break;}left-=len;x=b[0];z=b[1];}
-  const top=d.y+(CITADEL_TOP+.3)*RS;let y=top,fall=0;if(done){fall=left/(13*RS);y=top+fall*14-fall*fall*38;z+=fall*14/RS;}
-  if(y<d.y+40){pyre.root.visible=false;pyreClock=-1;pyreAt=now+120000+Math.random()*120000;return;}
+  const top=d.y+(CITADEL_TOP+.3)*RS;let y=top,fall=0;if(done){fall=left/(13*RS);y=top+fall*30-fall*fall*42;z+=fall*22/RS;}
+  if(y<groundAt(c.x+x*RS,c.y+z*RS)+2){pyre.root.visible=false;pyreClock=-1;pyreAt=now+60000+Math.random()*60000;return;}
   pyre.root.visible=true;pyre.root.position.set(c.x+x*RS,y,c.y+z*RS);pyre.root.rotation.y=ry;pyre.root.rotation.x=done?fall*1.4:0;pyre.root.userData.pose?.(pyreClock*16,Math.sin(pyreClock*16)*.9,false);
   pyre.flames.forEach((s,i)=>{const q=(pyreClock*1.7+i/16)%1,w=(40+Math.sin(i*2.4)*10)*(1-q*.6);s.position.set(Math.sin(i*2.1+pyreClock*5)*8,6+q*52,Math.cos(i*1.7+pyreClock*6)*8-q*14);s.scale.set(w,w*1.5,1);s.material.opacity=Math.min(1,(1-q)*1.8);});pyre.light.intensity=520+Math.sin(pyreClock*23)*120;
+ }
+ // Now and then Frodo and Sam climb the road to the Sammath Naur and go in, with Gollum creeping after them; later they come out again and go home. Scenery only.
+ function startDoomWalk(party,now){
+  const start=doomWay[0];let stop=0,gap=1e9;roadLoop.forEach((q,i)=>{const d=Math.hypot(q.x-start.x,q.y-start.y);if(d<gap){gap=d;stop=i;}});
+  const climb=doomWay.map(q=>({x:q.x,y:q.y}));
+  // The road to Mordor crosses the middle: along the spoke to the hub gate and out on the spoke nearest the mountain.
+  const across=(i,j)=>i<0||i===j?[]:[...spokes[i],...[...spokes[j]].reverse()];
+  for(const [a,delay,speed,stay,follow] of party){stopMeeting(a);a.hideUntil=a.guardUntil=0;const home=a.f.home?homeOf(a.f.home):roadLoop[a.stop],i=siteIndex(a);
+   a.quest={stage:'wait',at:now+delay,follow,speed,stay,up:[...across(i,stop),...climb],down:[...[...climb].reverse(),...across(stop,i),{x:home.x,y:home.y}]};a.path=null;a.mode='rest';if(pinned===a)renderPerson();}
+ }
+ function questStep(a,now,dt){
+  const q=a.quest;
+  // Gollum only sets out once Frodo has gone in, and creeps after him.
+  if(q.stage==='wait'){a.mode='rest';if(now>q.at&&(!q.follow||q.follow.quest?.stage!=='wait'&&q.follow.quest?.stage!=='up')){q.stage='up';setPath(a,q.up,q.speed);}return;}
+  if(q.stage==='up'){a.mode='walk';if(stepAlong(a,dt)){q.stage='inside';q.at=now+q.stay;a.inside=true;a.path=null;a.mode='rest';}return;}
+  if(q.stage==='inside'){a.mode='rest';if(now>q.at){a.inside=false;q.stage='down';setPath(a,q.down,q.speed);}return;}
+  a.mode='walk';if(stepAlong(a,dt)){a.quest=null;a.mode='rest';a.until=now+4000;if(pinned===a)renderPerson();}
  }
  // A guest calls on someone in their hall: down the road, through the door and across the floor to them.
  function startVisit(guest,host,visit,now){
@@ -406,6 +427,7 @@ export function createMiddleEarth(host,{openTask}={}){
    if(a.kind==='wanderer'&&a.meet?.state==='talk'&&a.meet.first===a){const lines=a.meet.bond.lines,i=Math.min(lines.length-1,Math.floor((now-a.meet.since)/3400));if(lines.length)show(i%2?a.meet.other:a,lines[i]);}
    else if(a.chat&&a.chat.first===a&&districts.get(a.site).open>=.6){const i=Math.min(a.chat.lines.length-1,Math.floor((now-a.chat.since)/4200));if(a.chat.lines.length)show(i%2?a.chat.other:a,a.chat.lines[i]);}
    else if(a.kind==='wanderer'&&a.hideUntil>now&&a.f.name==='Sam')show(a,'Runter, Herr Frodo!');
+   else if(a.quest?.stage==='up'&&doomDoor&&Math.hypot(a.x-doomDoor.x,a.y-doomDoor.z)<140)show(a,{Frodo:'Ich sehe das Feuer schon.',Sam:'Nur noch ein Stück, Herr Frodo.',Gollum:'Schatz… er ist da drin, ganz nah.'}[a.f.name]??'');
   }
   if(naurLine&&doomOpen>.5){const w=naurLine.who.root.getWorldPosition(new T.Vector3()),q=screenOf(w.x,w.y+18,w.z);if(q){const t=sayFor(used++),text=`${naurLine.who.name}: ${naurLine.text}`;if(t.text!==text){t.text=text;t.box.textContent=text;}t.box.hidden=false;t.box.style.transform=`translate3d(${Math.round(q.x)}px,${Math.round(q.y)}px,0) translate(-50%,-100%)`;}}
   for(let i=used;i<sayTags.length;i++)sayTags[i].box.hidden=true;
@@ -511,7 +533,7 @@ export function createMiddleEarth(host,{openTask}={}){
   // The Grey Havens with their swan ships, and the road up Mount Doom.
   puffTexture=smokeTexture();rockSurface=surfaceMaterial(surfaces.rock,{roughness:.86});
   havenGroup=buildHaven(surfaceMaterial(surfaces.marble,{roughness:.62}),surfaceMaterial(surfaces.wood,{roughness:.55}));havenGroup.position.set(haven.x,groundAt(haven.x,haven.y-20),haven.y);scene.add(havenGroup);
-  {const road=doomRoad(groundAt,mountDoom,{x:1640,y:767},holeCut(surfaceMaterial(surfaces.rock,{roughness:.9}),landHole));doomDoor=road.userData.door;doomPortal=road.userData.portal;scene.add(road);{const s=new T.Sprite(new T.SpriteMaterial({map:puffTexture,color:'#ff6a1a',transparent:true,opacity:.34,depthWrite:false,blending:T.AdditiveBlending,fog:false}));s.scale.set(64,120,1);s.position.set(doomDoor.x+Math.sin(DOOR_TURN)*20,doomDoor.y+30,doomDoor.z+Math.cos(DOOR_TURN)*20);scene.add(s);doomPortal.push(s);doorSprite=s;s.position.add(new T.Vector3(Math.sin(DOOR_TURN)*12,0,Math.cos(DOOR_TURN)*12));const fill=new T.PointLight('#ff8a4a',720,300,1.3);doorFill=fill;fill.position.set(doomDoor.x+Math.sin(DOOR_TURN)*60,doomDoor.y+60,doomDoor.z+Math.cos(DOOR_TURN)*60);scene.add(fill);doomPortal.push(fill);}
+  {const road=doomRoad(groundAt,mountDoom,{x:1640,y:767},holeCut(surfaceMaterial(surfaces.rock,{roughness:.9}),landHole));doomDoor=road.userData.door;doomPortal=road.userData.portal;doomWay=road.userData.way;{const spots=[];for(let i=0;i<doomWay.length-1;i++){const a=doomWay[i],b=doomWay[i+1],n=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/4));for(let j=0;j<n;j++){const t=j/n;spots.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,h:a.h+(b.h-a.h)*t});}}spots.push(doomWay[doomWay.length-1]);bridgeSpans.push({spots,box:[Math.min(...spots.map(q=>q.x))-12,Math.min(...spots.map(q=>q.y))-12,Math.max(...spots.map(q=>q.x))+12,Math.max(...spots.map(q=>q.y))+12]});}scene.add(road);{const s=new T.Sprite(new T.SpriteMaterial({map:puffTexture,color:'#ff6a1a',transparent:true,opacity:.34,depthWrite:false,blending:T.AdditiveBlending,fog:false}));s.scale.set(64,120,1);s.position.set(doomDoor.x+Math.sin(DOOR_TURN)*20,doomDoor.y+30,doomDoor.z+Math.cos(DOOR_TURN)*20);scene.add(s);doomPortal.push(s);doorSprite=s;s.position.add(new T.Vector3(Math.sin(DOOR_TURN)*12,0,Math.cos(DOOR_TURN)*12));const fill=new T.PointLight('#ff8a4a',720,300,1.3);doorFill=fill;fill.position.set(doomDoor.x+Math.sin(DOOR_TURN)*60,doomDoor.y+60,doomDoor.z+Math.cos(DOOR_TURN)*60);scene.add(fill);doomPortal.push(fill);}
    shellRock=holeCut(Object.assign(surfaceMaterial(surfaces.rock,{roughness:.92}),{side:T.DoubleSide}),landHole);DOOM_FLOOR=doomDoor.y;naurRoom=buildSammathNaur(rockSurface,shellRock,puffTexture,groundAt,mountDoom,DOOM_FLOOR);scene.add(naurRoom,naurRoom.userData.light);}
   // The dark mere before the gate of Moria, and what lives in it.
   mereGroup=buildMere(mere,puffTexture,groundAt,mereY());mereGroup.position.set(mere.x,mereY(),mere.y);scene.add(mereGroup);
@@ -630,7 +652,7 @@ export function createMiddleEarth(host,{openTask}={}){
    a.mesh.userData.pose(walking?a.phase:0,walking?Math.sin(a.phase)*.6:working?-1.15+Math.sin(t*.009+(a.index??0)*2)*.95:0,(a.carrying||a.kind==='courier')&&walking);
    // Near the camera the simple figure gives way to a fully animated one.
    // Whoever is out of sight costs nothing, and only those near the camera are fully animated.
-   figureBounds.center.copy(a.mesh.position);const seen=viewFrustum.intersectsSphere(figureBounds)&&(a.kind==='worker'?districts.get(a.site).open>0:!a.inHall||districts.get(a.visit.site).open>0);a.mesh.visible=seen;
+   figureBounds.center.copy(a.mesh.position);const seen=viewFrustum.intersectsSphere(figureBounds)&&(a.kind==='worker'?districts.get(a.site).open>0:!a.inHall||districts.get(a.visit.site).open>0)&&!a.inside;a.mesh.visible=seen;
    const near=seen&&rigMap&&Math.hypot(camera.position.x-a.x,camera.position.y-a.mesh.position.y,camera.position.z-a.y)<900;
    if(near&&!a.rich&&dressing>0){dressing--;a.rich=dressFigure(rigMap,a.f.people,a.f.tool,a.f.name);a.mesh.add(a.rich.group);}
    if(a.rich){const show=Boolean(near);a.rich.group.visible=show;a.mesh.userData.body.visible=!show;if(show)a.rich.play(a.mode,a.speed??0,reduced()?0:dt,(a.carrying||a.kind==='courier')&&walking,a.meet?.bond.tone);}

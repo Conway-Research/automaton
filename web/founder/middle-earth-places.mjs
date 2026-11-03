@@ -187,7 +187,9 @@ export function doomRoad(groundAt,doom,from,material){
   for(const [x,z,w] of [[-17,14,4],[15,20,5],[-14,32,3.4],[19,34,3],[-9,42,2.4]])d.rock(x,Y+.4,z,w,w*.8,w*1.2,'#37302a',Math.round(w*3));
   d.box(0,Y,8,60,92,2,'#040302');g.box(0,Y,9.4,46,88,.3,'#060302');g.limb([[0,Y,9.8,13],[1,Y+20,9.8,11],[-1,Y+42,9.8,7],[0,Y+68,9.8,.4]],'#8a2408',6);g.limb([[0,Y,10.6,6],[-1,Y+14,10.6,5],[1,Y+30,10.6,3],[0,Y+46,10.6,.3]],'#ff7a1c',6);for(const s of [-1,1])g.limb([[s*19,Y,10.4,1.3],[s*18,Y+30,10.4,1.2],[s*14,Y+58,10.4,1],[s*7,Y+78,10.4,.7],[s*1,Y+88,10.4,.3]],'#ff5a14',5);g.box(0,Y+.2,12,10,.15,28,'#4a1606');
  });d.lights=null;
- const group=new T.Group(),portal=d.mesh(material),glow=lit(g);group.add(k.mesh(material),portal,glow);group.userData.portal=[portal,glow];group.userData.door={x:q.x,y:Y,z:q.z};return group;
+ const group=new T.Group(),portal=d.mesh(material),glow=lit(g);group.add(k.mesh(material),portal,glow);group.userData.portal=[portal,glow];group.userData.door={x:q.x,y:Y,z:q.z};
+ // The way itself, so walkers can climb it on its surface.
+ group.userData.way=line.map((p,i)=>({x:p.x,y:p.z,h:heights[i]+1.3}));return group;
 }
 
 // ---- Rooms below the land. They live on their own layer and cost nothing until entered ----
