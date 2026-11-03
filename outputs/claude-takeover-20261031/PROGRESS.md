@@ -438,3 +438,6 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Obere Böden (Thronsaal, Steinkammer, Turmspitze): schwarzer Obsidian mit Goldrand, Feuerring um den Schaft, Glut- und Goldnähte; Bild barad-dur-boeden-nacht-20261103.jpg.
 - Thronsaal: brennendes Auge mit Goldrahmen auf der Thronlehne, Goldkanten an den Stufen, roter Teppich mit Goldborte, zwei Feuerbecken, vier Obsidianpfeiler mit Feueradern und Flammenkronen; Bild barad-dur-thronsaal-20261103.jpg.
 - Steinkammer: Palantír auf goldgerandetem Obsidianpodest mit Glutstrahlen, zwei kreisende Feuer-/Goldringe, Goldfassung am Sockel, zwei Feuerbecken, drei hängende Feuerkäfige, goldene Leisten mit Kerzen auf den Regalen; Bild barad-dur-steinkammer-20261103.jpg.
+- Alle Turmböden tragen jetzt das Muster der Torhalle (Auge, Feuerrunen, Lavagraben, Glutrisse), maßstäblich zur Etage (hellFloor).
+- Turmspitze: vergoldete Ringe, brennende Runen am großen Ring, Feueradern an den Armen, goldener Halo unter dem Dach, sechs Feuerschalen; Bild barad-dur-turmspitze-20261103.jpg.
+- Nachtfarben im geöffneten Turm warm statt violett (Nacht-Grading mit towerOpen gedämpft); Bild barad-dur-nacht-warm-20261103.jpg.

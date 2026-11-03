@@ -221,9 +221,16 @@ export function towerInside(k,g){
  const black='#231f1c',iron='#3a3734',steel='#6a6a6c',red='#6a1208';
  // Glows inside a turned frame must turn with it, so the light kit follows each local frame.
  const lit=(x,z,ry,build)=>{k.lights=g;k.local(x,z,ry,build);k.lights=null;};
+ // Every floor is the Eye itself: a gold almond of light on black glass, the ring of fire as its iris and the burning shaft as its pupil,
+ // a ring of fiery letters as on the One Ring, a moat of molten rock between black kerbs and fine cracks of ember. All of it scales with the floor.
+ const hellFloor=(y,r,taken=()=>false)=>{const s=r/80,eye=sign=>{const n=18;for(let i=0;i<n;i++){const t0=-1+2*i/n,t1=-1+2*(i+1)/n,x0=30*s*t0,x1=30*s*t1,z0=sign*10*s*(1-t0*t0),z1=sign*10*s*(1-t1*t1),len=Math.hypot(x1-x0,z1-z0);g.box((x0+x1)/2,y+.12,(z0+z1)/2,.9,.24,len+.3,'#ffb23a',Math.atan2(x1-x0,z1-z0));}};eye(1);eye(-1);
+  g.add(g.torus(Math.max(7.6,11*s),.8),0,y+.2,0,1,1,1,'#b8300a',0,Math.PI/2);g.add(g.torus(Math.max(6.8,8.6*s),.35),0,y+.25,0,1,1,1,'#ffb23a',0,Math.PI/2);for(let i=0;i<24;i++){const a=i/24*TAU,q=Math.max(9.4,13.4*s);g.box(Math.sin(a)*q,y+.1,Math.cos(a)*q,.3,.2,(2.6+(i%3))*Math.max(.5,s),'#ff7a2a',a);}
+  const runes=Math.round(64*Math.max(.45,s));for(let i=0;i<runes;i++){const a=i/runes*TAU,x=Math.sin(a)*40*s,z=Math.cos(a)*40*s;if(taken(x,z))continue;const w=[1.4,.5,2.2,.9][i%4],d=[.6,2,.8,1.6][(i*3)%4];g.box(x,y+.1,z,w,.2,d,'#ffb23a',a+(i%2)*.5);if(i%3===0)g.ball(x+Math.cos(a)*1.4,y+.15,z-Math.sin(a)*1.4,.4,'#ffd27a',.4);}
+  g.add(g.torus(50*s,1.1),0,y-.4,0,1,1,1,'#7a1804',0,Math.PI/2);g.add(g.torus(50*s,.32),0,y+.6,0,1,1,1,'#e8560e',0,Math.PI/2);for(const q of [50*s-2.4,50*s+2.4])k.add(k.torus(q,.9),0,y+.3,0,1,1,1,'#0c0a09',0,Math.PI/2);
+  const cracks=Math.round(46*Math.max(.4,s));for(let i=0;i<cracks;i++){const a=i*2.399,q=(17+((i*37)%28))*s,x=Math.sin(a)*q,z=Math.cos(a)*q;if(q<9||taken(x,z))continue;g.box(x,y+.06,z,.22,.12,(3+(i%4)*1.6)*Math.max(.5,s),i%5?'#8a1c06':'#ff4a12',a*1.7);}};
  for(const [y,r,c] of floors){k.column(0,y-3,0,r,3,c,36);k.column(0,y-3.6,0,r+1.2,.8,iron,36);for(let i=0;i<36;i++){const a=i*2.399,q=Math.sqrt((i+.5)/36)*r*.92;k.box(Math.sin(a)*q,y,Math.cos(a)*q,7,.14,5,'#0d0a09',a);}
-  // The upper floors are black glass like the hall below: a gold rim, a ring of fire round the shaft and seams of ember running out from it.
-  if(y>26){g.add(g.torus(r-2.4,.32),0,y+.12,0,1,1,1,'#ffb23a',0,Math.PI/2);g.add(g.torus(10.5,.45),0,y+.12,0,1,1,1,'#e8560e',0,Math.PI/2);const n=Math.round(r/5);for(let i=0;i<n;i++){const a=(i+.5)/n*TAU,len=r-17;g.box(Math.sin(a)*(12.5+len/2),y+.08,Math.cos(a)*(12.5+len/2),i%2?.22:.34,.14,len,i%2?'#8a1c06':'#ffb23a',a);}for(let i=0;i<n*2;i++){const a=i/(n*2)*TAU,q=r*.62;g.box(Math.sin(a)*q,y+.08,Math.cos(a)*q,.2,.14,q*TAU/(n*2)*.7,'#c8360a',a+Math.PI/2);}}}
+  // The gate hall keeps its letters and cracks off the forge dais and the war table.
+  hellFloor(y,r,y===26?(x,z)=>Math.abs(x)<20&&z>9||Math.abs(x)<26&&z<-15:undefined);if(y>26)g.add(g.torus(r-2.4,.32),0,y+.12,0,1,1,1,'#ffb23a',0,Math.PI/2);}
  // The shaft: an iron cage around a pillar of fire, broken only by the floors.
  g.column(0,26,0,3.6,350,'#ff6a1a',12);g.column(0,26,0,1.9,350,'#ffd27a',8);for(let y=30;y<376;y+=9){k.column(0,y,0,7.4,.8,iron,12);}for(let i=0;i<8;i++){const a=i/8*TAU;k.column(Math.sin(a)*7.4,26,Math.cos(a)*7.4,.6,350,iron,5);}
  // Stairs winding up inside the wall.
@@ -234,15 +241,6 @@ export function towerInside(k,g){
  for(let i=0;i<3;i++){const a=2.515+i*.628,x=Math.sin(a)*68,z=Math.cos(a)*68;lit(x,z,a+Math.PI,()=>{k.box(0,26,0,24,24,12,'#1c1815');k.box(0,26,6.2,18,14,.5,'#060403');g.box(0,27,6.5,14,10,.3,'#ff6a1a');g.box(0,28,6.7,8,6,.3,'#ffc23a');k.box(0,50,0,10,34,8,'#191613');});}
  lit(0,-30,0,()=>{k.box(0,26,0,44,11,24,'#2a2320');k.box(0,37,0,47,1.2,27,'#3a2f28');k.box(0,38.2,0,38,.3,20,'#6a5a40');for(const [a,b] of [[-12,-3],[-3,5],[8,-5],[13,4]])g.ball(a,39,b,1,'#ff7a2a');});
  for(let i=0;i<7;i++){const a=-2.3+i*.14;k.box(Math.sin(a)*72,26,Math.cos(a)*72,.8,34,.8,'#3a2a18');k.cone(Math.sin(a)*72,60,Math.cos(a)*72,1.6,6,steel,4);}
- // The floor of the gate hall is the Eye itself: a gold almond of light on black glass, the ring of fire as its iris and the burning shaft as its pupil.
- {const eye=(sign)=>{const n=18;for(let i=0;i<n;i++){const t0=-1+2*i/n,t1=-1+2*(i+1)/n,x0=30*t0,x1=30*t1,z0=sign*10*(1-t0*t0),z1=sign*10*(1-t1*t1),len=Math.hypot(x1-x0,z1-z0);g.box((x0+x1)/2,26.12,(z0+z1)/2,.9,.24,len+.3,'#ffb23a',Math.atan2(x1-x0,z1-z0));}};eye(1);eye(-1);
-  g.add(g.torus(11,.8),0,26.2,0,1,1,1,'#b8300a',0,Math.PI/2);g.add(g.torus(8.6,.35),0,26.25,0,1,1,1,'#ffb23a',0,Math.PI/2);for(let i=0;i<24;i++){const a=i/24*TAU;g.box(Math.sin(a)*13.4,26.1,Math.cos(a)*13.4,.3,.2,2.6+(i%3),'#ff7a2a',a);}
-  // A ring of fiery letters, as on the One Ring, runs round the Eye wherever the floor is free.
-  for(let i=0;i<64;i++){const a=i/64*TAU,x=Math.sin(a)*40,z=Math.cos(a)*40;if(Math.abs(x)<20&&z>0||Math.abs(x)<26&&z<0)continue;const w=[1.4,.5,2.2,.9][i%4],d=[.6,2,.8,1.6][(i*3)%4];g.box(x,26.1,z,w,.2,d,'#ffb23a',a+(i%2)*.5);if(i%3===0)g.ball(x+Math.cos(a)*1.4,26.15,z-Math.sin(a)*1.4,.4,'#ffd27a',.4);}
-  // A moat of molten rock between black kerbs closes the floor in, just inside the pillars.
-  g.add(g.torus(50,1.1),0,25.6,0,1,1,1,'#7a1804',0,Math.PI/2);g.add(g.torus(50,.32),0,26.6,0,1,1,1,'#e8560e',0,Math.PI/2);for(const r of [47.6,52.4])k.add(k.torus(r,.9),0,26.3,0,1,1,1,'#0c0a09',0,Math.PI/2);
-  // Fine cracks of ember run through the black glass.
-  for(let i=0;i<46;i++){const a=i*2.399,r=17+((i*37)%28),x=Math.sin(a)*r,z=Math.cos(a)*r;if(Math.abs(x)<19&&z>9||Math.abs(x)<25&&z<-15)continue;g.box(x,26.06,z,.22,.12,3+(i%4)*1.6,i%5?'#8a1c06':'#ff4a12',a*1.7);}}
  // Each pillar carries veins of fire up its inner face and an iron bowl of flame.
  for(let i=0;i<10;i++){const a=(i+.5)/10*TAU,s=Math.sin(a),c=Math.cos(a);for(const [o,h] of [[-1.6,64],[1.4,48]])g.box(s*53.2+c*o,26,c*53.2-s*o,.5,h,.4,'#ff4a12',a);k.box(s*52,70,c*52,3,1.2,5,iron,a);k.cyl(s*50.5,71,c*50.5,3.2,1.6,2.6,iron,8);g.lamp(s*50.5,77,c*50.5,2.2);}
  // A fall of molten rock pours down the eastern wall into a glowing basin.
@@ -275,6 +273,13 @@ export function towerInside(k,g){
  // The top: the great ring that gathers the fire and feeds the horns.
  k.add(k.torus(16,2.2),0,340,0,1,1,1,iron,0,Math.PI/2);k.add(k.torus(11,1.2),0,352,0,1,1,1,'#58504a',0,Math.PI/2);for(let i=0;i<6;i++){const a=i/6*TAU;k.limb([[Math.sin(a)*16,340,Math.cos(a)*16,1.2],[Math.sin(a)*8,330,Math.cos(a)*8,.8],[Math.sin(a)*7,320,Math.cos(a)*7,.8]],iron,5);}g.column(0,312,0,6,60,'#ff5a14',10);
  k.column(0,376,0,36,3,black,24);
+ // The crown of the shaft is set in gold: gilded collars on the iron rings, burning letters round the great ring, veins of fire up its arms,
+ // a halo of gold under the roof and six bowls of flame round the top floor.
+ g.add(g.torus(16.4,.5),0,342,0,1,1,1,'#ffb23a',0,Math.PI/2);g.add(g.torus(16.4,.5),0,338,0,1,1,1,'#c9962d',0,Math.PI/2);g.add(g.torus(11.2,.4),0,353.4,0,1,1,1,'#ffb23a',0,Math.PI/2);
+ for(let i=0;i<36;i++){const a=i/36*TAU;g.box(Math.sin(a)*18.3,339.2+(i%3)*.5,Math.cos(a)*18.3,[1.2,.4,1.8][i%3],[.5,1.6,.7][(i*2)%3],.3,'#ff7a2a',a);}
+ for(let i=0;i<6;i++){const a=i/6*TAU+.08,c=Math.sin(a),n=Math.cos(a);g.limb([[c*17.3,340,n*17.3,.3],[c*9.3,330,n*9.3,.25],[c*8.3,320,n*8.3,.25]],'#ff5a12',4);}
+ g.add(g.torus(30,.5),0,375.4,0,1,1,1,'#ffb23a',0,Math.PI/2);g.add(g.torus(24,.3),0,375.6,0,1,1,1,'#e8560e',0,Math.PI/2);for(let i=0;i<16;i++){const a=i/16*TAU;g.box(Math.sin(a)*27,375.5,Math.cos(a)*27,.3,.2,5,'#ffb23a',a);}
+ for(let i=0;i<7;i++){const a=i/7*TAU;if(Math.abs(Math.atan2(Math.sin(a-5.52),Math.cos(a-5.52)))<.7)continue;const x=Math.sin(a)*21.5,z=Math.cos(a)*21.5;k.cyl(x,312,z,1.4,.9,6,iron,6);k.cyl(x,318,z,2.6,1.4,1.4,iron,8);g.lamp(x,321,z,2);}
  for(let i=0;i<14;i++){const a=i/14*TAU;for(const [y,r] of [[60,84],[150,62],[262,38]]){g.box(Math.sin(a)*r,y,Math.cos(a)*r,.7,8,.7,'#ff6a1a');}}
 }
 export const towerGuards=[[-34,26,-58,.4,'uruk','sword'],[34,26,-58,-.4,'uruk','sword'],[34,26,-12,.2,'orc','pick'],[-58,26,-16,1.2,'orc','sword'],[-14,116,-20,.3,'uruk','sword'],[14,116,-20,-.3,'uruk','sword'],[-24,116,-4,.8,'orc','sword'],[-10,220,-16,.5,'orc','scroll'],[12,220,-14,-.5,'orc','book']];
