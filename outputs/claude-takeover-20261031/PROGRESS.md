@@ -435,3 +435,4 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Ringschmiede: Podest aus schwarzem Glas mit Goldkante, vier Feuerbecken, Goldrinne zum Amboss, schwebender rotierender Einer Ring über der Esse, stärkere Glut.
 - Felssockel des Turms innen ausgehöhlt (hollowCore), damit er den Hallenboden nicht mehr verdeckt; Turmansicht zielt tiefer (towerY+100), die Schmiede steht im Bildzentrum.
 - Bild: barad-dur-torhalle-ringschmiede-20261103.jpg. Numaron AUS, kein Apply.
+- Obere Böden (Thronsaal, Steinkammer, Turmspitze): schwarzer Obsidian mit Goldrand, Feuerring um den Schaft, Glut- und Goldnähte; Bild barad-dur-boeden-nacht-20261103.jpg.

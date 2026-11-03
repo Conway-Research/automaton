@@ -201,7 +201,7 @@ export const flowMaterial=()=>new T.ShaderMaterial({vertexColors:true,transparen
  }`});
 
 // ---- The Dark Tower, opened: each storey narrower than the one below, the shaft of fire running up to the Eye ----
-const floors=[[26,80,'#161110'],[116,57,'#2c2724'],[220,40,'#26211f'],[312,26,'#221d1b']];
+const floors=[[26,80,'#161110'],[116,57,'#130f0e'],[220,40,'#130f0e'],[312,26,'#130f0e']];
 // Sauron's ring forge in the gate hall, on the side the tower opens towards: an open bed of embers, the anvil with a glowing ring on it, a quenching trough and his tools.
 // It is drawn without the reveal cut, so the floors above never hide it; its hearth faces the side the tower opens towards.
 export const ringForge={x:0,z:30,turn:0};
@@ -221,7 +221,9 @@ export function towerInside(k,g){
  const black='#231f1c',iron='#3a3734',steel='#6a6a6c',red='#6a1208';
  // Glows inside a turned frame must turn with it, so the light kit follows each local frame.
  const lit=(x,z,ry,build)=>{k.lights=g;k.local(x,z,ry,build);k.lights=null;};
- for(const [y,r,c] of floors){k.column(0,y-3,0,r,3,c,36);k.column(0,y-3.6,0,r+1.2,.8,iron,36);for(let i=0;i<36;i++){const a=i*2.399,q=Math.sqrt((i+.5)/36)*r*.92;k.box(Math.sin(a)*q,y,Math.cos(a)*q,7,.14,5,'#1a1614',a);}}
+ for(const [y,r,c] of floors){k.column(0,y-3,0,r,3,c,36);k.column(0,y-3.6,0,r+1.2,.8,iron,36);for(let i=0;i<36;i++){const a=i*2.399,q=Math.sqrt((i+.5)/36)*r*.92;k.box(Math.sin(a)*q,y,Math.cos(a)*q,7,.14,5,'#0d0a09',a);}
+  // The upper floors are black glass like the hall below: a gold rim, a ring of fire round the shaft and seams of ember running out from it.
+  if(y>26){g.add(g.torus(r-2.4,.32),0,y+.12,0,1,1,1,'#ffb23a',0,Math.PI/2);g.add(g.torus(10.5,.45),0,y+.12,0,1,1,1,'#e8560e',0,Math.PI/2);const n=Math.round(r/5);for(let i=0;i<n;i++){const a=(i+.5)/n*TAU,len=r-17;g.box(Math.sin(a)*(12.5+len/2),y+.08,Math.cos(a)*(12.5+len/2),i%2?.22:.34,.14,len,i%2?'#8a1c06':'#ffb23a',a);}for(let i=0;i<n*2;i++){const a=i/(n*2)*TAU,q=r*.62;g.box(Math.sin(a)*q,y+.08,Math.cos(a)*q,.2,.14,q*TAU/(n*2)*.7,'#c8360a',a+Math.PI/2);}}}
  // The shaft: an iron cage around a pillar of fire, broken only by the floors.
  g.column(0,26,0,3.6,350,'#ff6a1a',12);g.column(0,26,0,1.9,350,'#ffd27a',8);for(let y=30;y<376;y+=9){k.column(0,y,0,7.4,.8,iron,12);}for(let i=0;i<8;i++){const a=i/8*TAU;k.column(Math.sin(a)*7.4,26,Math.cos(a)*7.4,.6,350,iron,5);}
  // Stairs winding up inside the wall.
