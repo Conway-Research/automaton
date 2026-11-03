@@ -77,6 +77,8 @@ export function createMiddleEarth(host,{openTask}={}){
  const sky=new T.HemisphereLight('#b4bcc4','#5a5952',.32);scene.add(sky);
  // Two lamps move to whichever room is being looked at, so a world of rooms costs only these two.
  const roomLamps=[new T.PointLight('#ffffff',0,525,1.25),new T.PointLight('#ffffff',0,525,1.25)];scene.add(...roomLamps);let litRoom=null,daylight=1;
+ // Rivendell's homely house: three warm pools of lamplight over the valley that wake only at night.
+ const homely=[[0,175,60],[0,-160,70],[0,0,190]].map(([a,b,up])=>{const c=hallCentre('library'),x=c.x+a*RS,z=c.y+b*RS,l=new T.PointLight('#ffb25a',0,760,1);l.position.set(x,groundAt(x,z)+up,z);scene.add(l);return l;});
  // A low evening sun: long shadows and warm light give the land its depth.
  const sun=new T.DirectionalLight('#ffdcb0',2.7);sun.castShadow=true;sun.shadow.mapSize.setScalar(matchMedia('(pointer:coarse)').matches?2048:4096);sun.shadow.bias=-.0006;sun.shadow.normalBias=1.2;scene.add(sun,sun.target);
 
@@ -571,7 +573,7 @@ export function createMiddleEarth(host,{openTask}={}){
   // The light and leaf programs are prepared while the loading note still shows, so the first picture does not freeze.
   naurRoom.visible=towerRoom.visible=true;renderer.setRenderTarget(film?.main??null);await Promise.race([renderer.compileAsync(scene,camera).catch(()=>{}),new Promise(done=>setTimeout(done,6000))]);renderer.setRenderTarget(null);naurRoom.visible=towerRoom.visible=false;
   {const centres={mordor:{x:HUB_SITE.x,y:HUB_SITE.y},haven:{x:haven.x,y:haven.y}};for(const d of districts.values())centres[d.id]=d.c;weather=buildWeather(puffTexture,centres);scene.add(weather.group);weatherCentres=centres;}
-  {const points=[];for(const id of Object.keys(sitePlaces)){const elven=id==='library'||id==='lorien'||id==='council',way=lanes[id];const put=(x,z,up)=>{if(!onRoad(x,z,24))points.push({x,y:groundAt(x,z)+up,z,cool:elven});};way.forEach((q,i)=>{if(i%3===0&&i>1){const b=way[Math.min(way.length-1,i+1)],a=way[i-1],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;for(const s of [-1,1])put(q.x-dy/len*s*30,q.y+dx/len*s*30,9);}});const c=hallCentre(id);for(let i=0;i<8;i++){const a=i/8*6.283,r=200*RS;if(Math.sin(a)>.5)continue;put(c.x+Math.cos(a)*r,c.y+Math.sin(a)*r,14);}}nightLamps=buildNightLamps(puffTexture,points);scene.add(nightLamps,nightLamps.userData.poles);}
+  {const points=[];for(const id of Object.keys(sitePlaces)){const elven=id==='lorien'||id==='council',way=lanes[id];const put=(x,z,up)=>{if(!onRoad(x,z,24))points.push({x,y:groundAt(x,z)+up,z,cool:elven});};way.forEach((q,i)=>{if(i%3===0&&i>1){const b=way[Math.min(way.length-1,i+1)],a=way[i-1],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;for(const s of [-1,1])put(q.x-dy/len*s*30,q.y+dx/len*s*30,9);}});const c=hallCentre(id);for(let i=0;i<8;i++){const a=i/8*6.283,r=200*RS;if(Math.sin(a)>.5)continue;put(c.x+Math.cos(a)*r,c.y+Math.sin(a)*r,14);}}nightLamps=buildNightLamps(puffTexture,points);scene.add(nightLamps,nightLamps.userData.poles);}
   // What hangs in the air darkens with the day; the glowing things and the Eye keep their own light.
   scene.traverse(n=>{if((n.isSprite||n.isPoints)&&n.material.blending===T.NormalBlending&&n.material.color&&n!==eye.closed&&!weather.group.children.includes(n))dimmed.push({m:n.material,base:n.material.color.clone()});});
   for(const d of districts.values()){d.group.updateMatrixWorld(true);const box=new T.Box3();for(const part of [d.outside,d.roof,...d.walls.map(w=>w.mesh)])box.expandByObject(part);gazeWalls.push(box);}gazeWalls.push(new T.Box3().setFromObject(havenGroup));
@@ -712,7 +714,7 @@ export function createMiddleEarth(host,{openTask}={}){
   if(moving)shownHour=(shownHour+Math.sign(gap)*Math.min(Math.abs(gap),dt*Math.max(1.5,Math.abs(gap)*2.2))+24)%24;
   if(!skyLight||moving||now-skyStamp>4000){skyStamp=now;const date=atZurichHour(shownHour,base),s=sunOverZurich(date);skyLight=lightAt(s);skyPhase=phaseOf(s,shownHour);
    const L=skyLight;dome.uniforms.sunDir.value.set(L.sunOnly.x,L.sunOnly.y,L.sunOnly.z);dome.uniforms.moonDir.value.set(L.moonDir.x,L.moonDir.y,L.moonDir.z);dome.uniforms.zenith.value.setRGB(...L.zenith);dome.uniforms.horizon.value.setRGB(...L.horizon);dome.uniforms.night.value=L.night;dome.uniforms.golden.value=L.golden;
-   scene.fog.color.setRGB(...L.fog);worldDay.value=L.day;sea?.material.uniforms.sunDir.value.set(L.dir.x,L.dir.y,L.dir.z);film?.setNight?.(L.night);
+   scene.fog.color.setRGB(...L.fog);worldDay.value=L.day;for(const l of homely)l.intensity=L.night*1500;sea?.material.uniforms.sunDir.value.set(L.dir.x,L.dir.y,L.dir.z);film?.setNight?.(L.night);
    if(landBake)landBake.value=Math.max(0,Math.min(1,((L.dir.x*SUN.x+L.dir.y*SUN.y+L.dir.z*SUN.z)/Math.hypot(SUN.x,SUN.y,SUN.z)-.86)/.12))*L.day;
    for(const q of dimmed)q.m.color.copy(q.base).multiplyScalar(.14+.86*L.day);
    if(nightLamps){const v=Math.max(0,1-L.day*1.6);nightLamps.material.uniforms.level.value=v;nightLamps.visible=v>.01;}

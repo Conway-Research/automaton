@@ -16,7 +16,7 @@ const WATER=new Set(['#cfe2e8','#3f7f96']);
 // Fire everywhere is the same living flame: a quad that faces the view and burns in the fragment program.
 export const flameClock={value:0};
 export const worldDay={value:1};
-export function fireAt(kit,x,y,z,r,h){const p=new T.Vector3(x,y,z);if(kit.parent)p.applyMatrix4(kit.parent);(kit.fires??=[]).push([p.x,p.y+(kit.ground?kit.ground(p.x,p.z):0),p.z,r,h,kit.elven?1:0]);}
+export function fireAt(kit,x,y,z,r,h){const p=new T.Vector3(x,y,z);if(kit.parent)p.applyMatrix4(kit.parent);const f=kit.flameScale??1;(kit.fires??=[]).push([p.x,p.y+(kit.ground?kit.ground(p.x,p.z):0),p.z,r*f,h*f,kit.elven?1:0]);}
 const flameMaterial=new T.ShaderMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending,fog:false,uniforms:{time:flameClock,flameDay:worldDay,level:{value:1}},
  vertexShader:`attribute vec2 corner;attribute vec4 seed;uniform float time;varying vec2 vC;varying float vS;varying float vCool;void main(){vC=corner;vS=seed.z;vCool=seed.w;vec3 c=(modelMatrix*vec4(position,1.)).xyz;float s=length(modelMatrix[0].xyz);vec3 right=vec3(viewMatrix[0][0],viewMatrix[1][0],viewMatrix[2][0]),up=normalize(vec3(0.,.8,0.)+vec3(viewMatrix[0][1],viewMatrix[1][1],viewMatrix[2][1])*.55);gl_Position=projectionMatrix*viewMatrix*vec4(c+right*corner.x*seed.x*s+up*corner.y*seed.y*s,1.);}`,
  fragmentShader:`uniform float time;uniform float flameDay;uniform float level;varying vec2 vC;varying float vS;varying float vCool;float h21(vec2 p){p=fract(p*vec2(.1031,.103));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
@@ -286,10 +286,11 @@ export function stationInto(k,tool,x,z,g=k){
 // ---- Halls ----
 
 // Everything belonging to one district. Walls and roof lift away separately; close details appear only near the camera.
-const ELVEN=new Set(['library','lorien']);
+// Lothlórien burns in cool elven white; Rivendell's lamps glow warm gold and larger, a homely house at night.
+const ELVEN=new Set(['lorien']),FLAME_SCALE={library:1.45};
 export function buildDistrict(id,crew,art){
  const group=new T.Group(),inside=new Kit(),light=new Kit(),out=new Kit(),near=new Kit(),nearLight=new Kit(),fx={smoke:[],embers:[],spray:[],leaves:[]};
- light.keepFires=nearLight.keepFires=true;light.elven=nearLight.elven=ELVEN.has(id);
+ light.keepFires=nearLight.keepFires=true;light.elven=nearLight.elven=ELVEN.has(id);light.flameScale=nearLight.flameScale=FLAME_SCALE[id]??1;
  inside.lights=light;art.interiors[id](inside,light);inside.lights=null;
  for(const m of crew){const q=crewPoint(m);stationInto(inside,m.tool,q.x,q.z,light);}
  const grid=art.walkGrid(inside.pos,(x,z)=>art.floor(id,x,z)),flowing=new Kit();

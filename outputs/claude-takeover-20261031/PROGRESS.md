@@ -374,3 +374,11 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Bruchtal bei Nacht (22:30) angesehen: kühlweiße Elbenlampen an Türmen, Terrassen, Wegen und im offenen Saal, warmes Licht in den Fenstern.
 - Bilder: bruchtal-bach-fliessend-20261103.jpg, bruchtal-nacht-20261103.jpg, bruchtal-nacht-saal-20261103.jpg.
 - Nur isolierte Vorschau. Kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: warmes Bruchtal bei Nacht, Lothlórien bei Nacht
+
+- Push: origin (Conway-Research) verweigert den Zugriff (403). Der Fork tricebr/automaton ist öffentlich, deshalb ist dort noch nichts gepusht.
+- Bruchtal: Die Lampen brennen warm golden statt kühlweiß, auch die Wegelampen. Flammen und Lichthöfe sind 1,45-mal so groß. Drei warme Lichtquellen über Haus, Vorplatz und Rückseite gehen nur nachts an (mit L.night). Lothlórien bleibt kühl elbisch weiß.
+- Lothlórien bei Nacht angesehen: silbern im Mondlicht, weiße Lampen am Saal und auf den Talans.
+- Bilder: bruchtal-nacht-warm-20261103.jpg, bruchtal-nacht-saal-warm-20261103.jpg, lothlorien-nacht-20261103.jpg.
+- Nur isolierte Vorschau. Kein Apply, Numaron AUS. Diese Runde ist noch nicht committet.
