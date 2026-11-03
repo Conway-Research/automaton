@@ -23,15 +23,13 @@ export function buildDome(){
  mesh.renderOrder=-20;mesh.frustumCulled=false;mesh.scale.setScalar(52000);return {mesh,uniforms};
 }
 
-// Weather lives in zones. Each zone carries its own clouds and rain curtains; what falls close to the camera follows the zone under it.
+// Weather lives in zones. Each zone carries its own clouds; what falls close to the camera follows the zone under it.
 export function buildWeather(puff,centres){
  const group=new T.Group(),zones=new Map();
- const streak=(()=>{const n=document.createElement('canvas');n.width=64;n.height=256;const c=n.getContext('2d'),g=c.createLinearGradient(0,0,0,256);g.addColorStop(0,'#ffffff00');g.addColorStop(.25,'#ffffff55');g.addColorStop(.8,'#ffffff33');g.addColorStop(1,'#ffffff00');c.fillStyle=g;for(let i=0;i<34;i++){c.globalAlpha=.25+((i*37)%10)/14;c.fillRect((i*19)%64,(i*53)%40,1+(i%2),160+(i*29)%90);}const t=new T.CanvasTexture(n);return t;})();
  for(const [id,c] of Object.entries(centres)){
-  const clouds=[],curtains=[];
+  const clouds=[];
   for(let i=0;i<9;i++){const a=i*2.399+id.length,r=90+i*62,s=new T.Sprite(new T.SpriteMaterial({map:puff,color:'#ffffff',transparent:true,opacity:0,depthWrite:false,fog:false}));s.position.set(c.x+Math.cos(a)*(r+120),760+(i%3)*60,c.y+Math.sin(a)*(r+120)*.8);const w=300+(i%4)*90;s.scale.set(w,w*.36,1);s.renderOrder=6;group.add(s);clouds.push({s,a,r,x:s.position.x,z:s.position.z});}
-  for(let i=0;i<4;i++){const a=i*1.7+id.length,r=120+i*80,s=new T.Sprite(new T.SpriteMaterial({map:streak,color:'#b8c6d2',transparent:true,opacity:0,depthWrite:false,fog:false}));s.position.set(c.x+Math.cos(a)*r,320,c.y+Math.sin(a)*r*.8);s.scale.set(330,520,1);s.renderOrder=5;group.add(s);curtains.push(s);}
-  zones.set(id,{id,c,clouds,curtains,cover:0,fall:0,kind:'clear'});
+  zones.set(id,{id,c,clouds,cover:0,fall:0,kind:'clear'});
  }
  // Close up, drops, flakes and ash fall in a box around the view; a small program moves them, so thousands cost almost nothing.
  const COUNT=2400,pos=new Float32Array(COUNT*3),seed=new Float32Array(COUNT);{let s=1234;const r=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<COUNT;i++){pos[i*3]=r();pos[i*3+1]=r();pos[i*3+2]=r();seed[i]=r();}}
@@ -52,8 +50,6 @@ export function buildWeather(puff,centres){
     const w=WEATHER[kinds[z.id]??'clear'];z.kind=kinds[z.id]??'clear';z.cover+=(w.cover-z.cover)*k;z.fall+=((w.fall?1:0)-z.fall)*k;
     const dark=(.22+.78*light.day),grey=1-z.cover*.5,sunset=light.golden;
     z.clouds.forEach((q,i)=>{q.x+=dt*(4+(i%3));const span=q.r*1.25+160;let dx=q.x-z.c.x;if(dx>span){q.x=z.c.x-span;dx=-span;}q.s.position.x=q.x;q.s.material.opacity=Math.min(.26,Math.max(0,z.cover*(i<2+z.cover*7?1:0)*.34)*(1-smooth(span*.72,span,Math.abs(dx))))*far;q.s.visible=q.s.material.opacity>.004;q.s.material.color.setRGB((grey+sunset*.35)*dark,(grey+sunset*.06)*dark,(grey-sunset*.12)*dark);});
-    // Seen from straight above the falling veils would only be flat sheets, so they fade out as the view tips over.
-    const upright=1-smooth(.98,1.22,cam.pitch??0);for(const s of z.curtains){s.material.opacity=z.fall*.12*far*dark*upright*(z.kind==='snow'?.75:1);s.visible=s.material.opacity>.004;}
    }
    const zone=zones.get(zoneHere),w=WEATHER[zone?.kind??'clear'],look=w.fall?looks[w.fall]:null;
    if(look&&look!==current&&strength<.03){current=look;u.speed.value=look.speed;u.sway.value=look.sway;u.size.value=look.size;u.streak.value=look.streak;u.tone.value.set(look.tone);}

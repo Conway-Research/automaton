@@ -422,3 +422,10 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Barad-dûr: In der Torhalle steht Saurons Ringschmiede mit Esse, Amboss, glühendem Ring, Trog und Werkzeug. Zwölf Minuten jeder halben Stunde arbeitet Sauron dort mit dem Hammer und ist dann nicht draussen unterwegs. Die Glut aller Essen im Turm dreht sich jetzt mit ihrem Rahmen. Die Schmiede ist per Messung geprüft. Im Bild ist sie wegen des Stockwerks darüber schwer zu sehen.
 - Wetter: Regen- und Schneeschleier blenden in steiler Draufsicht aus.
 - Nur isolierte Vorschau mit Testhook, der Hook ist wieder entfernt. Kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: keine Schleier, sichtbare Ringschmiede
+
+- Wetter: Die senkrechten Regen- und Ascheschleier sind ganz entfernt. Niederschlag zeigen nur noch Tropfen, Flocken und Asche nahe der Kamera sowie die weichen Wolken.
+- Barad-dûr: Die Ringschmiede steht jetzt auf der Seite, zu der sich der Turm öffnet, nahe der Mitte der Torhalle. Sie wird ohne Aufschnitt gezeichnet und hat ein offenes Glutbett mit eigenem Feuerlicht. Sauron steht seitlich am Amboss. Bild: barad-dur-ringschmiede-20261103.jpg.
+- Tests: Node-Tests 21 von 21 grün. Vitest-Suite 4410 von 4410 grün. In einem ersten Lauf schlug ein Test fehl, beim erneuten Lauf nicht mehr (nicht reproduzierbar).
+- Nur isolierte Vorschau, Hook wieder entfernt. Kein Apply, Numaron AUS.
