@@ -263,9 +263,15 @@ export function towerInside(k,g){
   // Four piers of black glass with veins of fire rise behind the throne, each crowned with flame.
   for(const a of [Math.PI-.4,Math.PI+.4,Math.PI-.75,Math.PI+.75]){const x=Math.sin(a)*52,z=Math.cos(a)*52,c=Math.cos(a),s=Math.sin(a);k.cyl(x,116,z,3,3.8,58,'#0d0a09',8);k.cyl(x,174,z,4.6,3,2,iron,8);g.lamp(x,178,z,3);for(const o of [-1.2,1.2])g.box(x-s*2.9+c*o,116,z-c*2.9-s*o,.35,56,.35,o>0?'#ff4a12':'#ffb23a',a);}}
  // The chamber of the seeing stone of Minas Ithil, with shelves of dark records and chains.
- k.column(0,220,-22,7,3,'#141210',10);k.cyl(0,223,-22,2.4,4,10,'#17151a',8);k.cyl(0,233,-22,5,2.4,3,iron,8);g.ball(0,240,-22,5,'#d0480a');g.ball(0,240,-22,3,'#ffb04a');
+ k.column(0,220,-22,7,3,'#141210',10);k.cyl(0,223,-22,2.4,4,10,'#17151a',8);k.cyl(0,233,-22,5,2.4,3,iron,8);g.ball(0,240,-22,5,'#902408');for(const z of [-17.2,-26.8])g.add(g.cube(),0,240,z,.7,5.6,.4,'#ffc23a');
  for(let i=0;i<5;i++){const a=2+i*.55,x=Math.sin(a)*33,z=Math.cos(a)*33;lit(x,z,a+Math.PI,()=>{k.box(0,220,0,15,46,4,'#1a1613');for(let r=0;r<4;r++){k.box(0,226+r*10,1.8,13,.7,3,'#2a2420');for(let c=0;c<5;c++)k.box(-5+c*2.5,227+r*10,2.2,1.5,6+(c%3),1.8,['#3a1a14','#26221c','#4a4034'][c%3]);}});}
  for(const x of [-30,30])for(let c=0;c<9;c++)k.box(x,300-c*5,-2,c%2?.8:2,4,c%2?2:.8,iron);
+ // The stone sits on a round dais of black glass ringed with gold; a ring of fire circles it slowly in the air, and two braziers and hanging fire cages light the records.
+ k.column(0,220,-22,10,1.2,'#0d0a09',24);g.add(g.torus(10,.3),0,221.3,-22,1,1,1,'#ffb23a',0,Math.PI/2);for(let i=0;i<12;i++){const a=i/12*TAU;g.box(Math.sin(a)*7.6,221.25,-22+Math.cos(a)*7.6,.3,.15,1.6,'#ff7a2a',a);}
+ g.add(g.torus(8,.28),0,240,-22,1,1,1,'#ff5a12',0,Math.PI/2+.35);g.add(g.torus(9.4,.18),0,240,-22,1,1,1,'#ffb23a',.9,Math.PI/2-.3);g.add(g.torus(5.6,.25),0,233.4,-22,1,1,1,'#c9962d',0,Math.PI/2);
+ for(const s of [-1,1]){k.cyl(s*13,220,-28,1.8,1,10,iron,6);k.cyl(s*13,230,-28,3.2,1.8,1.8,iron,8);g.lamp(s*13,234,-28,2.6);}
+ for(const [x,z] of [[-20,8],[20,8],[0,18]]){k.box(x,262,z,.3,47,.3,iron);k.cyl(x,254,z,2.6,2.6,7,'#1c1815',6);g.lamp(x,256,z,1.8);}
+ for(let i=0;i<5;i++){const a=2+i*.55,x=Math.sin(a)*30.6,z=Math.cos(a)*30.6;g.box(x,266.4,z,12,.3,.4,'#c9962d',a+Math.PI);for(const o of [-4,0,4])g.ball(x+Math.cos(a)*o,267.6,z-Math.sin(a)*o,.45,'#ffd27a',.8);}
  // The top: the great ring that gathers the fire and feeds the horns.
  k.add(k.torus(16,2.2),0,340,0,1,1,1,iron,0,Math.PI/2);k.add(k.torus(11,1.2),0,352,0,1,1,1,'#58504a',0,Math.PI/2);for(let i=0;i<6;i++){const a=i/6*TAU;k.limb([[Math.sin(a)*16,340,Math.cos(a)*16,1.2],[Math.sin(a)*8,330,Math.cos(a)*8,.8],[Math.sin(a)*7,320,Math.cos(a)*7,.8]],iron,5);}g.column(0,312,0,6,60,'#ff5a14',10);
  k.column(0,376,0,36,3,black,24);

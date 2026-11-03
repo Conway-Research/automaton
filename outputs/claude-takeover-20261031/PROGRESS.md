@@ -437,3 +437,4 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Bild: barad-dur-torhalle-ringschmiede-20261103.jpg. Numaron AUS, kein Apply.
 - Obere Böden (Thronsaal, Steinkammer, Turmspitze): schwarzer Obsidian mit Goldrand, Feuerring um den Schaft, Glut- und Goldnähte; Bild barad-dur-boeden-nacht-20261103.jpg.
 - Thronsaal: brennendes Auge mit Goldrahmen auf der Thronlehne, Goldkanten an den Stufen, roter Teppich mit Goldborte, zwei Feuerbecken, vier Obsidianpfeiler mit Feueradern und Flammenkronen; Bild barad-dur-thronsaal-20261103.jpg.
+- Steinkammer: Palantír auf goldgerandetem Obsidianpodest mit Glutstrahlen, zwei kreisende Feuer-/Goldringe, Goldfassung am Sockel, zwei Feuerbecken, drei hängende Feuerkäfige, goldene Leisten mit Kerzen auf den Regalen; Bild barad-dur-steinkammer-20261103.jpg.
