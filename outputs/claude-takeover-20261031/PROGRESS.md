@@ -255,3 +255,122 @@ Patrice: "Ja, nur Schutz". Umgesetzt: Nach OFF oder Stopp laeuft ein begrenzter 
 ## Review Gate und Reader, Apply-Vorbereitung, 2.11.2026
 
 Review: Stand tauglich zum Laden, Reader noch nicht zum Anschluss; 0 blocker, 2 hoch, 9 mittel, 11 niedrig. Behoben: R-H1 (eigenes Zeitlimit im Reader, Scheduler-Signal offen), R-H2 (Frist wird geprueft, wenn die Antwort sie nennt; die Liste nennt sie laut Belegen nicht), Brutto-Rundung, Timer-Fehler. Offen vor Reader-Anschluss: echter Lesetest und Fristquelle, M4-Aufrufer, Luecken bei Symlink und Bindung nach Neustart, uebrige mittlere Befunde. Regression evidence/regression-apply2-20261102.tap: 2641 Tests, 2635 gruen, 4 uebersprungen, 2 rot (founder-sofa-key, trade-radar-ui).
+
+## Commit 7698df81, Apply offen, 2.11.2026
+
+Commit erstellt, nicht gepusht. Vormerkung und Apply wurden von der Berechtigungspruefung der Sitzung abgelehnt (nichts ausgefuehrt, kein Umgehungsversuch). Patrice fuehrt beide Befehle selbst aus oder gibt die Berechtigung. Danach: Geladenen Stand, OFF und Mittelerde im Browser pruefen. Geladen bleibt Batch fff19771.
+
+## Founder-Website und Mittelerde, Runde 2.11.2026 (nicht committet, kein Apply)
+
+Neu: Zürich-Tageszyklus und Zonenwetter (middle-earth-time.mjs, middle-earth-sky.mjs), Website-Design (style.css, middle-earth.css, index.html), Schnellsuche (command-palette.mjs), Sammath Naur mit hohem Tor, Barad-dûr, Orthanc mit Plattform, Beutelsend. Weitere Gebäude nicht neu gebaut. Regression: 2514 Tests, 2508 bestanden, 2 rot wie zuvor (pwsh.exe fehlt; trade-radar-ui), 4 übersprungen. Numaron blieb AUS.
+
+## Mittelerde: Gebaeude, Barad-dur, Ueberlappungen, 2.11.2026 (nicht committet, kein Apply)
+
+Acht Gebaeudehuellen und Barad-dur neu gebaut (Vorlage Turm: Weta-Modell; uebrige aus Filmerinnerung, aus Grundkoerpern, keine woertliche Kopie). Audit ueber alle Bauteile: Raeume und Aussen ohne Treffer ausser bewussten Stellen (Smaug auf dem Hort, Muenzen auf Gold, Feuerschacht und Treppen des Turms durch Boeden, Loth-Baumstamm hinter dem Gelaender, Hornburg-Fels und Klammwall am Bau, Schilde an Waenden). GLB-Modelle nur als Naeherung geprueft. Oberflaeche bei 1600, 1280, 1100, 800 und 375 Breite ohne Treffer, Handy-Dock repariert, Fokus "Das Auge" zeigt den ganzen Turm. Numaron AUS, nur isolierte Vorschau genutzt.
+
+## Mittelerde: lebendige Welt, Figuren, Arbeit, Bruecken, 3.11.2026 (nicht committet, kein Apply)
+
+Alle Lichter sind Flammen (Elbengebiete weissblau). Schicksalsberg mit bewusst vom Film abweichendem Riss in der Flanke, Tor und Feuer von aussen sichtbar. Sauron, Hexenkoenig mit Flugbestie, Balrog und Smaug (nur zwei Hinterbeine, Fluegelarme) neu nach Filmbildern aus Grundkoerpern, keine woertliche Kopie. Benannte Figuren einzeln gekleidet, Gang je Volk, Werkzeuge mit eigener Handhabung, Pferd mit echten Gelenken. Sichtbarer Arbeitsablauf A bis Z mit Fortschritt nur im beschrifteten Probelauf; echte Aufgaben zeigen keinen erfundenen Prozentwert. Strassenbruecken gewoelbt, Figuren gehen auf der Fahrbahn. Keine Waldbaeume vor Eingaengen. Figuren besuchen sich, sprechen, verstecken sich, stellen sich dem Feind; alles Szenerie. Numaron blieb AUS.
+
+Nachtrag 3.11.2026, Schlussprüfung Mittelerde: Die Welt fror ein, sobald eine Figur mit Bart ohne eigenen Heldeneintrag nah ins Bild kam (`beardOf` ohne Kit aufgerufen); behoben, 848 Figur-Kombinationen und alle Bezirke laufen ohne Ausnahme. Probelauf zeigt Wartende jetzt als „wartet auf Material“. Moria-Halle heller. Regression vor diesen drei Korrekturen: 2508 bestanden, 2 rot (DPAPI pwsh.exe, trade-radar-ui „display expires“, beide schon vorher rot und nicht Mittelerde), Welt-Tests danach 10 von 10. Numaron AUS, kein Apply, nichts committet.
+
+## Mittelerde: Hallentreffen, Zitadelle, Schicksalsberg, Thranduil, 3.11.2026 (nicht committet, kein Apply)
+
+Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Saetze). Minas Tirith: Hof der Fontaene mit Bug, Halle der Koenige, Weissem Baum, Wachen; brennender Denethor als gelegentliche Kulissenfigur, neuer Schauplatz in der Legende. Schicksalsberg: Riss in der Flanke entfernt, Felsspalten-Tuer aussen, Sammath Naur innen mit kuerzerer Zunge (rund ein Drittel der Breite), Figuren im Massstab, 84-Sekunden-Schleife Frodo, Sam, Gollum. Thranduil nach (2985,905) verlegt, helle Klippe mit Tor; Erebor-Eingang frei. Lothlorien silberne Staemme, blasseres Gold. Tageslicht neutraler (Rosastich durch warme Dusk-HDR-Umgebung), betrifft die ganze Welt. Uebrige Gebaeude nur angesehen, nicht umgebaut. Szenen und Besuche sind Kulisse ohne Arbeitsfunktion. Numaron AUS, Vorschau isoliert mit falscher Power.
+
+## 2026-11-03 Mittelerde: Tausch, Minas Tirith, Griffe, Wege
+
+- Minas Tirith und Erebor getauscht. Minas Tirith mit Häuserreihen, Toren, Bug und Hof neu; Bruchtal-Dach spiegelgleich mit geschwungenen Dächern; Erebor-Statuen neu.
+- Schicksalsberg: Tür mit Glut auch nachts sichtbar; beim Hineinzoomen öffnet sich der Berg von oben (Zunge, Kante, Lava).
+- Griffe: gehaltene Dinge werden pro Bild aus Unterarm und Modellachse ausgerichtet (`aim` in middle-earth-assets.mjs). Arbeitswerkzeug quer zum Unterarm, Waffen sonst fest, Stäbe und Bögen aufrecht.
+- Wege: Isengart-Ring auf Radius 232, Ents nach aussen, Smials, Thranduil-Baum, Bruchtal-Baum, Osgiliath-Pfeiler versetzt; Wald hält Abstand zu Strassen.
+- Nur isolierte Vorschau mit falscher Power. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Gespräche, Brücken, Wasser, Tausch Lothlórien/Thranduil
+
+- Sprechblasen kommen aus `workTalks` (middle-earth-model.mjs): nur gemeldete Titel, Status, Gründe, Ergebnisse und Abhängigkeiten. Kein Modellaufruf. Ohne echte Arbeit bleiben die Figuren stumm. Die Szene im Schicksalsberg bleibt gekennzeichnete Szenerie.
+- Der Snapshot enthält keine wörtlichen Gespräche zwischen Agenten; die Sätze sind Vorlagen je Volk, gefüllt mit echten Feldern.
+- Lothlórien und Thranduil getauscht; Mallorn-Wald hält Blick auf Minas Tirith frei.
+- Brücken je Region neu, Flüsse breiter mit Ufern, Steinen und Schilf; Wasser mit leichter Spiegelung (schaltet sich bei niedriger Bildrate selbst ab).
+- Laternen seitlich der Wege, Griffwinkel je Tätigkeit, Waffen schlagen im Kampf. Schwarzer Ring unter dem Schicksalsberg verkleinert.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Gesprächsjournal zwischen Controller und Workern
+
+- Neu `scripts/founder-conversation.mjs`: Tabelle `founder_conversation` in der Controller-Datenbank, höchstens 600 Einträge. Sie enthält nur echte Ereignisse: Auftrag (enqueue), Übergabe an den Folge-Worker (claim mit erledigter Abhängigkeit), Bericht (done) und Blockade/Fehler (update mit Grund).
+- Die Texte stammen aus Aufgabenfeldern, Ergebnisfeldern oder Gründen. E-Mails, Schlüssel, Token, Nummern, IBAN und URL-Pfade werden entfernt. Schreibfehler im Journal brechen den Controller nie.
+- Der Snapshot liefert `autonomy.conversations` (die letzten 60). Mittelerde (`conversationTalks`) spricht diese Worte im Ton des jeweiligen Volkes; Vorlagen gibt es nur noch für Aufgaben ohne Journal.
+- Tests: `scripts/founder-conversation.test.mjs` (4), Mittelerde-Test (12), vitest 262 Dateien / 4410 Tests grün.
+- Aktiv erst nach einem von Patrice freigegebenen Apply. Einträge entstehen nur, während Numaron läuft. Kein Apply, kein Neustart, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Erebor-Bach, Wege, Brücken, Thranduil, Anfurten
+
+- Der Bach westlich von Erebor entspringt jetzt in den Hügeln (742,352) und nicht mehr unter dem linken Fuß der Zwergenstatue.
+- Wegeplaner: Wasser kostet ohne bestehende Brücke mehr, gemeinsame Wege werden bevorzugt, und Wege direkt neben einem anderen Weg sind teuer. Gemeinsame Abschnitte zwischen Knoten werden einmal begradigt, mit Sichtprüfung gegen Gebäude, Wasser und Gefälle.
+- Ergebnis: keine parallelen Doppelwege mehr, 5 Flussquerungen mit je genau einer Brücke, keine Furt neben einer Brücke.
+- Thranduil: kein Felshügel mehr. Die Hallen liegen unter einem dunklen Wald mit einheitlicher Höhe (Kronen etwa auf Hallenhöhe); das Moosdach ist grünlich. Der Baum auf dem Weg wurde entfernt.
+- Anfurten: fünf Elben mit Arbeitsrunden (Círdan überwacht, Schiffbauer hämmert am Boot, Träger bringt Säcke zum Steg, Lotse peilt, Schreiber führt Ladeliste). Birken im Stil des übrigen Waldes. Neu: Balustrade, Poller, Treppen zum Wasser, Wellenpflaster, Fracht und Banner.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: großer Qualitätsdurchgang
+
+- Osgiliath: schwebende Blöcke geerdet, schräge Säule im Inneren entfernt; der Palantír steht in Osgiliath und in Orthanc in der Raummitte.
+- Smaug als eigene, atmende Figur mit Flügelhäuten, Adern und Glut; der Balrog atmet, sein Licht pulsiert mit, und er hat mehr Details (Schulterdornen, Glutrisse, Klauen, Mähne).
+- Minas Tirith: Der Bug ist eine nach vorn geneigte, geschwungene Felsnase ohne seitliche Stangen. Fußhäuser stehen nur noch auf festem, ebenem Grund. Torstatuen sind näher am Tor.
+- Häuser setzen sich als Ganzes auf den tiefsten Boden ihres Bauplatzes. Damit sind Wände und Dächer nicht mehr verzogen und schweben nicht. Sockel sind tiefer.
+- Innenräume öffnen sich schon aus größerer Entfernung, und Möbel bis Tischhöhe bleiben beim Aufschneiden stehen. Erebor: Arkenstein im Halter, Schatzhaufen, Rüstungen, Mithril und Waffen; Moria: Mithril, Rüstung und Waffenständer; genauere Münzzählung.
+- Beutelsend: Küche (Herd, Anrichte, Tisch, Schinken), mehr Lampen und Tageslicht. Der Karren auf dem Weg ist weg. Hobbithöhlen haben Stufen zur Tür.
+- Nazgûl wenden spätestens 30 Einheiten vor einer Tür.
+- Bögen werden am Griff gehalten: Der Bauch zeigt zum Ziel, die Sehne zum Schützen (per Messung geprüft).
+- Schwarzes Tor: Die Straße läuft auf der Torachse gerade hindurch (Tor und Saurons Runde auf x 1320). Schicksalsberg: Der Weg schließt an die Hauptstraße an, steigt in vier klaren Kehren mit Glutfeuern bis zur Tür und ist heller.
+- Anfurten: Das große Schiff liegt 60 s am Pier, läuft aus, kehrt heim, wendet und verholt rückwärts an den Liegeplatz (Zyklus 170 s). Laufplanke nur im Hafen. Träger laden über den Pier, eine Händlerin wiegt Ware ab, der Schreiber führt die Ladeliste. Die Figuren gehen auf Kai und Pier, nicht auf dem Meeresgrund.
+- Thranduil: dunkles, düsteres Waldparadies statt Höhle. Schwarze Riesenbuchen tragen Flets, Treppe, Ring und Hängebrücken unter dunklem Laubdach; warmes Bernsteinlicht, Pilze und Glühwürmchen; ein Buchenbogen statt Tür. Der Saal ist eine offene Plattform, Laternen stehen auf Pfosten.
+- Galadriel: helles, fruchtbares Paradies mit Elanor- und Niphredil-Wiesen, Obstbäumen und dem Spiegel.
+- Bruchtal: glatte, geschwungene Dächer in Bronze mit hochgezogenen Traufecken. Texturfilterung auf 16.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Osgiliath-Balken, Schicksalsweg, Bruchtal-Dach
+
+- Osgiliath: Die Architrave des äußeren Säulenrings lagen radial statt tangential und waren zu kurz, deshalb hingen sie frei in der Luft. Jetzt laufen sie von Säule zu Säule, nur zwischen zwei vollen Säulen. Der Brückenstummel sitzt auf dem Pfeiler, das umgestürzte Gesimsstück liegt am Boden.
+- Schicksalsberg: Der Weg ist breiter und heller, hat schwarze Bordsteine mit einer Glutnaht an beiden Rändern und Fackeln auf Pfosten an den Kehren.
+- Bruchtal: 16 alte Rippenlinien über dem Hauptdach entfernt, die nicht mehr zur neuen Dachform passten. Das Dach hat jetzt 14 Ziegelreihen in zwei Tönen, Traufleisten, Gratrippen, hochgezogene Ecken und eine Firstkugel mit Spitze.
+- Thranduil: Laternen vor dem Reich stehen auf Pfosten statt an Schnüren ins Leere.
+- Rundgang über alle Orte ohne weitere schwebende Teile. Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: steile Bruchtal-Dächer, blühendes Lothlórien
+
+- Bruchtal: Dächer rund 1,6-mal so hoch, also spitz und steil wie im Film. Auch die Häuser in der Landschaft haben das Bronzedach. Der Hauptturm wurde auf 205 erhöht und überragt das Hauptdach weiterhin.
+- Lothlórien: helleres Gold im Laub, hellerer Dunst, mehr Tageslicht und Lampen im Saal, hellere Blätter am Boden.
+- Wiese, Obstbäume, Spiegel und Lichtfunken liegen jetzt in der immer sichtbaren Landschaft statt im Dachteil, der beim Zoomen ausgeblendet wird.
+- 340 größere Blüten in Gold, Weiß, Blau und Rosa, acht blühende Obstbäume, Laternen auf Pfosten statt schwebend.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: offenes Bruchtal, dichtere Blumenwiese
+
+- Bruchtal: Der Saal hat keine geschlossenen Wände mehr. Ein offener Säulengang aus schlanken hellen Säulen, Spitzbögen und Balustrade steht ringsum, nur der Südeingang bleibt frei. Efeu wächst an jeder dritten Säule. Auf den Terrassen stehen Bäume und hängt Efeu. Die Bodenplatte ist dünner.
+- Lothlórien: 620 Blüten statt 340 in acht kräftigen Farben (Gold, Weiß, Rosa, Blau, Violett, Rot, Hellgelb) mit Stiel und Blattbüschel.
+- Bilder: bruchtal-20261103.jpg und lothlorien-20261103.jpg in diesem Ordner.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Wasserfälle in Bruchtal, große Blüten in Lothlórien
+
+- Bruchtal: drei Wasserfälle direkt neben den Terrassen (nördlich der Westterrasse, westlich der Südwestterrasse, hinter dem Nordhaus). Jeder fällt 86 bis 100 hoch über drei Felsstufen von bemoosten Felstürmen in ein klares Becken mit Steinkranz, mit Gischt am Fall und am Becken. Sie liegen in der immer sichtbaren Landschaft.
+- Lothlórien: Blüten etwa 1,7-mal so groß (7,6 statt 4,4 breit) auf höheren Stielen, damit die Wiese auch von weitem als farbiger Teppich zu sehen ist.
+- Bilder: bruchtal-wasserfaelle-20261103.jpg, bruchtal-norden-daemmerung-20261103.jpg, lothlorien-grosse-blueten-20261103.jpg.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Westfall nach außen, Bäche zum Fluss
+
+- Bruchtal: Der Westfall ist umgedreht und steht jetzt zwischen Terrassen und Fluss. Man sieht ihn von außen (Westen) von vorn.
+- Drei Bäche laufen zwischen Kieseln ab: vom Westbecken und vom Nordbecken stufenweise den Hang hinunter in den westlichen Fluss. Das hintere Becken läuft ins Nordbecken über.
+- Die Becken sind kleiner (Radius 16) und haben eine Steinfassung. Bauteile folgen außerhalb der flachen Bauzone dem Hang, deshalb versanken die großen flachen Becken bergseitig. Die Gischt sitzt jetzt auf Geländehöhe.
+- Wasser in Bächen, Becken und dem Mittelstreifen der Fälle ist hell und leuchtend statt im Hangschatten dunkelgrau.
+- Bilder: bruchtal-westfall-bach-20261103.jpg, bruchtal-westseite-20261103.jpg.
+- Nur isolierte Vorschau. Kein Commit, kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: fließende Bäche, Bruchtal bei Nacht
+
+- Bäche und Becken in Bruchtal nutzen jetzt dasselbe Fließwasser-Material wie Fluss und Fallwände: Strömung, Schaum und Glanz bewegen sich. Mit zwei Aufnahmen kurz nacheinander geprüft.
+- Bruchtal bei Nacht (22:30) angesehen: kühlweiße Elbenlampen an Türmen, Terrassen, Wegen und im offenen Saal, warmes Licht in den Fenstern.
+- Bilder: bruchtal-bach-fliessend-20261103.jpg, bruchtal-nacht-20261103.jpg, bruchtal-nacht-saal-20261103.jpg.
+- Nur isolierte Vorschau. Kein Apply, Numaron AUS.

@@ -121,8 +121,13 @@ export async function startFounderDashboard({store=createFounderStore(),port=0,r
  const walkAssets=relative=>{const full=path.join(root,'web/founder',relative);if(!fs.existsSync(full))return;for(const entry of fs.readdirSync(full,{withFileTypes:true})){const next=relative+'/'+entry.name;if(entry.isDirectory())walkAssets(next);else if(entry.isFile()&&assetTypes[path.extname(entry.name).toLowerCase()])assets.set('/'+encodeURI(next),[next,assetTypes[path.extname(entry.name).toLowerCase()]]);}};
  walkAssets('assets/middle-earth');
  for(const name of ['GLTFLoader','RGBELoader','SkeletonUtils','BufferGeometryUtils'])assets.set(`/vendor/${name}.js`,[`vendor/${name}.js`,'text/javascript; charset=utf-8']);
+ assets.set('/command-palette.mjs',['command-palette.mjs','text/javascript; charset=utf-8']);
  assets.set('/middle-earth-assets.mjs',['middle-earth-assets.mjs','text/javascript; charset=utf-8']);
  assets.set('/middle-earth-rooms.mjs',['middle-earth-rooms.mjs','text/javascript; charset=utf-8']);
+ assets.set('/middle-earth-places.mjs',['middle-earth-places.mjs','text/javascript; charset=utf-8']);
+ assets.set('/middle-earth-lore.mjs',['middle-earth-lore.mjs','text/javascript; charset=utf-8']);
+ assets.set('/middle-earth-time.mjs',['middle-earth-time.mjs','text/javascript; charset=utf-8']);
+ assets.set('/middle-earth-sky.mjs',['middle-earth-sky.mjs','text/javascript; charset=utf-8']);
 
  const securityAudit=createSecurityAudit({file:auditFile,knownRoutes:[...assets.keys(),...["/api/task","/api/session","/api/reference-admin","/api/reference-admin/prepare","/api/reference-admin/approve","/api/reference-admin/withdraw","/api/reference-admin/protocol","/api/source-overview","/api/capability-evidence","/api/trading/history","/api/power","/api/finance/snapshot","/api/snapshot","/api/job/retry","/api/job/sight-inspection","/api/archive","/api/capabilities","/api/communication/status","/api/learning/snapshot","/api/long-history/snapshot","/api/long-history/lessons","/api/long-history/control","/api/trading/control","/api/control","/api/cost-import","/api/finance","/api/review"]],now});
  const server=http.createServer(async(req,res)=>{

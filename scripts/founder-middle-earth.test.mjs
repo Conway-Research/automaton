@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {startFounderDashboard} from './founder-dashboard.mjs';
-import {stations,HUB,stationForKind,stationState,workshopView,observedFlows,previewFlows} from '../web/founder/middle-earth-model.mjs';
+import {stations,HUB,stationForKind,stationState,workshopView,observedFlows,previewFlows,workTalks,conversationTalks} from '../web/founder/middle-earth-model.mjs';
 import {crews,sitePlaces,wanderers,workstationNames,WORLD,groundAt} from '../web/founder/middle-earth-world.mjs';
 
 const web=name=>fs.readFileSync(new URL('../web/founder/'+name,import.meta.url),'utf8');
@@ -116,4 +116,42 @@ test('the new assets are served under the unchanged content security policy',asy
   assert.match(r.headers.get('content-security-policy'),/style-src 'self'/);
   await r.text();
  }
+});
+
+test('the figures only talk about real reported work, in the voice of their folk',()=>{
+ assert.deepEqual(workTalks([]),[]);
+ assert.deepEqual(workTalks(null),[]);
+ assert.deepEqual(workTalks([{id:'x',kind:'mystery-kind',status:'running',title:'Ohne Ort'}]),[]);
+ const talks=workTalks([
+  {id:'a',kind:'exa-research',status:'done',title:'Quellen lesen',updated_ms:1},
+  {id:'b',kind:'private-draft',status:'blocked',title:'Entwurf bauen',reason:'Beleg fehlt',dependencies:['a'],updated_ms:2},
+ ]);
+ const blocked=talks.find(t=>t.taskId==='b');
+ assert.equal(talks[0].taskId,'b');
+ assert.equal(blocked.station,'forge');
+ assert.match(blocked.lines[0],/Entwurf bauen/);
+ assert.match(blocked.lines[1],/Beleg fehlt/);
+ assert.equal(blocked.from,'library');
+ assert.match(blocked.handover[0],/Quellen lesen/);
+ assert.match(talks.find(t=>t.taskId==='a').lines[0],/Quellen lesen/);
+ assert.ok(talks.every(t=>t.lines.every(l=>!l.includes('%'))));
+});
+
+test('recorded exchanges between controller and workers are spoken as they were said',()=>{
+ assert.deepEqual(conversationTalks(null),[]);
+ const said=[
+  {seq:3,at:30,taskId:'b',from:'exa-research',to:'private-draft',act:'handover',text:'Zwei passende Quellen gefunden.'},
+  {seq:2,at:20,taskId:'a',from:'exa-research',to:'controller',act:'report',text:'Zwei passende Quellen gefunden.'},
+  {seq:1,at:10,taskId:'a',from:'controller',to:'exa-research',act:'assign',text:'Quellen lesen'},
+  {seq:4,at:40,taskId:'c',from:'private-draft',to:'controller',act:'gossip',text:'erfunden'},
+ ];
+ const talks=conversationTalks(said);
+ assert.equal(talks.length,3);
+ assert.equal(talks[0].from,'library');assert.equal(talks[0].station,'forge');
+ assert.match(talks[0].handover[0],/Zwei passende Quellen gefunden\./);
+ assert.match(talks.find(t=>t.key==='said-1').lines[0],/Quellen lesen/);
+ assert.match(talks.find(t=>t.key==='said-2').lines[1],/Zwei passende Quellen/);
+ const mixed=workTalks([{id:'a',kind:'exa-research',status:'done',title:'Quellen lesen'},{id:'z',kind:'exa-research',status:'running',title:'Weiteres lesen'}],said);
+ assert.ok(mixed.filter(t=>t.taskId==='a').every(t=>t.real));
+ assert.ok(mixed.some(t=>t.taskId==='z'&&!t.real));
 });

@@ -6,13 +6,41 @@ export const HALL={half:115,height:58,offset:60};
 export const crewPoint=m=>({x:m.x,z:(m.y-HALL.offset)*2.5});
 
 // Collects simple solids and merges them into one mesh, so a whole district costs only a few draw calls.
+const bladeOf=(out,h,thick)=>{const s=new T.Shape();s.moveTo(0,0);s.lineTo(out,0);s.lineTo(out*.62,h*.46);s.lineTo(out*.2,h*.82);s.lineTo(0,h);s.closePath();return new T.ExtrudeGeometry(s,{depth:thick,bevelEnabled:false}).translate(0,0,-thick/2).toNonIndexed();};
 const unit={box:new T.BoxGeometry(1,1,1).toNonIndexed(),sphere:new T.SphereGeometry(1,14,10).toNonIndexed(),dome:new T.SphereGeometry(1,14,8,0,Math.PI*2,0,Math.PI/2).toNonIndexed()};
 const cylinders=new Map();
 const cylinder=(top,bottom,segments)=>{const key=`${top}|${bottom}|${segments}`;if(!cylinders.has(key))cylinders.set(key,new T.CylinderGeometry(top,bottom,1,segments).toNonIndexed());return cylinders.get(key);};
 const helper=new T.Object3D(),tint=new T.Color();
+// The colours that mean water: such surfaces run and fall instead of standing still.
+const WATER=new Set(['#cfe2e8','#3f7f96']);
+// Fire everywhere is the same living flame: a quad that faces the view and burns in the fragment program.
+export const flameClock={value:0};
+export const worldDay={value:1};
+export function fireAt(kit,x,y,z,r,h){const p=new T.Vector3(x,y,z);if(kit.parent)p.applyMatrix4(kit.parent);(kit.fires??=[]).push([p.x,p.y+(kit.ground?kit.ground(p.x,p.z):0),p.z,r,h,kit.elven?1:0]);}
+const flameMaterial=new T.ShaderMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending,fog:false,uniforms:{time:flameClock,flameDay:worldDay,level:{value:1}},
+ vertexShader:`attribute vec2 corner;attribute vec4 seed;uniform float time;varying vec2 vC;varying float vS;varying float vCool;void main(){vC=corner;vS=seed.z;vCool=seed.w;vec3 c=(modelMatrix*vec4(position,1.)).xyz;float s=length(modelMatrix[0].xyz);vec3 right=vec3(viewMatrix[0][0],viewMatrix[1][0],viewMatrix[2][0]),up=normalize(vec3(0.,.8,0.)+vec3(viewMatrix[0][1],viewMatrix[1][1],viewMatrix[2][1])*.55);gl_Position=projectionMatrix*viewMatrix*vec4(c+right*corner.x*seed.x*s+up*corner.y*seed.y*s,1.);}`,
+ fragmentShader:`uniform float time;uniform float flameDay;uniform float level;varying vec2 vC;varying float vS;varying float vCool;float h21(vec2 p){p=fract(p*vec2(.1031,.103));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+ void main(){if(vS<0.){float d=length(vC),beat=.8+.2*sin(time*(6.+vS*-7.)+vS*53.)*sin(time*2.3-vS*31.);float halo=pow(max(0.,1.-d),2.4)*mix(.62,.14,flameDay)*beat*level;if(halo<.004)discard;gl_FragColor=vec4(mix(vec3(1.,.44,.12),vec3(.42,.68,1.),vCool),halo);
+  #include <colorspace_fragment>
+  return;}
+  float y=vC.y,t=time+vS*17.;float x=vC.x+(vn(vec2(vC.x*2.+vS*9.,y*3.2-t*2.7))-.5)*.72*y;float n=vn(vec2(x*3.4+vS*5.,y*5.-t*3.4))*.65+vn(vec2(x*8.-vS,y*11.-t*5.))*.35;float w=mix(.66,.03,pow(y,.72));float body=smoothstep(1.,.3,abs(x)/w);float a=body*smoothstep(1.,.2,y+(n-.5)*.85)*smoothstep(0.,.05,y);float heat=a*(1.15-y*.75);vec3 c=mix(vec3(.85,.13,.015),vec3(1.7,.62,.06),smoothstep(.08,.5,heat));c=mix(c,vec3(2.4,1.85,.85),smoothstep(.5,.92,heat));vec3 e=mix(vec3(.08,.26,1.15),vec3(.42,.8,1.95),smoothstep(.08,.5,heat));e=mix(e,vec3(2.3,2.5,2.7),smoothstep(.46,.86,heat));c=mix(c,e,vCool);if(a<.01)discard;gl_FragColor=vec4(c*.62*level,a*.8*level);
+  #include <colorspace_fragment>
+ }`});
+export function flameSheet(spots,material=flameMaterial){
+ const pos=[],corner=[],seed=[],index=[];let n=0,s=0;
+ for(const [x,y,z,r,h,cool=0] of spots){for(const [dx,dz,f,wide] of [[0,0,1,1.05],[.45,.25,.72,.8],[-.5,-.2,.64,.74]]){s=(s+.379)%1;for(const [a,b] of [[-1,0],[1,0],[1,1],[-1,1]]){pos.push(x+dx*r,y,z+dz*r);corner.push(a,b);seed.push(r*wide*1.25,h*f*1.25,s,cool);}index.push(n,n+1,n+2,n,n+2,n+3);n+=4;}
+  // Each flame also lights the air around it: a soft halo, flickering with it.
+  s=(s+.379)%1;const glow=Math.max(r*3.4,h*1.15);for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]){pos.push(x,y+h*.36,z);corner.push(a,b);seed.push(glow,glow,-.01-s,cool);}index.push(n,n+1,n+2,n,n+2,n+3);n+=4;}
+ const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('corner',new T.Float32BufferAttribute(corner,2));geo.setAttribute('seed',new T.Float32BufferAttribute(seed,4));geo.setIndex(index);
+ const m=new T.Mesh(geo,material);m.frustumCulled=false;m.renderOrder=3;return m;
+}
+export const nightFlames=()=>{const m=flameMaterial.clone();m.uniforms.time=flameClock;m.uniforms.flameDay=worldDay;return m;};
 export class Kit{
+ // A lamp is a real little flame, not a glowing ball.
+ lamp(x,y,z,r=1.4){fireAt(this,x,y-r*.9,z,r*1.35,r*4.8);return this;}
  constructor(){this.pos=[];this.nor=[];this.col=[];}
- local(x,z,ry,build){const previous=this.parent,m=new T.Matrix4().makeRotationY(ry).setPosition(x,0,z);this.parent=previous?previous.clone().multiply(m):m;if(this.lights)this.lights.parent=this.parent;build();this.parent=previous;if(this.lights)this.lights.parent=previous;return this;}
+ frameGround(){if(this.frameKey!==this.parent){const e=this.parent.elements;let m=this.ground(e[12],e[14]);for(const [u,w] of [[16,16],[-16,16],[16,-16],[-16,-16]])m=Math.min(m,this.ground(e[12]+u,e[14]+w));this.frameKey=this.parent;this.frameLift=m;}return this.frameLift;}
+  local(x,z,ry,build){const previous=this.parent,m=new T.Matrix4().makeRotationY(ry).setPosition(x,0,z);this.parent=previous?previous.clone().multiply(m):m;if(this.lights)this.lights.parent=this.parent;build();this.parent=previous;if(this.lights)this.lights.parent=previous;return this;}
  // A pitched roof with its ridge along z.
  gable(x,y,z,w,d,h,color,ry=0){const shape=new T.Shape();shape.moveTo(-w/2,0);shape.lineTo(w/2,0);shape.lineTo(0,h);shape.closePath();const g=new T.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false}).toNonIndexed();g.translate(0,0,-d/2);this.add(g,x,y,z,1,1,1,color,ry);return this;}
  // Weathered rock: a crumpled sphere, never the same twice.
@@ -29,7 +57,7 @@ export class Kit{
   for(let i=0;i<points.length-1;i++)for(let n=0;n<(i===points.length-2?5:4);n++){const t=n/4,p0=at(i-1),p1=at(i),p2=at(i+1),p3=at(i+2),q=[];for(let d=0;d<4;d++)q[d]=.5*(2*p1[d]+(p2[d]-p0[d])*t+(2*p0[d]-5*p1[d]+4*p2[d]-p3[d])*t*t+(3*p1[d]-p0[d]-3*p2[d]+p3[d])*t*t*t);q[3]=Math.max(.05,q[3]);path.push(q);}
   const rings=[],T0=new T.Vector3(),A=new T.Vector3(1,0,.3).normalize(),B=new T.Vector3(),o=new T.Vector3();
   path.forEach((p,i)=>{const a=path[Math.max(0,i-1)],b=path[Math.min(path.length-1,i+1)];T0.set(b[0]-a[0],b[1]-a[1],b[2]-a[2]).normalize();A.addScaledVector(T0,-A.dot(T0));if(A.lengthSq()<1e-5)A.set(0,0,1).addScaledVector(T0,-T0.z);A.normalize();B.crossVectors(T0,A);const ring=[];for(let j=0;j<=sides;j++){const w=j/sides*6.2832;o.copy(A).multiplyScalar(Math.cos(w)).addScaledVector(B,Math.sin(w));ring.push([p[0]+o.x*p[3],p[1]+o.y*p[3],p[2]+o.z*p[3],o.x,o.y,o.z]);}rings.push(ring);});
-  const rise=this.ground?this.ground(points[0][0],points[0][2]):0;const put=v=>{this.pos.push(v[0],v[1]+rise,v[2]);this.nor.push(v[3],v[4],v[5]);this.col.push(c.r,c.g,c.b);};
+  const frame=this.parent,world=new T.Vector3(),turned=new T.Vector3(),turn=frame?new T.Matrix3().getNormalMatrix(frame):null,foot=frame?new T.Vector3(points[0][0],points[0][1],points[0][2]).applyMatrix4(frame):null,rise=this.ground?(frame?this.frameGround():this.ground(points[0][0],points[0][2])):0;const put=v=>{if(frame){world.set(v[0],v[1],v[2]).applyMatrix4(frame);turned.set(v[3],v[4],v[5]).applyMatrix3(turn).normalize();this.pos.push(world.x,world.y+rise,world.z);this.nor.push(turned.x,turned.y,turned.z);}else{this.pos.push(v[0],v[1]+rise,v[2]);this.nor.push(v[3],v[4],v[5]);}this.col.push(c.r,c.g,c.b);};
   const from=this.pos.length;for(let i=0;i<rings.length-1;i++)for(let j=0;j<sides;j++){const a=rings[i][j],b=rings[i][j+1],d=rings[i+1][j],e=rings[i+1][j+1];put(a);put(b);put(d);put(b);put(e);put(d);}
   this.note(from);return this;
  }
@@ -41,10 +69,18 @@ export class Kit{
  // A thick curved wall from angle a0 to a1, where angle 0 is north and angles grow clockwise.
  arc(radius,thick,a0,a1,y,h,color){const shape=new T.Shape(),steps=8;for(let i=0;i<=steps;i++){const a=a0+(a1-a0)*i/steps,px=Math.sin(a)*radius,py=Math.cos(a)*radius;i?shape.lineTo(px,py):shape.moveTo(px,py);}for(let i=steps;i>=0;i--){const a=a0+(a1-a0)*i/steps;shape.lineTo(Math.sin(a)*(radius-thick),Math.cos(a)*(radius-thick));}shape.closePath();const g=new T.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false}).toNonIndexed();g.rotateX(-Math.PI/2);this.add(g,0,y,0,1,1,1,color);return this;}
  add(geometry,x,y,z,sx,sy,sz,color,ry=0,rx=0,rz=0){
+  if(this.water&&WATER.has(color)){this.water.parent=this.parent;this.water.ground=this.ground;this.water.add(geometry,x,y,z,sx,sy,sz,color,ry,rx,rz);return this;}
   const from=this.pos.length;
-  helper.position.set(x,y,z);helper.scale.set(sx,sy,sz);helper.rotation.set(rx,ry,rz);helper.updateMatrix();if(this.parent)helper.matrix.premultiply(this.parent);
+  // No two solids ever share a plane, which is what makes surfaces flicker from afar.
+  const hair=.03+((this.solids=(this.solids??0)+1)*7%11)*.012;
+  helper.position.set(x,y,z);helper.scale.set(sx+hair,sy+hair,sz+hair);helper.rotation.set(rx,ry,rz);helper.updateMatrix();if(this.parent)helper.matrix.premultiply(this.parent);
   const p=geometry.attributes.position,n=geometry.attributes.normal,normalMatrix=new T.Matrix3().getNormalMatrix(helper.matrix),v=new T.Vector3();tint.set(color);
-  const lift=this.ground?this.ground(helper.matrix.elements[12],helper.matrix.elements[14]):0;for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(helper.matrix);this.pos.push(v.x,v.y+lift,v.z);v.fromBufferAttribute(n,i).applyMatrix3(normalMatrix).normalize();this.nor.push(v.x,v.y,v.z);this.col.push(tint.r,tint.g,tint.b);}
+  // Whatever is built in one frame (a house, a smial) settles as one piece, to the lowest ground under it, so walls and roof stay together.
+  // Loose small things standing on the land settle to their lowest corner, so none of them floats on a slope.
+  const cx=helper.matrix.elements[12],cz=helper.matrix.elements[14];let lift=0;
+  if(this.ground&&this.parent)lift=this.frameGround();
+  else if(this.ground){lift=this.ground(cx,cz);if(y<2&&Math.max(sx,sz)<80){const a=sx/2,b=sz/2;for(const [u,w] of [[a,b],[-a,b],[a,-b],[-a,-b]])lift=Math.min(lift,this.ground(cx+u,cz+w));}}
+  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(helper.matrix);this.pos.push(v.x,v.y+lift,v.z);v.fromBufferAttribute(n,i).applyMatrix3(normalMatrix).normalize();this.nor.push(v.x,v.y,v.z);this.col.push(tint.r,tint.g,tint.b);}
   this.note(from);return this;
  }
  // Remembers what stands on the ground, so that nothing else grows through it.
@@ -63,7 +99,7 @@ export class Kit{
   // Textures tile by real size on whichever axis a face looks along.
   const uv=new Array(this.pos.length/3*2);for(let i=0;i<this.pos.length/3;i+=3){const nx=Math.abs(this.nor[i*3]),ny=Math.abs(this.nor[i*3+1]),nz=Math.abs(this.nor[i*3+2]);for(let v=i;v<i+3;v++){const x=this.pos[v*3],y=this.pos[v*3+1],z=this.pos[v*3+2];const [a,b]=ny>=nx&&ny>=nz?[x,z]:nx>=nz?[z,y]:[x,y];uv[v*2]=a/46;uv[v*2+1]=b/46;}}
   const g=new T.BufferGeometry();g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('position',new T.Float32BufferAttribute(this.pos,3));g.setAttribute('normal',new T.Float32BufferAttribute(this.nor,3));g.setAttribute('color',new T.Float32BufferAttribute(this.col,3));
-  const m=new T.Mesh(g,material);m.castShadow=true;m.receiveShadow=true;return m;
+  const m=new T.Mesh(g,material);m.castShadow=true;m.receiveShadow=true;if(this.fires?.length&&!this.keepFires)m.add(flameSheet(this.fires));return m;
  }
 }
 export const solid=new T.MeshStandardMaterial({vertexColors:true,roughness:.82,metalness:.04});
@@ -75,18 +111,29 @@ export const peoples={
  noldor:{h:1.08,body:'#2f638a',legs:'#1b3148',skin:'#ecd0b2',hair:'#1c1815',robe:true},galadhrim:{h:1.1,body:'#e8e8d2',legs:'#a9ae8a',skin:'#f1dcc2',hair:'#ecd98f',robe:true},numenorean:{h:1.15,body:'#274887',legs:'#14233f',skin:'#dcb793',hair:'#20181a',robe:true},
  dwarf:{h:.74,w:1.25,body:'#8a4a24',legs:'#3f2a18',skin:'#d9a97f',hair:'#b5622c'},gondor:{h:1.02,body:'#20222c',legs:'#16171e',skin:'#d9b18e',hair:'#2d2118'},hobbit:{h:.62,body:'#a97f36',legs:'#5a4a2a',skin:'#e6bd95',hair:'#6f4520'},
  dale:{h:.98,body:'#8f4a2d',legs:'#3a2a20',skin:'#d9b08c',hair:'#5b3a1e'},rohirrim:{h:1,body:'#3f6f42',legs:'#3a3222',skin:'#dfb893',hair:'#d9b65a'},wizard:{h:1.1,body:'#7f838c',legs:'#6c7079',skin:'#dcb897',hair:'#e6e6df',robe:true},
- whitewizard:{h:1.1,body:'#f1f1ea',legs:'#c9c9c2',skin:'#dcb897',hair:'#f7f7f2',robe:true},silvan:{h:1.08,body:'#3f5a2a',legs:'#2a3a1e',skin:'#ecd0b2',hair:'#a5642a',robe:true},gollum:{h:.56,w:.72,body:'#8d8a6a',legs:'#a5a07a',skin:'#b5b08a',hair:'#3a3a2c'},
+ whitewizard:{h:1.1,body:'#f1f1ea',legs:'#c9c9c2',skin:'#dcb897',hair:'#f7f7f2',robe:true},silvan:{h:1.08,body:'#3f5a2a',legs:'#2a3a1e',skin:'#ecd0b2',hair:'#a5642a',robe:true},nazgul:{h:1.16,body:'#0b0b0f',legs:'#08080c',skin:'#040406',hair:'#050507',robe:true},gollum:{h:.56,w:.72,body:'#8d8a6a',legs:'#a5a07a',skin:'#b5b08a',hair:'#3a3a2c'},
 };
 function toolInto(k,tool){
- if(tool==='hammer'){k.column(0,-14,0,.8,12,'#6a4a22');k.box(0,-17,0,6,4,3.6,'#b6bcc3');}
- else if(tool==='pick'){k.column(0,-14,0,.8,13,'#6a4a22');k.box(0,-16,0,12,1.6,1.6,'#b6bcc3');}
- else if(tool==='staff'){k.column(0,-30,0,.7,34,'#6a4a22');k.ball(0,-31,0,1.8,'#8ce0ff');}
- else if(tool==='sword'||tool==='chisel'){k.box(0,-16,0,1.2,15,.6,'#c5cbd2');k.box(0,-2,0,4,1,1,'#e4b24a');}
- else if(tool==='bow'){k.box(0,-8,1.5,1,20,1,'#5a3a1c');}
- else if(tool==='quill'){k.box(0,-7,0,.5,6,2,'#f4efe2');}
- else if(tool==='coin'){k.column(0,-2,0,2,.8,'#e4b24a');}
- else if(tool==='book'){k.box(0,-4,0,6,1.6,5,'#5e2c1a');}
- else{k.box(0,-3,0,5,1,6,'#efe4c8');}
+ // Near the hand at the top, the working end further down; a figure's hand turns the tool upright.
+ const steel='#b6bcc3',wood='#6a4a22';
+ if(tool==='hammer'){k.column(0,-17,0,.7,15,wood);k.box(0,-19.4,0,6.6,4.4,3.4,'#7c8086');k.box(3.2,-19,0,.6,3.6,3,steel);k.box(-3.8,-19,0,.6,3.6,3,steel);}
+ else if(tool==='pick'){k.column(0,-21,0,.7,19,wood);k.limb([[-9,-23,0,.2],[-5,-21,0,.8],[0,-20.2,0,1.2],[5,-21,0,.8],[9,-23,0,.2]],steel,6);}
+ else if(tool==='axe'){k.column(0,-27,0,.8,25,wood);for(const s of [-1,1]){k.limb([[s*.8,-25,0,.7],[s*3,-25,0,.5],[s*6,-25,0,.3]],'#7c8086',4);k.box(s*5.4,-29,0,1,8.4,.4,steel);k.box(s*3.2,-27.6,0,3.6,5.2,.5,steel);}k.limb([[0,-27,0,.8],[0,-30,0,.1]],steel,5);}
+ else if(tool==='staff'){k.limb([[.1,-44,0,.75],[-.3,-34,.2,.6],[.3,-22,-.2,.66],[0,-10,.2,.7],[-.2,3,0,.55]],'#5a3f22',7);for(const [a,b] of [[-1.6,-1.6],[1.5,-1],[0,-2.2]])k.limb([[0,-44,0,.5],[a,-46,b*.4,.32],[a*.7,-49,b*.5,.1]],'#4a3320',4);k.ball(0,-46.4,0,1.3,'#d8ecff');}
+ else if(tool==='blackstaff'){k.limb([[0,-44,0,.7],[0,-20,0,.65],[0,3,0,.55]],'#17181c',7);for(const s of [-1,1])k.limb([[0,-44,0,.5],[s*2,-48,0,.34],[s*1.2,-52,0,.08]],'#17181c',5);k.ball(0,-49.4,0,1.5,'#f4f8ff');}
+ else if(tool==='sword'){k.column(0,-4.6,0,.42,3.4,'#3a2a18');k.ball(0,-1,0,.75,'#c9c9c0');k.box(0,-5.2,0,6,.8,1.1,'#a8a8a0');k.box(0,-23,0,1.4,18,.36,'#c5cbd2');k.limb([[0,-23,0,.6],[0,-26.4,0,.04]],'#c5cbd2',4);}
+ else if(tool==='chisel'){k.column(0,-4.4,0,.5,3,wood);k.box(0,-10.6,0,1,6.4,.7,steel);k.box(0,-11.4,0,1.6,1,.3,'#e4e8ec');}
+ else if(tool==='bow'){/* The hand closes round the middle of the stave; its belly faces the target and the string runs on the archer's side. */k.limb([[0,-1,3.2,.26],[0,-5,1.4,.42],[0,-11,.2,.56],[0,-16,0,.78],[0,-21,.2,.56],[0,-27,1.4,.42],[0,-31,3.2,.26]],'#5a3a1c',6);k.box(0,-31,3.2,.12,30,.12,'#ece9de');}
+ else if(tool==='quill'){k.box(0,-11,0,.28,8,1.8,'#f4efe2');k.box(0,-4,0,.22,3.6,.22,'#2a2018');}
+ else if(tool==='coin'){k.column(0,-3,0,1.7,.55,'#e4b24a');k.column(0,-3.6,.5,1.5,.55,'#d8a23a');}
+ else if(tool==='book'){k.box(0,-5.6,0,7,1.5,5.6,'#5e2c1a');k.box(0,-4.3,0,6.4,.5,5,'#efe4c8');}
+ else if(tool==='compass'){k.column(0,-3.6,0,2.5,.8,'#c9962d');k.column(0,-2.9,0,2,.14,'#efe4c8');k.box(0,-2.8,0,.3,.14,3.2,'#d4380f');}
+ else if(tool==='sack'){k.column(0,-4,0,.7,2.4,'#6a5a3a');k.limb([[0,-5.6,0,1.1],[0,-9,0,3.4],[.3,-13,.2,4.2],[0,-17,0,3.2],[0,-19,0,.4]],'#9a8458',9);}
+ else if(tool==='ladle'){k.limb([[0,-4,0,1],[0,-7,0,1.7],[0,-11,0,2.1],[0,-14,0,1.2],[0,-15,0,1.5]],'#d8d8d0',10);k.limb([[1.6,-6,0,.3],[3.2,-9,0,.3],[1.8,-13,0,.3]],'#d8d8d0',5);}
+ else if(tool==='seal'){k.column(0,-5,0,.7,3,wood);k.ball(0,-2,0,1,wood);k.column(0,-6.4,0,1.6,1.5,'#b8954f');}
+ else if(tool==='scale'){k.column(0,-14,0,.32,12,'#b8954f');k.box(0,-14.4,0,11,.5,.5,'#b8954f');for(const s of [-1,1]){k.column(s*5.2,-19,0,.1,4.6,'#6a5a3a');k.column(s*5.2,-19.4,0,2,.4,'#c9a23c');}}
+ else if(tool==='letter'){k.box(0,-4,0,5.4,.5,3.6,'#efe4c8');k.ball(0,-3.4,0,.55,'#8f2a1a');}
+ else{k.box(0,-4.6,0,5,.5,6.6,'#efe4c8');for(const s of [-1,1])k.limb([[0,-4.2,s*3.4-2.4,.75],[0,-4.2,s*3.4+2.4,.75]],'#d8cfae',6);}
 }
 const figureMaterial=solid;
 // Feet at the origin, about 30 units tall. Legs and the working arm are separate, so they can move.
@@ -102,8 +149,9 @@ export function makeFigure(people,tool='scroll'){
  else if(people==='uruk'){k.dome(0,25.4,0,3.8,'#44464a');k.ball(0,28.6,2,.8,'#f4f4ee');k.box(0,14,2.5,3,3,.5,'#f4f4ee');k.cone(-1.7,22,3,.45,2,'#f1ecd9',6);k.cone(1.7,22,3,.45,2,'#f1ecd9',6);}
  else if(people==='orc'){k.cone(-4.5,24,0,1.1,4,p.skin,6);k.cone(4.5,24,0,1.1,4,p.skin,6);k.cone(0,27,0,2.2,3.4,p.hair,6);k.cone(-1.7,22,3,.4,2,'#f1ecd9',6);k.cone(1.7,22,3,.4,2,'#f1ecd9',6);}
  else if(people==='gondor'||people==='numenorean'){k.dome(0,25.4,0,3.8,'#c9ced4');k.add(unit.box,-3.8,28,0,.5,4,2,'#eef0f2',0,0,.4);k.add(unit.box,3.8,28,0,.5,4,2,'#eef0f2',0,0,-.4);k.box(0,14,2.5,1,6,.4,'#eef0f2');k.box(0,16,2.5,4,.8,.4,'#eef0f2');}
+ else if(people==='nazgul'){k.dome(0,23.5,-.3,4.3,'#07070a',1.3);k.cone(0,28,-1,3.2,5,'#07070a',8);k.ball(0,23,2.5,2.4,'#020203');}
  else if(people==='gollum'){k.ball(1.4,25,3,1.2,'#dfeef5');k.ball(-1.4,25,3,1.2,'#dfeef5');k.ball(1.4,25,4,.5,'#17120d');k.ball(-1.4,25,4,.5,'#17120d');}
- else if(people==='noldor'||people==='galadhrim'||people==='rohirrim'||people==='silvan'){k.dome(0,25.2,0,3.8,p.hair);k.box(0,16,-2.8,6.4,9,1.2,p.hair);k.cone(-3.8,24.6,0,.7,2.8,p.skin,6);k.cone(3.8,24.6,0,.7,2.8,p.skin,6);if(people==='rohirrim')k.box(0,10,2.5,7.8,1.2,.5,'#d9a93c');}
+ else if(people==='noldor'||people==='galadhrim'||people==='rohirrim'||people==='silvan'){k.dome(0,26.4,-.5,3.6,p.hair);k.ball(0,24.2,1.7,2.7,p.skin);k.box(0,16,-2.8,6.4,9,1.2,p.hair);k.cone(-3.8,24.6,0,.7,2.8,p.skin,6);k.cone(3.8,24.6,0,.7,2.8,p.skin,6);if(people==='rohirrim')k.box(0,10,2.5,7.8,1.2,.5,'#d9a93c');}
  else if(people==='ranger'){k.dome(0,25.2,0,3.9,'#2c4427');k.box(0,10,-2.8,7.4,11,1,'#2c4427');}
  else if(people==='dale'){k.dome(0,25.4,0,3.7,p.hair);k.column(0,27,0,4.6,.8,'#3c2a1a');k.add(unit.box,0,21.6,2.4,4,3,1.4,p.hair);}
  else k.dome(0,25.4,0,3.8,p.hair);
@@ -129,7 +177,7 @@ function bench(k,o,z,len=26,depth=13,top=WOOD,leg=DARK){
  k.box(o,3.4,z,1.2,1.2,len-5,leg);for(const b of [-1,1])k.box(o,3.4,z+b*(len/2-1.8),depth-3,1.2,1.2,leg);
  return 13;
 }
-const flame=(k,g,x,y,z,r=.9)=>{k.column(x,y,z,r*.55,2.8,'#d8cfae',6);g.ball(x,y+3.5,z,r*.62,'#ffd27a',1.4);};
+const flame=(k,g,x,y,z,r=.9)=>{k.column(x,y,z,r*.55,2.8,'#d8cfae',6);g.lamp(x,y+3.5,z,r*.62);};
 const candleOn=(k,g,x,y,z)=>{k.column(x,y,z,1.8,.4,BRASS,10);flame(k,g,x,y+.4,z);};
 const sheet=(k,x,y,z,w=5,d=7,ry=.1,color=PAPER)=>k.box(x,y,z,w,.2,d,color,ry);
 const lines=(k,x,y,z,w,n=4)=>{for(let i=0;i<n;i++)k.box(x+(i-(n-1)/2)*1,y,z,.25,.06,w-(i%2)*1.2,'#3a3226');};
@@ -203,14 +251,14 @@ export function stationInto(k,tool,x,z,g=k){
   // The seal of approval: sealed documents, wax over a flame, the signet on its block.
   const y=bench(k,o,z,28,14,'#55391c','#26211a');k.box(o,y,z,10,.2,20,'#15161d');sheet(k,o-1,y+.2,z-3,6,8,.05,'#efe9d6');lines(k,o-1,y+.45,z-3,7);k.column(o-1,y+.4,z-.4,1.4,.25,WAX,10);
   k.box(o+3,y+.2,z+7,5,2,5,'#3a2a1c');k.column(o+3,y+2.2,z+7,1.4,.5,BRASS,10);k.limb([[o+3,y+2.7,z+7,.5],[o+3,y+4.6,z+7,.42],[o+3,y+5.6,z+7,.8]],'#c9962d',6);
-  k.column(o+3,y,z-9,1.8,.4,'#26211a',8);for(const a of [-1,1])k.box(o+3+a*1.2,y+.4,z-9,.2,3,.2,'#26211a');k.column(o+3,y+3.4,z-9,1.4,.7,IRON,8);g.ball(o+3,y+1.6,z-9,.7,'#ffb23a',1.3);k.limb([[o+4.5,y+4.5,z-9,.3],[o+7,y+6,z-9,.2]],'#3a2a18',4);
+  k.column(o+3,y,z-9,1.8,.4,'#26211a',8);for(const a of [-1,1])k.box(o+3+a*1.2,y+.4,z-9,.2,3,.2,'#26211a');k.column(o+3,y+3.4,z-9,1.4,.7,IRON,8);g.lamp(o+3,y+1.6,z-9,.7);k.limb([[o+4.5,y+4.5,z-9,.3],[o+7,y+6,z-9,.2]],'#3a2a18',4);
   for(let i=0;i<3;i++){rolled(k,o-4,y+i*.9,z+9+i*1.5,9,.05,'#efe9d6');k.column(o-4,y+1+i*.9,z+9+i*1.5,.9,.2,WAX,8);}candleOn(k,g,o+4,y,z+1);
  }else if(tool==='compass'){
   // The map table: a chart held down at its corners, routes in ink, dividers and pins.
   const y=bench(k,o,z,32,18,'#55391c');k.box(o,y,z,15,.25,28,'#c9b98c');k.box(o,y-.05,z,15.8,.2,28.8,'#7a6a4a');
   for(const [a,b,c] of [[-3,-6,.4],[2,1,-.5],[-1,7,.7],[4,-8,.1]])k.box(o+a,y+.28,z+b,.3,.05,8,'#4f7f9b',c);for(const [a,b,c] of [[-5,-9,'#b52d12'],[3,3,'#b52d12'],[-2,9,'#27465e'],[5,-3,'#2f6a3a']]){k.column(o+a,y+.28,z+b,.12,1.8,'#26211a',4);k.ball(o+a,y+2.2,z+b,.55,c);}
   for(const [a,b] of [[-6.6,-13],[6.6,-13],[-6.6,13],[6.6,13]])k.column(o+a,y+.28,z+b,1.1,1,'#54565a',8);
-  k.add(k.cube(),o+1,y+.5,z-4,.28,.28,8,BRASS,.4,0,0);k.add(k.cube(),o-.8,y+.5,z-4,.28,.28,8,BRASS,-.4,0,0);k.column(o+6,y,z+9,1.3,3.6,'#3a3226',8);g.ball(o+6,y+5,z+9,.9,'#ffd98a');k.cone(o+6,y+5.8,z+9,1.5,1.2,'#26211a',8);
+  k.add(k.cube(),o+1,y+.5,z-4,.28,.28,8,BRASS,.4,0,0);k.add(k.cube(),o-.8,y+.5,z-4,.28,.28,8,BRASS,-.4,0,0);k.column(o+6,y,z+9,1.3,3.6,'#3a3226',8);g.lamp(o+6,y+5,z+9,.9);k.cone(o+6,y+5.8,z+9,1.5,1.2,'#26211a',8);
  }else if(tool==='book'){
   // A carved lectern with an open book, more volumes beside it and a candle.
   k.column(o,0,z,5.4,1.2,DARK,10);k.cyl(o,1.2,z,1.4,2.4,12,WOOD,8);k.add(k.cube(),o,15.6,z,10,1,14,DARK,0,0,.38);k.local(o-.4,z,0,()=>{for(const a of [-1,1])k.add(k.cube(),0,16.9,a*3,8,.7,5.6,PAPER,0,a*.06,.38);});k.add(k.cube(),o+3.8,14,z,.8,1.6,13,DARK,0,0,.38);
@@ -238,28 +286,33 @@ export function stationInto(k,tool,x,z,g=k){
 // ---- Halls ----
 
 // Everything belonging to one district. Walls and roof lift away separately; close details appear only near the camera.
+const ELVEN=new Set(['library','lorien']);
 export function buildDistrict(id,crew,art){
  const group=new T.Group(),inside=new Kit(),light=new Kit(),out=new Kit(),near=new Kit(),nearLight=new Kit(),fx={smoke:[],embers:[],spray:[],leaves:[]};
+ light.keepFires=nearLight.keepFires=true;light.elven=nearLight.elven=ELVEN.has(id);
  inside.lights=light;art.interiors[id](inside,light);inside.lights=null;
  for(const m of crew){const q=crewPoint(m);stationInto(inside,m.tool,q.x,q.z,light);}
- out.ground=near.ground=nearLight.ground=light.ground=art.ground;
+ const grid=art.walkGrid(inside.pos,(x,z)=>art.floor(id,x,z)),flowing=new Kit();
+ out.ground=near.ground=nearLight.ground=light.ground=art.ground;out.water=near.water=nearLight.water=light.water=flowing;
  art.footing(id,out);
- art.landmarks[id](out,light,fx);
- art.closeDetails[id](near,nearLight);
+ out.lights=light;art.landmarks[id](out,light,fx);out.lights=null;
+ near.lights=nearLight;art.closeDetails[id](near,nearLight);near.lights=null;
  const lit=k=>{const m=k.mesh(glowing);m.castShadow=false;m.receiveShadow=false;return m;};const roomGlow=glowing.clone();art.cutaway(roomGlow);
  const mats=art.materials[id];const interior=inside.mesh(mats.inside);group.add(interior);const glow=light.pos.length?lit(light):null;if(glow){glow.material=roomGlow;group.add(glow);}const outside=out.mesh(mats.outside);group.add(outside);
  const closeMesh=new T.Group();closeMesh.add(near.mesh(mats.outside));if(nearLight.pos.length)closeMesh.add(lit(nearLight));group.add(closeMesh);
- const wallKit=(build,base=mats.wall)=>{const k=new Kit();build(k);const material=base.clone();material.onBeforeCompile=base.onBeforeCompile;material.customProgramCacheKey=base.customProgramCacheKey;material.transparent=false;material.alphaTest=.02;const m=k.mesh(material);group.add(m);return m;};
+ const wallKit=(build,base=mats.wall)=>{const k=new Kit();build(k);const material=base.clone();material.onBeforeCompile=base.onBeforeCompile;material.customProgramCacheKey=base.customProgramCacheKey;material.transparent=true;material.alphaTest=.02;const m=k.mesh(material);group.add(m);return m;};
  const walls=art.buildWalls(id,build=>wallKit(build)).map(w=>({mesh:w.mesh,normal:new T.Vector3(w.normal[0],0,w.normal[1])}));
- const portal=new Kit(),roof=wallKit(k=>art.roofs[id](k,portal),mats.roof),portalGlow=glowing.clone();art.cutaway(portalGlow);const portalMesh=portal.pos.length?portal.mesh(portalGlow):null;if(portalMesh){portalMesh.castShadow=false;portalMesh.receiveShadow=false;roof.add(portalMesh);}
+ const portal=new Kit();portal.keepFires=true;portal.elven=light.elven;const roof=wallKit(k=>{k.lights=portal;art.roofs[id](k,portal);k.lights=null;},mats.roof),portalGlow=glowing.clone();portalGlow.transparent=true;art.cutaway(portalGlow);const portalMesh=portal.pos.length?portal.mesh(portalGlow):null;if(portalMesh){portalMesh.castShadow=false;portalMesh.receiveShadow=false;roof.add(portalMesh);}
+ out.water=near.water=nearLight.water=light.water=null;if(flowing.pos.length){const m=flowing.mesh(art.flow());m.castShadow=false;m.receiveShadow=false;group.add(m);}
  const props=new T.Group();props.visible=false;group.add(props);
- return {group,walls,roof,portalGlow:portalMesh?portalGlow:null,closeMesh,props,outside,interior,glow,fx};
+ {const spots=[...(light.fires??[]),...(nearLight.fires??[]),...(portal.fires??[])];if(spots.length)group.add(flameSheet(spots));}
+ return {grid,group,walls,roof,portalGlow:portalMesh?portalGlow:null,closeMesh,props,outside,interior,glow,fx};
 }
 
 // ---- Barad-dûr ----
 // The Dark Tower: a rock foundation, a spiked curtain wall, four buttressed tiers and the iron fork that holds the eye.
-export function buildHub(material=solid){
- const group=new T.Group(),k=new Kit(),g=new Kit(),black='#6a5f56',dark='#564c44',iron='#3a332e';
+export function buildHub(material=solid,shellMaterial=material,shellGlow=glowing){
+ const group=new T.Group(),k=new Kit(),g=new Kit(),shell=new Kit(),shellLit=new Kit(),black='#6a5f56',dark='#564c44',iron='#3a332e';
  k.crag(0,0,-26,205,40,150,'#5e544a',1);k.add(unit.box,0,4.2,173,32,1.4,68,'#3a332e',0,.125);for(const s of [-1,1])k.add(unit.box,s*15.5,5.4,173,1.6,3,68,'#26211e',0,.125);
  for(const [x,z,sx,sy,seed] of [[-130,-90,70,46,2],[130,-96,74,52,3],[-150,40,54,32,1],[152,36,56,34,2]])k.crag(x,0,z,sx,sy,sx,'#544a41',seed);
  // The curtain wall, open only towards the road from the south.
@@ -269,43 +322,80 @@ export function buildHub(material=solid){
   if(Math.abs(a-Math.PI*2)<.24||a<.24)continue;
   k.box(x,8,z,2*R*Math.sin(Math.PI/N)+2,30,11,dark,a);
   for(const s of [-1,0,1])k.box(x+Math.cos(a)*s*12,38,z-Math.sin(a)*s*12,6,6,12,black,a);
-  if(i%3===1){k.cyl(x,8,z,11,14,58,black,10);k.cone(x,66,z,13,24,iron,10);}
+  if(i%3===1){k.cyl(x,8,z,9,13,62,black,10);k.cyl(x,70,z,12,9,6,dark,10);for(let c=0;c<8;c++){const t=c/8*6.2832;k.cone(x+Math.cos(t)*11,76,z+Math.sin(t)*11,1.6,6+(c%2)*7,iron,4);}k.cone(x,76,z,5,20,iron,6);}
   if(i%2===0)g.box(Math.sin(a)*(R+5.8),22,Math.cos(a)*(R+5.8),1.2,5,.5,'#ff7a2a',a);
  }
  // The gate.
- for(const s of [-1,1]){k.cyl(s*30,6,Math.cos(.24)*R,14,18,74,black,10);k.cone(s*30,80,Math.cos(.24)*R,16,30,iron,10);}
+ for(const s of [-1,1]){const gz=Math.cos(.24)*R;k.cyl(s*30,6,gz,11,17,80,black,10);k.cyl(s*30,86,gz,14,11,7,dark,10);for(let c=0;c<8;c++){const t=c/8*6.2832;k.cone(s*30+Math.cos(t)*13,93,gz+Math.sin(t)*13,1.8,7+(c%2)*9,iron,4);}k.cone(s*30,93,gz,6,26,iron,6);}
  k.box(0,48,Math.cos(.24)*R,50,14,14,dark);k.box(0,44,Math.cos(.24)*R+4,44,4,3,iron);
- // The tower: each tier narrower, ringed with buttresses that end in spikes.
- let y=26;
- const tiers=[[90,84,62,12,20],[104,60,44,12,16],[92,42,30,10,12],[58,28,20,8,9]];
- tiers.forEach(([h,bottom,top,fins,fin],t)=>{
-  k.cyl(0,y,0,top,bottom,h,t%2?dark:black,20);
-  k.cyl(0,y+h-3,0,top+5,top+2,6,iron,20);
-  for(let i=0;i<fins;i++){
-   const a=(i+(t%2?.5:0))/fins*6.2832,c=Math.cos(a),n=Math.sin(a),out=(bottom+top)/2+fin*.32;
-   k.add(new T.BoxGeometry(fin*.55,h*1.02,fin*1.05).toNonIndexed(),c*out,y+h*.5,n*out,1,1,1,t%2?black:dark,-a,0,0);
-   k.add(k.cylinder(0,fin*.42,h*.42,5),c*(top+fin*.3),y+h+h*.2,n*(top+fin*.3),1,1,1,iron);
-   if((i+t)%2===0)for(let w=0;w<3;w++)g.box(Math.cos(a+.31)*(top+(bottom-top)*(1-(w+.5)/3)+.6),y+h*(w+.5)/3,Math.sin(a+.31)*(top+(bottom-top)*(1-(w+.5)/3)+.6),1.3,5.4,1.3,w%2?'#ff9a3a':'#ff6a1a',-a);
+ // The tower as in the film: a broad fortress of thin gothic piers at the foot, rock clinging to it, then one tall slim shaft of ribs and collars, widening at the head into two smooth prongs that hold the Eye.
+ const edge='#857a6f',pale='#6f655c';const pier=(y,h,r0,r1,ribs,shade,turn=0)=>{ribs=Math.round(ribs*1.7);shell.cyl(0,y,0,r1,r0,h,'#2f2a26',24);const wide0=r0*6.2832/ribs;for(let i=0;i<ribs;i++){const a=(i+turn)/ribs*6.2832,c=Math.cos(a),n=Math.sin(a),big=i%3===0,r=(r0+r1)/2,tall=h*(big?1.05:.46+((i*7)%6)*.1),wide=big?wide0*.62:wide0*.42,out=r0-r1+(big?6:3.4);shell.box(c*r,y,n*r,out,tall,wide,big?shade:[iron,pale,black][i%3],-a);if(big){shell.box(c*(r+out*.5),y,n*(r+out*.5),.8,tall,wide*.34,edge,-a);shell.cone(c*(r+1),y+tall,n*(r+1),wide*.62,8+(i%2)*6,iron,4);for(const f of [.33,.66])shell.box(c*(r+out*.42),y+h*f,n*(r+out*.42),1.8,1.4,wide*1.1,edge,-a);}else shell.cone(c*r,y+tall,n*r,wide*.6,4+(i%4)*2.4,iron,4);if(i%4===1)for(const f of [.3,.68]){const q=r0+(r1-r0)*f+1.2,b=a+3.1416/ribs;shellLit.box(Math.cos(b)*q,y+h*f,Math.sin(b)*q,.9,4.6,.9,f<.5?'#ff6a1a':'#ff9a3a',-b);}}};
+ const collar=(y,r,n)=>{shell.cyl(0,y-3,0,r+5,r,4,iron,24);shell.column(0,y+1,0,r+5.4,1.5,pale,24);for(let i=0;i<n;i++){const a=i/n*6.2832,c=Math.cos(a),q=Math.sin(a),o=r+4.4;shell.cone(c*o,y+2.5,q*o,1.3,3.5+(i%3)*3,iron,4);shell.add(k.cylinder(1.1,0,4+(i%2)*4,4),c*o,y-5,q*o,1,1,1,iron);}};
+ // The fortress: two stages of piers behind the curtain wall.
+ pier(26,84,106,92,46,black);collar(110,92,40);pier(110,70,88,72,40,dark,.5);collar(180,72,34);pier(180,52,68,47,30,black);
+ // The rock of Gorgoroth climbs its flanks, highest at the front on the west side.
+ const stone='#403a35';for(const [x,y,z,sx,sy,sz,seed] of [[-34,196,48,40,92,28,1],[-66,142,34,42,66,40,3],[52,160,40,36,54,32,2],[74,104,8,38,48,44,1],[-20,250,34,20,44,16,2],[-82,92,-30,34,48,44,2]])shell.crag(x,y,z,sx,sy,sz,stone,seed);
+ // The two thin towers with iron crowns that stand either side of the shaft.
+ for(const s of [-1,1]){const x=s*98,z=-16;shell.cyl(x,26,z,8,12,216,black,10);for(const y of [96,160,206])shell.column(x,y,z,11-(y-96)*.02,1.6,iron,10);shell.cyl(x,242,z,12,8.4,12,dark,10);shell.column(x,254,z,12.6,1.5,iron,10);for(let i=0;i<8;i++){const a=i/8*6.2832;shell.cone(x+Math.cos(a)*11,255,z+Math.sin(a)*11,1.8,7+(i%2)*9,iron,4);}shell.cone(x,254,z,6,26,iron,6);for(const y of [120,180])shellLit.box(x,y,z+11,1,5,1,'#ff7a2a');}
+ // The shaft, nearly straight, in five storeys.
+ pier(232,80,47,42.5,28,dark);collar(312,42.5,28);pier(312,84,42,38,26,black,.5);collar(396,38,26);pier(396,62,37.5,35,24,dark);collar(458,35,24);pier(458,48,34.5,32,22,black,.5);collar(506,32,22);
+ // The head flares out in curved ribs like organ pipes.
+ shell.cyl(0,506,0,39,31.5,50,dark,20);for(let i=0;i<22;i++){const a=i/22*6.2832,c=Math.cos(a),n=Math.sin(a);shell.limb([[c*32,508,n*32,1.5],[c*36,530,n*36,1.4],[c*40.5,552,n*40.5,1],[c*43,562,n*43,.3]],i%2?iron:black,4);}
+ shell.column(0,556,0,41,3,iron,22);for(let i=0;i<22;i++){const a=(i+.5)/22*6.2832;shell.cone(Math.cos(a)*40,559,Math.sin(a)*40,1.6,5+(i%3)*5,iron,4);}
+ // Spires at the shoulders of the head, then the prongs: pale, smooth, bending out and back towards the Eye.
+ k.cyl(0,558,0,17,27,10,iron,14);
+ for(const s of [-1,1]){for(const [z,top,o] of [[0,590,42],[-15,580,38],[15,580,38]])k.limb([[s*o,556,z,3.2],[s*(o+1),570,z,2],[s*(o+2),top-8,z,.9],[s*(o+2.4),top,z,.12]],iron,5);
+  k.limb([[s*15,556,0,10],[s*20,574,0,8.6],[s*28,596,0,5.8],[s*31,616,0,3],[s*29,632,0,.4]],'#8b8682',14);
   }
-  y+=h;
- });
- // The fork of iron.
- k.cyl(0,y,0,14,20,16,iron,14);
- for(const s of [-1,1]){k.limb([[s*12,y+6,0,11],[s*44,y+22,0,9],[s*84,y+50,0,7],[s*104,y+92,0,5],[s*96,y+128,0,2.6],[s*70,y+152,0,.3]],iron,8);for(let i=0;i<5;i++)k.cone(s*(26+i*17),y+24+i*i*2.1,0,3.4-i*.3,18,iron,6);}
- k.box(0,26,88,58,62,26,dark);k.cone(0,88,88,34,20,iron,4,Math.PI/4);g.box(0,26,101.2,34,44,.6,'#ff7a2a');
+ k.box(0,26,92,44,70,26,dark);for(const s of [-1,0,1])k.cone(s*16,96,104,3.4,s?20:30,iron,4);for(let i=0;i<9;i++)k.box(-20+i*5,26,105.2,1.8,62+(i%2)*6,1.8,i%2?iron:black);g.box(0,26,105.6,11,20,.6,'#ff4a12');g.box(0,26,105.9,6,12,.4,'#ffa23a');
  for(let i=0;i<8;i++){const a=i/8*6.283;k.column(Math.cos(a)*116,20,Math.sin(a)*116,4,6,iron,8);g.cone(Math.cos(a)*116,26,Math.sin(a)*116,4,10,'#ff8a2a',8);}
  group.add(k.mesh(material));const lit=g.mesh(glowing);lit.castShadow=false;lit.receiveShadow=false;group.add(lit);
+ group.add(shell.mesh(shellMaterial));const shellGlowing=shellLit.mesh(shellGlow);shellGlowing.castShadow=false;shellGlowing.receiveShadow=false;group.add(shellGlowing);
  return group;
 }
 // The eye is a camera-facing picture, so it always looks at the founder.
 export function eyeSprites(){
- const make=(draw,size=512)=>{const n=document.createElement('canvas');n.width=size;n.height=size;draw(n.getContext('2d'),size);const t=new T.CanvasTexture(n);t.colorSpace=T.SRGBColorSpace;return t;};
+ const make=(draw,size=1024)=>{const n=document.createElement('canvas');n.width=size;n.height=size;draw(n.getContext('2d'),size);const t=new T.CanvasTexture(n);t.colorSpace=T.SRGBColorSpace;return t;};
  const almond=(c,s,w,h)=>{c.beginPath();c.moveTo(s/2-w,s/2);c.quadraticCurveTo(s/2,s/2-h,s/2+w,s/2);c.quadraticCurveTo(s/2,s/2+h,s/2-w,s/2);c.closePath();};
- const open=make((c,s)=>{const f=c.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2);f.addColorStop(0,'#ffc23aff');f.addColorStop(.42,'#f0540fee');f.addColorStop(.7,'#c8300866');f.addColorStop(1,'#c8300800');c.fillStyle=f;c.fillRect(0,0,s,s);const g=c.createRadialGradient(s/2,s/2,0,s/2,s/2,s*.34);g.addColorStop(0,'#fff6bd');g.addColorStop(.5,'#ffc23a');g.addColorStop(1,'#e24509');almond(c,s,s*.38,s*.3);c.fillStyle=g;c.fill();});
- const closed=make((c,s)=>{const f=c.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2);f.addColorStop(0,'#c8500f88');f.addColorStop(.6,'#8a2f0833');f.addColorStop(1,'#8a2f0800');c.fillStyle=f;c.fillRect(0,0,s,s);almond(c,s,s*.38,s*.24);c.fillStyle='#5a3216';c.fill();c.strokeStyle='#ff9440';c.lineWidth=7;c.stroke();c.strokeStyle='#ffd18a';c.lineWidth=11;c.lineCap='round';c.beginPath();c.moveTo(s*.16,s*.5);c.quadraticCurveTo(s*.5,s*.6,s*.84,s*.5);c.stroke();});
- const slit=make((c,s)=>{c.fillStyle='#0a0503';c.beginPath();c.moveTo(s/2,s*.1);c.quadraticCurveTo(s*.62,s/2,s/2,s*.9);c.quadraticCurveTo(s*.38,s/2,s/2,s*.1);c.fill();},256);
- const sprite=(map,w,h)=>{const m=new T.Sprite(new T.SpriteMaterial({map,transparent:true,depthWrite:false,fog:false}));m.scale.set(w,h,1);return m;};
- return {open:sprite(open,250,250),closed:sprite(closed,250,250),pupil:sprite(slit,80,120)};
+ // Tongues of fire licking outward from the rim of the eye; fixed seed, so the eye is the same on every load.
+ const tongues=(c,s,count,seed,reach,tones)=>{let q=seed;const rnd=()=>(q=(q*16807)%2147483647)/2147483647;c.globalCompositeOperation='lighter';c.lineCap='round';for(let i=0;i<count;i++){const a=rnd()*6.2832,rimX=Math.cos(a)*s*.33,rimY=Math.sin(a)*s*.33*(.42+.3*Math.abs(Math.cos(a))),len=s*reach*(.25+rnd()*rnd()*1.1)*(1-.45*Math.abs(Math.sin(a))),bend=(rnd()-.5)*s*.09,x0=s/2+rimX,y0=s/2+rimY,x1=x0+Math.cos(a)*len,y1=y0+Math.sin(a)*len-len*.18,g=c.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,tones[Math.floor(rnd()*tones.length)]);g.addColorStop(1,'#a0200000');c.strokeStyle=g;c.lineWidth=2+rnd()*s*.012;c.beginPath();c.moveTo(x0,y0);c.quadraticCurveTo((x0+x1)/2+bend,(y0+y1)/2-bend,x1,y1);c.stroke();}c.globalCompositeOperation='source-over';};
+ const closed=make((c,s)=>{
+  const f=c.createRadialGradient(s/2,s/2,s*.08,s/2,s/2,s/2);f.addColorStop(0,'#b0400c77');f.addColorStop(.55,'#70200622');f.addColorStop(1,'#70200600');c.fillStyle=f;c.fillRect(0,0,s,s);
+  tongues(c,s,150,881,.12,['#d0601a88','#a0360c77']);
+  // Two heavy lids of cooled slag; only the seam and its cracks still glow.
+  almond(c,s,s*.34,s*.22);const g=c.createLinearGradient(0,s*.28,0,s*.72);g.addColorStop(0,'#38231a');g.addColorStop(.5,'#180d09');g.addColorStop(1,'#2e1c14');c.fillStyle=g;c.fill();c.strokeStyle='#120806';c.lineWidth=s*.012;c.stroke();
+  c.save();almond(c,s,s*.34,s*.22);c.clip();let q=311;const rnd=()=>(q=(q*16807)%2147483647)/2147483647;for(let i=0;i<46;i++){let x=s*(.2+rnd()*.6),y=s/2+(rnd()-.5)*s*.3;c.strokeStyle=i%3?'#ff7a2055':'#ffb04a77';c.lineWidth=1+rnd()*2.2;c.beginPath();c.moveTo(x,y);for(let k=0;k<5;k++){x+=(rnd()-.5)*s*.05;y+=(rnd()-.5)*s*.035;c.lineTo(x,y);}c.stroke();}c.restore();
+  c.lineCap='round';c.strokeStyle='#ff5a14';c.lineWidth=s*.022;c.beginPath();c.moveTo(s*.17,s*.5);c.quadraticCurveTo(s*.5,s*.54,s*.83,s*.5);c.stroke();c.strokeStyle='#ffd27a';c.lineWidth=s*.007;c.stroke();
+ });
+ // Awake it is living fire: a pointed almond of molten fibres streaming away from a thin black slit, its edge torn into flames.
+ const fire=new T.ShaderMaterial({transparent:true,depthWrite:false,fog:false,uniforms:{time:{value:0},look:{value:0}},vertexShader:`varying vec2 vP;void main(){vP=uv*2.-1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec2 vP;uniform float time;uniform float look;
+  float hash(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+  float noise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
+  float fbm(vec3 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*noise(p);p=p*2.03+vec3(11.);a*=.5;}return s;}
+  void main(){
+   vec2 p=vP;
+   float rho=(abs(p.y)+sqrt(p.y*p.y+1.44*p.x*p.x))/.72;
+   vec2 dir=normalize(p+vec2(1e-4));
+   vec3 q=vec3(dir*2.3,rho*1.7-time*.26);
+   float flow=fbm(q+fbm(q*1.7+3.)*.9);
+   float vein=1.-abs(2.*fbm(vec3(dir*8.5,rho*1.2-time*.18))-1.);
+   float crack=1.-abs(2.*fbm(vec3(dir*19.,rho*2.6-time*.3)+flow)-1.);
+   float heat=mix(.84,.4,smoothstep(0.,1.05,rho))*(.42+.95*flow)+.26*pow(crack,7.)-(1.-pow(vein,1.6))*.36;
+   float reach=1.03+.62*pow(fbm(vec3(dir*5.5,rho*2.2-time*.8)),1.5)*(.6+.4*abs(dir.x));
+   float alpha=1.-smoothstep(reach-.3,reach,rho);
+   heat*=1.-.72*smoothstep(.86,reach+.1,rho);
+   float sx=p.x-look+sin(p.y*22.+time*1.4)*.004,ky=clamp(abs(p.y)/.31,0.,1.),gap=abs(sx)-.036*(1.-ky*ky);
+   heat+=.5*exp(-max(gap,0.)/.035)*(1.-smoothstep(.22,.44,abs(p.y)));
+   vec3 c=mix(vec3(.05,0.,0.),vec3(.62,.04,0.),smoothstep(.08,.34,heat));
+   c=mix(c,vec3(1.15,.26,.015),smoothstep(.32,.58,heat));c=mix(c,vec3(1.55,.72,.08),smoothstep(.58,.84,heat));c=mix(c,vec3(1.9,1.3,.45),smoothstep(.86,1.15,heat));
+   c=mix(c,vec3(.012,.004,.002),(1.-smoothstep(-.005,.009,gap))*step(abs(p.y),.31));
+   gl_FragColor=vec4(c,alpha);
+   #include <tonemapping_fragment>
+   #include <colorspace_fragment>
+  }`});
+ const open=new T.Mesh(new T.PlaneGeometry(1,1),fire);open.scale.set(215,215,1);
+ const shut=new T.Sprite(new T.SpriteMaterial({map:closed,transparent:true,depthWrite:false,fog:false}));shut.scale.set(185,185,1);
+ return {open,fire,closed:shut};
 }
 export const smokeTexture=()=>{const n=document.createElement('canvas');n.width=n.height=64;const c=n.getContext('2d'),g=c.createRadialGradient(32,32,2,32,32,32);g.addColorStop(0,'#ffffffcc');g.addColorStop(1,'#ffffff00');c.fillStyle=g;c.fillRect(0,0,64,64);return new T.CanvasTexture(n);};
 
@@ -327,17 +417,18 @@ function tier(radius,height,seed){
 }
 // Wind in the crowns and light and shade across the leaves. Trunks stay still at their foot.
 export const forestTime={value:0};
+// How much day there is, 0 at night and 1 by day: whatever shines by itself by day goes dark with it.
 function foliage(radius){
  const m=new T.MeshLambertMaterial({color:new T.Color(1.6,1.6,1.6)});
  m.onBeforeCompile=shader=>{
-  shader.uniforms.forestTime=forestTime;shader.uniforms.leafSize={value:radius};
+  shader.uniforms.forestTime=forestTime;shader.uniforms.leafSize={value:radius};shader.uniforms.worldDay=worldDay;
   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float forestTime;varying vec3 vLeaf;').replace('#include <begin_vertex>',`#include <begin_vertex>
    vLeaf=position;
    #ifdef USE_INSTANCING
    {float seed=instanceMatrix[3].x*.031+instanceMatrix[3].z*.043;transformed.x+=sin(forestTime*1.15+seed)*.55+sin(forestTime*2.9+seed+position.y*.3)*.2;transformed.z+=cos(forestTime*.93+seed)*.42;}
    #endif`);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vLeaf;uniform float leafSize;').replace('#include <color_fragment>',`#include <color_fragment>
-   {float low=smoothstep(-leafSize,leafSize*.8,vLeaf.y);float dapple=sin(vLeaf.x*1.7+vLeaf.y*2.3)*sin(vLeaf.z*1.9-vLeaf.y*1.3)*sin(vLeaf.x*.6+vLeaf.z*.8);diffuseColor.rgb*=(.5+.72*low)*(.96+dapple*.12);}`).replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*.2;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vLeaf;uniform float leafSize;uniform float worldDay;').replace('#include <color_fragment>',`#include <color_fragment>
+   {float low=smoothstep(-leafSize,leafSize*.8,vLeaf.y);float dapple=sin(vLeaf.x*1.7+vLeaf.y*2.3)*sin(vLeaf.z*1.9-vLeaf.y*1.3)*sin(vLeaf.x*.6+vLeaf.z*.8);diffuseColor.rgb*=(.5+.72*low)*(.96+dapple*.12);}`).replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*.2*worldDay;');
  };
  return m;
 }
@@ -353,7 +444,7 @@ const leafKinds={
  goldbush:{picture:'gold',r:8,tiers:[[-.2,1,9],[.3,.7,6]],size:[.42,.25],tilt:[.3,1]},
 };
 const leafPaints={
- gold:{tones:['#a98c2e','#b89a34','#c7aa3e','#8f7a2c','#d3b84c','#94883a','#7c6c28'],vein:'#6a5a22',len:[11,13],wide:.36,count:620,fill:[150,125,45]},
+ gold:{tones:['#bcaa52','#cbb962','#d9ca74','#ac9d4e','#e3d68a','#b0a75c','#9a8e4c'],vein:'#7c6e3a',len:[11,13],wide:.36,count:620,fill:[172,152,84]},
  oak:{tones:['#3f5f30','#4c6e36','#355428','#5a7a3c','#2d4a26','#63803f'],vein:'#26401f',len:[9,10],wide:.5,count:800,fill:[60,90,45]},
  birch:{tones:['#6f8f48','#7f9c50','#5f7f40','#8fa858','#54723a'],vein:'#3f5a2a',len:[7,7],wide:.5,count:1000,fill:[105,135,70]},
  dark:{tones:['#1c3a26','#22442c','#173220','#2a4e30','#2f5433'],vein:'#102418',len:[11,12],wide:.42,count:700,fill:[30,60,40]},
@@ -369,7 +460,7 @@ function leafPicture(name){
  }
  // See-through pixels keep the colour of the leaves, so the edges do not turn dark in the distance.
  const px=c.getImageData(0,0,N,N).data;for(let i=0;i<px.length;i+=4)if(px[i+3]===0){px[i]=paint.fill[0];px[i+1]=paint.fill[1];px[i+2]=paint.fill[2];}
- const t=new T.DataTexture(px,N,N,T.RGBAFormat);t.colorSpace=T.SRGBColorSpace;t.generateMipmaps=true;t.minFilter=T.LinearMipmapLinearFilter;t.magFilter=T.LinearFilter;t.anisotropy=8;t.needsUpdate=true;leafPictures.set(name,t);return t;
+ const t=new T.DataTexture(px,N,N,T.RGBAFormat);t.colorSpace=T.SRGBColorSpace;t.generateMipmaps=true;t.minFilter=T.LinearMipmapLinearFilter;t.magFilter=T.LinearFilter;t.anisotropy=16;t.needsUpdate=true;leafPictures.set(name,t);return t;
 }
 function leafyCrown(kind,seed=4){
  const spec=leafKinds[kind],R=spec.r;let s=seed*4099+17;const rnd=()=>(s=(s*16807)%2147483647)/2147483647,pos=[],nor=[],uv=[],index=[],right=new T.Vector3(),along=new T.Vector3(),face=new T.Vector3(),centre=new T.Vector3(),soft=new T.Vector3(),up=new T.Vector3(0,1,0);
@@ -383,16 +474,17 @@ function leafyCrown(kind,seed=4){
  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('normal',new T.Float32BufferAttribute(nor,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(index);g.userData.leaves=kind;return g;
 }
 function leafCards(kind){
- const spec=leafKinds[kind],m=new T.MeshLambertMaterial({map:leafPicture(spec.picture),color:new T.Color(1.75,1.75,1.75),alphaTest:.34,side:T.DoubleSide});
+ const spec=leafKinds[kind],m=new T.MeshLambertMaterial({map:leafPicture(spec.picture),color:new T.Color(1.75,1.75,1.75),alphaTest:.34,alphaToCoverage:true,side:T.DoubleSide});
  m.onBeforeCompile=shader=>{
-  shader.uniforms.forestTime=forestTime;shader.uniforms.leafR={value:spec.r};
-  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float forestTime;varying float vTier;').replace('#include <begin_vertex>',`#include <begin_vertex>
+  shader.uniforms.forestTime=forestTime;shader.uniforms.leafR={value:spec.r};shader.uniforms.worldDay=worldDay;
+  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float forestTime;varying float vTier;varying float vCardAway;').replace('#include <project_vertex>','#include <project_vertex>\nvCardAway=length(mvPosition.xyz);').replace('#include <begin_vertex>',`#include <begin_vertex>
    vTier=position.y;
    #ifdef USE_INSTANCING
    {float seed=instanceMatrix[3].x*.031+instanceMatrix[3].z*.043+position.x*.09;transformed.x+=sin(forestTime*1.2+seed)*.6;transformed.y+=sin(forestTime*1.7+seed*1.3)*.28;transformed.z+=cos(forestTime+seed)*.48;}
    #endif`);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTier;uniform float leafR;').replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);').replace('#include <color_fragment>',`#include <color_fragment>
-   diffuseColor.rgb*=mix(.56,1.08,smoothstep(-.5*leafR,.5*leafR,vTier));`).replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*.2;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTier;varying float vCardAway;uniform float leafR;uniform float worldDay;').replace('#include <alphatest_fragment>',`{vec2 big=vec2(length(dFdx(vMapUv)),length(dFdy(vMapUv)))*512.;float lod=max(0.,log2(max(big.x,big.y)));diffuseColor.a*=1.+lod*.62;}
+   #include <alphatest_fragment>`).replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);').replace('#include <color_fragment>',`#include <color_fragment>
+   diffuseColor.rgb*=mix(.56,1.08,smoothstep(-.5*leafR,.5*leafR,vTier));`).replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*.2*worldDay;');
  };
  return m;
 }
@@ -422,7 +514,7 @@ export function buildForest(trees,groundAt){
  const shapes={
   pine:[[new T.CylinderGeometry(1,3,44,7),'#3a2a1c',22],[new T.ConeGeometry(10,54,7),'#10261a',38],[leafyCrown('pine',1),'#ffffff',40]],
   oak:[[new T.CylinderGeometry(2,4.2,24,7),'#3a2a1a',12],[limbInto([[17,1.8,.8,0,0],[15,1.6,.9,2.1,0],[16,1.7,.75,4.2,0],[12,1.2,.35,1,4]]),'#3a2a1a',20],[crown(12,1),'#20351b',36],[leafyCrown('oak',2),'#ffffff',38]],
-  mallorn:[[new T.CylinderGeometry(2,6.4,70,9),'#9fa196',35],[limbInto([[26,2.4,1,.4,0],[24,2.2,1.05,2.5,0],[25,2.3,.95,4.6,0],[18,1.6,.5,1.5,8]]),'#9fa196',48],[crown(15,4),'#6a5a24',74],[leafyCrown('gold',4),'#ffffff',80]],
+  mallorn:[[new T.CylinderGeometry(2,6.4,70,9),'#adb9c6',35],[limbInto([[26,2.4,1,.4,0],[24,2.2,1.05,2.5,0],[25,2.3,.95,4.6,0],[18,1.6,.5,1.5,8]]),'#adb9c6',48],[crown(15,4),'#8e7e40',74],[leafyCrown('gold',4),'#ffffff',80]],
   dead:[[new T.CylinderGeometry(.7,3,30,6),'#1a1510',15],[limbInto([[13,1,.8,.6,0],[11,.9,1,2.6,2],[12,.9,.7,4.4,-4],[9,.6,.3,1.4,4]]),'#1a1510',26]],
   dark:[[new T.CylinderGeometry(2.6,6.2,42,8),'#1d1712',21],[limbInto([[22,2.4,1.1,0,0],[20,2.2,1.2,2.1,0],[21,2.3,1,4.2,0]]),'#1d1712',30],[crown(17,7),'#0f2419',54],[leafyCrown('dark',3),'#ffffff',58]],
   birch:[[new T.CylinderGeometry(.9,1.8,32,7),'#c2c0b4',16],[crown(6,10),'#3f5a2a',36],[leafyCrown('birch',6),'#ffffff',38]],

@@ -669,7 +669,7 @@ const views={trading:['trading'],work:['work'],checks:['checks'],overview:['cont
 function applyView(){
 
  const requested=location.hash.slice(1),view=Object.hasOwn(views,requested)?requested:'overview';
- const rooms={overview:'01 / Mittelerde',chronicle:'01 / Chronik',operations:'02 / Aufgaben',work:'02 / Aufgaben',products:'03 / Ergebnisse',archive:'06 / Archiv',finance:'04 / Schatzkammer',trading:'04 / Sternwarte',approvals:'05 / Prüfkammer',checks:'05 / Prüfkammer'};if($('deckLocation'))$('deckLocation').textContent=rooms[view]??rooms.overview;document.body.dataset.deck=view;
+ const rooms={overview:'Mittelerde',chronicle:'Chronik',operations:'Aufgaben',work:'Aufgaben',products:'Ergebnisse',archive:'Archiv',finance:'Finanzen',trading:'Trading',approvals:'Prüfen',checks:'Prüfen'};if($('deckLocation'))$('deckLocation').textContent=rooms[view]??rooms.overview;document.body.dataset.deck=view;
 
  if(view==='archive'&&!archiveState.loaded&&!archiveState.loading)void loadArchive();
  if(view==='trading'){$('accountDetails').open=true;void refreshTradingHistory();}
@@ -707,12 +707,12 @@ function renderMissionDeck(){
  $('reactorStatus').textContent=states[deck.state]??'STATUS UNBEKANNT';
  $('reactorDetail').textContent=deck.state==='running'?founderHealth().label:'Letzter gemeldeter Betriebszustand';
  host.replaceChildren();
- const top=el('div',undefined,'deck-heading'),intro=el('div');intro.append(el('div','DEIN MISSION CONTROL','eyebrow'),el('h2','Aus Ideen wird Fortschritt.'));
+ const top=el('div',undefined,'deck-heading'),intro=el('div');intro.append(el('h2','Missionen'));
  const badge=el('a',deck.results+' Ergebnisse ↗','deck-counter');badge.href='#products';top.append(intro,badge);host.append(top);
  const grid=el('div',undefined,'mission-grid');
  const progress=el('article',undefined,'mission-score'),ring=el('div',undefined,'progress-orbit');
  ring.style.setProperty('--progress',deck.progress+'%');ring.setAttribute('role','img');ring.setAttribute('aria-label',deck.completed+' von '+deck.total+' erfassten Missionen abgeschlossen');ring.append(el('strong',deck.progress+'%'),el('span','abgeschlossen'));
- progress.append(el('div','MISSION FORTSCHRITT','eyebrow'),ring,el('p',deck.completed+' von '+deck.total+' erfassten Missionen abgeschlossen'));grid.append(progress);
+ progress.append(ring,el('p',deck.completed+' von '+deck.total+' erfassten Missionen abgeschlossen'));grid.append(progress);
  const list=el('div',undefined,'mission-stream');
  for(const [i,t] of deck.missions.entries()){
   const card=el('a',undefined,'mission-tile');card.href='#work';const head=el('div',undefined,'mission-tile-top');
@@ -763,7 +763,7 @@ function renderFounderOverview(){
  }
 
  if(['paused','stopped','emergency_stopped'].includes(snapshot.autonomy?.status)){
-  $('nextStepTitle').textContent=snapshot.autonomy.status==='paused'?'Ein Moment zum Durchatmen.':'Dein Universum wartet auf dich.';
+  $('nextStepTitle').textContent=snapshot.autonomy.status==='paused'?'Pausiert':'Nichts Dringendes offen';
   $('nextStepText').textContent='Der KI-Betrieb ist '+(snapshot.autonomy.status==='paused'?'pausiert':'ausgeschaltet')+'. Deine offenen Missionen und bisherigen Ergebnisse bleiben erhalten.';
   $('nextStepLink').href='#control';$('nextStepLink').textContent='Betriebssteuerung ansehen →';
  }
@@ -905,7 +905,7 @@ function renderFinancialDetails(){
 
  if(f.reconciliationIssues.length){const details=el('details');details.append(el('summary','Was noch offen ist · '+f.reconciliationIssues.length));for(const issue of f.reconciliationIssues)details.append(el('p',issue));status.append(details);}box.append(status);
 
- box.append(el('p','Gewinn = gesamte Einnahmen in CHF inklusive bewerteter USDC-Auftragseingänge − Rückzahlungen − Zahlungsgebühren − erfasste Geschäftsausgaben − automatisch umgerechnete numaron-Nutzung. USDC-Plattformabzüge sind bereits im bestätigten Eingang berücksichtigt und werden nicht nochmals abgezogen. Die USDC-Bewertung ist indikativ; fehlende Kostenbelege bleiben offen. Budgetansätze sind ausgeschlossen. Deine bestätigten CHF-Angaben haben Vorrang vor Referenzkursen.'));
+ {const how=el('details');how.append(el('summary','Wie der Gewinn berechnet wird'));box.append(how);how.append(el('p','Gewinn = gesamte Einnahmen in CHF inklusive bewerteter USDC-Auftragseingänge − Rückzahlungen − Zahlungsgebühren − erfasste Geschäftsausgaben − automatisch umgerechnete numaron-Nutzung. USDC-Plattformabzüge sind bereits im bestätigten Eingang berücksichtigt und werden nicht nochmals abgezogen. Die USDC-Bewertung ist indikativ; fehlende Kostenbelege bleiben offen. Budgetansätze sind ausgeschlossen. Deine bestätigten CHF-Angaben haben Vorrang vor Referenzkursen.'));}
 
  const providerCosts=renderReconciliation(box,f,date);
 

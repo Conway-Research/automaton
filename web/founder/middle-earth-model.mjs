@@ -5,7 +5,7 @@ export const stations=[
   about:'In der Hornburg vor der Klamm halten die Rohirrim der Westfold Ausschau. Sie werten die Auftragsquellen aus und markieren auf der Karte, was sich lohnen könnte.',
   kinds:['order-discovery','github-orders','gmail-orders','dealwork-escrow']},
  {id:'library',step:3,district:'Forschung',title:'Schloss von Bruchtal',folk:'Noldor unter Elrond',verb:'Quellen lesen',link:'#operations',
-  about:'Im Haus Elronds, dem Schloss von Imladris zwischen den Wasserfällen, lesen die Noldor Quellen, vertiefen Fundstellen und halten Belege und Gegenbelege fest.',
+  about:'Im Haus Elronds, dem Schloss von Imladris am Lauf des Bruinen, lesen die Noldor Quellen, vertiefen Fundstellen und halten Belege und Gegenbelege fest.',
   kinds:['research','exa-research','firecrawl-research','sofa-research']},
  {id:'forge',step:6,district:'Produktion',title:'Minen von Moria',folk:'Zwerge aus Durins Volk',verb:'Herstellen',link:'#products',
   about:'In den Hallen von Khazad-dûm fertigen die Zwerge Entwürfe, Teile, Code und Lieferungen. Im Abgrund neben der Brücke lauert der Balrog; er gehört zur Kulisse. Alles läuft in der geprüften Isolation.',
@@ -103,4 +103,63 @@ export function previewFlows(){
 // While real work runs, its district reports to the eye. Nothing is reported without real work.
 export function reportFlows(view){
  return (view?.stations??[]).flatMap(s=>s.working.slice(0,1).map(t=>({taskId:t.id,from:s.id,to:HUB,title:'Bericht: '+taskName(t),reason:'report'})));
+}
+
+// The words of the world are the real state of the real work, said in the voice of the folk doing it.
+// Every line carries a reported title, reason or result. Without real work nobody says anything.
+const voices={
+ hobbit:{active:['Wie weit seid ihr mit «%t»?','Wir tragen es noch, aber es kommt an.'],check:['Ist «%t» durch?','Es wird gerade nachgesehen.'],trouble:['Bei «%t» hakt es, oder?','Ja. %r'],waiting:['Liegt «%t» noch im Korb?','Noch wartet es, bis es dran ist.'],done:['Ist «%t» erledigt?','Erledigt. %d'],hand:'«%s» ist fertig, hier kommt es von uns.'},
+ elf:{active:['Was wird aus «%t»?','Es ist im Werden, das Ende liegt noch vor uns.'],check:['Hält «%t» der Prüfung stand?','Wir prüfen es noch.'],trouble:['Ein Schatten liegt auf «%t».','So ist es. %r'],waiting:['Und «%t»?','Es wartet auf seine Stunde.'],done:['«%t» ist vollendet?','Es ist vollendet. %d'],hand:'«%s» ist vollendet. Nehmt es aus unseren Händen.'},
+ dwarf:{active:['Liegt «%t» schon auf dem Amboss?','Aye, wir sind mittendrin.'],check:['Taugt «%t» etwas?','Wird gerade geprüft.'],trouble:['«%t» sitzt fest!','Bei meinem Bart. %r'],waiting:['Wann kommt «%t» dran?','Wenn es an der Reihe ist, nicht früher.'],done:['Ist «%t» fertig?','Fertig. %d'],hand:'«%s» ist geschmiedet. Das gehört jetzt euch.'},
+ men:{active:['Wie steht es um «%t»?','Wir sind daran, Herr.'],check:['Meldung zu «%t»?','Wird eben geprüft, Herr.'],trouble:['Meldung zu «%t»?','Es stockt, Herr. %r'],waiting:['Was ist mit «%t»?','Steht in der Reihe, Herr.'],done:['Ist «%t» erledigt?','Erledigt, Herr. %d'],hand:'«%s» ist erledigt. Ich bringe es euch.'},
+ orc:{active:['Beweg dich! Wo bleibt «%t»?','Ich schlepp es ja schon!'],check:['Taugt «%t» was?','Wird noch beschnüffelt.'],trouble:['«%t» hängt fest, Made!','Nicht meine Schuld. %r'],waiting:['Was ist mit «%t»?','Liegt rum, bis einer ran darf.'],done:['Ist «%t» durch?','Durch. %d'],hand:'«%s» ist durch. Nimm es und hau ab.'},
+};
+const folkVoice={messengers:'hobbit',library:'elf',lorien:'elf',council:'elf',forge:'dwarf',treasury:'dwarf',scouts:'men',gate:'men',observatory:'men',isengard:'orc'};
+const clip=(text,n)=>{const t=String(text??'').replace(/\s+/g,' ').trim();return t.length>n?t.slice(0,n-1).trimEnd()+'…':t;};
+const fill=(line,{t='',s='',r='',d=''})=>line.replace('%t',t).replace('%s',s).replace('%r',r).replace('%d',d).trim();
+const talkState=status=>status==='verifying'?'check':active.has(status)?'active':trouble.has(status)?'trouble':waiting.has(status)?'waiting':status==='done'?'done':null;
+const talkOrder={trouble:0,active:1,check:1,waiting:2,done:3};
+
+// Real exchanges from the controller journal: the words in quotes are what was really assigned,
+// handed over, reported or blocked. The folk only adds its manner of speaking around them.
+const manners={
+ hobbit:{assign:'Ein Auftrag ist gekommen: «%x»',ack:'Wird gemacht, das bringen wir hin.',hand:'Von uns für euch: «%x»',take:'Danke, wir nehmen es mit.',report:['Was melden wir dem Turm?','Meldet: %x'],trouble:['Was hält uns auf?','%x']},
+ elf:{assign:'Der Rat sendet uns: «%x»',ack:'So sei es.',hand:'Nehmt dies aus unseren Händen: «%x»',take:'Wir nehmen es an.',report:['Welche Kunde senden wir?','Sagt ihnen: %x'],trouble:['Welcher Schatten liegt darauf?','%x']},
+ dwarf:{assign:'Neue Arbeit für die Schmiede: «%x»',ack:'Aye, auf den Amboss damit.',hand:'Geschmiedet und geprüft: «%x»',take:'Aye, gib her.',report:['Was geht an den Turm?','Sag ihnen: %x'],trouble:['Was klemmt?','Bei meinem Bart: %x']},
+ men:{assign:'Befehl aus dem Turm: «%x»',ack:'Zu Befehl.',hand:'Meldung von uns: «%x»',take:'Empfangen, Herr.',report:['Was melden wir, Herr?','Meldet: %x'],trouble:['Was hält uns auf, Herr?','%x']},
+ orc:{assign:'Das Auge will: «%x»',ack:'Schon gut, schon gut.',hand:'Da, nimm: «%x»',take:'Her damit.',report:['Was sagen wir dem Auge?','Sag: %x'],trouble:['Warum hängt das?','%x']},
+};
+const actState={assign:'waiting',handover:'active',report:'done',block:'trouble',fail:'trouble'};
+const say=(line,x)=>line.replace('%x',x);
+export function conversationTalks(records){
+ if(!Array.isArray(records))return [];
+ const talks=[];
+ for(const r of records){
+  const x=clip(r?.text,110),state=actState[r?.act];if(!x||!state)continue;
+  const speaker=r.act==='assign'||r.act==='handover'?stationForKind(r.to):stationForKind(r.from);if(!speaker)continue;
+  const m=manners[folkVoice[speaker.id]];
+  let lines,from=null,handover=null;
+  if(r.act==='assign')lines=[say(m.assign,x),m.ack];
+  else if(r.act==='report')lines=[m.report[0],say(m.report[1],x)];
+  else if(r.act==='block'||r.act==='fail')lines=[m.trouble[0],say(m.trouble[1],x)];
+  else{const giver=stationForKind(r.from);if(!giver||giver===speaker)continue;from=giver.id;lines=[say(manners[folkVoice[giver.id]].hand,x),m.take];handover=lines;}
+  talks.push({key:'said-'+r.seq,taskId:r.taskId,station:speaker.id,state,at:r.at??0,lines,from,handover,real:true});
+ }
+ return talks.sort((a,b)=>b.at-a.at).slice(0,30);
+}
+export function workTalks(tasks,conversations){
+ const said=conversationTalks(conversations),heard=new Set(said.map(t=>t.taskId));
+ if(!Array.isArray(tasks))return said;
+ const talks=[];
+ for(const task of tasks){
+  if(heard.has(task.id))continue;
+  const home=stationForKind(task.kind),state=talkState(task.status);if(!home||!state)continue;
+  const voice=voices[folkVoice[home.id]],t=clip(taskName(task),44);
+  const r=clip(task.reason,84)||(task.status==='review'?'Es wartet auf das Wort des Gründers.':'Der Grund ist noch nicht vermerkt.'),d=clip(task.result,70);
+  const lines=voice[state].map(line=>fill(line,{t,r,d}));
+  const source=state==='done'?null:(task.dependencies??[]).map(id=>tasks.find(n=>n.id===id)).find(n=>n?.status==='done'&&stationForKind(n.kind)&&stationForKind(n.kind)!==home);
+  const from=source?stationForKind(source.kind):null;
+  talks.push({key:task.id,taskId:task.id,station:home.id,state,at:task.updated_ms??0,lines,from:from?.id??null,handover:from?[fill(voices[folkVoice[from.id]].hand,{s:clip(taskName(source),44)}),lines[1]]:null});
+ }
+ return [...said,...talks.sort((a,b)=>talkOrder[a.state]-talkOrder[b.state]||b.at-a.at)].slice(0,30);
 }
