@@ -52,7 +52,8 @@ export function buildWeather(puff,centres){
     const w=WEATHER[kinds[z.id]??'clear'];z.kind=kinds[z.id]??'clear';z.cover+=(w.cover-z.cover)*k;z.fall+=((w.fall?1:0)-z.fall)*k;
     const dark=(.22+.78*light.day),grey=1-z.cover*.5,sunset=light.golden;
     z.clouds.forEach((q,i)=>{q.x+=dt*(4+(i%3));const span=q.r*1.25+160;let dx=q.x-z.c.x;if(dx>span){q.x=z.c.x-span;dx=-span;}q.s.position.x=q.x;q.s.material.opacity=Math.min(.26,Math.max(0,z.cover*(i<2+z.cover*7?1:0)*.34)*(1-smooth(span*.72,span,Math.abs(dx))))*far;q.s.visible=q.s.material.opacity>.004;q.s.material.color.setRGB((grey+sunset*.35)*dark,(grey+sunset*.06)*dark,(grey-sunset*.12)*dark);});
-    for(const s of z.curtains){s.material.opacity=z.fall*.12*far*dark*(z.kind==='snow'?.75:1);s.visible=s.material.opacity>.004;}
+    // Seen from straight above the falling veils would only be flat sheets, so they fade out as the view tips over.
+    const upright=1-smooth(.98,1.22,cam.pitch??0);for(const s of z.curtains){s.material.opacity=z.fall*.12*far*dark*upright*(z.kind==='snow'?.75:1);s.visible=s.material.opacity>.004;}
    }
    const zone=zones.get(zoneHere),w=WEATHER[zone?.kind??'clear'],look=w.fall?looks[w.fall]:null;
    if(look&&look!==current&&strength<.03){current=look;u.speed.value=look.speed;u.sway.value=look.sway;u.size.value=look.size;u.streak.value=look.streak;u.tone.value.set(look.tone);}

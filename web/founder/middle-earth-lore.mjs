@@ -190,8 +190,11 @@ export const flowMaterial=()=>new T.ShaderMaterial({vertexColors:true,transparen
 
 // ---- The Dark Tower, opened: each storey narrower than the one below, the shaft of fire running up to the Eye ----
 const floors=[[26,80,'#2a2522'],[116,57,'#2c2724'],[220,40,'#26211f'],[312,26,'#221d1b']];
+export const ringForge={x:34.2,z:-11.1,turn:1.885+Math.PI};
 export function towerInside(k,g){
  const black='#231f1c',iron='#3a3734',steel='#6a6a6c',red='#6a1208';
+ // Glows inside a turned frame must turn with it, so the light kit follows each local frame.
+ const lit=(x,z,ry,build)=>{k.lights=g;k.local(x,z,ry,build);k.lights=null;};
  for(const [y,r,c] of floors){k.column(0,y-3,0,r,3,c,36);k.column(0,y-3.6,0,r+1.2,.8,iron,36);for(let i=0;i<36;i++){const a=i*2.399,q=Math.sqrt((i+.5)/36)*r*.92;k.box(Math.sin(a)*q,y,Math.cos(a)*q,7,.14,5,'#1a1614',a);}}
  // The shaft: an iron cage around a pillar of fire, broken only by the floors.
  g.column(0,26,0,3.6,350,'#ff6a1a',12);g.column(0,26,0,1.9,350,'#ffd27a',8);for(let y=30;y<376;y+=9){k.column(0,y,0,7.4,.8,iron,12);}for(let i=0;i<8;i++){const a=i/8*TAU;k.column(Math.sin(a)*7.4,26,Math.cos(a)*7.4,.6,350,iron,5);}
@@ -200,23 +203,27 @@ export function towerInside(k,g){
  stairs(26,116,78,72,3.95);stairs(116,220,50,36,-1);stairs(220,312,28,20,1);
  // The gate hall: pillars, forges, weapons, the map of the war.
  for(let i=0;i<10;i++){const a=(i+.5)/10*TAU,x=Math.sin(a)*58,z=Math.cos(a)*58;k.cyl(x,26,z,4,5.6,86,black,8);k.column(x,26,z,7,3,iron,8);k.cone(x,104,z,5,8,iron,6);}
- for(let i=0;i<3;i++){const a=2.515+i*.628,x=Math.sin(a)*68,z=Math.cos(a)*68;k.local(x,z,a+Math.PI,()=>{k.box(0,26,0,24,24,12,'#1c1815');k.box(0,26,6.2,18,14,.5,'#060403');g.box(0,27,6.5,14,10,.3,'#ff6a1a');g.box(0,28,6.7,8,6,.3,'#ffc23a');k.box(0,50,0,10,34,8,'#191613');});}
- k.local(0,-30,0,()=>{k.box(0,26,0,44,11,24,'#2a2320');k.box(0,37,0,47,1.2,27,'#3a2f28');k.box(0,38.2,0,38,.3,20,'#6a5a40');for(const [a,b] of [[-12,-3],[-3,5],[8,-5],[13,4]])g.ball(a,39,b,1,'#ff7a2a');});
+ for(let i=0;i<3;i++){const a=2.515+i*.628,x=Math.sin(a)*68,z=Math.cos(a)*68;lit(x,z,a+Math.PI,()=>{k.box(0,26,0,24,24,12,'#1c1815');k.box(0,26,6.2,18,14,.5,'#060403');g.box(0,27,6.5,14,10,.3,'#ff6a1a');g.box(0,28,6.7,8,6,.3,'#ffc23a');k.box(0,50,0,10,34,8,'#191613');});}
+ lit(0,-30,0,()=>{k.box(0,26,0,44,11,24,'#2a2320');k.box(0,37,0,47,1.2,27,'#3a2f28');k.box(0,38.2,0,38,.3,20,'#6a5a40');for(const [a,b] of [[-12,-3],[-3,5],[8,-5],[13,4]])g.ball(a,39,b,1,'#ff7a2a');});
+ // Sauron's ring forge: a deep hearth, the anvil with a glowing ring on it, a quenching trough and his tools.
+ lit(ringForge.x,ringForge.z,ringForge.turn,()=>{k.box(0,26,-12,24,18,12,'#1c1815');k.box(0,26,-5.6,18,12,.5,'#060403');g.box(0,27,-5.2,15,9,.3,'#ff5a12');g.box(0,28,-5,9,5,.3,'#ffc23a');k.box(0,44,-13,12,42,8,'#191613');for(const s of [-1,1])k.box(s*11,26,-6,3,20,3,'#2a2622');
+  k.box(0,26,8,5,7,4,'#2a2826');k.box(0,33,8,13,3.2,6,'#3f3c39');k.box(8,33.6,8,4,2,3,'#3f3c39');for(let i=0;i<12;i++){const a=i/12*TAU;g.ball(Math.cos(a)*1.5,36.5,8+Math.sin(a)*1.5,.42,'#ffd27a');}g.ball(0,36.6,8,.5,'#ff8a2a');
+  k.box(-17,26,6,9,6,16,'#2a2320');g.box(-17,32.05,6,7.4,.2,14.4,'#5a1206');k.box(16,26,4,10,14,3,'#2a2320');for(const [x,h] of [[12.5,10],[15,12],[17.5,9],[20,11]])k.box(x,40,4.4,.8,h,.8,'#3a3734');});
  for(let i=0;i<7;i++){const a=-2.3+i*.14;k.box(Math.sin(a)*72,26,Math.cos(a)*72,.8,34,.8,'#3a2a18');k.cone(Math.sin(a)*72,60,Math.cos(a)*72,1.6,6,steel,4);}
  // The throne room: the black seat on its steps, braziers, banners of the Eye.
  for(let i=0;i<3;i++)k.box(0,116+i*3,-34-i*2,40-i*8,3,20-i*2,i%2?'#2e2a26':'#1d1a17');
  k.box(0,125,-38,16,10,10,'#0b0a09');k.box(0,135,-43,16,44,2.4,'#0b0a09');for(const s of [-1,1]){k.box(s*8,125,-38,2.4,12,10,'#141210');k.cone(s*8,179,-43,2,14,iron,5);k.cone(s*3,179,-43,1.5,9,iron,5);}k.cone(0,179,-43,2.4,18,iron,5);
- for(const s of [-1,1]){k.column(s*26,116,-22,1.4,22,iron,6);k.cyl(s*26,138,-22,5,1.6,3,iron,8);g.lamp(s*26,144,-22,4.4);k.local(s*40,-30,-s*.8,()=>{k.box(0,120,0,14,60,.6,'#180a08');g.box(0,150,.4,8,4,.3,'#b52a0a');g.box(0,150,.6,2.6,1.8,.3,'#ffb23a');g.box(0,150,.8,.5,3.6,.3,'#060302');});}
+ for(const s of [-1,1]){k.column(s*26,116,-22,1.4,22,iron,6);k.cyl(s*26,138,-22,5,1.6,3,iron,8);g.lamp(s*26,144,-22,4.4);lit(s*40,-30,-s*.8,()=>{k.box(0,120,0,14,60,.6,'#180a08');g.box(0,150,.4,8,4,.3,'#b52a0a');g.box(0,150,.6,2.6,1.8,.3,'#ffb23a');g.box(0,150,.8,.5,3.6,.3,'#060302');});}
  // The chamber of the seeing stone of Minas Ithil, with shelves of dark records and chains.
  k.column(0,220,-22,7,3,'#141210',10);k.cyl(0,223,-22,2.4,4,10,'#17151a',8);k.cyl(0,233,-22,5,2.4,3,iron,8);g.ball(0,240,-22,5,'#d0480a');g.ball(0,240,-22,3,'#ffb04a');
- for(let i=0;i<5;i++){const a=2+i*.55,x=Math.sin(a)*33,z=Math.cos(a)*33;k.local(x,z,a+Math.PI,()=>{k.box(0,220,0,15,46,4,'#1a1613');for(let r=0;r<4;r++){k.box(0,226+r*10,1.8,13,.7,3,'#2a2420');for(let c=0;c<5;c++)k.box(-5+c*2.5,227+r*10,2.2,1.5,6+(c%3),1.8,['#3a1a14','#26221c','#4a4034'][c%3]);}});}
+ for(let i=0;i<5;i++){const a=2+i*.55,x=Math.sin(a)*33,z=Math.cos(a)*33;lit(x,z,a+Math.PI,()=>{k.box(0,220,0,15,46,4,'#1a1613');for(let r=0;r<4;r++){k.box(0,226+r*10,1.8,13,.7,3,'#2a2420');for(let c=0;c<5;c++)k.box(-5+c*2.5,227+r*10,2.2,1.5,6+(c%3),1.8,['#3a1a14','#26221c','#4a4034'][c%3]);}});}
  for(const x of [-30,30])for(let c=0;c<9;c++)k.box(x,300-c*5,-2,c%2?.8:2,4,c%2?2:.8,iron);
  // The top: the great ring that gathers the fire and feeds the horns.
  k.add(k.torus(16,2.2),0,340,0,1,1,1,iron,0,Math.PI/2);k.add(k.torus(11,1.2),0,352,0,1,1,1,'#58504a',0,Math.PI/2);for(let i=0;i<6;i++){const a=i/6*TAU;k.limb([[Math.sin(a)*16,340,Math.cos(a)*16,1.2],[Math.sin(a)*8,330,Math.cos(a)*8,.8],[Math.sin(a)*7,320,Math.cos(a)*7,.8]],iron,5);}g.column(0,312,0,6,60,'#ff5a14',10);
  k.column(0,376,0,36,3,black,24);
  for(let i=0;i<14;i++){const a=i/14*TAU;for(const [y,r] of [[60,84],[150,62],[262,38]]){g.box(Math.sin(a)*r,y,Math.cos(a)*r,.7,8,.7,'#ff6a1a');}}
 }
-export const towerGuards=[[-34,26,-58,.4,'uruk','sword'],[34,26,-58,-.4,'uruk','sword'],[34,26,-12,.2,'orc','pick'],[-58,26,-16,1.2,'orc','sword'],[-14,116,-20,.3,'uruk','sword'],[14,116,-20,-.3,'uruk','sword'],[-24,116,-4,.8,'orc','sword'],[-10,220,-16,.5,'orc','scroll'],[12,220,-14,-.5,'orc','book']];
+export const towerGuards=[[-34,26,-58,.4,'uruk','sword'],[34,26,-58,-.4,'uruk','sword'],[-40,26,20,2.2,'orc','pick'],[-58,26,-16,1.2,'orc','sword'],[-14,116,-20,.3,'uruk','sword'],[14,116,-20,-.3,'uruk','sword'],[-24,116,-4,.8,'orc','sword'],[-10,220,-16,.5,'orc','scroll'],[12,220,-14,-.5,'orc','book']];
 export function towerFolk(group){const out=[];for(const [x,y,z,h,p,tool] of towerGuards){const f=makeFigure(p,tool);f.position.set(x,y,z);f.rotation.y=h;f.traverse(n=>{if(n.isMesh)n.castShadow=false;});f.userData.pose(0,0,false);group.add(f);out.push(f);}return out;}
 
 // ---- The treasures of the houses, each where its own story keeps it. All stand clear of the benches and the ways ----

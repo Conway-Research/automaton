@@ -150,7 +150,7 @@ function heightAt(x,y){
  const west=-540+(vnoise(3.3,y/380+9)-.5)*330+(fbm(1.1,y/120+3,3)-.5)*90,south=2041+(vnoise(x/420+4,7.7)-.5)*240+(fbm(x/120+3,2.2,3)-.5)*90,sea=Math.max(sstep(west+170,west-70,x),sstep(south-170,south+70,y));
  if(sea>0)h=h*(1-sea)+(SEA-.16)*sea;
  // The Grey Havens: a level shore with deep water right before the quays.
- {const px=x-haven.x,py=y-haven.y,dist=hypot(px,py);if(dist<430){const t=sstep(30,74,py),k=t>0?sstep(430,250,dist):sstep(360,210,dist);h=h*(1-k)+(.395*(1-t)+(SEA-.14)*t)*k;}}
+ {const px=x-haven.x,py=y-haven.y,dist=hypot(px,py);if(dist<430){const t=sstep(30,74,py+Math.max(0,-px-180)*.7),k=t>0?sstep(430,250,dist):sstep(360,210,dist);h=h*(1-k)+(.395*(1-t)+(SEA-.14)*t)*k;}}
  for(const [id,place] of Object.entries(sitePlaces)){
   const deep=id==='treasury'?37:0,px=(x-place.x)/R,py=(y-place.y-O)/R+deep,d=hypot(px,py),k=sstep(300,178,d);if(k<=0)continue;h=h*(1-k)+place.elev*k;
   // A low bank of earth rises against the walls, so no hall lies on the land like a plate.
@@ -405,7 +405,7 @@ export async function buildWorld(){
  // Bushes and stones gather at the foot of every wall, except before its door.
  for(const [id,q] of Object.entries(sitePlaces))for(let i=0;i<70;i++){const a=i*2.399,r=(siteFoot[id]+8+vnoise(i*.7,id.length)*38)*R,dx=Math.cos(a)*r,dy=Math.sin(a)*r;if(Math.abs(dx)<65&&dy>0)continue;const x=q.x+dx,y=q.y+O+dy,kinds=siteDressing[id];if(roadDistance(x,y)<20||heightOf(x,y)<SEA+.02)continue;trees.push({x,y,kind:hypot(x-HUB_SITE.x,(y-HUB_SITE.y)/.72)<520?'stone':kinds[i%kinds.length],s:.55+vnoise(x/3,y/3)*.8,tone:.8+vnoise(x/5,y/7)*.4});}
  // Pale birches of the elves stand behind the Havens, in the same manner as every other wood.
- for(const [x,z,s] of [[-268,-40,1.15],[-30,-56,1],[34,-54,1.05],[262,-56,1.15],[-140,-108,1.2],[140,-112,1.2],[-238,-96,1],[230,-104,1.05],[-320,-20,1.1],[318,-30,1.1]])trees.push({x:haven.x+x,y:haven.y+z,kind:'birch',s,tone:1.08});
+ for(const [x,z,s] of [[-236,-74,1.15],[-30,-56,1],[34,-54,1.05],[262,-56,1.15],[-140,-108,1.2],[140,-112,1.2],[-238,-96,1],[230,-104,1.05],[318,-30,1.1]])trees.push({x:haven.x+x,y:haven.y+z,kind:'birch',s,tone:1.08});
  // A mallorn never stands alone: stray ones at the edge of the wood are left out.
  const golden=trees.filter(t=>t.kind==='mallorn'),alone=new Set(golden.filter(t=>golden.filter(o=>hypot(o.x-t.x,o.y-t.y)<62).length<5));
  // Great trees keep their distance, so each stands free on its own trunk.

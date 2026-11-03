@@ -409,3 +409,16 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Elbendächer: drei ineinander gesetzte Walmdächer in hellem, verwittertem Kupfer, flach ausschwingend an der Traufe und steil zum Goldfirst, mit aufgebogenen Ecken.
 - Gärten zwischen den Hallen: Birken und Buchen sowie niedrige Hecken.
 - Bild: graue-anfurten-20261103.jpg. Noch nicht committet. Kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Anfurten geordnet, Quellen, Osgiliath, Schmiede
+
+- Graue Anfurten: symmetrisch neu aufgebaut, mit drei Türmen in Reihe, zwei Seitenhallen und einer Haupthalle auf einem gemeinsamen Vorplatz. Geländer laufen am Kai entlang. Frei bleiben nur der Steg und die Landebrücke zum Schiff. Die Küste im Westen schwingt jetzt im Bogen zum Kai, die kleine Landzunge ist weg. Abendbild: graue-anfurten-sonnenuntergang-20261103.jpg.
+- Wasser: Die drei Terrassenfälle in Bruchtal sind entfernt. Östlich von Bruchtal gibt es nur noch einen Wasserfall: Er entspringt einer Quelle zwischen Felsen auf der Hochfläche und fällt über eine Moosklippe in ein Becken am Kopf des Flusses. Der Westfluss und der Fluss im Nebelgebirge quellen unter Moosfelsen hervor statt aus dem Nichts. Der Fluss am Erebor kommt wie bisher aus dem Tor.
+- Wege und Sicht: Drei Bruchtal-Bäume auf dem Gartenweg und vor dem Tor von Osgiliath sind entfernt. Die Waldbäume um den Wasserfall sind freigestellt. Die Wäscheleine im Auenland steht neben den Wegen.
+- Osgiliath: Über der offenen Ruinenseite stehen nur noch Rippenstümpfe statt Bögen ins Leere. Der äussere Säulenring ist gespiegelt, ein Balken zeigt nicht mehr auf die fehlende Frontsäule. Das Tor hat vier gleich hohe Säulen mit durchgehendem Sturz.
+- Lothlórien: 380 runde Blüten mit fünf Blütenblättern und Mitte, nur ausserhalb des Saalrings. Ausserdem behoben: Lothlórien hat drei Raumlampen, die Szene hatte nur zwei bereitgehalten. Das brach den Bildaufbau nahe Lothlórien ab.
+- Minas Tirith: Die Felsklinge ist schmaler und heller und hat eine Rückwand, damit ihre Flanken nicht als hohe Wände hervortreten.
+- Schicksalsberg: Der erste Anstieg ist eine gleichmässige Rampe. Der Unterbau neigt sich mit der Strasse statt in Stufen.
+- Barad-dûr: In der Torhalle steht Saurons Ringschmiede mit Esse, Amboss, glühendem Ring, Trog und Werkzeug. Zwölf Minuten jeder halben Stunde arbeitet Sauron dort mit dem Hammer und ist dann nicht draussen unterwegs. Die Glut aller Essen im Turm dreht sich jetzt mit ihrem Rahmen. Die Schmiede ist per Messung geprüft. Im Bild ist sie wegen des Stockwerks darüber schwer zu sehen.
+- Wetter: Regen- und Schneeschleier blenden in steiler Draufsicht aus.
+- Nur isolierte Vorschau mit Testhook, der Hook ist wieder entfernt. Kein Apply, Numaron AUS.

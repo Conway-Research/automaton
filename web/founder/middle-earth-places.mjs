@@ -99,48 +99,44 @@ function sail(width,height){
 export function buildHaven(stoneMaterial,woodMaterial){
  const group=new T.Group(),k=new Kit(),g=new Kit();g.elven=true;const white='#dcd9cb',pale='#c9c6b6',dark='#8f8d80',copper='#6f8a7c',gold='#c9a84e';
  // Sea wall and quay along the shore.
- k.box(-40,-26,12,420,28,44,dark);k.box(-40,0,6,420,1.4,58,pale);for(let i=-25;i<=17;i++)k.box(i*10,1.4,36,.4,.1,1.6,dark);
+ k.box(0,-26,12,350,28,44,dark);k.box(0,0,6,350,1.4,58,pale);for(let i=-17;i<=17;i++)k.box(i*10,1.4,36,.4,.1,1.6,dark);
  // The great pier running into the deep water, on tall curved arches.
- k.box(0,0,110,44,2.4,190,white);for(const s of [-1,1]){k.box(s*22,2.4,110,1.6,3.8,190,pale);for(let i=0;i<9;i++){const z=26+i*22;k.column(s*17,-30,z,4.5,30,dark,10);k.limb([[s*17,-20,z,2.4],[s*17,-5,z+11,1.8],[s*17,-20,z+22,2.4]],pale,6);k.column(s*22,6,z,.6,18,white,6);k.cyl(s*22,24,z,2.4,.6,3,gold,8);litInto(k,g,s*22,28.4,z,1.5);}}
+ k.box(0,0,110,44,2.4,190,white);k.box(-22,2.4,110,1.6,3.8,190,pale);k.box(22,2.4,58,1.6,3.8,86,pale);k.box(22,2.4,170,1.6,3.8,70,pale);for(const s of [-1,1]){for(let i=0;i<9;i++){const z=26+i*22;k.column(s*17,-30,z,4.5,30,dark,10);k.limb([[s*17,-20,z,2.4],[s*17,-5,z+11,1.8],[s*17,-20,z+22,2.4]],pale,6);k.column(s*22,6,z,.6,18,white,6);k.cyl(s*22,24,z,2.4,.6,3,gold,8);litInto(k,g,s*22,28.4,z,1.5);}}
  // Elven arch at the start of the pier: two trunks that grow towards each other like the crest of a wave.
  for(const s of [-1,1]){k.limb([[s*19,0,34,3.6],[s*20,26,34,2.8],[s*18,52,33,2.2],[s*10,72,31,1.5],[s*1,80,30,.7]],white,9);k.limb([[s*20,20,34,1.4],[s*28,36,35,1],[s*27,50,35,.6],[s*19,56,34,.15]],white,6);k.limb([[s*18,40,34,.7],[s*9,47,34,.5],[s*2,50,34,.2]],gold,5);for(let i=0;i<8;i++){const t=i/7;k.add(k.octa(1),s*(20-t*18),24+t*56,35.4,1.2,2.2,.4,i%2?gold:'#b08a3a',i);}}
  k.ball(0,80,30,2.3,white);litInto(k,g,0,74,31,1.6);
- // Slender towers, boat halls under sweeping roofs and terraces climbing behind the quay.
- const tower=(x,z,r,h)=>{k.column(x,0,z,r+1.6,3,pale,14);k.cyl(x,3,z,r*.86,r,h,white,14);for(const q of [.35,.62])k.column(x,h*q,z,r*.98,.9,gold,14);k.column(x,h+3,z,r+3,1.2,pale,14);for(let i=0;i<8;i++){const a=i*.785;k.column(x+Math.cos(a)*(r+2.4),h+4.2,z+Math.sin(a)*(r+2.4),.3,4,white,5);k.box(x+Math.cos(a)*r*.9,h*.72,z+Math.sin(a)*r*.9,1.4,6,.4,'#26303a',Math.PI/2-a);}k.column(x,h+4,z,r*.76,8,white,12);k.cone(x,h+12,z,r+1.6,r*1.5,copper,14);k.cone(x,h+12+r*1.3,z,r*.5,r*3,copper,10);k.cone(x,h+12+r*4,z,.4,5,gold,6);litInto(k,g,x,h+8,z+r*.8,1);};
- tower(-120,-30,10,126);tower(104,-44,12,158);tower(-210,-6,8,92);tower(140,-8,8,104);tower(-20,-122,13,196);
+ // An ordered harbour around the axis of the pier: the great hall behind the wave arch with the tall tower behind it, two equal side halls, and two pairs of slender towers on the quay.
+ const tower=(x,z,r,h)=>{k.column(x,-10,z,r+1.6,13,pale,14);k.cyl(x,3,z,r*.86,r,h,white,14);for(const q of [.35,.62])k.column(x,h*q,z,r*.98,.9,gold,14);k.column(x,h+3,z,r+3,1.2,pale,14);for(let i=0;i<8;i++){const a=i*.785;k.column(x+Math.cos(a)*(r+2.4),h+4.2,z+Math.sin(a)*(r+2.4),.3,4,white,5);k.box(x+Math.cos(a)*r*.9,h*.72,z+Math.sin(a)*r*.9,1.4,6,.4,'#26303a',Math.PI/2-a);}k.column(x,h+4,z,r*.76,8,white,12);k.cone(x,h+12,z,r+1.6,r*1.5,copper,14);k.cone(x,h+12+r*1.3,z,r*.5,r*3,copper,10);k.cone(x,h+12+r*4,z,.4,5,gold,6);litInto(k,g,x,h+8,z+r*.8,1);};
+ for(const s of [-1,1]){tower(s*150,-8,8,104);tower(s*62,-40,10,140);}tower(0,-150,13,196);
  // Elven roofs: pale weathered copper flaring out at the eaves and rising steeply to a gold finial, the corners curling up like waves.
  const sweep=(y,w,d,h,tone)=>{k.roof(0,y,0,w,d,h*.24,tone);k.roof(0,y+h*.16,0,w*.66,d*.66,h*.42,tone);k.roof(0,y+h*.42,0,w*.38,d*.38,h*.58,tone);k.box(0,y-.4,0,w+1,.9,d+1,white);for(const [a,b] of [[-1,-1],[1,-1],[-1,1],[1,1]])k.limb([[a*w*.42,y+1,b*d*.42,.9],[a*w*.5,y+2.2,b*d*.5,.6],[a*w*.56,y+5.4,b*d*.56,.2]],white,5);k.cone(0,y+h,0,1,10,gold,6);k.ball(0,y+h-.4,0,1.3,gold);};
- const hall=(x,z,w,d,h,ry=0)=>k.local(x,z,ry,()=>{k.box(0,0,0,w,h,d,white);for(let i=-3;i<=3;i++){k.column(i*w/7,0,d/2+1.6,1.1,h,pale,8);k.box(i*w/7+w/14,h*.3,d/2+.2,w/10,h*.5,.5,'#2e3640');}k.box(0,h,0,w+8,1.2,d+8,gold);sweep(h+1.2,w+16,d+16,h*.95,'#a9bcbc');});
- hall(-70,-64,84,52,38);hall(-150,-150,70,46,32);hall(-190,-82,66,44,30,.28);hall(-82,-172,64,40,28);
- // Gardens between the halls: silver birches and beeches and low hedges.
- for(const [x,z,s] of [[-130,-104,1],[-6,-82,.9],[-200,-140,1.1],[-120,-200,.9],[-40,-176,1],[60,-24,.85],[-236,-40,.8]]){k.cyl(x,0,z,1.4*s,2.2*s,26*s,'#d8d6cc',8);k.canopy(x,30*s,z,13*s,['#6f9a4a','#83ad58','#a8c070'],Math.abs(x*3+z)+5,.7);}
- for(const [x,z,w,d] of [[-100,-112,70,3],[-130,-100,3,22],[-40,-150,3,40],[-200,-122,30,3]])k.box(x,0,z,w,3.4,d,'#5d7f3c');
- for(let i=0;i<8;i++)k.box(0,i*1.6,-20-i*3.4,84-i*2,1.6,3.8,pale);
- // Boathouse and a slipway with a boat under repair, nets and barrels of the shipwrights.
- k.box(-168,0,36,64,1.6,36,pale);k.limb([[-150,4,20,.8],[-150,8,36,.8],[-150,4,52,.8]],'#6a5a44',4);for(let i=0;i<5;i++){const z=24+i*6;for(const s of [-1,1])k.limb([[-156+s*.4,2,z,.5],[-156+s*(8-Math.abs(i-2)),5,z,.4],[-156+s*(9-Math.abs(i-2)),12,z,.3]],'#c9c3ae',4);}
- for(const [x,z] of [[-184,30],[-192,42],[-178,48]]){k.column(x,1.6,z,4,10,'#6a4a26',10);k.column(x,4,z,4.2,.6,'#3a2a1c',10);k.column(x,8,z,4.2,.6,'#3a2a1c',10);}
- for(let i=0;i<6;i++){k.column(66+i*13,0,20,.7,12,'#6a5a44',5);if(i<5){const pts=[];for(let t=0;t<=4;t++)pts.push([66+i*13+t*3.25,12-Math.sin(t/4*3.14)*4,20,.1]);k.limb(pts,'#8a8a78',3);}}
+ // Each hall stands on a plinth reaching down into the ground, so it sits firmly where the shore dips.
+ const hall=(x,z,w,d,h)=>k.local(x,z,0,()=>{k.box(0,-12,0,w+6,12,d+6,pale);k.box(0,0,0,w,h,d,white);for(let i=-3;i<=3;i++){k.column(i*w/7,0,d/2+1.6,1.1,h,pale,8);k.box(i*w/7+w/14,h*.3,d/2+.2,w/10,h*.5,.5,'#2e3640');}k.box(0,h,0,w+8,1.2,d+8,gold);sweep(h+1.2,w+16,d+16,h*.95,'#a9bcbc');});
+ hall(0,-84,88,50,40);for(const s of [-1,1])hall(s*112,-92,60,42,30);
+ // A paved forecourt between quay and halls, and silver birches set in pairs behind them.
+ k.box(0,.2,-40,180,.4,36,'#d2cfc0');for(let i=-4;i<=4;i++)k.box(i*20,.45,-40,.4,.1,36,dark);
+ for(const s of [-1,1])for(const [x,z,q] of [[52,-136,1],[150,-60,.85],[86,-150,.9]]){const X=s*x;k.cyl(X,-12,z,1.4*q,2.2*q,26*q+12,'#d8d6cc',8);k.canopy(X,30*q,z,13*q,['#6f9a4a','#83ad58','#a8c070'],Math.abs(X*3+z)+5,.7);}
  // Lamps on the quay.
- for(let i=-5;i<=3;i++){if(Math.abs(i)<2)continue;const x=i*44;k.column(x,0,-6,.8,18,white,6);k.limb([[x,17,-6,.5],[x+2.4,21,-6,.3],[x+4.2,20,-6,.15]],gold,4);litInto(k,g,x+4.2,18.6,-6,1.2);}
- // A low balustrade along the water, open where the pier, the jetties and the slipway meet the quay; bollards and mooring rings below it.
- for(let x=-246;x<=166;x+=6){const gap=Math.abs(x)<42||Math.abs(Math.abs(x)-120)<14||(x>-200&&x<-136);if(gap)continue;k.column(x,1.4,33.4,.55,4.2,white,6);if(x%30===0){k.box(x,1.4,33.4,2.2,6,2.2,pale);k.ball(x,7.8,33.4,1.1,white);}}
- for(const [a,b] of [[-246,-200],[-106,-42],[42,106],[134,166]])if(b-a>4)k.box((a+b)/2,5.6,33.4,b-a,.8,1.4,pale);
- for(let x=-230;x<=150;x+=40){if(Math.abs(x)<30)continue;k.column(x,-6,36,1.6,6,dark,8);k.ball(x,0,36,1.7,dark);}
+ for(let i=-3;i<=3;i++){if(Math.abs(i)<2)continue;const x=i*44;k.column(x,0,-6,.8,18,white,6);k.limb([[x,17,-6,.5],[x+2.4,21,-6,.3],[x+4.2,20,-6,.15]],gold,4);litInto(k,g,x+4.2,18.6,-6,1.2);}
+ // A low balustrade along the water, open only where the pier, its steps and the jetties meet the quay; bollards and mooring rings below it.
+ for(let x=-172;x<=172;x+=6){const gap=Math.abs(x)<42||Math.abs(Math.abs(x)-120)<12;if(gap)continue;k.column(x,1.4,33.4,.55,4.2,white,6);if(x%30===0){k.box(x,1.4,33.4,2.2,6,2.2,pale);k.ball(x,7.8,33.4,1.1,white);}}
+ for(const [a,b] of [[-172,-132],[-108,-42],[42,108],[132,172]])if(b-a>4)k.box((a+b)/2,5.6,33.4,b-a,.8,1.4,pale);
+ for(let x=-160;x<=160;x+=40){if(Math.abs(x)<30)continue;k.column(x,-6,36,1.6,6,dark,8);k.ball(x,0,36,1.7,dark);}
  // Steps down to the water beside the pier, the quay paved in a pattern of waves.
  for(const s of [-1,1])for(let i=0;i<6;i++)k.box(s*(34+i*0),-i*3.4,36+i*3,12,1.4,3.4,pale);
- for(let i=-12;i<=8;i++){const x=i*20;k.limb([[x-8,1.5,-4,.5],[x-3,1.5,-1,.5],[x+3,1.5,-1,.5],[x+8,1.5,-4,.5]],dark,4);}
+ for(let i=-8;i<=8;i++){const x=i*20;k.limb([[x-8,1.5,-4,.5],[x-3,1.5,-1,.5],[x+3,1.5,-1,.5],[x+8,1.5,-4,.5]],dark,4);}
  // Crates, coiled rope and amphorae waiting for the voyage beside the pier.
  for(const [x,z,w,h] of [[-44,8,7,6],[-44,0,7,6],[-36,4,6,5],[-44,4,6,5.4]])k.box(x,1.4+(h>5.5&&z===4?6:0),z,w,h,w,'#7a6648');
  for(const [x,z] of [[36,2],[42,-4],[36,-6]]){k.column(x,1.4,z,2.4,.6,'#9a8a62',10);k.column(x,2,z,2,.6,'#8a7a56',10);k.column(x,2.6,z,1.4,.6,'#9a8a62',10);}
  for(const [x,z] of [[52,4],[56,-2],[60,4]]){k.cyl(x,1.4,z,1.2,2.6,5,'#b87a52',8);k.cyl(x,6.4,z,2.6,.8,2.2,'#b87a52',8);}
  // Long silver banners hang from the towers and the gable of the great hall.
- for(const [x,z,h,len] of [[-120,-19,96,40],[104,-31,120,46],[-20,-108,150,54],[-210,4,70,30],[140,2,80,32]]){k.box(x,h-len,z,4.4,len,.3,'#cfd6e0');k.box(x,h-len-2,z,2.2,2.4,.3,'#cfd6e0');k.box(x,h-6,z+.2,3,3,.2,gold);}
+ for(const [x,z,h,len] of [[-62,-29,108,40],[62,-29,108,40],[0,-136,150,54],[-150,1,80,30],[150,1,80,30]]){k.box(x,h-len,z,4.4,len,.3,'#cfd6e0');k.box(x,h-len-2,z,2.2,2.4,.3,'#cfd6e0');k.box(x,h-6,z+.2,3,3,.2,gold);}
  // Stone jetties for the smaller boats.
  for(const [x,w] of [[-120,20],[120,20]]){k.box(x,-1,76,w,2.6,92,pale);for(let i=0;i<4;i++)k.column(x+(i%2?1:-1)*w*.42,-30,40+i*22,2.6,30,dark,8);}
  const stone=k.mesh(stoneMaterial);group.add(stone,lit(g));
  // The ships ride on the water and rock gently.
  const ships=[],place=(x,z,L,B,H,ry,sailed)=>{const q=new T.Group(),sk=new Kit(),sg=new Kit();shipInto(sk,sg,L,B,H);q.add(sk.mesh(woodMaterial),lit(sg));if(sailed){const n=sail(B*2.5,H*3.5);n.position.set(0,H*3.2,L*.1+.9);n.castShadow=true;q.add(n);}q.position.set(x,-19,z);q.rotation.y=ry;group.add(q);ships.push({q,phase:x*.1});};
- place(60,120,92,17,14,0,true);place(-52,116,72,13,11,0,false);place(-162,92,36,7,6,.08,false);place(166,92,36,7,6,-.1,false);
+ place(60,120,92,17,14,0,true);place(-52,116,72,13,11,0,false);place(-142,92,36,7,6,.04,false);place(142,92,36,7,6,-.04,false);
  // The great ship sails: it lies at the pier while it is loaded, puts out to sea and later comes home, turns in the harbour and is warped back to its berth.
  ships[0].voyage=true;
  {const gk=new Kit();gk.box(0,0,0,26,.8,4.4,'#8a7454',0,0,-.26);for(const s of [-1,1])gk.box(0,2.6,s*2,26,.4,.3,'#6a5a44',0,0,-.26);for(let i=0;i<4;i++)gk.box(-9+i*6,.5,0,.5,.4,4.4,'#5e4c34',0,0,-.26);const plank=gk.mesh(woodMaterial);plank.position.set(36,-1.2,120);group.add(plank);group.userData.gangway=plank;}
@@ -173,10 +169,12 @@ export function doomRoad(groundAt,doom,from,material){
  // The hairpins are rounded a little, as a cut road would be.
  for(let round=0;round<2;round++){const next=[rough[0]];for(let i=0;i<rough.length-1;i++){const a=rough[i],b=rough[i+1];next.push({x:a.x*.75+b.x*.25,z:a.z*.75+b.z*.25},{x:a.x*.25+b.x*.75,z:a.z*.25+b.z*.75});}next.push(rough[rough.length-1]);rough=next;}
  points.push(...rough);
- const lead=[];for(let i=0;i<=8;i++){const t=i/8;lead.push({x:from.x+(points[0].x-from.x)*t,z:from.y+(points[0].z-from.y)*t});}
+ const lead=[];for(let i=0;i<=16;i++){const t=i/16;lead.push({x:from.x+(points[0].x-from.x)*t,z:from.y+(points[0].z-from.y)*t});}
  const line=[...lead,...points.slice(1)];let y=-1e9;const heights=line.map(q=>{const h=groundAt(q.x,q.z)+2.5;y=Math.max(y+.6,h);return y;});
+ // The first rise from the plain is eased into one even ramp instead of following each bump of the foot as steep steps.
+ for(let pass=0;pass<4;pass++)for(let i=1;i<=16;i++)heights[i]=Math.max(groundAt(line[i].x,line[i].z)+1.6,(heights[i-1]+heights[i]+heights[i+1])/3);
  // The road cuts into the flank, so it may stand a little proud of the cone where gullies run under it.
- for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1],len=Math.hypot(b.x-a.x,b.z-a.z),ry=Math.atan2(b.x-a.x,b.z-a.z),mx=(a.x+b.x)/2,mz=(a.z+b.z)/2,h=(heights[i]+heights[i+1])/2,tilt=-Math.atan2(heights[i+1]-heights[i],len);k.add(k.cube(),mx,h,mz,22,2.6,len+2,black,ry,tilt);const base=Math.max(0,h-groundAt(mx,mz));if(base>2)k.box(mx,h-base-1,mz,19,base+1,len+1,rim,ry);
+ for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1],len=Math.hypot(b.x-a.x,b.z-a.z),ry=Math.atan2(b.x-a.x,b.z-a.z),mx=(a.x+b.x)/2,mz=(a.z+b.z)/2,h=(heights[i]+heights[i+1])/2,tilt=-Math.atan2(heights[i+1]-heights[i],len);k.add(k.cube(),mx,h,mz,22,2.6,len+2,black,ry,tilt);const base=Math.max(0,h-groundAt(mx,mz));if(base>2)k.add(k.cube(),mx,h-(base+1)/2,mz,19,base+1,len+1.4,rim,ry,tilt);
   // Low black kerbs with a seam of embers along both edges: the road can be followed by its glow from far away, by day and by night.
   for(const s of [-1,1]){const ox=Math.cos(ry)*s*11,oz=-Math.sin(ry)*s*11;k.add(k.cube(),mx+ox,h+1.6,mz+oz,1.8,3,len+1.4,rim,ry,tilt);g.add(k.cube(),mx+Math.cos(ry)*s*9.6,h+1.45,mz-Math.sin(ry)*s*9.6,.7,.25,len+1.4,'#ff5a12',ry,tilt);}
   if(i%7===3){const s=i%14===3?1:-1,ox=Math.cos(ry)*s*13.4,oz=-Math.sin(ry)*s*13.4;k.column(mx+ox,h,mz+oz,1.3,9,rim,6);k.column(mx+ox,h+9,mz+oz,2.2,1.2,rim,6);g.lamp(mx+ox,h+12,mz+oz,1.8);}}

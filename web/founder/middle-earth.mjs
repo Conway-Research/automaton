@@ -7,7 +7,7 @@ import {buildDome,buildWeather,buildGaze,buildRider,buildNightLamps} from './mid
 import {filmPass,loadSurfaces,loadSky,addTerrainDetail,surfaceMaterial,blendIntoLand,cutaway,setCut,keepWhole,placeModels,regionProps,worldProps,loadRigs,dressFigure} from './middle-earth-assets.mjs';
 import {landmarks,roofs,closeDetails,buildBalrog,buildBlackGate,buildSauron,regionLeaves,groundFootprints} from './middle-earth-regions.mjs';
 import {roomInteriors,roomLight,roomFloor,buildWalls,wallFoot} from './middle-earth-rooms.mjs';
-import {reveal,setReveal,holeCut,walkGrid,wayIn,buildEnt,buildFellBeast,buildMere,flowTime,flowMaterial,towerInside,towerFolk} from './middle-earth-lore.mjs';
+import {reveal,setReveal,holeCut,walkGrid,wayIn,buildEnt,buildFellBeast,buildMere,flowTime,flowMaterial,towerInside,towerFolk,ringForge} from './middle-earth-lore.mjs';
 import {seaMaterial,seaMist,buildHaven,animateHaven,doomRoad,DOOR_TURN,DOOR_R,buildSammathNaur,buildOrcPits,roomJewels,makeJewel,smaugInto} from './middle-earth-places.mjs';
 // Display only. The on/off switch stays in renderPower (app.js); this module never talks to the server.
 const statusLabels={queued:'wartet',planned:'geplant',running:'in Arbeit',verifying:'wird geprüft',working:'in Arbeit',blocked:'blockiert',failed:'fehlgeschlagen',review:'wartet auf dich',done:'erledigt',cancelled:'abgebrochen'};
@@ -76,7 +76,7 @@ export function createMiddleEarth(host,{openTask}={}){
  const camera=new T.PerspectiveCamera(36,1,10,60000);
  const sky=new T.HemisphereLight('#b4bcc4','#5a5952',.32);scene.add(sky);
  // Two lamps move to whichever room is being looked at, so a world of rooms costs only these two.
- const roomLamps=[new T.PointLight('#ffffff',0,525,1.25),new T.PointLight('#ffffff',0,525,1.25)];scene.add(...roomLamps);let litRoom=null,daylight=1;
+ const roomLamps=[0,1,2].map(()=>new T.PointLight('#ffffff',0,525,1.25));scene.add(...roomLamps);let litRoom=null,daylight=1;
  // Rivendell's homely house: three warm pools of lamplight over the valley that wake only at night.
  const homely=[[0,175,60],[0,-160,70],[0,0,190]].map(([a,b,up])=>{const c=hallCentre('library'),x=c.x+a*RS,z=c.y+b*RS,l=new T.PointLight('#ffb25a',0,760,1);l.position.set(x,groundAt(x,z)+up,z);scene.add(l);return l;});
  // At sunrise a golden light comes over the eastern rim of Rivendell and gilds roofs, towers and falls.
@@ -222,7 +222,7 @@ export function createMiddleEarth(host,{openTask}={}){
  // Standing height of anyone on the roads: the deck where a bridge carries the way, otherwise the land.
  const walkHeight=(x,y)=>{for(const {spots,box} of bridgeSpans){if(x<box[0]||y<box[1]||x>box[2]||y>box[3])continue;let best=null,gap=11*11;for(const q of spots){const d=(q.x-x)**2+(q.y-y)**2;if(d<gap){gap=d;best=q;}}if(best)return best.h;}
   // On the Havens the folk walk on the paved quay and out along the pier, not on the sea bed below it.
-  if(havenGroup){const lx=x-haven.x,lz=y-haven.y,base=havenGroup.position.y;if(Math.abs(lx)<22&&lz>=30&&lz<205)return base+2.4;if(Math.abs(lx)<310&&lz>-22&&lz<36)return base+1.4;}
+  if(havenGroup){const lx=x-haven.x,lz=y-haven.y,base=havenGroup.position.y;if(Math.abs(lx)<22&&lz>=30&&lz<205)return base+2.4;if(Math.abs(lx)<175&&lz>-22&&lz<36)return base+1.4;}
   return Math.max(1.9,groundAt(x,y));};
  let standing=[];
  const blocked=(x,y)=>groundAt(x,y)<4||standing.some(({c,boxes})=>{const u=x-c.x,v=y-c.y;return Math.hypot(u,v)<800&&boxes.some(q=>u>q[0]-5&&u<q[2]+5&&v>q[1]-5&&v<q[3]+5);});
@@ -420,7 +420,7 @@ export function createMiddleEarth(host,{openTask}={}){
   // A worker of the district carries it along its road to the gate of Barad-dûr, another one takes it on.
   const way=wayToHub(flow.from);sendCourier(way[0],way,flow.from,flow.title,flow.to===HUB?null:{to:flow.to,title:flow.title,piece:flow.piece});
  }
- let sauron=null;const landAir=[],smokePoints=[],smokeParticles=[],particleSources={embers:[],spray:[],leaves:[]},particleSets=[];let smokeMesh=null,eye=null,balrog=null,sea=null,havenGroup=null;
+ let sauron=null,smith=null;const landAir=[],smokePoints=[],smokeParticles=[],particleSources={embers:[],spray:[],leaves:[]},particleSets=[];let smokeMesh=null,eye=null,balrog=null,sea=null,havenGroup=null;
 
  async function buildScene(){
   const surfaces=await loadSurfaces(),hdr=await loadSky();
@@ -449,7 +449,9 @@ export function createMiddleEarth(host,{openTask}={}){
   // Nothing grows in front of a door or along the way to it, so every entrance can be seen and reached.
   const doorClear=t=>!Object.keys(sitePlaces).some(id=>{const c=hallCentre(id),x=t.x-c.x,z=t.y-c.y,reach=(id==='treasury'?162:124)*RS;if(z>reach*.25&&z<reach+560&&Math.abs(x)<reach*.62+Math.max(0,z-reach)*.28)return true;return lanes[id].some((q,i,all)=>{const b=all[i+1];if(!b)return false;const dx=b.x-q.x,dy=b.y-q.y,f=Math.max(0,Math.min(1,((t.x-q.x)*dx+(t.y-q.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(t.x-q.x-dx*f,t.y-q.y-dy*f)<34;});});
   const bridgeSight=crossings.map(l=>l[Math.floor(l.length/2)]),bridgeClear=t=>/bush|stone/.test(t.kind)||!bridgeSight.some(q=>Math.hypot(t.x-q.x,t.y-q.y)<105),gateSight=hallCentre('gate'),gateClear=t=>t.kind!=='mallorn'||t.x>gateSight.x+420+(t.y-gateSight.y)*.1||t.y<gateSight.y;
-  scene.add(buildForest(world.trees.filter(t=>gateClear(t)&&bridgeClear(t)&&free(t)&&doorClear(t)&&!onRoad(t.x,t.y,/bush|stone/.test(t.kind)?11:24)&&Math.hypot(t.x-mountDoom.x,t.y-mountDoom.y)>245&&(t.kind==='dead'||t.kind==='stone'||Math.hypot(t.x-HUB_SITE.x,(t.y-HUB_SITE.y)/.72)>505)),groundAt));
+  scene.add(buildForest(world.trees.filter(t=>gateClear(t)&&bridgeClear(t)&&free(t)&&doorClear(t)&&!onRoad(t.x,t.y,/bush|stone/.test(t.kind)?11:24)&&Math.hypot(t.x-mountDoom.x,t.y-mountDoom.y)>245&&Math.hypot(t.x-2139,t.y)>70&&Math.hypot(t.x-(sitePlaces.library.x+176*SITE.scale),t.y-(sitePlaces.library.y+SITE.offset-322*SITE.scale))>110&&(t.kind==='dead'||t.kind==='stone'||Math.hypot(t.x-HUB_SITE.x,(t.y-HUB_SITE.y)/.72)>505)),groundAt));
+  // The mountain river wells up from under fallen boulders at the head of its gorge.
+  {const k=new Kit();for(const [x,z,sx,sy,sz,c] of [[2139,-24,34,22,28,'#7d7f70'],[2108,-8,22,15,20,'#727565'],[2172,-10,24,16,20,'#7a7c6c'],[2124,-44,18,12,16,'#6c6f60'],[2160,-42,20,13,16,'#76786a'],[2094,18,14,9,12,'#6f7264'],[2186,20,15,10,12,'#74776a']])k.rock(x,groundAt(x,z)+sy*.4,z,sx,sy,sz,c,Math.round(x+z));for(const [x,z,r] of [[2136,-32,12],[2110,-14,8],[2170,-18,8]])k.ball(x,groundAt(x,z)+r*1.6,z,r,'#5f8a3e',.55);const m=k.mesh(solid);m.castShadow=m.receiveShadow=true;scene.add(m);}
   const flowWater=flowMaterial();
   for(const s of stations){
    const c=hallCentre(s.id),y=groundAt(c.x,c.y)+2,settle=(x,z)=>{const r=Math.hypot(x,z);if(r<128)return 0;const k=Math.min(1,(r-128)/48);return Math.max(-90,Math.min(46,(groundAt(c.x+x*RS,c.y+z*RS)-y+2)/RS))*k*k*(3-2*k);},d=buildDistrict(s.id,crews[s.id],{interiors:roomInteriors,cutaway,buildWalls,footing:wallFoot,landmarks,roofs,closeDetails,ground:settle,walkGrid,floor:roomFloor,flow:()=>flowWater,materials:{[s.id]:(m=>{for(const [part,tone] of Object.entries(shade[s.id]??{}))m[part].color.set(tone);return m;})(materialsFor(s.id))}});d.group.position.set(c.x,y,c.y);d.group.scale.setScalar(RS);scene.add(d.group);districts.set(s.id,{...d,id:s.id,c,y,settle,tray:new T.Group(),jewels:[]});d.group.add(districts.get(s.id).tray);
@@ -520,10 +522,10 @@ export function createMiddleEarth(host,{openTask}={}){
   // Each elf of the Havens has a round of work: [x, z, what, facing, how long, carrying on the way there].
   const havenWork=[
    ['Círdan','noldor','staff',[[-30,-12,'rest',0,9000],[0,22,'rest',0,8000],[96,10,'rest',.4,7000],[-90,8,'rest',-.3,7000]]],
-   ['Schiffbauer','noldor','hammer',[[-146,12,'work',0,12000],[-162,12,'work',0,10000],[-176,6,'fetch',-1.2,2500]]],
+   ['Schiffbauer','noldor','hammer',[[-120,22,'work',0,12000],[-136,24,'work',0,10000],[-104,18,'fetch',-1.2,2500]]],
    // Porters load the great ship: from the storehouse across the quay, along the pier and over the gangway, then back for the next bale.
    ['Träger','galadhrim','sack',[[-70,-30,'fetch',3.14,2600],[14,30,'fetch',0,1200,true],[16,112,'fetch',1.57,2200,true],[16,60,'rest',3.14,900]]],
-   ['Träger','noldor','sack',[[16,128,'fetch',1.57,2400],[14,40,'fetch',3.14,1200,true],[72,-40,'fetch',3.14,2600,true],[40,10,'rest',0,900]]],
+   ['Träger','noldor','sack',[[16,128,'fetch',1.57,2400],[14,40,'fetch',3.14,1200,true],[90,-36,'fetch',3.14,2600,true],[40,10,'rest',0,900]]],
    ['Lotse','noldor','compass',[[14,180,'work',0,9000],[14,150,'work',1.57,6000]]],
    // A merchant weighs and sells what the ships bring; the scribe writes every bale into the ledger.
    ['Händlerin','galadhrim','scale',[[-30,8,'work',0,11000],[-38,4,'work',.6,7000]]],
@@ -548,6 +550,8 @@ export function createMiddleEarth(host,{openTask}={}){
   {const blackGate=buildBlackGate(surfaceMaterial(surfaces.rock,{roughness:.85}));blackGate.position.set(morannon.x,Math.max(1,groundAt(morannon.x,morannon.y)),morannon.y);blackGate.scale.setScalar(1.7);scene.add(blackGate);
    for(const s of [-1,1]){const fire=new T.PointLight('#ff7a2a',12,620,1.15);fire.position.set(morannon.x+s*90,blackGate.position.y+70,morannon.y+70);scene.add(fire);}
    const armour=new T.MeshStandardMaterial({vertexColors:true,roughness:.42,metalness:.72});const lord=buildSauron(armour);lord.root.scale.setScalar(1.3);scene.add(lord.root);const presence=new T.PointLight('#ff9a4a',7,260,1.3);presence.position.set(0,92,34);lord.root.add(presence);
+   // For twelve minutes of every half hour he leaves the road and works at the ring forge in the lowest hall of Barad-dûr.
+   smith=buildSauron(armour);smith.root.scale.setScalar(.42);smith.root.position.set(ringForge.x+17*Math.sin(ringForge.turn),26,ringForge.z+17*Math.cos(ringForge.turn));smith.root.rotation.y=ringForge.turn+Math.PI;smith.root.traverse(n=>{if(n.isMesh)n.castShadow=false;});towerRoom.add(smith.root);
    const march=sauronWay;sauron={...lord,x:march[0].x,y:march[0].y,heading:2.8,phase:0,path:march.slice(1),seg:0,speed:17,route:march};
    const rounds=[[{x:1180,y:990},{x:1120,y:900},{x:1130,y:800},{x:1200,y:760},{x:1225,y:830},{x:1225,y:910}],[{x:1625,y:985},{x:1705,y:900},{x:1722,y:780},{x:1642,y:705},{x:1600,y:820}],[{x:1270,y:1060},{x:1200,y:1010},{x:1225,y:950},{x:1300,y:1000}],[{x:1480,y:990},{x:1530,y:960},{x:1590,y:935},{x:1540,y:985}]];
    rounds.forEach((round,r)=>{for(let i=0;i<7;i++){const from=(i*2)%round.length,route=[...round.slice(from),...round.slice(0,from)],start=route[0];actors.push(addFigure({kind:'patrol',f:{name:'Ork',people:i%3===2?'uruk':'orc',tool:i%3===2?'sword':'pick'},route,pace:21+(i%3)*2,x:start.x+i*7,y:start.y+i*5,heading:0,phase:i,mode:'walk',path:null,until:0}));}});
@@ -605,7 +609,7 @@ export function createMiddleEarth(host,{openTask}={}){
   if(inner){const u=inner.userData,p=Math.max(.04,Math.min(1.15,u.pitch+cam.lift)),f=u.focus,flat=cam.d*Math.cos(p);camera.position.set(f.x+Math.sin(cam.yaw)*flat,f.y+cam.d*Math.sin(p),f.z+Math.cos(cam.yaw)*flat);camera.lookAt(f.x,f.y,f.z);camera.fov=58;camera.near=Math.max(4,cam.d*.02);camera.updateProjectionMatrix();camera.updateMatrixWorld();if(!reduced())u.step(dt,now/1000);tip.hidden=true;if(film)film.render(scene,camera);else renderer.render(scene,camera);return;}
   // The mountain and the tower open with the zoom, without a break: the nearer the camera, the further the cut has sunk.
   doomOpen=smooth(420,260,Math.hypot(cam.x-mountDoom.x,cam.y-mountDoom.y))*(selected==='doom'?smooth(300,220,cam.d):smooth(640,430,cam.d));if(landHole){const cut=naurRoom?.userData.cut??DOOM_FLOOR+14;landHole.value.set(mountDoom.x,mountDoom.y,doomOpen>.001?262:0,ease(DOOM_FLOOR+320,cut,doomOpen));if(naurRoom){naurRoom.userData.rim.visible=doomOpen>.97;naurRoom.userData.cleft.visible=doomOpen>.5;}}towerOpen=smooth(340,190,Math.hypot(cam.x-HUB_SITE.x,cam.y-HUB_SITE.y))*smooth(1200,800,cam.d);
-  const pitch=Math.max(.3,tilt(cam.d)+cam.lift);peakOn=selected==='orthanc'&&Math.hypot(cam.x-hallCentre('isengard').x,cam.y-hallCentre('isengard').y)<260;citadelOn=selected==='citadel'&&Math.hypot(cam.x-hallCentre('gate').x,cam.y-hallCentre('gate').y)<320;const doorOn=selected==='doom'&&doomOpen<.02&&Math.hypot(cam.x-doomDoor.x,cam.y-doomDoor.z)<320;focusY=ease(focusY,doorOn?DOOM_FLOOR+40:citadelOn?districts.get('gate').y+CITADEL_TOP*RS:peakOn?groundAt(hallCentre('isengard').x,hallCentre('isengard').y)+358*RS:selected===HUB&&cam.d>1200&&Math.hypot(cam.x-HUB_SITE.x,cam.y-HUB_SITE.y)<320?groundAt(HUB_SITE.x,HUB_SITE.y)+340:Math.max(0,Math.min(460,ease(ease(groundAt(cam.x,cam.y),DOOM_FLOOR-6,doomOpen),towerY+150,towerOpen))),k);const groundY=focusY,flat=cam.d*Math.cos(pitch),eyeX=cam.x+Math.sin(cam.yaw)*flat,eyeZ=cam.y+Math.cos(cam.yaw)*flat;
+  const pitch=Math.max(.3,tilt(cam.d)+cam.lift);cam.pitch=pitch;peakOn=selected==='orthanc'&&Math.hypot(cam.x-hallCentre('isengard').x,cam.y-hallCentre('isengard').y)<260;citadelOn=selected==='citadel'&&Math.hypot(cam.x-hallCentre('gate').x,cam.y-hallCentre('gate').y)<320;const doorOn=selected==='doom'&&doomOpen<.02&&Math.hypot(cam.x-doomDoor.x,cam.y-doomDoor.z)<320;focusY=ease(focusY,doorOn?DOOM_FLOOR+40:citadelOn?districts.get('gate').y+CITADEL_TOP*RS:peakOn?groundAt(hallCentre('isengard').x,hallCentre('isengard').y)+358*RS:selected===HUB&&cam.d>1200&&Math.hypot(cam.x-HUB_SITE.x,cam.y-HUB_SITE.y)<320?groundAt(HUB_SITE.x,HUB_SITE.y)+340:Math.max(0,Math.min(460,ease(ease(groundAt(cam.x,cam.y),DOOM_FLOOR-6,doomOpen),towerY+150,towerOpen))),k);const groundY=focusY,flat=cam.d*Math.cos(pitch),eyeX=cam.x+Math.sin(cam.yaw)*flat,eyeZ=cam.y+Math.cos(cam.yaw)*flat;
   eyeFloor=ease(eyeFloor,ease(groundAt(eyeX,eyeZ)+50,DOOM_FLOOR+60,doomOpen*smooth(250,210,Math.hypot(eyeX-mountDoom.x,eyeZ-mountDoom.y))),k);camera.position.set(eyeX,Math.max(groundY+cam.d*Math.sin(pitch),eyeFloor),eyeZ);
   // Close to the mountain the view passes through its skin into the cavern and turns around the tongue of rock.
   {for(const part of doomPortal)part.visible=doomOpen<.5;const cave=doomOpen*doomOpen*(3-2*doomOpen),mx=mountDoom.x+Math.sin(DOOR_TURN)*(DOOR_R-48),mz=mountDoom.y+Math.cos(DOOR_TURN)*(DOOR_R-48);let lookX=cam.x,lookY=groundY,lookZ=cam.y;
@@ -655,8 +659,8 @@ export function createMiddleEarth(host,{openTask}={}){
    const inside=nearest?1-closed:0,plan=nearest?roomLight[nearest.id]:null,target=plan?1+(plan.day-1)*inside:1;daylight=ease(daylight,target,Math.min(1,dt*2));
    const covered=weather?.zones.get(zoneHere)?.cover??0;if(!reduced()&&WEATHER[kinds[zoneHere]]?.lightning&&Math.random()<dt*.11)flash=1;flash=Math.max(0,flash-dt*3.4);
    sun.color.setRGB(...skyLight.color);sun.intensity=skyLight.strength*(1-covered*.3)*daylight;sky.intensity=(skyLight.ambient+flash*.9)*daylight;scene.environmentIntensity=skyLight.env*(.4+.6*daylight);
-   if(nearest!==litRoom&&plan){litRoom=nearest;plan.lamps.forEach(([x,y,z,color],i)=>{roomLamps[i].position.set(nearest.c.x+x*RS,nearest.y+y*RS,nearest.c.y+z*RS);roomLamps[i].color.set(color);});}
-   roomLamps.forEach((lamp,i)=>{const strength=plan&&litRoom===nearest?plan.lamps[i][4]:0,flicker=reduced()?1:1+Math.sin(now*.011+i*2)*.07+Math.sin(now*.027+i)*.05;lamp.intensity=strength*1.32*inside*flicker;});}
+   if(nearest!==litRoom&&plan){litRoom=nearest;plan.lamps.forEach(([x,y,z,color],i)=>{if(!roomLamps[i])return;roomLamps[i].position.set(nearest.c.x+x*RS,nearest.y+y*RS,nearest.c.y+z*RS);roomLamps[i].color.set(color);});}
+   roomLamps.forEach((lamp,i)=>{const strength=plan&&litRoom===nearest?plan.lamps[i]?.[4]??0:0,flicker=reduced()?1:1+Math.sin(now*.011+i*2)*.07+Math.sin(now*.027+i)*.05;lamp.intensity=strength*1.32*inside*flicker;});}
   for(const leaves of roofLeaves)leaves.material.alphaTest=.34+leaves.d.open*.64;
   // Close-up life appears as the camera comes near; far away only the great shapes remain.
   for(const d of districts.values()){const away=Math.hypot(camera.position.x-d.c.x,camera.position.z-d.c.y);d.showClose=d.showClose?away<1320&&cam.d<1120:away<1180&&cam.d<1000;const near=d.showClose;d.closeMesh.visible=true;const grass=near?smooth(900,520,Math.max(cam.d,away*.7)):0;d.blades.visible=grass>.01;d.blades.count=Math.round(2600*grass);d.showProps=d.showProps||(near&&Math.hypot(cam.x-d.c.x,cam.y-d.c.y)<1100);const inPlace=d.showProps;d.props.visible=inPlace;if(inPlace&&!d.propsAsked&&d.id&&regionProps[d.id]){d.propsAsked=true;placeModels(d.props,regionProps[d.id],d.settle).catch(e=>console.error(e));}}
@@ -664,6 +668,7 @@ export function createMiddleEarth(host,{openTask}={}){
   {const ax=cam.x,ay=cam.y,bx=camera.position.x-ax,by=camera.position.z-ay,len=bx*bx+by*by||1;
    for(const d of districts.values()){const u=Math.max(0,Math.min(1,((d.c.x-ax)*bx+(d.c.y-ay)*by)/len)),gap=Math.hypot(d.c.x-(ax+bx*u),d.c.y-(ay+by*u)),own=Math.hypot(d.c.x-ax,d.c.y-ay)<HALL.half*RS*2;const fade=Math.min(1,dt*2.5);d.landFade=ease(d.landFade??0,cam.d>1000||own||u<.02||gap>300?0:1,fade);d.roofFade=ease(d.roofFade??0,!own&&u>.02&&gap<240&&cam.d<1000?1:0,fade);d.outside.visible=d.landFade<.99;const up=d.roofFade<.99||d.open>0;if(d.glow)d.glow.visible=up;for(const w of d.walls)w.mesh.visible=up&&(d.id!=='messengers'||d.open>0||(d.roofFade??0)>.01);if(!up)d.props.visible=false;}}
   {const k=Math.max(0,Math.min(1,(cam.d-500)/600));for(const q of landAir){q.sprite.visible=k>0;q.sprite.material.opacity=q.strength*k;}}
+  if(smith){const forging=Date.now()/60000%30<12;sauron.root.visible=!forging;smith.root.visible=forging;if(forging&&towerRoom.visible)smith.hammer(now*.0032);}
   if(sauron){if(!reduced()&&stepAlong(sauron,dt)){sauron.path=sauron.route.slice(1);sauron.seg=0;}sauron.root.position.set(sauron.x,walkHeight(sauron.x,sauron.y),sauron.y);sauron.face=turnTo(sauron.face??sauron.heading,sauron.heading,dt*2.4);sauron.root.rotation.y=sauron.face;sauron.animate(sauron.phase);}
   if(balrog){const moria=districts.get('forge');balrog.stage.visible=closed<.995&&Math.hypot(cam.x-moria.c.x,cam.y-moria.c.y)<950;if(balrog.stage.visible&&!reduced())balrog.animate(now);}
   viewClear.a.value.set(cam.x,cam.y);viewClear.b.value.set(camera.position.x,camera.position.z);viewClear.r.value=220*smooth(1620,1180,cam.d);
