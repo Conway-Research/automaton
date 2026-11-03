@@ -382,3 +382,14 @@ Hauptfiguren besuchen sich in den Hallen (hallVisits, 19 Paare, eigene kurze Sae
 - Lothlórien bei Nacht angesehen: silbern im Mondlicht, weiße Lampen am Saal und auf den Talans.
 - Bilder: bruchtal-nacht-warm-20261103.jpg, bruchtal-nacht-saal-warm-20261103.jpg, lothlorien-nacht-20261103.jpg.
 - Nur isolierte Vorschau. Kein Apply, Numaron AUS. Diese Runde ist noch nicht committet.
+
+## 2026-11-03 Mittelerde: Commit, Push auf Fork, Nazgûl meiden Lothlórien
+
+- Lampen-Änderung committet (5adcf7204). Branch feat/founder-mittelerde-dashboard nach Patrices Freigabe auf den öffentlichen Fork tricebr/automaton gepusht. origin bleibt ohne Schreibrecht.
+- Die acht Nazgûl-Reiter wählen ihre Ziele nur noch unter den Orten ohne Lothlórien. Ihre Wege führen über die eigene Gasse und den Hub, deshalb reitet keiner mehr durch Galadriels Reich.
+- Welt lädt in der Vorschau ohne neue Fehler. Diese Änderung ist noch nicht committet. Kein Apply, Numaron AUS.
+
+## 2026-11-03 Mittelerde: Nazgûl meiden auch Bruchtal
+
+- Die Reiter wählen ihre Ziele nur noch unter den Orten ohne Lothlórien und Bruchtal. Elronds Tal bleibt ihnen verschlossen wie Galadriels Reich.
+- Zusammen mit der Lothlórien-Sperre committet und auf den Fork gepusht. Kein Apply, Numaron AUS.
