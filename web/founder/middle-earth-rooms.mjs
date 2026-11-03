@@ -312,6 +312,87 @@ const roomDetails={
   chair(k,-36,-16,-1.57,'#20160c');
  },
 };
+// A seeing stone set as in the Dark Tower: a ring of gold on its dais with rays of ember, a ring of fire and a ring of gold circling it in the air, a gold collar below it and a brazier either side.
+function seeingStone(k,g,x,y,z,r,dais,flames){
+ g.add(g.torus(dais+.4,.3),x,2.2,z,1,1,1,'#ffb23a',0,Math.PI/2);for(let i=0;i<12;i++){const a=i/12*TAU;g.box(x+Math.sin(a)*(dais-2.6),2.15,z+Math.cos(a)*(dais-2.6),.3,.15,2,'#ff7a2a',a);}
+ g.add(g.torus(r*1.6,.32),x,y,z,1,1,1,'#ff5a12',0,Math.PI/2+.35);g.add(g.torus(r*1.88,.2),x,y,z,1,1,1,'#ffb23a',.9,Math.PI/2-.3);g.add(g.torus(r*1.12,.3),x,y-r*1.05,z,1,1,1,'#c9962d',0,Math.PI/2);
+ for(const [fx,fz] of flames){k.cyl(fx,0,fz,1.8,1,y*.32,'#26211a',6);k.cyl(fx,y*.32,fz,3.2,1.8,1.8,'#26211a',8);g.lamp(fx,y*.32+4,fz,2.6);}
+}
+function statue(k,x,z,ry,stone){k.local(x,z,ry,()=>{k.box(0,0,0,12,6,12,'#a7a496');k.box(0,6,0,8,22,6,stone);k.box(0,28,0,9,4,6.4,stone);k.ball(0,34.6,0,3.4,stone);k.cone(0,37.4,0,3.2,3,'#c9b67a',6);k.box(0,8,4,1,26,1,'#a7a496');k.box(0,32,4.2,2.4,10,.6,'#c9ced4');});}
+// A third pass: the richness of the Dark Tower brought to every room, each in its own manner.
+const roomGlory={
+ messengers(k,g){
+  // Paintings of the Shire, a stand of walking sticks by the door, flowers in tubs and the tall clock.
+  for(const a of [.55,1.3])atWall(k,a,ROUND_R-7.5,()=>{k.box(0,24,.6,18,14,.8,'#7a5a2a');k.box(0,25.2,1.1,15,11.6,.3,'#7fa6b8');k.box(0,25.2,1.25,15,5,.3,'#5f8a3e');k.ball(a>1?4:-3,31,1.3,1.6,'#e8d27a',.3);k.box(-2,30,1.3,3,2,.3,'#8f6a3c');});
+  atWall(k,-.98,ROUND_R-12,()=>{k.cyl(0,0,0,2.8,2.4,10,'#4a3219',10);for(const [a,b] of [[-1,-.6],[.8,.4],[0,1]])k.limb([[a,1,b,.35],[a*1.6,24,b*1.6,.35],[a*1.6+1.4,25,b*1.6,.35]],'#6a4a26',4);});
+  for(const a of [-.78,-.36])atWall(k,a,ROUND_R-13,()=>{k.cyl(0,0,0,4,3,6,'#8a4a2a',10);k.ball(0,8,0,4.6,'#4f7a36',.8);for(let i=0;i<7;i++)k.ball(Math.sin(i*2.4)*3.4,9.6+(i%2),Math.cos(i*2.4)*3.4,.9,i%2?'#e85a6a':'#f2d24a');});
+  atWall(k,3.1,ROUND_R-9,()=>{k.box(0,0,0,9,40,6,'#55391c');k.box(0,40,0,10,3,7,'#3f2c18');k.disc(0,33,3.2,3.4,.4,'#e8dcc0');k.box(0,33,3.6,.3,2.6,.2,'#26211a');k.box(0,8,3.1,5,18,.3,'#2a1d0c');k.column(0,13,3.4,1.4,.4,'#c9962d',10);k.box(0,17,3.4,.3,9,.3,'#c9962d');});
+  for(const [x,z] of [[-20,-62],[30,-60]])candles(k,g,x,13.9,z);
+ },
+ isengard(k,g){
+  // The White Hand on black banners, a ring of silver round the stone, iron lamps on chains, the weapons of his armies.
+  for(const a of [-1.2,1.2])atWall(k,a,ROUND_R-7,()=>{k.box(0,52,1,18,1.2,1.2,'#26211a');k.box(0,12,.8,16,40,.5,'#0d0d10');k.box(0,28,1.1,6,6,.3,'#e7e7df');for(let i=0;i<4;i++)k.box(-2.4+i*1.6,33.4,1.1,1,4.6+(i%2),.3,'#e7e7df');k.add(k.cube(),-4.4,29,1.1,1,4,.3,'#e7e7df',0,0,.7);k.box(0,12,1.1,16,2,.3,'#7c7f84');});
+  for(const r of [20,26])k.add(k.torus(r,.35),0,.3,0,1,1,1,'#7c7f84',0,Math.PI/2);
+  for(const [x,z] of [[-60,40],[60,40],[0,-36]])hangingLamp(k,g,x,z,60,12,'#ffb070',2.4);
+  atWall(k,3.0,ROUND_R-12,()=>weaponRack(k,0,0,0));candles(k,g,-14,13.9,-36);
+  seeingStone(k,g,0,33,0,8,14,[[-22,10],[22,10]]);
+ },
+ forge(k,g){
+  // Dwarf lamps under the vaults, Durin's door drawn in ithildin, an anvil with a glowing bar, veins of mithril in the rock.
+  for(const [x,z] of [[-30,-30],[40,-20],[0,40],[-60,20]])hangingLamp(k,g,x,z,64,14,'#ffd08a',2.4);
+  atWall(k,2.9,ROUND_R-7,()=>{k.box(0,0,.4,36,52,1,'#1c1c20');const ith='#cfe8ff';for(const s of [-1,1]){g.box(s*12,4,1.1,.4,30,.3,ith);g.box(s*10,4,1.1,.3,28,.3,ith);}for(let i=0;i<11;i++){const a=(i+.5)/11*Math.PI;g.box(Math.cos(a)*12,34+Math.sin(a)*12,1.1,.4,2.6,.3,ith);}g.box(0,8,1.1,.4,22,.3,ith);for(const s of [-1,1])g.add(g.cube(),s*3,22,1.1,.3,8,.3,ith,0,0,s*.6);for(let i=0;i<7;i++)g.ball(-6+i*2,44-Math.abs(i-3)*.8,1.2,.45,ith);g.ball(0,34,1.2,1.4,ith);});
+  k.local(-20,-30,.4,()=>{k.box(0,0,0,6,8,6,'#26241f');k.box(0,8,0,14,3,6,'#3a3733');k.box(8,8.6,0,4,2,4,'#3a3733');g.box(-1,11.1,0,6,.8,1.4,'#ff8a2a');k.limb([[4,11,3,.4],[9,12,6,.4]],'#3f2c18',4);k.box(9,12,6,2,1.4,3,'#54565a');});
+  for(const a of [-1.3,-.2,.3,1.9,2.4])atWall(k,a,ROUND_R-5,()=>{for(let i=0;i<5;i++)g.box(-6+i*3,18+((i*7+Math.round(a*10))%30),.6,.3,2+(i%3),.3,'#cfe8ff',i);});
+ },
+ treasury(k,g){
+  // Golden lamps in the vault, a ring of gold round the Arkenstone, tall candelabra and glints all over the hoard.
+  for(const [x,z] of [[-60,-60],[60,-60],[0,20],[-90,10],[90,0]])hangingLamp(k,g,x,z,64,16,'#ffc27a',2.6);
+  for(const r of [12,16])k.add(k.torus(r,.4),3,.35,-30,1,1,1,'#deb04a',0,Math.PI/2);
+  for(const s of [-1,1]){const x=s*30,z=20;k.column(x,0,z,4,1.4,'#c9962d',12);k.column(x,1.4,z,.9,26,'#c9962d',8);for(const o of [-5,0,5]){k.box(x+o,26,z,.6,.6,.6,'#c9962d');k.column(x+o,26.6,z,.5,3,'#e8dcc0',6);g.lamp(x+o,30.4,z,.8);}k.box(x,26,z,11,.8,.8,'#c9962d');}
+  for(let i=0;i<30;i++){const a=i*2.399,r=30+((i*29)%90);g.ball(Math.cos(a)*r,.6,-37+Math.sin(a)*r,.4,['#ff3a4a','#3ac8ff','#5aff8a','#ffffff','#ffd25a'][i%5]);}
+ },
+ council(k,g){
+  // Fireflies among the roots, pale lanterns of the Woodland Realm, beds of moss and white flowers.
+  for(let i=0;i<54;i++){const a=i*2.399,r=20+((i*37)%96),x=Math.cos(a)*r,z=Math.sin(a)*r;g.ball(x,8+((i*13)%40),z,.35,i%3?'#e8f8b0':'#fff4c0');}
+  for(let i=0;i<10;i++){const a=-1.4+i*.31,r=ROUND_R-34,x=Math.sin(a)*r,z=-Math.cos(a)*r;k.column(x,30,z,.2,18,'#3a2b1a',4);k.ball(x,29,z,2.2,'#c9d8a8',1.3);g.ball(x,29,z,1.2,'#f4ffd8');}
+  for(let i=0;i<24;i++){const a=i*2.399+.4,r=60+((i*23)%50),x=Math.cos(a)*r,z=Math.sin(a)*r;if(z>30)continue;k.ball(x,.2,z,3+(i%3),'#3f5a2a',.2);k.ball(x+1,.8,z,.7,'#f4f4e8');}
+ },
+ scouts(k,g){
+  // The golden horse of the Eorlingas on a great green cloth, torches either side of the hall, mead cups on the benches, rushes strewn on the floor.
+  for(const a of [2.75,-2.75])atWall(k,a,ROUND_R-7,()=>{k.box(0,48,1,28,1.2,1.2,'#26211a');k.box(0,12,.8,24,36,.5,'#2f5a30');k.box(0,12,1,24,3,.4,'#c9a23c');k.box(-2,28,1.1,12,5,.3,'#c9a23c');k.box(-8,23,1.1,1.4,6,.3,'#c9a23c');k.box(4,23,1.1,1.4,6,.3,'#c9a23c');k.add(k.cube(),5,33,1.1,2,7,.3,'#c9a23c',0,0,-.5);k.box(6.4,36,1.1,3,2.4,.3,'#c9a23c');});
+  for(const a of [-1.85,1.85,-.42,.42])atWall(k,a,ROUND_R-7,()=>torch(k,g,30));
+  for(const s of [-1,1])k.local(s*30,50,s*.7,()=>{for(const o of [-8,0,9]){k.cyl(o,6,0,1.1,.8,2.4,'#c9a23c',8);}});
+  for(let i=0;i<60;i++){const a=i*2.399,r=24+((i*31)%86),x=Math.cos(a)*r,z=Math.sin(a)*r;k.box(x,.2,z,.3,.1,4+(i%3),i%2?'#b39a4a':'#8f7a3a',a*1.3);}
+ },
+ lorien(k,g){
+  // Silver lanterns hang from the boughs; elanor and niphredil grow along the rail; the water of the Mirror holds the stars.
+  for(let i=0;i<8;i++){const a=i/8*TAU+.2,r=74,x=Math.sin(a)*r,z=-Math.cos(a)*r;if(Math.hypot(x,z+118)<44)continue;k.column(x,40,z,.15,14,'#b5b7a6',4);k.cyl(x,36,z,1.6,1.2,4,'#dcdccb',6);g.lamp(x,37.6,z,1.6);}
+  for(let i=0;i<70;i++){const a=i/70*TAU,r=ROUND_R-8-(i%3)*2,x=Math.sin(a)*r,z=-Math.cos(a)*r;if(Math.hypot(x,z+118)<30)continue;k.column(x,0,z,.15,2+(i%2),'#6f9a46',4);g.ball(x,2.4+(i%2),z,.6,i%2?'#ffd84a':'#f4f8ff');}
+  for(let i=0;i<9;i++)g.ball(-20+Math.sin(i*2.4)*6,13.6,-58+Math.cos(i*2.4)*6,.3,'#ffffff');
+ },
+ observatory(k,g){
+  // A ring of gilded signs on the floor, a brass telescope aimed at the dome, star lanterns, and the great stone set like the one in the Dark Tower.
+  for(let i=0;i<12;i++){const a=i/12*TAU,x=Math.sin(a)*60,z=-Math.cos(a)*60;k.column(x,.1,z,3.2,.2,'#c9962d',12);k.column(x,.2,z,2.2,.2,'#3b3a35',12);k.box(x,.35,z,.4,.1,3,'#c9962d',a+i);}
+  k.add(k.torus(60,.4),0,.25,0,1,1,1,'#b5a578',0,Math.PI/2);
+  atWall(k,-2.4,ROUND_R-22,()=>{k.cyl(0,0,0,3,2,4,'#3f2c18',8);for(const s of [-1,1])k.limb([[s*2,4,0,.5],[s*1,20,0,.5]],'#3f2c18',4);k.limb([[0,22,-8,1.6],[0,30,6,2.2],[0,34,12,2.6]],'#a08a54',10);k.add(k.torus(2.7,.4),0,34,12,1,1,1,'#c9962d',0,1);});
+  for(let i=0;i<8;i++){const a=i/8*TAU+.4,r=86,x=Math.sin(a)*r,z=-Math.cos(a)*r;k.column(x,44,z,.15,12,'#3f2c18',4);g.ball(x,43,z,1.4,'#fff4c8');for(let j=0;j<4;j++)g.box(x,43,z,.2,4.4,.2,'#fff8dc',0);}
+  seeingStone(k,g,0,36,0,12,20,[[-30,12],[30,12]]);
+ },
+ library(k,g){
+  // White flowers in silver vases, a lectern with an open book, golden leaves drifting in, silver lamps and candles on tall stands.
+  for(const [x,z] of [[-44,-60],[44,-60]]){k.cyl(x,13.9,z,1.6,2.4,5,'#c9ced4',10);for(let i=0;i<6;i++){k.limb([[x,18,z,.15],[x+Math.sin(i)*2.4,23+(i%2),z+Math.cos(i)*2.4,.15]],'#4f7a36',3);k.ball(x+Math.sin(i)*2.4,23.6+(i%2),z+Math.cos(i)*2.4,.9,'#f4f4ec');}}
+  k.local(60,10,-.6,()=>{k.column(0,0,0,4,1.2,'#4a3219',10);k.column(0,1.2,0,1,16,'#4a3219',8);k.box(0,17,0,10,1,8,'#4a3219',0);k.box(-2.4,18,0,4.6,.6,6.4,'#efe4c8');k.box(2.4,18,0,4.6,.6,6.4,'#efe4c8');k.box(0,18.2,0,.4,.6,6.4,'#5e2a20');});
+  for(let i=0;i<26;i++){const a=i*2.399,r=10+((i*41)%80),x=Math.cos(a)*r,z=Math.sin(a)*r*.9;k.box(x,.25,z,2.2,.1,1.4,i%2?'#d8a83a':'#c98a2a',a);}
+  for(const [x,z] of [[-60,30],[60,30],[-60,-30],[60,-30]]){k.column(x,0,z,3,1,'#c9ced4',10);k.column(x,1,z,.6,22,'#c9ced4',6);k.column(x,23,z,2.6,.6,'#c9ced4',10);g.lamp(x,25.4,z,.9);}
+ },
+ gate(k,g){
+  // The kings of old in stone between the pillars, the White Tree in silver on black hangings, gold on the throne and fire bowls along the black road.
+  for(const x of [-64,64])for(const z of [-66,-22,22,66])statue(k,x,z,x<0?Math.PI/2:-Math.PI/2,'#d8d4c4');
+  for(const x of [-74,74])for(const z of [-88,0])k.local(x+(x<0?5.6:-5.6),z,x<0?Math.PI/2:-Math.PI/2,()=>{k.box(0,22,1,10,30,.5,'#15161d');k.box(0,28,1.3,.6,16,.3,'#ece9dc');for(const [h,w] of [[34,6],[30,8]]){k.add(k.cube(),-w/2,h,1.3,w,.5,.3,'#ece9dc',0,0,.55);k.add(k.cube(),w/2,h,1.3,w,.5,.3,'#ece9dc',0,0,-.55);}for(let i=0;i<5;i++)k.ball(-3+i*1.5,46-(i%2),1.3,.45,'#ece9dc');});
+  k.box(0,20.2,-108.4,18,.6,.4,'#c9b67a');k.box(0,40,-108.4,18,.6,.4,'#c9b67a');for(const s of [-1,1])k.box(s*9.2,20,-108.4,.6,20,.4,'#c9b67a');
+  for(let i=0;i<4;i++){const z=-50+i*36;for(const s of [-1,1]){k.cyl(s*24,0,z,1.4,.8,10,'#26211a',6);k.cyl(s*24,10,z,2.6,1.4,1.4,'#26211a',8);g.lamp(s*24,13,z,1.8);}}
+ },
+};
 function rugRound(k,x,z,r,a,b){k.column(x,.1,z,r,.3,a,28);k.column(x,.2,z,r-4,.3,b,28);k.column(x,.3,z,r-7,.3,a,28);}
 function rugRect(k,x,z,w,d,a,b){k.box(x,.1,z,w,.3,d,a);k.box(x,.2,z,w-5,.3,d-5,b);k.box(x,.3,z,w-9,.3,d-9,a);}
 
@@ -321,7 +402,7 @@ export function wallFoot(id,k){
  if(!plan.round){for(const s of [-1,1]){k.box(0,0,s*(S+1),S*2+10,7,5,plan.trim);k.box(s*(S+1),0,0,5,7,S*2+10,plan.trim);}return;}
  k.local(0,plan.back??0,0,()=>{for(let i=0;i<16;i++)k.arc((plan.radius??ROUND_R)+1.4,9.8,i/16*TAU,(i+1)/16*TAU,0,7,plan.trim);});
 }
-for(const id of Object.keys(roomInteriors)){const base=roomInteriors[id];roomInteriors[id]=(k,g)=>{base(k,g);roomDetails[id](k,g);houseRelics[id]?.(k,g);};}
+for(const id of Object.keys(roomInteriors)){const base=roomInteriors[id];roomInteriors[id]=(k,g)=>{base(k,g);roomDetails[id](k,g);roomGlory[id]?.(k,g);houseRelics[id]?.(k,g);};}
 // Where a walker may stand at all.
 export const roomFloor=(id,x,z)=>{const plan=roomPlans[id];return plan.round?Math.hypot(x,z-(plan.back??0))<(plan.radius??ROUND_R)-7:Math.abs(x)<S-6&&Math.abs(z)<S-6;};
 
