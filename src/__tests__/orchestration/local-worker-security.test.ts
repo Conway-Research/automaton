@@ -152,7 +152,7 @@ describe("agent/general-harness security", () => {
     expect(out).toContain("Blocked:");
   });
 
-  it("allows normal read_file paths inside the allowed edit root", async () => {
+  it("refuses to read the host file after a remote sandbox failure", async () => {
     const filePath = path.join(testRoot, "notes.txt");
     mkdirSync(path.dirname(filePath), { recursive: true });
     writeFileSync(filePath, "hello", "utf8");
@@ -164,10 +164,11 @@ describe("agent/general-harness security", () => {
     });
 
     const out = await runTool(conway, "read_file", { path: filePath });
-    expect(out).toBe("hello");
+    expect(out).toContain("read error: force local fallback");
+    expect(readFileSync(filePath, "utf8")).toBe("hello");
   });
 
-  it("allows normal write_file paths inside the allowed edit root", async () => {
+  it("refuses to write the host file after a remote sandbox failure", async () => {
     const filePath = path.join(testRoot, "out", "data.txt");
     const conway = createConwayStub({
       writeFile: async () => {
@@ -176,7 +177,7 @@ describe("agent/general-harness security", () => {
     });
 
     const out = await runTool(conway, "write_file", { path: filePath, content: "ok" });
-    expect(out).toContain("Wrote 2 bytes");
-    expect(readFileSync(filePath, "utf8")).toBe("ok");
+    expect(out).toContain("write error: force local fallback");
+    expect(() => readFileSync(filePath, "utf8")).toThrow();
   });
 });
