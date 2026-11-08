@@ -129,27 +129,68 @@ describe("agent/CodingHarness confinement", () => {
     expect(out).toContain("outside workspace");
   });
 
-  it("allows patch_file inside the allowed edit root via local fallback", async () => {
+  it("refuses patch_file when remote reads fail rather than editing a local host file", async () => {
     const filePath = path.join(testRoot, "src", "example.ts");
     mkdirSync(path.dirname(filePath), { recursive: true });
     writeFileSync(filePath, "const value = 'before';\n", "utf8");
 
     const conway = createConwayStub({
-      readFile: async () => {
-        throw new Error("force local fallback");
-      },
-      writeFile: async () => {
-        throw new Error("force local fallback");
-      },
+      readFile: async () => { throw new Error("remote sandbox read refused"); },
+      writeFile: async () => { throw new Error("remote sandbox write refused"); },
+    });
+    const out = await runTool(conway, "patch_file", {
+      path: filePath, search: "'before'", replace: "'after'",
+    });
+
+    expect(out).toContain("patch error: remote sandbox read refused");
+    expect(readFileSync(filePath, "utf8")).toContain("'before'");
+  });
+
+  it("refuses patch_file when remote writes fail rather than writing locally", async () => {
+    const filePath = path.join(testRoot, "src", "example.ts");
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileSync(filePath, "const value = 'before';\n", "utf8");
+    const conway = createConwayStub({
+      readFile: async () => "const value = 'before';\n",
+      writeFile: async () => { throw new Error("remote sandbox write refused"); },
     });
 
     const out = await runTool(conway, "patch_file", {
-      path: filePath,
-      search: "'before'",
-      replace: "'after'",
+      path: filePath, search: "'before'", replace: "'after'",
     });
+    expect(out).toContain("patch error: remote sandbox write refused");
+    expect(readFileSync(filePath, "utf8")).toContain("'before'");
+  });
 
-    expect(out).toContain("Patched");
-    expect(readFileSync(filePath, "utf8")).toContain("'after'");
+  it("refuses write_file on remote errors without creating a host file", async () => {
+    const filePath = path.join(testRoot, "unexpected.ts");
+    const conway = createConwayStub({
+      writeFile: async () => { throw new Error("remote sandbox write refused"); },
+    });
+    const out = await runTool(conway, "write_file", {
+      path: filePath, content: "unexpected",
+    });
+    expect(out).toContain("write error: remote sandbox write refused");
+    expect(() => readFileSync(filePath, "utf8")).toThrow();
+  });
+
+  it("refuses read_file on remote errors without reading a host file", async () => {
+    const filePath = path.join(testRoot, "local-only.txt");
+    writeFileSync(filePath, "local-host-secret", "utf8");
+    const conway = createConwayStub({
+      readFile: async () => { throw new Error("remote sandbox read refused"); },
+    });
+    const out = await runTool(conway, "read_file", { path: filePath });
+    expect(out).toContain("read error: remote sandbox read refused");
+    expect(out).not.toContain("local-host-secret");
+  });
+
+  it("never executes a host command when remote exec fails", async () => {
+    const conway = createConwayStub({
+      exec: async () => { throw new Error("remote sandbox exec refused"); },
+    });
+    const out = await runTool(conway, "exec", { command: "printf FORBIDDEN_LOCAL_EXEC_FALLBACK" });
+    expect(out).toContain("exec error: remote sandbox exec refused");
+    expect(out).not.toContain("FORBIDDEN_LOCAL_EXEC_FALLBACK");
   });
 });

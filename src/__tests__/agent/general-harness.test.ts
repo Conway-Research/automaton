@@ -23,7 +23,7 @@ describe("agent/GeneralHarness", () => {
     }
   });
 
-  async function createHarness(options?: { social?: MockSocialClient; toolCatalog?: AutomatonTool[] }) {
+  async function createHarness(options?: { social?: MockSocialClient; toolCatalog?: AutomatonTool[]; localMode?: boolean }) {
     tempDir = mkdtempSync(path.join(os.tmpdir(), "general-harness-"));
     const dbPath = path.join(tempDir, "state.db");
     const appDb = createDatabase(dbPath);
@@ -41,7 +41,7 @@ describe("agent/GeneralHarness", () => {
       allowedEditRoot: tempDir,
       workspace,
       identity,
-      config: createTestConfig({ dbPath }),
+      config: createTestConfig({ dbPath, sandboxId: options?.localMode ? "" : "test-sandbox-id" }),
       db: appDb.raw,
       conway: new MockConwayClient(),
       inference: { chat: async () => ({ content: "done" }) },
@@ -59,7 +59,7 @@ describe("agent/GeneralHarness", () => {
       toolCatalog,
       toolContext: {
         identity,
-        config: createTestConfig({ dbPath }),
+        config: createTestConfig({ dbPath, sandboxId: options?.localMode ? "" : "test-sandbox-id" }),
         db: appDb,
         conway: new MockConwayClient(),
         social,
@@ -102,6 +102,16 @@ describe("agent/GeneralHarness", () => {
 
     return { harness, appDb };
   }
+
+  it("exposes only file and completion tools to local-mode general workers", async () => {
+    const { harness, appDb } = await createHarness({ localMode: true });
+    const toolNames = harness.getToolDefs().map((tool) => tool.name);
+    expect(toolNames).toEqual(["write_file", "read_file", "task_done"]);
+    expect(toolNames).not.toContain("exec");
+    expect(toolNames).not.toContain("transfer_credits");
+    expect(toolNames).not.toContain("send_message");
+    appDb.close();
+  });
 
   it("includes the brownfield generalist capability surface beyond file tools", async () => {
     const { harness, appDb } = await createHarness();
@@ -248,4 +258,17 @@ describe("agent/GeneralHarness", () => {
 
     appDb.close();
   });
+  it("never runs a host command when remote sandbox exec fails", async () => {
+    const { harness, appDb } = await createHarness();
+    (harness as any).context.conway.exec = async () => {
+      throw new Error("remote sandbox exec refused");
+    };
+    const execTool = harness.getToolDefs().find((tool) => tool.name === "exec");
+    const out = await execTool!.execute({ command: "printf FORBIDDEN_LOCAL_EXEC_FALLBACK" });
+    expect(out).toContain("exec error: remote sandbox exec refused");
+    expect(out).not.toContain("FORBIDDEN_LOCAL_EXEC_FALLBACK");
+    appDb.close();
+  });
+
+
 });
