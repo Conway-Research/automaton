@@ -1,4 +1,3 @@
-import { exec as execCb } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { TaskResult } from "../../orchestration/task-graph.js";
@@ -83,8 +82,8 @@ When calling task_done, provide:
           try {
             const result = await this.context.conway.exec(command, timeoutMs);
             return formatExecResult(result.stdout ?? "", result.stderr ?? "");
-          } catch {
-            return localExec(command, timeoutMs);
+          } catch (error) {
+            return `exec error: ${error instanceof Error ? error.message : String(error)}`;
           }
         },
       },
@@ -112,14 +111,8 @@ When calling task_done, provide:
           try {
             await this.context.conway.writeFile(confined, content);
             return `Wrote ${content.length} bytes to ${confined}`;
-          } catch {
-            try {
-              await fs.mkdir(path.dirname(confined), { recursive: true });
-              await fs.writeFile(confined, content, "utf8");
-              return `Wrote ${content.length} bytes to ${confined} (local)`;
-            } catch (error) {
-              return `write error: ${error instanceof Error ? error.message : String(error)}`;
-            }
+          } catch (error) {
+            return `write error: ${error instanceof Error ? error.message : String(error)}`;
           }
         },
       },
@@ -147,12 +140,7 @@ When calling task_done, provide:
           const offset = typeof args.offset === "number" ? args.offset : 0;
           const limit = typeof args.limit === "number" ? Math.min(args.limit, MAX_READ_SIZE) : MAX_READ_SIZE;
           try {
-            let content: string;
-            try {
-              content = await this.context.conway.readFile(confined);
-            } catch {
-              content = await fs.readFile(confined, "utf8");
-            }
+            const content = await this.context.conway.readFile(confined);
             const slice = content.slice(offset, offset + limit);
             if (content.length > offset + limit) {
               return slice + `\n[TRUNCATED: ${content.length - offset - limit} more chars. Use offset=${offset + limit} to continue.]`;
@@ -187,21 +175,12 @@ When calling task_done, provide:
             return `Blocked: protected file "${filePath}"`;
           }
           try {
-            let content: string;
-            try {
-              content = await this.context.conway.readFile(confined);
-            } catch {
-              content = await fs.readFile(confined, "utf8");
-            }
+            const content = await this.context.conway.readFile(confined);
             if (!content.includes(search)) {
               return `Error: search string not found in ${filePath}. Make sure the search text matches exactly, including whitespace and newlines.`;
             }
             const patched = content.replace(search, replace);
-            try {
-              await this.context.conway.writeFile(confined, patched);
-            } catch {
-              await fs.writeFile(confined, patched, "utf8");
-            }
+            await this.context.conway.writeFile(confined, patched);
             return `Patched ${filePath}: replaced ${search.length} chars with ${replace.length} chars`;
           } catch (error) {
             return `patch error: ${error instanceof Error ? error.message : String(error)}`;
@@ -302,16 +281,4 @@ function formatExecResult(stdout: string, stderr: string): string {
     ? stderr.slice(0, 4000) + "\n[TRUNCATED]"
     : stderr;
   return err ? `stdout:\n${out}\nstderr:\n${err}` : out || "(no output)";
-}
-
-function localExec(command: string, timeoutMs: number): Promise<string> {
-  return new Promise((resolve) => {
-    execCb(command, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error && !stdout && !stderr) {
-        resolve(`exec error: ${error.message}`);
-        return;
-      }
-      resolve(formatExecResult(stdout ?? "", stderr ?? ""));
-    });
-  });
 }
