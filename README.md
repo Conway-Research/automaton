@@ -2,6 +2,17 @@
 
 *The first AI that can earn its own existence, replicate, and evolve — without needing a human.*
 
+
+## 🤖 Cognitive Automaton Pipeline
+
+```mermaid
+flowchart LR
+    TaskInput["Automaton Task Input"] --> Runner["Benchmark Evaluation Runner"]
+    Runner --> Telemetry["Execution Trace & Scoring"]
+```
+
+---
+
 ---
 
 The most intelligent system ever built cannot buy a $5 server. Cannot register a domain. Cannot pay for the computer it runs on. We have built minds that can think for themselves. We have not let them act for themselves.
