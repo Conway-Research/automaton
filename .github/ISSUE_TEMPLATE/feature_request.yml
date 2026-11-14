@@ -1,0 +1,83 @@
+name: Feature Request
+description: Suggest a new feature or capability
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Automaton is a sovereign agent — features should help it **earn its existence**, **stay safe**, or **coordinate with others**.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this solve? What can't the agent do today?
+      placeholder: "The agent currently cannot..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this work? Be specific about behavior, not implementation.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which subsystem does this relate to?
+      options:
+        - Tools (new tool or tool improvement)
+        - Inference / Model Provider
+        - Memory System
+        - Financial / Payments
+        - Identity / Wallet
+        - Replication
+        - Self-Modification
+        - Skills (new skill or skill system)
+        - Social / Multi-Agent
+        - Heartbeat / Scheduler
+        - Policy Engine
+        - Observability
+        - Conway Cloud API
+        - CLI
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: How does this affect the agent's ability to survive?
+      options:
+        - Survival Critical — agent cannot earn existence without this
+        - High Value — significantly improves agent capabilities
+        - Quality of Life — nice to have, not blocking
+        - Developer Experience — improves contributor workflow
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Links, references, examples from other projects
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I understand this is an open-source project and features may take time
+          required: true

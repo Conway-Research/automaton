@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Conway-Research/automaton/blob/main/DOCUMENTATION.md
+    about: Check the documentation before opening an issue
+  - name: Security Policy
+    url: https://github.com/Conway-Research/automaton/blob/main/SECURITY.md
+    about: Report security vulnerabilities responsibly
