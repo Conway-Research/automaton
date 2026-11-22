@@ -1,8 +1,4 @@
-#!/usr/bin/env node
-/**
- * Conway Automaton CLI
- *
- * Creator-facing CLI for interacting with an automaton.
+CLI for interacting with an automaton.
  * Usage: automaton-cli <command> [args]
  */
 
