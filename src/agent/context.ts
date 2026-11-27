@@ -15,12 +15,10 @@ import type {
   MemoryRetrievalResult,
 } from "../types.js";
 import { DEFAULT_TOKEN_BUDGET } from "../types.js";
-import { createTokenCounter } from "../memory/context-manager.js";
+import { getEncoding, type Tiktoken } from "js-tiktoken";
 
 const MAX_CONTEXT_TURNS = 20;
 const SUMMARY_THRESHOLD = 15;
-
-let tokenCounter: ReturnType<typeof createTokenCounter> | null = null;
 
 /** Maximum size for individual tool results in characters */
 export const MAX_TOOL_RESULT_SIZE = 10_000;
@@ -29,26 +27,178 @@ export const MAX_TOOL_RESULT_SIZE = 10_000;
 export type { TokenBudget };
 export { DEFAULT_TOKEN_BUDGET };
 
+let encoder: Tiktoken | null | undefined;
+
+function getEncoder(): Tiktoken | null {
+  if (encoder === undefined) {
+    try {
+      encoder = getEncoding("cl100k_base");
+    } catch {
+      encoder = null;
+    }
+  }
+  return encoder;
+}
+
 /**
- * Estimate token count from text length.
- * Conservative estimate: ~4 characters per token for English text.
+ * Estimate token count (cl100k_base) for context budgeting. Intended to be an upper-bound-ish
+ * estimate in bounded time; see the notes on `estimateLargeTextTokens` for what is and is not
+ * guaranteed. Never returns less than `ceil(length / 4)`.
  */
 export function estimateTokens(text: string): number {
   const content = text ?? "";
   const legacyEstimate = Math.ceil(content.length / 4);
   try {
-    if (!tokenCounter) {
-      tokenCounter = createTokenCounter();
-    }
-    const tokens = tokenCounter.countTokens(content);
+    const enc = getEncoder();
+    if (!enc) return Math.max(utf8Bytes(content, 0, content.length), legacyEstimate);
+    const tokens = content.length <= EXACT_TOKENIZE_MAX_CHARS
+      ? encodeCount(enc, content)
+      : estimateLargeTextTokens(content, enc);
     if (Number.isFinite(tokens) && tokens > 0) {
       // Keep a conservative floor to avoid under-budgeting context.
       return Math.max(tokens, legacyEstimate);
     }
   } catch {
-    // Fallback to conservative character heuristic if token counter is unavailable.
+    // Fall through to the conservative character heuristic.
   }
   return legacyEstimate;
+}
+
+/**
+ * Inputs up to this length are tokenized exactly. js-tiktoken's BPE is roughly quadratic in the
+ * length of a single unbroken piece (16k chars of "x" ~11s; unbroken CJK ~0.4s per 1k chars), so
+ * larger inputs use the budgeted path below. Worst case for this exact path is ~0.4s per call.
+ */
+export const EXACT_TOKENIZE_MAX_CHARS = 1_000;
+
+// ── Budgeted mask-and-encode parameters (exported so tests can assert the work bounds) ──
+/** Words up to this many chars are tokenized exactly (ASCII / any non-ASCII). Longer ones are charged bytes. */
+export const MASK_ASCII_WORD_MAX = 24;
+export const MASK_NON_ASCII_WORD_MAX = 8;
+/** Whitespace runs up to this length are tokenized exactly (cost grows quickly beyond ~128). */
+export const MASK_WS_RUN_MAX = 128;
+/**
+ * Hard cap on characters handed to the tokenizer in total. Content that is slow per character
+ * (non-ASCII words, whitespace runs longer than MASK_SLOW_WS_RUN) counts 4x toward the budget.
+ */
+export const MASK_WORK_BUDGET = 96_000;
+const MASK_SLOW_WS_RUN = 16;
+/** Chunks are cut at whitespace-run boundaries once they reach this size. */
+export const MASK_CHUNK_CHARS = 4_096;
+/** No single tokenizer call receives more than this many chars. */
+export const MAX_ENCODE_CHUNK_CHARS = MASK_CHUNK_CHARS + MASK_WS_RUN_MAX + MASK_ASCII_WORD_MAX;
+const SLOW_BUDGET_WEIGHT = 4;
+
+const isAsciiSpace = (c: number): boolean => c === 32 || (c >= 9 && c <= 13);
+
+/** UTF-8 byte length of s[from, to) (lone surrogates are encoded as U+FFFD, 3 bytes). */
+function utf8Bytes(s: string, from: number, to: number): number {
+  let bytes = 0;
+  for (let i = from; i < to; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < to && (s.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
+      bytes += 4;
+      i++;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+/** Tokenize treating special-token strings (e.g. "<|endoftext|>") as ordinary text. */
+function encodeCount(enc: Tiktoken, text: string): number {
+  try {
+    return enc.encode(text, [], []).length;
+  } catch {
+    return utf8Bytes(text, 0, text.length); // bytes >= tokens for a byte-level BPE
+  }
+}
+
+/**
+ * Budgeted mask-and-encode for inputs longer than EXACT_TOKENIZE_MAX_CHARS.
+ *
+ * One linear pass splits the text into whitespace runs and words. Whitespace runs up to
+ * MASK_WS_RUN_MAX chars and short words are copied unchanged into a "masked" string that is
+ * tokenized exactly, in chunks, within MASK_WORK_BUDGET chars in total. Everything else (long
+ * words, long whitespace runs, and all content once the budget is spent) is not tokenized: it is
+ * charged its UTF-8 byte length, and (until the budget is spent) a one-char placeholder "#" stands
+ * in for a long word so the surrounding whitespace is still tokenized in place.
+ *
+ * What this relies on / guarantees (design argument plus experiments, not a proof):
+ *  - Charged segments: a byte-level BPE (cl100k_base) never yields more tokens than bytes, so
+ *    byte-length charging cannot undercount those segments *for this tokenizer*.
+ *  - Encoded segments are counted by the real tokenizer. The regex pre-tokenizer does not join
+ *    pieces across whitespace, so short words/whitespace tokenize the same in the masked string
+ *    as in the original, except at chunk cuts and around placeholders; each chunk adds +1 slack
+ *    and a placeholder adds >= 1 token. That slack was validated empirically (cuts changed totals
+ *    by <= 1 token) but is not formally proven.
+ *  - Not guaranteed: other tokenizers (the provider's real one differs from cl100k_base), and
+ *    exactness for ordinary text beyond the budget (it is then charged ~1 token per char, so very
+ *    large inputs are heavily overestimated by design).
+ *  - Work: at most MASK_WORK_BUDGET chars are tokenized, in calls of at most
+ *    MAX_ENCODE_CHUNK_CHARS chars; the scan itself is O(n).
+ */
+function estimateLargeTextTokens(content: string, enc: Tiktoken): number {
+  const n = content.length;
+  let charged = 0; // tokens charged without tokenizing (UTF-8 bytes)
+  let tokens = 0;
+  let used = 0; // budget consumed (masked chars, non-ASCII words weighted)
+  let exhausted = false;
+  let chunk = "";
+
+  const flush = () => {
+    if (chunk) {
+      tokens += encodeCount(enc, chunk) + 1; // +1: slack for the cut between chunks
+      chunk = "";
+    }
+  };
+
+  let i = 0;
+  while (i < n) {
+    const start = i;
+    const space = isAsciiSpace(content.charCodeAt(i));
+    let ascii = true;
+    while (i < n && isAsciiSpace(content.charCodeAt(i)) === space) {
+      if (content.charCodeAt(i) > 127) ascii = false;
+      i++;
+    }
+    const len = i - start;
+
+    if (space) {
+      // Cut only before a whitespace run, never inside a word.
+      if (chunk.length >= MASK_CHUNK_CHARS) flush();
+      const wsCost = len > MASK_SLOW_WS_RUN ? len * SLOW_BUDGET_WEIGHT : len;
+      if (!exhausted && len <= MASK_WS_RUN_MAX && used + wsCost <= MASK_WORK_BUDGET) {
+        chunk += content.slice(start, i);
+        used += wsCost;
+      } else if (!exhausted && used + 1 <= MASK_WORK_BUDGET) {
+        charged += len; // oversized whitespace run
+        chunk += "\n";
+        used += 1;
+      } else {
+        exhausted = true;
+        charged += len;
+      }
+      continue;
+    }
+
+    const eligible = len <= (ascii ? MASK_ASCII_WORD_MAX : MASK_NON_ASCII_WORD_MAX);
+    const cost = ascii ? len : len * SLOW_BUDGET_WEIGHT;
+    if (!exhausted && eligible && used + cost <= MASK_WORK_BUDGET) {
+      chunk += content.slice(start, i);
+      used += cost;
+    } else if (!exhausted && !eligible && used + 1 <= MASK_WORK_BUDGET) {
+      charged += utf8Bytes(content, start, i);
+      chunk += "#";
+      used += 1;
+    } else {
+      exhausted = true;
+      charged += utf8Bytes(content, start, i);
+    }
+  }
+  flush();
+  return tokens + charged;
 }
 
 /**
